@@ -16,6 +16,9 @@ dependencies = [
     "numpy>=2.2.5",
     "pip>=25.0.1",
     "pyqt5-qt5<=5.15.2",
+    "pyside6>=6.9.0",
+    "pyvista[jupyter]>=0.45.0",
+    "scikit-image>=0.25.2",
     "scipy>=1.15.2",
 ]
 
