@@ -3,6 +3,7 @@ from tqdm import tqdm
 from numba import njit, prange
 from time import time as TIME
 import pyvista as pv
+import math
 
 
 def create_simulation_grid(simulation_struct):
@@ -51,30 +52,26 @@ def create_simulation_grid(simulation_struct):
 
     return x, y, z, grid_points*1e-3
 
+pi = np.pi
 @njit
 def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz, lambda_mm):
     # Common sampling rate is 100 MHz
     # Then minimum time step is 0.01 us, 
-    epsilon = 1/(2*sampling_rate_Hz) # 1 ns
+    epsilon = 1/(sampling_rate_Hz) # 1 ns
     Dt1 = min(abs(wx * xp / c0), abs(wy * yp / c0))
     Dt2 = max(abs(wx * xp / c0), abs(wy * yp / c0))
-    area = wx * wy / (2 * np.pi * l)
+    area = wx * wy / (2 * pi * l)
 
-    t1 = l / c0 - 0.5 * (Dt1 + Dt2)
+    t1 = l / c0 - 0.5 * (Dt1 + Dt2) + delay
     t2 = t1 + Dt1
     t3 = t1 + Dt2
     t4 = t1 + Dt1 + Dt2
 
-    # peak amplitude
-    if not (t1 <= t2 <= t3 <= t4):
-        raise ValueError("Invalid time sequence in patch SIR")
-    
-    # avoid division by zero
-    width_trapezoid = ((t2 - t1) + (t4 - t3)) * 0.5 + (t3 - t2) if (t4-t1) > epsilon else epsilon
-
+    if 2*Dt2 < epsilon:
+        Dt2 = epsilon
     # trapezoid area
-    h_max = area * apod / (width_trapezoid)
-    return t1 + delay, t2 + delay, t3 + delay, t4 + delay, h_max
+    h_max = area * apod / Dt2
+    return t1, t2 , t3 , t4, h_max
 
 @njit(parallel=True)
 def compute_all_events(P, M, pts, centers, wx, wy, c, apods, delays, events, sampling_rate_Hz, lambda_mm):
@@ -83,7 +80,7 @@ def compute_all_events(P, M, pts, centers, wx, wy, c, apods, delays, events, sam
             dx = pts[p,0] - centers[i,0]
             dy = pts[p,1] - centers[i,1]
             dz = pts[p,2] - centers[i,2]
-            dist = (dx*dx + dy*dy + dz*dz)**0.5
+            dist = np.sqrt(dx*dx + dy*dy + dz*dz)
                 
             xp, yp = dx/(dist), dy/(dist)
             t1, t2, t3, t4, h_max = compute_patch_sir(wx, wy, xp, yp, dist, c,
@@ -110,28 +107,38 @@ def accumulate_from_events(P, M, events, fs, t0, h_out):
                 events[p,i,2], events[p,i,3],
                 events[p,i,4]
             )            
-            k1 = max(0, int((t1 - t0) * fs)+1)
-            k2 = min(n2, int((t2 - t0) * fs)+1)
-            k3 = min(n2, int((t3 - t0) * fs)+1)
-            k4 = min(n2, int((t4 - t0) * fs)+1)
             
-            # rising
-            for k in range(k1, k2):
+            # find the first/last sample indices that could possibly overlap
+            k_start = int(np.floor((t1 - t0) * fs)+1)
+            k_end   = int(np.ceil ((t4 - t0) * fs)+1)
+
+            # clamp to valid range
+            if k_end < 0 or k_start >= n2:
+                continue
+            if k_start < 0:    k_start = 0
+            if k_end   > n2:   k_end   = n2
+
+            # loop over every sample that might see part of this trapezoid
+            for k in range(k_start, k_end):
                 t = t0 + k * dt
-                h_out[p,k] += h_max * ((t - t1) / (t2 - t1))
-            # plateau
-            for k in range(k2, k3):
-                h_out[p,k] += h_max
-            # falling
-            for k in range(k3, k4):
-                t = t0 + k * dt
-                h_out[p,k] += h_max * (1 - (t - t3) / (t4 - t3))
+                # evaluate continuous trapezoid h(t)
+                if t < t1 or t >= t4:
+                    continue
+                elif t < t2:
+                    h = h_max * ((t - t1) / (t2 - t1))
+                elif t < t3:
+                    h = h_max
+                else:
+                    h = h_max * ((t4 - t) / (t4 - t3))
+            
+                # accumulate
+                h_out[p, k] += h
 
 class PyField:
     def __init__(self, transducer):
         self.tx = transducer
         self.c = 1540.0 
-        self.fs = 100e6 # Hz
+        self.fs = 200e6 # Hz
         self.fc = transducer.fc # Hz
         self.lambda_mm = self.c / self.fc
         # compute patch centers/apods/delays once
@@ -171,7 +178,7 @@ class PyField:
         dt = 1.0/self.fs
         num_samples = int(np.ceil((tN - t0)*self.fs))
         # next power of two
-        n2 = 2**max(int(np.ceil(np.log2(num_samples)))+1, 5)
+        n2 = 2**max(int(np.ceil(np.log2(num_samples))), 5)
         t_global = t0 + np.arange(n2, dtype=np.float32)*dt
         h_out = np.zeros((P, n2), dtype=np.float32)
         tqdm.write("Accumulating SIR from events...")
