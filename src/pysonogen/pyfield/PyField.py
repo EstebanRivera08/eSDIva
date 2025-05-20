@@ -138,7 +138,7 @@ class PyField:
     def __init__(self, transducer):
         self.tx = transducer
         self.c = 1540.0 
-        self.fs = 200e6 # Hz
+        self.fs = 300e6 # Hz
         self.fc = transducer.fc # Hz
         self.lambda_mm = self.c / self.fc
         # compute patch centers/apods/delays once
@@ -157,8 +157,35 @@ class PyField:
         self.wx = el_w
         self.wy = el_h
 
-        print(f"Successfully initialized PyField with \n {transducer}")
+        print(f"Successfully initialized PyField with \n {transducer}")\
         
+    def set_field(self, name_struct_str, value_float):
+        """
+        Dynamically modifies a class property if it exists.
+
+        Parameters
+        ----------
+        name_struct_str : str
+            The name of the property to modify.
+        value_float : float
+            The new value to assign to the property.
+
+        Raises
+        ------
+        AttributeError
+            If the property does not exist in the class.
+        TypeError
+            If the value is not a float.
+        """
+        if not isinstance(value_float, (float, int)):  # Allow integers as well
+            raise TypeError(f"The value must be a float or int, got {type(value_float).__name__}.")
+        
+        if hasattr(self, name_struct_str):
+            setattr(self, name_struct_str, value_float)
+            print(f"Property '{name_struct_str}' updated to {value_float}.")
+        else:
+            raise AttributeError(f"Property '{name_struct_str}' does not exist in the class.")
+            
     def spatial_impulse_response(self, field_points, return_all=False):
 
         start_comput_time = TIME()

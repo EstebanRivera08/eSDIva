@@ -57,7 +57,7 @@ def plot_pressure_field(pressure_field, x, y, z, *,
 
     plotter.add_axes()              # show XYZ axes
     plotter.show_grid()             # show grid
-    plotter.show()
+    return plotter, pressure_vol
 
 
 
