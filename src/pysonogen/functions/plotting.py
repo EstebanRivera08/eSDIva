@@ -3,11 +3,9 @@ from matplotlib.gridspec import GridSpec
 import numpy as np
 import pyvista as pv
 
-def plot_pressure_field(pressure_field, x, y, z, *,    
-        off_screen=None,
-        notebook=None,):
+def compute_pressure_vol_mesh(pressure_field, x, y, z) :
     """
-    Plot the pressure field in 3D.
+    Compute the pressure volume mesh for the given pressure field and coordinates.
     
     Parameters
     ----------
@@ -15,6 +13,11 @@ def plot_pressure_field(pressure_field, x, y, z, *,
         Pressure field data.
     x, y, z : ndarray
         Coordinate arrays.
+    
+    Returns
+    -------
+    pressure_vol : pyvista.UniformGrid
+        The pressure volume mesh.
     """
     # If x, y, z are 1D (common case)
     dx = x[1] - x[0]
@@ -30,7 +33,29 @@ def plot_pressure_field(pressure_field, x, y, z, *,
 
     # Attach pressure data to the grid
     pressure_vol.point_data["Pressure"] = pressure_field.ravel(order="F")  # VERY important: Fortran order
-    plotter = pv.Plotter(notebook=notebook, off_screen=off_screen)# ,off_screen=True) # Need to add this parameter to save the screenshot
+
+    return pressure_vol
+
+def plot_pressure_field(pressure_field, x, y, z, *,
+        plotter=None,    
+        off_screen=None,
+        notebook=None, return_mesh = False):
+    """
+    Plot the pressure field in 3D.
+    
+    Parameters
+    ----------
+    pressure_field : ndarray
+        Pressure field data.
+    x, y, z : ndarray
+        Coordinate arrays.
+    """
+    # Create the pressure volume mesh
+    pressure_vol = compute_pressure_vol_mesh(pressure_field, x, y, z)
+
+    # Create a PyVista plotter
+    if plotter is None:
+        plotter = pv.Plotter(notebook=notebook, off_screen=off_screen) # ,off_screen=True) # Need to add this parameter to save the screenshot
 
     n_contours = 10
     min_val = 0

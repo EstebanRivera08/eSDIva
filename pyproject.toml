@@ -10,7 +10,9 @@ requires-python = ">=3.12"
 dependencies = [
     "brainglobe>=1.3.1",
     "brainglobe-atlasapi>=2.2.1",
+    "brainglobe-space>=1.0.3",
     "brainglobe-workflows>=1.4.1",
+    "brainrender>=2.1.17",
     "imageio[ffmpeg]>=2.37.0",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.1",
