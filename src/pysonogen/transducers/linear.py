@@ -282,7 +282,6 @@ class LinearArrayTransducer:
 
         return delays
 
-
     def set_apodization(self, weights):
         """Set per-element apodization weights (length = n_elements)."""
         weights = np.asarray(weights, dtype=float)
