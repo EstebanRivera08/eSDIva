@@ -192,6 +192,7 @@ class PyField:
         pts = np.atleast_2d(field_points).astype(np.float32)
         P, M = pts.shape[0], self.centers.shape[0]
         
+        print(f"Computing SIR for {P} points and {M} patches...")
         # allocate events
         events = np.zeros((P, M, 5), dtype=np.float32)
         tqdm.write("Computing all patch events...")

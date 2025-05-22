@@ -45,6 +45,7 @@ class LinearArrayTransducer:
         self.el_w = element_width # m
         self.el_h = element_height  # m
         self.kerf = kerf  # m
+        self.pitch = element_width + kerf  # m
         self.elev_focus = elevation_focus  # m
         self.no_sub_x = no_sub_x
         self.no_sub_y = no_sub_y
@@ -121,7 +122,7 @@ class LinearArrayTransducer:
                     el_indices.append(idx)
         return quads, patch_area, el_indices
     
-    def compute_apodization(self, *, focus_mm, F_over_D = None, apodization_type='rect', plot=False, equiv_energy=False):
+    def compute_apodization(self, focus_mm, *, F_over_D = None, apodization_type='rect', plot=False, equiv_energy=False):
         """
         Compute per‑element apodization for focusing at a given spot.
 
@@ -151,8 +152,9 @@ class LinearArrayTransducer:
             y_foc = 0
             print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
-        if x_foc <= 0 and z_foc == 0:
-            raise ValueError("Focus cannot be at the origin (0, 0).")
+
+        if z_foc <= 0:
+            raise ValueError("Wrong focus: z_foc must be positive")
 
         N = self.n_elements
         pitch = self.el_w + self.kerf      # element pitch in meters
@@ -168,8 +170,9 @@ class LinearArrayTransducer:
             if F_over_D is not None :
                 self.F_over_D = F_over_D
 
-            if not hasattr(self, 'F_over_D'):
-                raise AttributeError("You must set self.ratio_F_over_D before calling compute_apodization")
+            if self.F_over_D is None:
+                print("Warning: F/D ratio not set. Using default value of 1.0.")
+                self.F_over_D = 1.0
 
             # physical extent (in meters) of active aperture for given F/D
             D = z_foc / self.F_over_D  
@@ -280,6 +283,7 @@ class LinearArrayTransducer:
             plt.grid(True)
             plt.show()
 
+        self.delays = delays
         return delays
 
     def set_apodization(self, weights):
