@@ -176,9 +176,9 @@ class MatrixArrayTransducer:
             plt.imshow(apod, cmap='cool'); plt.colorbar(); plt.show()
 
         if inline:
-            self.apodization = apod.flatten()
+            self.apodization = apod.T.flatten()
             self.apodization_type = apodization_type
-        return apod
+        return apod.T
 
     def compute_delays(self, *, focus_mm, c = None, plot=False, inline = True):
         """
