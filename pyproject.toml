@@ -13,6 +13,7 @@ dependencies = [
     "brainglobe-space>=1.0.3",
     "brainglobe-workflows>=1.4.1",
     "brainrender>=2.1.17",
+    "h5py>=3.13.0",
     "imageio[ffmpeg]>=2.37.0",
     "ipykernel>=6.29.5",
     "matplotlib>=3.10.1",
