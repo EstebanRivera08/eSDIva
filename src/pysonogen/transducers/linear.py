@@ -323,12 +323,14 @@ class LinearArrayTransducer:
         mesh.cell_data['Apodization'] = np.array(scalars)
         return mesh    
     
-    def show(self, *, notebook = True):
+    def show(self, *,
+             window_size = [800, 600], notebook = True, jupyter_backend = None,
+             **kwargs):
         """
         Visualize the transducer surface mesh and apodization with PyVista.
         """
         mesh = self.get_mesh()
-        plotter = pv.Plotter(notebook=notebook)
+        plotter = pv.Plotter(window_size= window_size, notebook=notebook)
         plotter.add_mesh(
             mesh,  # Convert to mm for visualization
             scalars='Apodization',
@@ -338,10 +340,11 @@ class LinearArrayTransducer:
             scalar_bar_args={'title':'Apodization', 'vertical': True},
             opacity=1.0,
             show_edges=True,
+            **kwargs
         )
         plotter.add_axes()
         plotter.show_grid(font_size = 10, xtitle = "X (mm)", ytitle = "Y (mm)", ztitle = "Z (mm)", show_zlabels=False)
-        plotter.show()
+        plotter.show(jupyter_backend= jupyter_backend)
     
 
     def __repr__(self):
