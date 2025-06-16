@@ -4,6 +4,8 @@ import numpy as np
 import pyvista as pv
 from time import time as TIME
 from scipy.signal import windows
+import warnings
+warnings.filterwarnings("ignore", category=UserWarning)
 
 def create_ellipse_mask(nx, ny):
     """Generate a 2D elliptical mask (similar to MATLAB's createEllipseMask)."""
@@ -117,7 +119,7 @@ class MatrixArrayTransducer:
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
+            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
         else:
             raise ValueError("Focus must be a 3D coordinate (x, y, z)")
 
@@ -173,7 +175,7 @@ class MatrixArrayTransducer:
 
         if plot:
             import matplotlib.pyplot as plt
-            plt.imshow(apod, cmap='cool'); plt.colorbar(); plt.show()
+            plt.imshow(apod, cmap='cool'); plt.colorbar(); plt.show(); plt.close()
 
         if inline:
             self.apodization = apod.T.flatten()
@@ -205,7 +207,7 @@ class MatrixArrayTransducer:
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
+            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
         else:
             raise ValueError("Focus must be a 3D coordinate (x, y, z)")
 
@@ -225,6 +227,7 @@ class MatrixArrayTransducer:
             plt.ylabel("Time delay (us)")
             plt.grid(True)
             plt.show()
+            plt.close()
         
         if inline:
             self.delays = delays
@@ -274,6 +277,19 @@ class MatrixArrayTransducer:
         plotter.add_axes()
         plotter.show_grid(font_size = 10, xtitle = "X (mm)", ytitle = "Y (mm)", ztitle = "Z (mm)", show_zlabels=False)
         plotter.show()
+        plotter.close()
+    
+    def clean(self):
+        """
+        Clean up the transducer object by removing large arrays.
+        """
+        self.apodization = None
+        self.delays = None
+        self.element_centers = None
+        self.sub_quad_verts = None
+        self.sub_area = None
+        self.sub_el_idx = None
+        print("Transducer cleaned up.")
     
     def __repr__(self):
         params = {

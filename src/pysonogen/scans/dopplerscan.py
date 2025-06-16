@@ -365,7 +365,7 @@ class DopplerScan:
             data = self.data
 
         if np.any(data == 0):
-            print("Data contains zero values. Cannot compute dB scale. No convertion to dB is done.")
+            print("Data contains zero values. No convertion to dB is done.")
             return data
 
         if inplace:
@@ -405,6 +405,7 @@ class DopplerScan:
         
         plt.tight_layout()
         plt.show()
+        plt.close(fig)
 
     def summary(self) :
         """
@@ -419,7 +420,22 @@ class DopplerScan:
                     print(f"{key}: {value}")
             else:
                 print(f"{key}: {value}")
+ 
+    def clean(self) :
+        """
+        Clean the DopplerScan object by deleting the scan data and metadata.
+        """
+        self.scan_PATH = None
+        self.bps_PATH = None
+        self.data = None
+        self.scan_type = None
+        self.probeToLab = None
+        self.voxelsToProbe = None
+        self.qform = None
+        self.sform = None
+        self.pv_mesh = None
+        print("DopplerScan object cleaned.")
 
     def __repr__(self):
         return f"DopplerScan(scan_PATH={self.scan_PATH}, bps_PATH={self.bps_PATH}, probe_type={self.probe_type}, mean_frames={self.mean_frames}, scan_type={self.scan_type})"
-    
+   

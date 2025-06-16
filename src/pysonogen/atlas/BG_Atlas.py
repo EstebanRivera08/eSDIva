@@ -187,6 +187,19 @@ class BG_Atlas:
                     print(f"{key}: {value}")
             else:
                 print(f"{key}: {value}")
-                
+
+    def clean(self):
+        """
+        Clean the BG_Atlas object by removing the PyVista mesh and other attributes.
+        """
+        self.pv_mesh = None
+        self.bg_atlas = None
+        self.bgatlasToBrain = None
+        self.region_names = None
+        self.whs_voxels = None
+        self.manual_fit = None
+        print("BG_Atlas object cleaned.")
+                    
     def __repr__(self):
         return f"BG_Atlas(atlas_name={self.atlas_name}, region_names={self.region_names}, whs_voxels={self.whs_voxels}, manual_fit={self.manual_fit})"
+    

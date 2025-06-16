@@ -1,6 +1,14 @@
+import numpy as np
+import pysonogen.transducers as Transducers
+from pysonogen.atlas import BG_Atlas
+from pysonogen.scans import DopplerScan
+from pysonogen.pyfield import PyField
+from pysonogen.functions import align_transducer_to_probe
+from pysonogen.functions import (add_regions_mesh, add_3D_vol, add_2D_image,
+                                add_transducer_mesh, add_pressure_vol, compute_pressure_vol_mesh)  
 
 
-MAIN_FOLDER_PATH = r"..\src\pysonogen\datatype\Silvia"
+MAIN_FOLDER_PATH = r".\src\pysonogen\datatype\Silvia"
 
 bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
 file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
@@ -9,12 +17,10 @@ file_scan_2D_PATH = MAIN_FOLDER_PATH + r"\2Dscan.source.scan"
 # Let's take the 008 scan. It shouwld be placed at one sagittal plane on the left side of the brain
 
 Doppler3D = DopplerScan(scan_PATH=file_scan_3D_PATH, bps_PATH = bps_PATH)
-Doppler3D.summary()
-Doppler3D.show()
+# Doppler3D.show()
 
 Doppler2D = DopplerScan(scan_PATH=file_scan_2D_PATH)
-Doppler2D.summary()
-Doppler2D.show(interpolation = 'bilinear')
+# Doppler2D.show(interpolation = 'bilinear')
 
 atlas_name = "allen_mouse_25um"
 
@@ -24,10 +30,118 @@ elif atlas_name == "whs_sd_rat_39um":
     region_names = ("root", "M1", "S1-hl")
 
 Brain_Atlas = BG_Atlas(atlas_name, region_names = region_names)
-Brain_Atlas.summary()
 
 invertz = np.diag([1, 1, -1, 1])  # Invert z-axis for the transducer mesh
 Brain_Atlas.reset_mesh()  # Reset the Brain Atlas mesh to the original mesh
 Brain_Atlas.transform(T_matrix = invertz @ Doppler3D.BrainToLab  , inplace=True) 
 
+# Import the transducer mesh
+domino = Transducers.Domino()
 
+# Focalization spot
+focus_mm =  np.array([-1, 0, 4.5])  # mm [x, y, z]
+
+# Define apodization and delay law
+delays = domino.compute_delays(focus_mm = focus_mm)
+apodization = domino.compute_apodization(focus_mm = focus_mm, F_over_D = 1, apodization_type='rect')
+
+
+# Use PyField to compute the pressure field
+Domino_field = PyField(domino)
+field_info_mm = {
+    "x_extent" : [-0.25+focus_mm[0], 0.25+focus_mm[0]],
+    "y_extent" : [-0.5+focus_mm[1], 0.5+focus_mm[1]],
+    "z_extent" : [-1+focus_mm[2], 1+focus_mm[2]],
+    "dx" : 0.0125,
+    "dy" : 0.025,
+    "dz" : 0.05,
+}
+Domino_field.compute_pressure_field(field_info_mm)
+
+# Compute the pressure volume mesh
+pressure_vol_mesh = Domino_field.get_mesh()
+
+# Get the meshes and get them to the probe coordinate system
+TX_mesh = domino.get_mesh()
+
+LabToProbe = align_transducer_to_probe(TX_mesh, Doppler2D)  # Get the transformation matrix from the lab to the probe coordinate system
+Doppler3D.transform(T_matrix= LabToProbe, inplace=True)  # Transform the scan mesh to the probe coordinate system
+Doppler2D.transform(T_matrix= LabToProbe, inplace=True)  # Transform the scan mesh to the probe coordinate system
+Brain_Atlas.transform(T_matrix= LabToProbe, inplace=True)  # Transform the atlas mesh to the probe coordinate system
+
+
+# Plot all 
+
+final_plotter = add_regions_mesh(Brain_Atlas.pv_mesh,
+                            notebook=False, window_size=[1000, 800],
+                            kwargs_dict={region_names[0]: {"color": "lightgray", "opacity": 0.1},	 
+                                        region_names[1]: {"color": "permanentgreen", "opacity": 0.2}, 
+                                        region_names[2]: {"color": "cadmiumlemon", "opacity": 0.2}}, label = "Brain Atlas")
+
+final_plotter = add_3D_vol(Doppler3D.pv_mesh, plotter = final_plotter,
+                                cmap="hot", opacity="sigmoid", opacity_unit_distance = 1,
+                                scalar_bar_args={
+                                    'title': '3D Doppler (dB)',
+                                    "title_font_size": 16,
+                                    "label_font_size": 12,
+                                    'color' : 'white',
+                                })
+
+final_plotter = add_2D_image(Doppler2D.pv_mesh, plotter=final_plotter, cmap='gray', opacity=1.0, show_scalar_bar=True, lighting=True, ambient=1,
+                             scalar_bar_args={
+                                    'title': '2D Doppler (dB)',
+                                    "title_font_size": 16,
+                                    "label_font_size": 12,
+                                    'vertical': True,
+                                    'position_x': 0.1,
+                                    'position_y': 0.2,
+                                    "height": 0.3,
+                                    'color' : 'white',
+                                })
+                                 
+final_plotter = add_transducer_mesh(TX_mesh,
+                        plotter=final_plotter, show_edges=False, lighting=True, ambient=1,
+                        scalar_bar_args={
+                            'title': 'Apodization',
+                            "title_font_size": 16,
+                            "label_font_size": 12,
+                            'vertical': True,
+                            'position_x': 0.85,
+                            'position_y': 0.6,
+                            "height": 0.3,
+                            'color' : 'white',
+                        })
+
+final_plotter = add_pressure_vol(pressure_vol_mesh,
+                        plotter=final_plotter,
+                        plot_focal_spot=False, lighting=True, ambient=1,
+                        scalar_bar_args={
+                            'title': 'Pressure Field (PII)',
+                            "title_font_size": 16,
+                            "label_font_size": 12,
+                            'vertical': True,
+                            'position_x': 0.85,
+                            'position_y': 0.2,
+                            "height": 0.3,
+                            'color' : 'white',
+                        })
+
+final_plotter.set_background("black")
+final_plotter.show_grid(color='white', font_size=10)  # Show grid with white color and font size 10
+final_plotter.add_axes(color='white')
+final_plotter.camera_position = 'zy'  # Set the camera position
+final_plotter.camera.up = (0, 0, -1)  # Set the camera up direction
+final_plotter.show()  # Show the plotter in Jupyter Notebook
+
+
+final_plotter.close()  # for plotters
+final_plotter = None  # for plotters
+
+# Clean up the objects to free memory
+
+Doppler3D.clean()  # for scans
+Doppler2D.clean()  # for scans
+Domino_field.clean()  # for fields
+domino.clean()  # for transducers
+Brain_Atlas.clean()  # for atlas
+del TX_mesh, pressure_vol_mesh       # for mesh objects

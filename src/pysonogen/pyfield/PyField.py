@@ -3,7 +3,7 @@ from tqdm import tqdm
 from numba import njit, prange
 from time import time as TIME
 import pyvista as pv
-import math
+import pysonogen
 
 
 def create_simulation_grid(simulation_struct):
@@ -157,6 +157,9 @@ class PyField:
         self.wx = el_w
         self.wy = el_h
 
+        self.field = None
+        self.x = self.y = self.z = None
+
         print(f"Successfully initialized PyField with \n {transducer}")\
         
     def set_field(self, name_struct_str, value_float):
@@ -251,7 +254,7 @@ class PyField:
         
         return amp_response_tx_freq
     
-    def compute_pressure_field(self,field_info, *, normalize=True):
+    def compute_pressure_field(self,field_info, *, normalize=True, inplace = True):
         """
         Compute the pressure field from the Spatial Impulse Response (SIR).
         
@@ -270,6 +273,12 @@ class PyField:
             The grid spacing in mm along the y direction.
         - dz : float
             The grid spacing in mm along the z direction.
+
+        normalize : bool, optional
+            If True, normalize the pressure field to the maximum value. Default is True.
+        
+        inplace : bool, optional
+            If True, store the pressure field in the instance variables. If False, return the pressure field and grid points. Default is True.
     
         Returns
         -------
@@ -286,4 +295,64 @@ class PyField:
         if normalize:
             pressure_field = pressure_field/np.max(pressure_field)
 
-        return pressure_field, x, y, z
+        if inplace:
+            self.field = pressure_field
+            self.x = x
+            self.y = y
+            self.z = z
+        else:
+            return pressure_field, x, y, z
+    
+    def get_mesh(self) :
+        """
+        Get the mesh of the pressure field.
+        
+        Returns
+        -------
+        pv_mesh : pyvista.PolyData
+            The mesh of the pressure field.
+        """
+        if self.field is None or self.x is None or self.y is None or self.z is None:
+            raise ValueError("Pressure field has not been computed yet. Call compute_pressure_field() first.")
+
+        return pysonogen.compute_pressure_vol_mesh(self.field, self.x, self.y, self.z)
+
+    def summary(self):
+        """
+        Print a summary of the PyField object.
+        """
+        print("----------PyField Summary:----------")
+        for key, value in self.__dict__.items():
+            if key == 'field':
+                if value is not None:
+                    print(f"{key}: pressure field with shape {value.shape}")
+                else:
+                    print(f"{key}: None")
+            elif key in ['x', 'y', 'z']:
+                if value is not None:
+                    print(f"{key}: grid with shape {value.shape}")
+                else:
+                    print(f"{key}: None")
+            else:
+                print(f"{key}: {value}")
+
+    def clean(self):
+        """
+        Clean the PyField object by removing the pressure field and grid points.
+        """
+        self.field = None
+        self.x = None
+        self.y = None
+        self.z = None
+        print("PyField object cleaned.")
+        
+    def __repr__(self):
+        """
+        String representation of the PyField object.
+        
+        Returns
+        -------
+        str
+            A string representation of the PyField object.
+        """
+        return f"PyField(transducer={self.tx}, c={self.c}, fs={self.fs}, fc={self.fc}, lambda_mm={self.lambda_mm})"

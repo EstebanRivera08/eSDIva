@@ -78,7 +78,7 @@ class LinearArrayTransducer:
         # Build subdivisions boundaries and areas, apply elevation curvature
         self.sub_quad_verts, self.sub_area, self.sub_el_idx = self._build_subdivisions()
         end_time = TIME()
-        print(f"Transducer initialized in {end_time - start_time:.4f} seconds.")
+        print(f"LinearArrayTransducer initialized in {end_time - start_time:.4f} seconds.")
 
     def _build_subdivisions(self):
         """
@@ -146,11 +146,11 @@ class LinearArrayTransducer:
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
+            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
         elif focus.shape == (2,):
             x_foc, z_foc = focus[0], focus[1]
             y_foc = 0
-            print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
+            # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
 
         if z_foc <= 0:
@@ -228,6 +228,7 @@ class LinearArrayTransducer:
             plt.ylabel("Weight")
             plt.grid(True)
             plt.show()
+            plt.close()
 
         # save into object for later reference
         self.apodization = apod
@@ -260,11 +261,11 @@ class LinearArrayTransducer:
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
+            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
         elif focus.shape == (2,):
             x_foc, z_foc = focus[0], focus[1]
             y_foc = 0
-            print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
+            # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
         # Compute distances from each element to the focus point
         delays = np.linalg.norm(self.element_centers - focus_mm*1e-3, axis=1) / c 
@@ -282,6 +283,7 @@ class LinearArrayTransducer:
             plt.ylabel("Time delay (us)")
             plt.grid(True)
             plt.show()
+            plt.close()
 
         self.delays = delays
         return delays
@@ -345,7 +347,19 @@ class LinearArrayTransducer:
         plotter.add_axes()
         plotter.show_grid(font_size = 10, xtitle = "X (mm)", ytitle = "Y (mm)", ztitle = "Z (mm)", show_zlabels=False)
         plotter.show(jupyter_backend= jupyter_backend)
+        plotter.close()
     
+    def clean(self):
+        """
+        Clean up the transducer object by removing large arrays.
+        """
+        self.sub_quad_verts = None
+        self.sub_area = None
+        self.sub_el_idx = None
+        self.element_centers = None
+        self.apodization = None
+        self.delays = None
+        print("Transducer cleaned up.")
 
     def __repr__(self):
         params = {
