@@ -249,6 +249,74 @@ def add_transducer_mesh(TX_mesh, *,
     return plotter
 
 
+# ------------- Plot markers spheres ------
 
 
+def add_markers(points, *,
+                plotter=None,
+                notebook=False,
+                window_size=(700,700),
+                off_screen=False,
+                glyph='sphere',
+                glyph_scale=1.0,
+                color='red',
+                labels=None,
+                label_offset=(0, 0, 0),
+                label_font_size=12,
+                **kwargs):
+    """
+    Add 3D point markers (and optional labels) to a PyVista scene.
+    Args:
+        points (array-like of shape (N,3)): XYZ coords.
+        plotter (pv.Plotter, optional): existing plotter.
+        notebook, window_size, off_screen: passed to Plotter if created.
+        glyph (str or pv.PolyData): 'sphere', 'cone', 'cube', or your own mesh.
+        glyph_scale (float): uniform scale of each glyph.
+        color: marker color.
+        labels (list of str, optional): one label per point.
+        label_offset (tuple): xyz offset added to each label position.
+        label_font_size (int): label font size.
+        **kwargs: passed to plotter.add_mesh().
+    Returns:
+        pv.Plotter
+    """
+    if plotter is None:
+        plotter = pv.Plotter(window_size=window_size,
+                             notebook=notebook,
+                             off_screen=off_screen)
+    pts = pv.PolyData(np.asarray(points))
 
+    # build glyph source
+    if isinstance(glyph, str):
+        name = glyph.lower()
+        if name == 'sphere':
+            source = pv.Sphere(radius=1.0)
+        elif name == 'cone':
+            source = pv.Cone(radius=0.5, height=2.0)
+        elif name == 'cube':
+            source = pv.Cube()
+        else:
+            raise ValueError(f"Unsupported glyph '{glyph}'. Use 'sphere','cone','cube', or pass your own mesh.")
+    else:
+        source = glyph  # assume it's a pv.PolyData or mesh
+
+    glyphs = pts.glyph(scale=False, geom=source, factor=glyph_scale)
+    plotter.add_mesh(glyphs, color=color, **kwargs)
+
+    # add optional labels
+    if labels is not None:
+        labels = list(labels)
+        if len(labels) != pts.n_points:
+            raise ValueError(f"labels length {len(labels)} != number of points {pts.n_points}")
+        for idx, txt in enumerate(labels):
+            pos = np.array(points[idx]) + np.array(label_offset)
+            plotter.add_point_labels(
+                np.array([pos]),
+                [txt],
+                font_size=label_font_size,
+                text_color=color,
+                **kwargs
+            )
+
+    plotter.add_axes()
+    return plotter

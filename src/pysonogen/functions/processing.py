@@ -58,3 +58,57 @@ def align_transducer_to_probe(TX_mesh, Doppler2D):
 
     LabToProbe =  invertz @ rescale_mToMm @ set_TX_origin @ np.linalg.inv(Doppler2D.probeToLab) @ invertz  # Invert the probe to lab transformation matrix
     return LabToProbe
+
+def compute_affine_from_markers(p1, p2, 
+                               source_origin=np.zeros(3), 
+                               source_normal=np.array([0,1,0]), 
+                               up_axis=np.array([0,0,-1])):
+    """
+    Returns a 4×4 rigid‐body transform T that maps:
+      - source_origin → p1
+      - source_normal     → target plane normal
+    where the target plane is defined by points p1, p2, and the up_axis.
+    """
+    # 1) target normal n_t
+    d = p2 - p1
+    n_t = np.cross(d, up_axis)
+    n_t /= np.linalg.norm(n_t)
+    
+    # 2) rotation axis & angle
+    n_s = source_normal / np.linalg.norm(source_normal)
+    axis = np.cross(n_s, n_t)
+    axis_norm = np.linalg.norm(axis)
+    if axis_norm < 1e-8:
+        # Normals already aligned or opposite:
+        if np.dot(n_s, n_t) > 0:
+            R = np.eye(3)
+        else:
+            # 180° rotation about any axis orthogonal to n_s
+            # e.g. pick x-axis if n_s not collinear:
+            v = np.array([1,0,0])
+            if abs(np.dot(v, n_s)) > 0.9:
+                v = np.array([0,1,0])
+            axis = np.cross(n_s, v)
+            axis /= np.linalg.norm(axis)
+            theta = np.pi
+            # build Rodrigues for 180°:
+            K = np.array([[    0, -axis[2],  axis[1]],
+                          [ axis[2],     0, -axis[0]],
+                          [-axis[1], axis[0],     0]])
+            R = np.eye(3) + np.sin(theta)*K + (1-np.cos(theta))*(K@K)
+        t = p1 + d/2
+    else:
+        axis /= axis_norm
+        theta = np.arccos(np.clip(np.dot(n_s, n_t), -1, 1))
+        # Rodrigues' formula
+        K = np.array([[    0, -axis[2],  axis[1]],
+                      [ axis[2],     0, -axis[0]],
+                      [-axis[1], axis[0],     0]])
+        R = np.eye(3) + np.sin(theta)*K + (1-np.cos(theta))*(K@K)
+        # translation
+        # New center
+        t = p1 + d/2
+
+    t[2] = 0 # No translation in z-axis
+    t = t 
+    return t, R

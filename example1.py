@@ -5,8 +5,12 @@ from pysonogen.scans import DopplerScan
 from pysonogen.pyfield import PyField
 from pysonogen.functions import align_transducer_to_probe
 from pysonogen.functions import (add_regions_mesh, add_3D_vol, add_2D_image,
-                                add_transducer_mesh, add_pressure_vol, compute_pressure_vol_mesh)  
+                                add_transducer_mesh, add_pressure_vol)  
 
+# ----------------- Get the scan objects --------------------
+
+# Define the paths to the scan files and BPS file
+# Make sure to change the paths according to your file structure
 
 MAIN_FOLDER_PATH = r".\src\pysonogen\datatype\Silvia"
 
@@ -14,28 +18,21 @@ bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
 file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
 file_scan_2D_PATH = MAIN_FOLDER_PATH + r"\2Dscan.source.scan"
 
-# Let's take the 008 scan. It shouwld be placed at one sagittal plane on the left side of the brain
-
+# Create the scan objects
 Doppler3D = DopplerScan(scan_PATH=file_scan_3D_PATH, bps_PATH = bps_PATH)
 # Doppler3D.show()
 
 Doppler2D = DopplerScan(scan_PATH=file_scan_2D_PATH)
 # Doppler2D.show(interpolation = 'bilinear')
 
+# ----------------- Get the atlas object --------------------
 atlas_name = "allen_mouse_25um"
 
-if atlas_name == "allen_mouse_25um":
-    region_names = ("root")
-elif atlas_name == "whs_sd_rat_39um":
-    region_names = ("root", "M1", "S1-hl")
+region_names = ("root")
 
 Brain_Atlas = BG_Atlas(atlas_name, region_names = region_names)
 
-invertz = np.diag([1, 1, -1, 1])  # Invert z-axis for the transducer mesh
-Brain_Atlas.reset_mesh()  # Reset the Brain Atlas mesh to the original mesh
-Brain_Atlas.transform(T_matrix = invertz @ Doppler3D.BrainToLab  , inplace=True) 
-
-# Import the transducer mesh
+# ------------------- Get the transducer object --------------------
 domino = Transducers.Domino()
 
 # Focalization spot
@@ -45,7 +42,7 @@ focus_mm =  np.array([-1, 0, 4.5])  # mm [x, y, z]
 delays = domino.compute_delays(focus_mm = focus_mm)
 apodization = domino.compute_apodization(focus_mm = focus_mm, F_over_D = 1, apodization_type='rect')
 
-
+# ------------------ Compute the pressue field --------------------
 # Use PyField to compute the pressure field
 Domino_field = PyField(domino)
 field_info_mm = {
@@ -58,19 +55,26 @@ field_info_mm = {
 }
 Domino_field.compute_pressure_field(field_info_mm)
 
+# ------------------ Transform the meshes --------------------
+
 # Compute the pressure volume mesh
 pressure_vol_mesh = Domino_field.get_mesh()
 
 # Get the meshes and get them to the probe coordinate system
 TX_mesh = domino.get_mesh()
 
+# Transform bg_atlas to the Lab coordinate system
+invertz = np.diag([1, 1, -1, 1])  # Invert z-axis for the transducer mesh
+Brain_Atlas.reset_mesh()  # Reset the Brain Atlas mesh to the original mesh
+Brain_Atlas.transform(T_matrix = invertz @ Doppler3D.BrainToLab  , inplace=True) 
+
+# Transform from the lab to the probe coordinate system
 LabToProbe = align_transducer_to_probe(TX_mesh, Doppler2D)  # Get the transformation matrix from the lab to the probe coordinate system
-Doppler3D.transform(T_matrix= LabToProbe, inplace=True)  # Transform the scan mesh to the probe coordinate system
-Doppler2D.transform(T_matrix= LabToProbe, inplace=True)  # Transform the scan mesh to the probe coordinate system
-Brain_Atlas.transform(T_matrix= LabToProbe, inplace=True)  # Transform the atlas mesh to the probe coordinate system
+Doppler3D.transform(T_matrix = LabToProbe, inplace=True)  # Transform the scan mesh to the probe coordinate system
+Doppler2D.transform(T_matrix = LabToProbe, inplace=True)  # Transform the scan mesh to the probe coordinate system
+Brain_Atlas.transform(T_matrix = LabToProbe, inplace=True)  # Transform the atlas mesh to the probe coordinate system
 
-
-# Plot all 
+# ------------------ Code for plotting --------------------
 
 final_plotter = add_regions_mesh(Brain_Atlas.pv_mesh,
                             notebook=False, window_size=[1000, 800],
@@ -133,11 +137,9 @@ final_plotter.camera_position = 'zy'  # Set the camera position
 final_plotter.camera.up = (0, 0, -1)  # Set the camera up direction
 final_plotter.show()  # Show the plotter in Jupyter Notebook
 
-
 final_plotter.close()  # for plotters
-final_plotter = None  # for plotters
 
-# Clean up the objects to free memory
+# ------------------ Clean up --------------------
 
 Doppler3D.clean()  # for scans
 Doppler2D.clean()  # for scans
@@ -145,3 +147,4 @@ Domino_field.clean()  # for fields
 domino.clean()  # for transducers
 Brain_Atlas.clean()  # for atlas
 del TX_mesh, pressure_vol_mesh       # for mesh objects
+del final_plotter  # for plotters
