@@ -268,7 +268,7 @@ class LinearArrayTransducer:
             # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
         # Compute distances from each element to the focus point
-        delays = np.linalg.norm(self.element_centers - focus_mm*1e-3, axis=1) / c 
+        delays = np.linalg.norm(self.element_centers - focus, axis=1) / c 
 
         # Compute delays based on the speed of sound in soft tissue
         delays = delays.min()- delays  # time delays for focusing

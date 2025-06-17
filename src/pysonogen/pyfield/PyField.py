@@ -198,7 +198,7 @@ class PyField:
         print(f"Computing SIR for {P} points and {M} patches...")
         # allocate events
         events = np.zeros((P, M, 5), dtype=np.float32)
-        tqdm.write("Computing all patch events...")
+        # tqdm.write("Computing all patch events...")
         compute_all_events(P, M, pts, self.centers, self.wx, self.wy,
                            self.c, self.apods, self.delays, events, self.fs, self.lambda_mm)
         # build global time vector from real event times
@@ -212,7 +212,7 @@ class PyField:
         n2 = 2**max(int(np.ceil(np.log2(num_samples))), 5)
         t_global = t0 + np.arange(n2, dtype=np.float32)*dt
         h_out = np.zeros((P, n2), dtype=np.float32)
-        tqdm.write("Accumulating SIR from events...")
+        # tqdm.write("Accumulating SIR from events...")
         accumulate_from_events(P, M, events, self.fs, t0, h_out)
 
         print(f"Total computation time: {TIME() - start_comput_time:.4f} seconds.")
@@ -235,9 +235,9 @@ class PyField:
             The computed pressure field.
         """
         # Reshape the SIR to match the grid dimensions
-        print(f"Original h shape: {h_sir.shape}")
+        # print(f"Original h shape: {h_sir.shape}")
         spatial_impulse_response_field = h_sir.reshape( -1, z.shape[0], x.shape[0], y.shape[0]).transpose(0, 2, 3, 1)
-        print(f"Reshaped h shape: {spatial_impulse_response_field.shape}")
+        # print(f"Reshaped h shape: {spatial_impulse_response_field.shape}")
 
         # Perform FFT along the first axis
         print("Performing FFT...")
@@ -285,9 +285,9 @@ class PyField:
         pressure : ndarray
             The computed pressure field.
         """
-        print("Creating simulation grid...")
+        # print("Creating simulation grid...")
         x, y, z, grid_points = create_simulation_grid(field_info)
-        print("Computing spatial impulse response...")
+        # print("Computing spatial impulse response...")
         start_time, h_sir = self.spatial_impulse_response(grid_points)
         print("Computing pressure field...")
         pressure_field = self.compute_pr_from_sir(h_sir, x, y, z)

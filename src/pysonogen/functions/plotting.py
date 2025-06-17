@@ -52,8 +52,6 @@ def plot_pressure_field(pressure_field, x, y, z, *,
     plotter.show_grid()             # show grid
     return plotter, pressure_vol
 
-
-
 def plot_field_planes(pressure_field, x, y, z, *
                       ,figsize =(10, 5),  interpolation=None):
     """
@@ -111,6 +109,7 @@ def plot_field_planes(pressure_field, x, y, z, *
 
     plt.tight_layout()
     plt.show()
+    plt.close(fig)  # Close the figure to free memory
 
 
 
