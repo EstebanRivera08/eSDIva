@@ -115,9 +115,9 @@ Doppler2D.transform(T_matrix = T, inplace=True)  # Transform the scan mesh to th
 
 final_plotter = add_regions_mesh(Brain_Atlas.pv_mesh,
                             notebook=False, window_size=[1000, 800],
-                            kwargs_dict={region_names[0]: {"color": "lightgray", "opacity": 0.1},	 
-                                        region_names[1]: {"color": "permanentgreen", "opacity": 0.2}, 
-                                        region_names[2]: {"color": "cadmiumlemon", "opacity": 0.2}}, label = "Brain Atlas")
+                            kwargs_dict={region_names[0]: {"color": "lightgray", "opacity": 0.4},	 
+                                        region_names[1]: {"color": "permanentgreen", "opacity": 0.3}, 
+                                        region_names[2]: {"color": "blue", "opacity": 0.3}}, label = "Brain Atlas")
 
 final_plotter = add_3D_vol(Doppler3D.pv_mesh, plotter = final_plotter,
                                 cmap="hot", opacity="sigmoid", opacity_unit_distance = 1,
