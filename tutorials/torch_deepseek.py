@@ -47,7 +47,7 @@ def accumulate_events_vectorized(events, fs, t0, n2, device='cpu', batch_size=10
     # Precompute valid events mask
     valid_mask = (h_max > 0) & (t4 > t1)
     
-    for start in range(0, P, batch_size):
+    for start in tqdm(range(0, P, batch_size), desc="Processing batches", unit="batches"):
         end = min(start + batch_size, P)
         batch_idx = slice(start, end)
         
