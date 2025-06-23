@@ -5,129 +5,8 @@ from time import time as TIME
 import numpy as np
 import torch
 import torch.nn as nn
+from rich.progress import Progress
 from tqdm import tqdm
-
-
-class TorchField(nn.Module):
-    def __init__(self, transducer, device="cpu"):
-        super().__init__()
-        """ Initializes a TorchField object for ultrasound simulations.
-        Args:
-            transducer: Transducer object containing transducer parameters.
-            device: Device to run the computations on ('cpu' or 'cuda').
-        """
-        self.device = device
-        self.tx = transducer
-        self.c = 1540.0
-        self.fs = 300e6
-        self.fc = transducer.fc
-        self.lambda_mm = self.c / self.fc
-
-        el_h = self.tx.el_h / self.tx.no_sub_y
-        el_w = self.tx.el_w / self.tx.no_sub_x
-        centers, apods, delays = [], [], []
-
-        for elem in range(self.tx.n_elements):
-            for sub_elem in range(self.tx.no_sub_x * self.tx.no_sub_y):
-                verts = self.tx.sub_quad_verts[
-                    elem * (self.tx.no_sub_x * self.tx.no_sub_y) + sub_elem
-                ]
-                centers.append(verts.mean(axis=0))
-                apods.append(self.tx.apodization[elem])
-                delays.append(self.tx.delays[elem])
-
-        self.centers = torch.tensor(centers, dtype=torch.float32, device=device)
-        self.apods = nn.Parameter(
-            torch.tensor(apods, dtype=torch.float32, device=device, requires_grad=True)
-        )
-        self.delays = nn.Parameter(
-            torch.tensor(delays, dtype=torch.float32, device=device, requires_grad=True)
-        )
-        self.wx = el_w
-        self.wy = el_h
-
-        self.field = None
-        self.x = self.y = self.z = None
-        print(f"Initialized TorchField on {device}")
-
-    def spatial_impulse_response(self, field_points, batch_size=100, return_all=False):
-        start_time = TIME()
-        pts = torch.atleast_2d(
-            torch.tensor(field_points, device=self.device, dtype=torch.float32)
-        )
-        P, M = pts.shape[0], self.centers.shape[0]
-
-        with Progress() as progress:
-            for start in progress.track(range(0, P, batch_size), unit="batch"):
-                end = min(start + batch_size, P)
-                # Vectorized SIR computation
-                task = progress.add_task(
-                    f"Computing SIR for {P} points and {M} patches...", total=P
-                )
-
-                # Vectorized distance and direction calculations
-                diff = (
-                    pts.unsqueeze(1)[start:end] - self.centers.unsqueeze(0)[start:end]
-                )  # (P, M, 3)
-                dist = torch.norm(diff, dim=-1)
-
-                xp = diff[..., 0] / dist
-                yp = diff[..., 1] / dist
-
-                events = compute_patch_events(
-                    self.wx,
-                    self.wy,
-                    xp,
-                    yp,
-                    dist,
-                    self.delays.unsqueeze(0).expand(P, M),
-                    self.apods.unsqueeze(0).expand(P, M),
-                    self.c,
-                    self.fs,
-                )
-                events_time = TIME()
-
-                progress.update(
-                    task,
-                    description=f"Events patch - field points computed in: {events_time - start_time:.4f} seconds.",
-                )
-
-                # Time vector setup
-                all_times = events[..., :4].contiguous().view(-1)
-                t0 = all_times.min()
-                tN = all_times.max()
-                num_samples = int(torch.ceil((tN - t0) * self.fs).item())
-                n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
-                P, M, _ = events.shape
-                dt = 1.0 / self.fs
-                # global time axis
-                t_global = t0 + torch.arange(n2, device=events.device) * dt
-                h_out = torch.zeros(P, n2, device=events.device)
-
-                # Optimized accumulation
-                progress.update(
-                    task,
-                    description=f"Accumulating events for {P} points over {n2} time samples.",
-                )
-                # Process in batches to avoid memory issues
-                end = min(start + batch_size, P)
-                batch_events = events[start:end]
-                if batch_events.numel() == 0:
-                    continue
-                # Accumulate contributions for this batch
-                h_batch = accumulate_events_batch(batch_events, t_global)
-                h_out[start:end] = h_batch
-                torch.cuda.empty_cache()  # Clear cache to manage memory
-                print(
-                    f"Accumulation of events elapsed in: {TIME() - events_time:.4f} seconds."
-                )
-                print(f"SIR computed in {time.time() - events_time:.2f} seconds")
-
-        if return_all:
-            # Return both the time vector and the impulse response
-            return t_global, h_out.T, events
-
-        return t0, h_out.T
 
 
 def create_simulation_grid(simulation_struct, device="cpu"):
@@ -161,7 +40,7 @@ def create_simulation_grid(simulation_struct, device="cpu"):
 
 
 # JIT-compiled core event computation
-@torch.jit.script
+# @torch.jit.script
 def compute_patch_events(
     wx: float,
     wy: float,
@@ -184,7 +63,7 @@ def compute_patch_events(
     return torch.stack((t1, t2, t3, t4, hmax), dim=2)
 
 
-@torch.jit.script
+# @torch.jit.script
 def accumulate_events_batch(events: torch.Tensor, t_global: torch.Tensor):
     """
     JIT-compiled trapezoidal accumulation over patches and time.
@@ -268,7 +147,7 @@ class TorchField(nn.Module):
         self.x = self.y = self.z = None
         print(f"Initialized TorchField on {device}")
 
-    def spatial_impulse_response(self, field_points, batch_size=1024, return_all=False):
+    def spatial_impulse_response(self, field_points, batch_size=100, return_all=False):
         start_time = TIME()
         pts = torch.atleast_2d(
             torch.tensor(field_points, device=self.device, dtype=torch.float32)
@@ -307,15 +186,15 @@ class TorchField(nn.Module):
         tN = all_times.max()
         num_samples = int(torch.ceil((tN - t0) * self.fs).item())
         n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
+        P, M, _ = events.shape
+        dt = 1.0 / self.fs
+        # global time axis
+        t_global = t0 + torch.arange(n2, device=events.device) * dt
+        h_out = torch.zeros(P, n2, device=events.device)
 
         # Optimized accumulation
         print(f"Accumulating events for {P} points over {n2} time samples.")
         for start in tqdm(range(0, P, batch_size), unit="batch"):
-            P, M, _ = events.shape
-            dt = 1.0 / self.fs
-            # global time axis
-            t_global = t0 + torch.arange(n2, device=events.device) * dt
-            h_out = torch.zeros(P, n2, device=events.device)
             # Process in batches to avoid memory issues
             end = min(start + batch_size, P)
             batch_events = events[start:end]
@@ -323,7 +202,8 @@ class TorchField(nn.Module):
                 continue
             # Accumulate contributions for this batch
             h_batch = accumulate_events_batch(batch_events, t_global)
-            h_out += h_batch
+            h_out[start:end] = h_batch
+            torch.cuda.empty_cache()  # Clear cache to manage memory
         print(f"Accumulation of events elapsed in: {TIME() - events_time:.4f} seconds.")
         print(f"SIR computed in {time.time() - events_time:.2f} seconds")
 

@@ -24,12 +24,16 @@ dependencies = [
     "pyqt5-qt5<=5.15.2",
     "pyside6>=6.9.0",
     "pyvista[jupyter]>=0.45.0",
+    "ruff>=0.12.0",
     "scikit-image>=0.25.2",
     "scipy>=1.15.2",
     "torch==2.6.0",
     "torchaudio==2.6.0",
     "torchvision==0.21.0",
 ]
+
+[tool.ruff]
+line-length = 88
 
 [project.scripts]
 pysonogen = "pysonogen:main"
