@@ -40,9 +40,15 @@ def create_simulation_grid(simulation_struct):
         simulation_struct["y_extent"],
         simulation_struct["z_extent"],
     )
-    Nx = int((xf - x0) / simulation_struct["dx"])
-    Ny = int((yf - y0) / simulation_struct["dy"])
-    Nz = int((zf - z0) / simulation_struct["dz"])
+    dx, dy, dz = (
+        simulation_struct["dx"],
+        simulation_struct["dy"],
+        simulation_struct["dz"],
+    )
+
+    Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
+    Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
+    Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
     if Nx % 2 == 0:
         Nx += 1
     if Ny % 2 == 0:

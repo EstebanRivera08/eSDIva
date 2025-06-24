@@ -5,6 +5,7 @@ from time import time as TIME
 import numpy as np
 import torch
 import torch.nn as nn
+from rich.progress import Progress
 from tqdm import tqdm
 
 
