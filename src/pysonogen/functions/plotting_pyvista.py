@@ -3,13 +3,18 @@ import pyvista as pv
 
 # -------------------- Plotting Functions --------------------
 
+
 # ------------- Brain Regions Mesh -------------
-def add_regions_mesh(pv_regions_dict, *,
-                        plotter=None,
-                        window_size= [800, 800],
-                        notebook=False,
-                        off_screen=False,
-                        kwargs_dict=None, **kwargs):
+def add_regions_mesh(
+    pv_regions_dict,
+    *,
+    plotter=None,
+    window_size=[800, 800],
+    notebook=False,
+    off_screen=False,
+    kwargs_dict=None,
+    **kwargs,
+):
     """
     Plot the PyVista mesh of a specified structure.
     Args:
@@ -22,11 +27,12 @@ def add_regions_mesh(pv_regions_dict, *,
         pv.Plotter: The PyVista plotter with the mesh added.
     """
     if plotter is None:
-        plotter = pv.Plotter(notebook=notebook, window_size=window_size, 
-                             off_screen=off_screen)
+        plotter = pv.Plotter(
+            notebook=notebook, window_size=window_size, off_screen=off_screen
+        )
     default_kwargs = {
-        'color': 'lightgrey',  # Default color for the mesh
-        'opacity': 0.4,  # Default opacity for the mesh
+        "color": "lightgrey",  # Default color for the mesh
+        "opacity": 0.4,  # Default opacity for the mesh
     }
 
     if isinstance(pv_regions_dict, dict):
@@ -36,34 +42,39 @@ def add_regions_mesh(pv_regions_dict, *,
                     kwargs = default_kwargs
                 else:
                     kwargs = kwargs_dict[region]
-                kwargs['label'] = region if region != 'root' else 'Brain'
-            elif isinstance(kwargs_dict, dict) and 'default' in kwargs_dict.keys():
+                kwargs["label"] = region if region != "root" else "Brain"
+            elif isinstance(kwargs_dict, dict) and "default" in kwargs_dict.keys():
                 kwargs = default_kwargs
             else:
                 kwargs = default_kwargs
             plotter.add_mesh(pv_regions_dict[region], **kwargs)
     else:
-        try: 
+        try:
             for key, value in default_kwargs.items():
                 if key not in kwargs:
                     kwargs[key] = value
             plotter.add_mesh(pv_regions_dict, **kwargs)
         except KeyError as e:
-            
-            raise ValueError(f"Error: {e}. pv_regions_dict should be a dictionary with brain region meshes or the mesh.")
-        
+            raise ValueError(
+                f"Error: {e}. pv_regions_dict should be a dictionary with brain region meshes or the mesh."
+            )
+
     plotter.add_axes()
     return plotter
 
 
 # ------------- doppler3D_vol Mesh -------------
 
-def add_3D_vol(doppler3D_vol,*, 
-                    plotter = None,
-                    notebook = False,
-                    window_size = [700,700],
-                    off_screen=False,
-                    **kwargs):
+
+def add_3D_vol(
+    doppler3D_vol,
+    *,
+    plotter=None,
+    notebook=False,
+    window_size=[700, 700],
+    off_screen=False,
+    **kwargs,
+):
     """
     Plot the ultrasound volume using PyVista.
     Args:
@@ -73,17 +84,18 @@ def add_3D_vol(doppler3D_vol,*,
         clim (list): Color limits for the scalars.
     """
     if plotter is None:
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook,
-                             off_screen=off_screen)
-    
+        plotter = pv.Plotter(
+            window_size=window_size, notebook=notebook, off_screen=off_screen
+        )
+
     default_kwargs = {
-        'scalars': 'doppler',  # Assuming 'doppler' is a scalar field in doppler3D_vol
-        'cmap': 'hot',
-        'opacity': 'sigmoid',
-        'mapper': 'smart',
-        'show_scalar_bar': True,
-        'scalar_bar_args': {
-            'title': 'Doppler (dB)',
+        "scalars": "doppler",  # Assuming 'doppler' is a scalar field in doppler3D_vol
+        "cmap": "hot",
+        "opacity": "sigmoid",
+        "mapper": "smart",
+        "show_scalar_bar": True,
+        "scalar_bar_args": {
+            "title": "Doppler (dB)",
             "title_font_size": 16,
             "label_font_size": 12,
         },
@@ -91,20 +103,25 @@ def add_3D_vol(doppler3D_vol,*,
     for key, value in default_kwargs.items():
         if key not in kwargs:
             kwargs[key] = value
-    
+
     vol = plotter.add_volume(doppler3D_vol, **kwargs)
-    vol.prop.interpolation_type = 'linear'
+    vol.prop.interpolation_type = "linear"
     plotter.add_axes()
     return plotter
 
+
 # ------------- doppler2D_image Mesh -------------
 
-def add_2D_image(image_grid,*, 
-                plotter = None,
-                notebook = False,
-                window_size = [700,700],
-                off_screen=False,
-                **kwargs):
+
+def add_2D_image(
+    image_grid,
+    *,
+    plotter=None,
+    notebook=False,
+    window_size=[700, 700],
+    off_screen=False,
+    **kwargs,
+):
     """
     Plot the ultrasound volume using PyVista.
     Args:
@@ -114,23 +131,23 @@ def add_2D_image(image_grid,*,
         clim (list): Color limits for the scalars.
     """
     if plotter is None:
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook,
-                                off_screen=off_screen)
+        plotter = pv.Plotter(
+            window_size=window_size, notebook=notebook, off_screen=off_screen
+        )
 
     default_kwargs = {
-        'show_edges':False,
-        'cmap':'gray',
-        'opacity':1.0,
-        'name':'2D doppler',  # Name for the volume
-        'show_scalar_bar':False,
-        'show_scalar_bar': True,
-        'scalar_bar_args': {
-            'title': '2D Doppler (dB)',
+        "show_edges": False,
+        "cmap": "gray",
+        "opacity": 1.0,
+        "name": "2D doppler",  # Name for the volume
+        "show_scalar_bar": True,
+        "scalar_bar_args": {
+            "title": "2D Doppler (dB)",
             "title_font_size": 16,
             "label_font_size": 12,
-            'vertical': True,
-            'position_x': 0.1,
-            'position_y': 0.2,
+            "vertical": True,
+            "position_x": 0.1,
+            "position_y": 0.2,
             "height": 0.3,
         },
     }
@@ -138,65 +155,73 @@ def add_2D_image(image_grid,*,
         if key not in kwargs:
             kwargs[key] = value
 
-    vol=plotter.add_mesh(image_grid, **kwargs)
+    vol = plotter.add_mesh(image_grid, **kwargs)
     plotter.add_axes()
     return plotter
 
+
 # ------------- Pressure field Mesh -------------
 
-def add_pressure_vol(pressure_vol,*,
-                    plotter=None,
-                    window_size=[800, 800],
-                    notebook=False,
-                    plot_focal_spot = True,
-                    off_screen=False,
-                    **kwargs):
-    
+
+def add_pressure_vol(
+    pressure_vol,
+    *,
+    plotter=None,
+    window_size=[800, 800],
+    notebook=False,
+    plot_focal_spot=True,
+    off_screen=False,
+    **kwargs,
+):
     if plotter is None:
-        plotter = pv.Plotter(notebook=notebook, window_size=window_size,
-                             off_screen=off_screen)
+        plotter = pv.Plotter(
+            notebook=notebook, window_size=window_size, off_screen=off_screen
+        )
 
     # 3) Add the pressure volume
     if plot_focal_spot:
-        
         default_kwargs = {
-            'opacity': 1,
-            'name' : "PressureIso",
-            'show_scalar_bar': False,
-            'label': "Focal Spot",  # label for the legend
-            'color' : "r", # color of the mesh
+            "opacity": 1,
+            "name": "PressureIso",
+            "show_scalar_bar": False,
+            "label": "Focal Spot",  # label for the legend
+            "color": "r",  # color of the mesh
         }
         for key, value in default_kwargs.items():
             if key not in kwargs:
                 kwargs[key] = value
-                
+
         # pick a threshold, e.g. halfway to the max
         threshold = 0.7 * pressure_vol["Pressure"].max()
-        iso_mesh = pressure_vol.contour([threshold], scalars="Pressure")  # Create isosurface at threshold# add that instead of (or in addition to) the volume
-        plotter.add_mesh(iso_mesh, **kwargs)    
+        iso_mesh = pressure_vol.contour(
+            [threshold], scalars="Pressure"
+        )  # Create isosurface at threshold# add that instead of (or in addition to) the volume
+        plotter.add_mesh(iso_mesh, **kwargs)
 
     else:
         n_contours = 10
         min_val = 0
         max_val = pressure_vol["Pressure"].max()
         levels = np.linspace(min_val, max_val, n_contours)
-        iso_mesh = pressure_vol.contour(isosurfaces=levels, scalars="Pressure")  # Create isosurface at threshold
+        iso_mesh = pressure_vol.contour(
+            isosurfaces=levels, scalars="Pressure"
+        )  # Create isosurface at threshold
         default_kwargs = {
-            'scalars': "Pressure",  # use the scalar to color surfaces
-            'opacity': 'linear',
-            'cmap' : "jet",
-            'show_scalar_bar': True,
-            'scalar_bar_args': {
-                'title': 'Pressure (u.a.)',
+            "scalars": "Pressure",  # use the scalar to color surfaces
+            "opacity": "linear",
+            "cmap": "jet",
+            "show_scalar_bar": True,
+            "scalar_bar_args": {
+                "title": "Pressure (u.a.)",
                 "title_font_size": 16,
                 "label_font_size": 12,
-                'vertical': True,
-                'position_x': 0.85,
-                'position_y': 0.2,
+                "vertical": True,
+                "position_x": 0.85,
+                "position_y": 0.2,
                 "height": 0.3,
             },
-            'label': "Pressure PII",  # label for the legend
-            'color' : "r", # color of the mesh
+            "label": "Pressure PII",  # label for the legend
+            "color": "r",  # color of the mesh
         }
         for key, value in default_kwargs.items():
             if key not in kwargs:
@@ -207,33 +232,38 @@ def add_pressure_vol(pressure_vol,*,
     plotter.add_axes()
     return plotter
 
+
 # ------------- Transducer Mesh -------------
 
-def add_transducer_mesh(TX_mesh, *,
-                        plotter=None,
-                        window_size=[800, 800],
-                        notebook=False,
-                        off_screen=False,
-                        **kwargs):
-    
+
+def add_transducer_mesh(
+    TX_mesh,
+    *,
+    plotter=None,
+    window_size=[800, 800],
+    notebook=False,
+    off_screen=False,
+    **kwargs,
+):
     if plotter is None:
-        plotter = pv.Plotter(notebook=notebook, window_size=window_size,
-                             off_screen=off_screen)
+        plotter = pv.Plotter(
+            notebook=notebook, window_size=window_size, off_screen=off_screen
+        )
 
     default_kwargs = {
-        'scalars': 'Apodization',  # Assuming 'Apodization' is a scalar field in TX_mesh
-        'cmap': 'cool',
-        'clim': [0, 1],
-        'opacity': 1.0,
-        'show_edges': True,
-        'show_scalar_bar': True,
-        'scalar_bar_args': {
-            'title': 'Apodization',
+        "scalars": "Apodization",  # Assuming 'Apodization' is a scalar field in TX_mesh
+        "cmap": "cool",
+        "clim": [0, 1],
+        "opacity": 1.0,
+        "show_edges": True,
+        "show_scalar_bar": True,
+        "scalar_bar_args": {
+            "title": "Apodization",
             "title_font_size": 16,
             "label_font_size": 12,
-            'vertical': True,
-            'position_x': 0.85,
-            'position_y': 0.5,
+            "vertical": True,
+            "position_x": 0.85,
+            "position_y": 0.5,
             "height": 0.3,
         },
     }
@@ -242,9 +272,10 @@ def add_transducer_mesh(TX_mesh, *,
         if key not in kwargs:
             kwargs[key] = value
 
-    plotter.add_mesh(TX_mesh,   # Convert to mm for visualization
-            **kwargs
-        )
+    plotter.add_mesh(
+        TX_mesh,  # Convert to mm for visualization
+        **kwargs,
+    )
     plotter.add_axes()
     return plotter
 
@@ -252,18 +283,21 @@ def add_transducer_mesh(TX_mesh, *,
 # ------------- Plot markers spheres ------
 
 
-def add_markers(points, *,
-                plotter=None,
-                notebook=False,
-                window_size=(700,700),
-                off_screen=False,
-                glyph='sphere',
-                glyph_scale=1.0,
-                color='red',
-                labels=None,
-                label_offset=(0, 0, 0),
-                label_font_size=12,
-                **kwargs):
+def add_markers(
+    points,
+    *,
+    plotter=None,
+    notebook=False,
+    window_size=(700, 700),
+    off_screen=False,
+    glyph="sphere",
+    glyph_scale=1.0,
+    color="red",
+    labels=None,
+    label_offset=(0, 0, 0),
+    label_font_size=12,
+    **kwargs,
+):
     """
     Add 3D point markers (and optional labels) to a PyVista scene.
     Args:
@@ -281,22 +315,24 @@ def add_markers(points, *,
         pv.Plotter
     """
     if plotter is None:
-        plotter = pv.Plotter(window_size=window_size,
-                             notebook=notebook,
-                             off_screen=off_screen)
+        plotter = pv.Plotter(
+            window_size=window_size, notebook=notebook, off_screen=off_screen
+        )
     pts = pv.PolyData(np.asarray(points))
 
     # build glyph source
     if isinstance(glyph, str):
         name = glyph.lower()
-        if name == 'sphere':
+        if name == "sphere":
             source = pv.Sphere(radius=1.0)
-        elif name == 'cone':
+        elif name == "cone":
             source = pv.Cone(radius=0.5, height=2.0)
-        elif name == 'cube':
+        elif name == "cube":
             source = pv.Cube()
         else:
-            raise ValueError(f"Unsupported glyph '{glyph}'. Use 'sphere','cone','cube', or pass your own mesh.")
+            raise ValueError(
+                f"Unsupported glyph '{glyph}'. Use 'sphere','cone','cube', or pass your own mesh."
+            )
     else:
         source = glyph  # assume it's a pv.PolyData or mesh
 
@@ -307,7 +343,9 @@ def add_markers(points, *,
     if labels is not None:
         labels = list(labels)
         if len(labels) != pts.n_points:
-            raise ValueError(f"labels length {len(labels)} != number of points {pts.n_points}")
+            raise ValueError(
+                f"labels length {len(labels)} != number of points {pts.n_points}"
+            )
         for idx, txt in enumerate(labels):
             pos = np.array(points[idx]) + np.array(label_offset)
             plotter.add_point_labels(
@@ -315,7 +353,7 @@ def add_markers(points, *,
                 [txt],
                 font_size=label_font_size,
                 text_color=color,
-                **kwargs
+                **kwargs,
             )
 
     plotter.add_axes()

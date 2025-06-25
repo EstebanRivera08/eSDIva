@@ -196,19 +196,11 @@ class MatrixArrayTransducer:
             apod[np.ix_(ix[valid_x], iy[valid_y])] = profile[np.ix_(valid_x, valid_y)]
 
         if plot:
-            import matplotlib.pyplot as plt
-
-            plt.imshow(apod, cmap="cool", vmin=0, vmax=1)
-            plt.colorbar()
-            plt.xlabel("Element X")
-            plt.ylabel("Element Y")
-            plt.show()
-            plt.close()
-
+            self.plot_apodization()
         if inline:
             self.apodization = apod.T.flatten()
             self.apodization_type = apodization_type
-        return apod.T
+        return apod.T.flatten()
 
     def compute_delays(self, *, focus_mm, c=None, plot=False, inline=True):
         """
@@ -247,29 +239,40 @@ class MatrixArrayTransducer:
 
         # optionally plot
         if plot:
-            import matplotlib.pyplot as plt
-
-            plt.figure()
-            plt.plot(
-                np.arange(self.n_elements),
-                delays * 1e6,
-                "k-",
-                marker="o",
-                markerfacecolor="r",
-                ms=3,
-            )
-            plt.title(
-                f"Focusing at: [{x_foc * 1e3:.3f} mm, {y_foc * 1e3:.3f} mm, {z_foc * 1e3:.3f} mm]"
-            )
-            plt.xlabel("Element #")
-            plt.ylabel("Time delay (us)")
-            plt.grid(True)
-            plt.show()
-            plt.close()
+            self.plot_delays()
 
         if inline:
             self.delays = delays
         return delays
+
+    def plot_apodization(self):
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(6, 5))
+        plt.imshow(
+            self.apodization.reshape((self.n_elem_x, self.n_elem_y)),
+            cmap="cool",
+            vmin=0,
+            vmax=1,
+        )
+        plt.title("Apodization")
+        plt.colorbar()
+        plt.xlabel("Element X")
+        plt.ylabel("Element Y")
+        plt.show()
+        plt.close()
+
+    def plot_delays(self):
+        import matplotlib.pyplot as plt
+
+        plt.figure(figsize=(6, 5))
+        plt.imshow(self.delays.reshape((self.n_elem_x, self.n_elem_y)), cmap="jet")
+        plt.title("Delays (s)")
+        plt.colorbar()
+        plt.xlabel("Element X")
+        plt.ylabel("Element Y")
+        plt.show()
+        plt.close()
 
     def set_apodization(self, weights):
         weights = np.asarray(weights, dtype=float)
