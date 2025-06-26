@@ -231,6 +231,15 @@ class PyField:
 
     def spatial_impulse_response(self, field_points, return_all=False):
         start_comput_time = TIME()
+        if not isinstance(field_points, np.ndarray):
+            try:
+                # Only use the grid_points (last element of the tuple)
+                *_, field_points = create_simulation_grid(field_points)
+            except Exception as e:
+                raise ValueError(
+                    "Invalid field_points input. It should be a numpy array or a dictionary with simulation parameters."
+                ) from e
+
         pts = np.atleast_2d(field_points).astype(np.float32)
         P, M = pts.shape[0], self.centers.shape[0]
 
@@ -264,7 +273,7 @@ class PyField:
         dt = 1.0 / self.fs
         num_samples = int(np.ceil((tN - t0) * self.fs))
         # next power of two
-        n2 = 2 ** max(int(np.ceil(np.log2(num_samples))), 5)
+        n2 = 2 ** max(int(np.ceil(np.log2(num_samples))) - 1, 5)
         t_global = t0 + np.arange(n2, dtype=np.float32) * dt
         h_out = np.zeros((P, n2), dtype=np.float32)
         # tqdm.write("Accumulating SIR from events...")

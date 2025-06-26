@@ -16,6 +16,7 @@ dependencies = [
     "h5py>=3.13.0",
     "imageio[ffmpeg]>=2.37.0",
     "ipykernel>=6.29.5",
+    "ipympl>=0.9.7",
     "ipyvtklink>=0.2.3",
     "markupsafe<3.0.2",
     "matplotlib>=3.10.1",

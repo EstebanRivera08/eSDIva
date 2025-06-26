@@ -79,7 +79,6 @@ class MatrixArrayTransducer:
         self.sub_area = []
         self.sub_el_idx = []
         for idx, center in enumerate(self.element_centers):
-            row = idx // self.n_elem_x
             xs = np.linspace(-self.el_w / 2, self.el_w / 2, self.no_sub_x + 1)
             ys = np.linspace(-self.el_h / 2, self.el_h / 2, self.no_sub_y + 1)
             for i in range(self.no_sub_x):
@@ -225,10 +224,7 @@ class MatrixArrayTransducer:
         # Unpack and convert to meters
         focus = np.array(focus_mm) * 1e-3
 
-        if focus.shape == (3,):
-            x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
-        else:
+        if focus.shape != (3,):
             raise ValueError("Focus must be a 3D coordinate (x, y, z)")
 
         # Compute distances from each element to the focus point
@@ -260,7 +256,6 @@ class MatrixArrayTransducer:
         plt.xlabel("Element X")
         plt.ylabel("Element Y")
         plt.show()
-        plt.close()
 
     def plot_delays(self):
         import matplotlib.pyplot as plt
@@ -272,7 +267,6 @@ class MatrixArrayTransducer:
         plt.xlabel("Element X")
         plt.ylabel("Element Y")
         plt.show()
-        plt.close()
 
     def set_apodization(self, weights):
         weights = np.asarray(weights, dtype=float)
