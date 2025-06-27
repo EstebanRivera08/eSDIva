@@ -66,12 +66,15 @@ def create_simulation_grid(simulation_struct):
 
 
 pi = np.pi
+tolerance_apod = 1e-3
 
 
 @njit
 def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz, lambda_mm):
     # Common sampling rate is 100 MHz
     # Then minimum time step is 0.01 us,
+    if apod < tolerance_apod:
+        return 0, 0, 0, 0, 0
     epsilon = 1 / (sampling_rate_Hz)  # 1 ns
     Dt1 = min(abs(wx * xp / c0), abs(wy * yp / c0))
     Dt2 = max(abs(wx * xp / c0), abs(wy * yp / c0))
@@ -307,7 +310,6 @@ class PyField:
         # print(f"Reshaped h shape: {spatial_impulse_response_field.shape}")
 
         # Perform FFT along the first axis
-        print("Performing FFT...")
         spatial_impulse_response_field_FT = np.fft.fft(
             spatial_impulse_response_field, axis=0
         )

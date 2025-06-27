@@ -195,7 +195,7 @@ class MatrixArrayTransducer:
             apod[np.ix_(ix[valid_x], iy[valid_y])] = profile[np.ix_(valid_x, valid_y)]
 
         if plot:
-            self.plot_apodization()
+            self.plot_apodization(apod.T.flatten())
         if inline:
             self.apodization = apod.T.flatten()
             self.apodization_type = apodization_type
@@ -235,18 +235,20 @@ class MatrixArrayTransducer:
 
         # optionally plot
         if plot:
-            self.plot_delays()
+            self.plot_delays(delays)
 
         if inline:
             self.delays = delays
         return delays
 
-    def plot_apodization(self):
+    def plot_apodization(self, apodization=None):
         import matplotlib.pyplot as plt
 
+        if apodization is None:
+            apodization = self.apodization
         plt.figure(figsize=(6, 5))
         plt.imshow(
-            self.apodization.reshape((self.n_elem_x, self.n_elem_y)),
+            apodization.reshape((self.n_elem_x, self.n_elem_y)),
             cmap="cool",
             vmin=0,
             vmax=1,
@@ -257,11 +259,14 @@ class MatrixArrayTransducer:
         plt.ylabel("Element Y")
         plt.show()
 
-    def plot_delays(self):
+    def plot_delays(self, delays=None):
         import matplotlib.pyplot as plt
 
+        if delays is None:
+            delays = self.delays
+
         plt.figure(figsize=(6, 5))
-        plt.imshow(self.delays.reshape((self.n_elem_x, self.n_elem_y)), cmap="jet")
+        plt.imshow(delays.reshape((self.n_elem_x, self.n_elem_y)), cmap="jet")
         plt.title("Delays (s)")
         plt.colorbar()
         plt.xlabel("Element X")

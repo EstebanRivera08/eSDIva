@@ -41,6 +41,10 @@ def create_simulation_grid(simulation_struct, device="cpu"):
 
 # JIT-compiled core event computation
 # @torch.jit.script
+
+tolerance_apod = 1e-3
+
+
 def compute_patch_events(
     wx: float,
     wy: float,
@@ -60,6 +64,11 @@ def compute_patch_events(
     t3 = t1 + Dt2
     t4 = t1 + Dt1 + Dt2
     hmax = area * apods / Dt2
+    t1[apods < tolerance_apod] = 0
+    t2[apods < tolerance_apod] = 0
+    t3[apods < tolerance_apod] = 0
+    t4[apods < tolerance_apod] = 0
+    hmax[apods < tolerance_apod] = 0
     return torch.stack((t1, t2, t3, t4, hmax), dim=2)
 
 
@@ -185,15 +194,15 @@ class TorchField(nn.Module):
         t0 = all_times.min()
         tN = all_times.max()
         num_samples = int(torch.ceil((tN - t0) * self.fs).item())
-        n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
+        # n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
         P, M, _ = events.shape
         dt = 1.0 / self.fs
         # global time axis
-        t_global = t0 + torch.arange(n2, device=events.device) * dt
-        h_out = torch.zeros(P, n2, device=events.device)
+        t_global = t0 + torch.arange(num_samples, device=events.device) * dt
+        h_out = torch.zeros(P, num_samples, device=events.device)
 
         # Optimized accumulation
-        print(f"Accumulating events for {P} points over {n2} time samples.")
+        print(f"Accumulating events for {P} points over {num_samples} time samples.")
         for start in tqdm(range(0, P, batch_size), unit="batch"):
             # Process in batches to avoid memory issues
             end = min(start + batch_size, P)
@@ -231,7 +240,7 @@ class TorchField(nn.Module):
         print(
             f"Grid created with shape: {grid_points.shape}, x: {len(x)}, y: {len(y)}, z: {len(z)}"
         )
-        _, h_sir = self.spatial_impulse_response(grid_points.cpu().numpy())
+        _, h_sir = self.spatial_impulse_response(grid_points)
         pressure_field = self.compute_pr_from_sir(h_sir, x, y, z)
 
         if normalize:
