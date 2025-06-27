@@ -1,11 +1,9 @@
-import math
 import time
 from time import time as TIME
 
 import numpy as np
 import torch
 import torch.nn as nn
-from rich.progress import Progress
 from tqdm import tqdm
 
 
@@ -19,9 +17,9 @@ def create_simulation_grid(simulation_struct, device="cpu"):
         simulation_struct["dz"],
     )
 
-    Nx = int((xf - x0) / dx)
-    Ny = int((yf - y0) / dy)
-    Nz = int((zf - z0) / dz)
+    Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
+    Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
+    Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
 
     if Nx % 2 == 0:
         Nx += 1
@@ -193,6 +191,7 @@ class TorchField(nn.Module):
         all_times = events[..., :4].contiguous().view(-1)
         t0 = all_times.min()
         tN = all_times.max()
+        print(f"Time range: {t0} to {tN} seconds.")
         num_samples = int(torch.ceil((tN - t0) * self.fs).item())
         # n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
         P, M, _ = events.shape

@@ -269,7 +269,7 @@ class TorchField(nn.Module):
         self.x = self.y = self.z = None
         print(f"Initialized TorchField on {device}")
 
-    def spatial_impulse_response(self, field_points, batch_size=1024, return_all=False):
+    def spatial_impulse_response(self, field_points, batch_size=100, return_all=False):
         start_time = TIME()
         pts = torch.atleast_2d(
             torch.tensor(field_points, device=self.device, dtype=torch.float32)
@@ -279,6 +279,8 @@ class TorchField(nn.Module):
         # Vectorized distance and direction calculations
         diff = pts.unsqueeze(1) - self.centers.unsqueeze(0)  # (P, M, 3)
         dist = torch.norm(diff, dim=-1)
+
+        max_time = dist.max() / self.c
 
         xp = diff[..., 0] / dist
         yp = diff[..., 1] / dist
@@ -306,17 +308,18 @@ class TorchField(nn.Module):
         all_times = events[..., :4].contiguous().view(-1)
         t0 = all_times.min()
         tN = all_times.max()
+        print(f"Time range: {t0} to {tN}, {max_time}, {max_time > tN} seconds.")
         num_samples = int(torch.ceil((tN - t0) * self.fs).item())
-        n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
+        # n2 = 2 ** max(int(math.ceil(math.log2(num_samples))), 5)
+        P, M, _ = events.shape
+        dt = 1.0 / self.fs
+        # global time axis
+        t_global = t0 + torch.arange(num_samples, device=events.device) * dt
+        h_out = torch.zeros(P, num_samples, device=events.device)
 
         # Optimized accumulation
-        print(f"Accumulating events for {P} points over {n2} time samples.")
+        print(f"Accumulating events for {P} points over {num_samples} time samples.")
         for start in tqdm(range(0, P, batch_size), unit="batch"):
-            P, M, _ = events.shape
-            dt = 1.0 / self.fs
-            # global time axis
-            t_global = t0 + torch.arange(n2, device=events.device) * dt
-            h_out = torch.zeros(P, n2, device=events.device)
             # Process in batches to avoid memory issues
             end = min(start + batch_size, P)
             batch_events = events[start:end]
@@ -324,7 +327,8 @@ class TorchField(nn.Module):
                 continue
             # Accumulate contributions for this batch
             h_batch = accumulate_events_batch(batch_events, t_global)
-            h_out += h_batch
+            h_out[start:end] = h_batch
+            torch.cuda.empty_cache()  # Clear cache to manage memory
         print(f"Accumulation of events elapsed in: {TIME() - events_time:.4f} seconds.")
         print(f"SIR computed in {time.time() - events_time:.2f} seconds")
 

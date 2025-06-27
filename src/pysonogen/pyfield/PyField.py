@@ -3,7 +3,6 @@ from time import time as TIME
 import numpy as np
 import pyvista as pv
 from numba import njit, prange
-from tqdm import tqdm
 
 import pysonogen
 
@@ -327,7 +326,7 @@ class PyField:
 
         return amp_response_tx_freq
 
-    def compute_pressure_field(self, field_info, *, normalize=True, inplace=True):
+    def compute_pressure_field(self, field_info, *, normalize=True, inplace=False):
         """
         Compute the pressure field from the Spatial Impulse Response (SIR).
 
