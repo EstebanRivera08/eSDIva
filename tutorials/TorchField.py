@@ -20,21 +20,17 @@ def create_simulation_grid(simulation_struct, device="cpu"):
     Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
     Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
     Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
-
     if Nx % 2 == 0:
         Nx += 1
     if Ny % 2 == 0:
         Ny += 1
     if Nz % 2 == 0:
         Nz += 1
-
-    x = torch.linspace(x0, xf, Nx, device=device) * 1e-3
-    y = torch.linspace(y0, yf, Ny, device=device) * 1e-3
-    z = torch.linspace(z0, zf, Nz, device=device) * 1e-3
-
+    x = torch.linspace(x0, xf, Nx, device=device)
+    y = torch.linspace(y0, yf, Ny, device=device)
+    z = torch.linspace(z0, zf, Nz, device=device)
     grid = torch.stack(torch.meshgrid(x, y, z, indexing="ij"), dim=-1)
-    grid_points = grid.reshape(-1, 3)
-    return x, y, z, grid_points
+    return x, y, z, grid.reshape(-1, 3) * 1e-3  # Convert to meters
 
 
 # JIT-compiled core event computation
@@ -155,6 +151,16 @@ class TorchField(nn.Module):
         print(f"Initialized TorchField on {device}")
 
     def spatial_impulse_response(self, field_points, batch_size=100, return_all=False):
+        if not isinstance(field_points, torch.Tensor):
+            try:
+                # Only use the grid_points (last element of the tuple)
+                *_, field_points = create_simulation_grid(
+                    field_points, device=self.device
+                )
+            except Exception as e:
+                raise ValueError(
+                    "Invalid field_points input. It should be a numpy array or a dictionary with simulation parameters."
+                ) from e
         start_time = TIME()
         pts = torch.atleast_2d(
             torch.tensor(field_points, device=self.device, dtype=torch.float32)

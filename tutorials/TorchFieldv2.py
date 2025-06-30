@@ -27,12 +27,12 @@ def compute_patch_events_batch(
     t3 = t1 + Dt2
     t4 = t1 + Dt1 + Dt2
     hmax = area * apods / Dt2
-    mask = apods < 1e-3
-    t1.masked_fill_(mask, 0)
-    t2.masked_fill_(mask, 0)
-    t3.masked_fill_(mask, 0)
-    t4.masked_fill_(mask, 0)
-    hmax.masked_fill_(mask, 0)
+    # mask = apods < 1e-3
+    # t1.masked_fill_(mask, 0)
+    # t2.masked_fill_(mask, 0)
+    # t3.masked_fill_(mask, 0)
+    # t4.masked_fill_(mask, 0)
+    # hmax.masked_fill_(mask, 0)
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
 
@@ -46,48 +46,67 @@ def accumulate_events_derivative(
 ) -> torch.Tensor:
     B, M, _ = events.shape
     # Extract and flatten
-    t1 = events[..., 0].reshape(B, -1)
-    t2 = events[..., 1].reshape(B, -1)
-    t3 = events[..., 2].reshape(B, -1)
-    t4 = events[..., 3].reshape(B, -1)
-    hmax = events[..., 4].reshape(B, -1)
+    t1 = events[..., 0].reshape(B, M)
+    t2 = events[..., 1].reshape(B, M)
+    t3 = events[..., 2].reshape(B, M)
+    t4 = events[..., 3].reshape(B, M)
+    hmax = events[..., 4].reshape(B, M)
 
-    # Mask invalid events
-    valid = (hmax > 1e-3) & (t4 > t1)
-    # Precompute indices
-    k1 = ((t1 - t0) / dt).long().clamp(0, T - 1)
-    k2 = ((t2 - t0) / dt).long().clamp(0, T - 1)
-    k3 = ((t3 - t0) / dt).long().clamp(0, T - 1)
-    k4 = ((t4 - t0) / dt).long().clamp(1, T)
+    # Compute slopes
+    s1 = hmax / (t2 - t1 + 1e-12)
+    s2 = hmax / (t4 - t3 + 1e-12)
+
+    # Compute sample indices
+    fs = 1.0 / dt
+    k1 = torch.floor((t1 - t0) * fs).long() + 1
+    k2 = torch.floor((t2 - t0) * fs).long() + 1
+    k3 = torch.ceil((t3 - t0) * fs).long() + 1
+    k4 = torch.ceil((t4 - t0) * fs).long() + 1
+
+    # Clamp indices to valid range [0, T]
+    if t4.min() < t0 or t4.max() > T * dt:
+        raise ValueError("Event times are out of bounds for the given time range.")
 
     # Slopes
     s1 = hmax / (t2 - t1 + 1e-12)
     s2 = hmax / (t4 - t3 + 1e-12)
 
     dH = torch.zeros(B, T, device=events.device)
-    # Flatten for scatter
-    batch_idx = (
-        torch.arange(B, device=events.device).unsqueeze(1).expand(B, M).reshape(-1)
-    )
     # Only include valid events
+    # Mask invalid events
+    valid = t4 > t1
     mask_flat = valid.reshape(-1)
-    # Gather indices & slopes
-    idx1 = batch_idx[mask_flat] * T + k1.reshape(-1)[mask_flat]
-    idx2 = batch_idx[mask_flat] * T + k2.reshape(-1)[mask_flat]
-    idx3 = batch_idx[mask_flat] * T + k3.reshape(-1)[mask_flat]
-    idx4 = batch_idx[mask_flat] * T + k4.reshape(-1)[mask_flat]
-    s1_flat = s1.reshape(-1)[mask_flat]
-    s2_flat = s2.reshape(-1)[mask_flat]
+    idx1 = k1.reshape(-1)[mask_flat]
+    idx2 = k2.reshape(-1)[mask_flat]
+    idx3 = k3.reshape(-1)[mask_flat]
+    idx4 = k4.reshape(-1)[mask_flat]
+    s1f = s1.reshape(-1)[mask_flat]
+    s2f = s2.reshape(-1)[mask_flat]
 
-    # Up-ramp
-    dH.view(-1).index_add_(0, idx1, s1_flat)
-    dH.view(-1).index_add_(0, idx2, -s1_flat)
-    # Down-ramp
-    dH.view(-1).index_add_(0, idx3, -s2_flat)
-    dH.view(-1).index_add_(0, idx4, s2_flat)
-
-    # Integrate
+    # Up-ramp: +s1 at k1, -s1 at k2
+    dH.view(-1).index_add_(0, idx1, s1f)
+    dH.view(-1).index_add_(0, idx2, -s1f)
+    # Down-ramp: -s2 at k3, +s2 at k4
+    dH.view(-1).index_add_(0, idx3, s2f)
+    dH.view(-1).index_add_(0, idx4, -s2f)
     H = torch.cumsum(dH, dim=1) * dt
+    # # Initialize derivative array
+    # dH = torch.zeros(B, T, device=events.device)
+
+    # # Create batch indices
+    # batch_idx = torch.arange(B, device=events.device)[:, None].expand(B, M)
+
+    # # Up-ramp contributions
+    # dH.index_put_((batch_idx, k1), s1, accumulate=True)
+    # dH.index_put_((batch_idx, k2), -s1, accumulate=True)
+
+    # # Down-ramp contributions
+    # dH.index_put_((batch_idx, k3), -s2, accumulate=True)  # Negative slope
+    # dH.index_put_((batch_idx, k4), s2, accumulate=True)  # Positive correction
+
+    # # Integrate to get impulse response
+    # H = torch.cumsum(dH, dim=1) * dt
+
     return H
 
 
@@ -140,7 +159,7 @@ class TorchFieldv2(nn.Module):
         self.apods = torch.tensor(apods, dtype=torch.float32, device=self.device)
         self.delays = torch.tensor(delays, dtype=torch.float32, device=self.device)
 
-    def spatial_impulse_response(self, field_points, batch_size=1024):
+    def spatial_impulse_response(self, field_points, batch_size=1024, return_all=False):
         if not isinstance(field_points, torch.Tensor):
             try:
                 # Only use the grid_points (last element of the tuple)
@@ -162,8 +181,14 @@ class TorchFieldv2(nn.Module):
         dt = 1.0 / self.fs
         t_global = torch.arange(T, device=self.device) * dt
         H = torch.zeros(P, T, device=self.device)
+        print(
+            f"Computing spatial impulse response for {P} points with {self.centers.shape[0]} patches..."
+        )
         with torch.no_grad():
             for i in range(0, P, batch_size):
+                print(
+                    f"Processing batch {i // batch_size + 1} of {math.ceil(P / batch_size)}"
+                )
                 j = min(i + batch_size, P)
                 batch = pts[i:j]
                 diff = batch.unsqueeze(1) - self.centers.unsqueeze(0)
@@ -179,6 +204,9 @@ class TorchFieldv2(nn.Module):
                     self.fs,
                 )
                 H[i:j] = accumulate_events_derivative(events, 0.0, dt, T)
+
+        if return_all:
+            return t_global, H.T, events
         return t_global, H.T
 
     def compute_pr_from_sir(self, h_sir, x, y, z):
