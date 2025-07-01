@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import math
 from time import time as TIME
 
@@ -6,7 +7,7 @@ import torch.nn as nn
 
 
 # JIT-compiled core event computation (unchanged)
-@torch.jit.script
+# @torch.jit.script
 def compute_patch_events_batch(
     wx: float,
     wy: float,
@@ -37,7 +38,7 @@ def compute_patch_events_batch(
 
 
 # Vectorized accumulation via derivative + prefix-sum
-@torch.jit.script
+# @torch.jit.script
 def accumulate_events_derivative(
     events: torch.Tensor,  # [B, M, 5]
     t0: float,
@@ -58,14 +59,17 @@ def accumulate_events_derivative(
 
     # Compute sample indices
     fs = 1.0 / dt
-    k1 = torch.floor((t1 - t0) * fs).long() + 1
-    k2 = torch.floor((t2 - t0) * fs).long() + 1
-    k3 = torch.ceil((t3 - t0) * fs).long() + 1
-    k4 = torch.ceil((t4 - t0) * fs).long() + 1
+    k1 = torch.ceil((t1 - t0) * fs).long()
+    k2 = torch.ceil((t2 - t0) * fs).long()
+    k3 = torch.ceil((t3 - t0) * fs).long()
+    k4 = torch.ceil((t4 - t0) * fs).long()
 
+    print(k1, k2, k3, k4)
     # Slopes
     s1 = hmax / (t2 - t1 + 1e-12)
     s2 = hmax / (t4 - t3 + 1e-12)
+    if (s1 < 0).any() or (s2 < 0).any():
+        raise ValueError("Negative slopes detected in events. Check your input data.")
 
     dH = torch.zeros(B, T, device=events.device)
     # Only include valid events
@@ -74,10 +78,17 @@ def accumulate_events_derivative(
     if not valid.any():
         print(f"Valid events: {valid.sum().item()} out of {B * M}.")
     # mask_flat = valid.reshape(-1)
-    idx1 = k1.reshape(-1)  # [mask_flat]
-    idx2 = k2.reshape(-1)  # [mask_flat]
-    idx3 = k3.reshape(-1)  # [mask_flat]
-    idx4 = k4.reshape(-1)  # [mask_flat]
+    # We are gonna flat the vectors across BATCH and time. Thus, we need to
+    # shift the indices to match the flattened structure.
+
+    batch_flat = (
+        torch.arange(B, device=events.device).unsqueeze(1).expand(B, M).reshape(-1)
+    )
+    base = batch_flat.to(torch.long) * T
+    idx1 = base + k1.reshape(-1)  # [mask_flat]
+    idx2 = base + k2.reshape(-1)  # [mask_flat]
+    idx3 = base + k3.reshape(-1)  # [mask_flat]
+    idx4 = base + k4.reshape(-1)  # [mask_flat]
     s1f = s1.reshape(-1)  # [mask_flat]
     s2f = s2.reshape(-1)  # [mask_flat]
 
@@ -85,10 +96,16 @@ def accumulate_events_derivative(
     dH.view(-1).index_add_(0, idx1, s1f)
     dH.view(-1).index_add_(0, idx2, -s1f)
     # Down-ramp: -s2 at k3, +s2 at k4
-    dH.view(-1).index_add_(0, idx3, s2f)
-    dH.view(-1).index_add_(0, idx4, -s2f)
-    H = torch.cumsum(dH, dim=1) * dt
+    dH.view(-1).index_add_(0, idx3, -s2f)
+    dH.view(-1).index_add_(0, idx4, s2f)
 
+    # after stamping dH[ :, 0…T-1 ]
+    # 1) compute left?shifted derivative, with zero at t<0
+    dH_left = torch.cat([torch.zeros(B, 1, device=dH.device), dH[:, :-1]], dim=1)
+    # 2) average
+    dH_tri = (dH + dH_left) * 0.5
+    # 3) cumulative sum
+    H = torch.cumsum(dH_tri, dim=1) * dt
     return H
 
 
@@ -124,7 +141,7 @@ class TorchFieldv2(nn.Module):
         self.device = torch.device(device)
         self.tx = transducer
         self.c = 1540.0
-        self.fs = 300e6
+        self.fs = 400e6
         self.fc = transducer.fc
         self.wx = transducer.el_w / transducer.no_sub_x
         self.wy = transducer.el_h / transducer.no_sub_y
@@ -165,10 +182,10 @@ class TorchFieldv2(nn.Module):
         max_time = (
             max_d / self.c + self.delays.max() + 0.5 * (self.wx + self.wy) / self.c
         )
-        # min_time = (
-        #     min_d / self.c + self.delays.min() - 0.5 * (self.wx + self.wy) / self.c
-        # )
-        min_time = 0
+        min_time = (
+            min_d / self.c + self.delays.min() - 0.5 * (self.wx + self.wy) / self.c
+        )
+        # min_time = 0
         print(f"Time range: {min_time:.6f} to {max_time:.6f} seconds.")
         T = int(math.ceil((max_time - min_time) * self.fs))
         dt = 1.0 / self.fs

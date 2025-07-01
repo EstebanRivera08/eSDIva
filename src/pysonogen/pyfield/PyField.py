@@ -275,7 +275,7 @@ class PyField:
         dt = 1.0 / self.fs
         num_samples = int(np.ceil((tN - t0) * self.fs))
         # next power of two
-        n2 = 2 ** max(int(np.ceil(np.log2(num_samples))) - 1, 5)
+        n2 = 2 ** max(int(np.ceil(np.log2(num_samples))), 5)
         t_global = t0 + np.arange(n2, dtype=np.float32) * dt
         h_out = np.zeros((P, n2), dtype=np.float32)
         # tqdm.write("Accumulating SIR from events...")
