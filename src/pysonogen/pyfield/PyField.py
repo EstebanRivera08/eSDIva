@@ -273,7 +273,7 @@ class PyField:
         t0, tN = all_times[0], all_times[-1]
         # create sampling grid
         dt = 1.0 / self.fs
-        num_samples = int(np.ceil((tN - t0) * self.fs))
+        num_samples = int(np.ceil((tN - t0) * self.fs)) if tN > t0 else 1
         # next power of two
         n2 = 2 ** max(int(np.ceil(np.log2(num_samples))), 5)
         t_global = t0 + np.arange(n2, dtype=np.float32) * dt

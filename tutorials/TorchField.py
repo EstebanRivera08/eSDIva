@@ -23,10 +23,8 @@ def compute_patch_events_batch(
     # Compute times in seconds, then convert to microseconds
     xp = diff[..., 0] / dist  # unitless
     yp = diff[..., 1] / dist  # unitless
-    print(f"distances: {dist}, diff: {diff}, delays: {delays}, apods: {apods}")
     Dt1 = torch.min((wx * xp / c).abs(), (wy * yp / c).abs()).clamp(min=1 / fs)  # us
-    Dt2 = torch.max((wx * xp / c).abs(), (wy * yp / c).abs()).clamp(min=1 / fs)  # us
-    print(f"Dt1: {Dt1}, Dt2: {Dt2}, wx: {wx}, wy: {wy}, c: {c}, fs: {fs}")
+    Dt2 = torch.max((wx * xp / c).abs(), (wy * yp / c).abs()).clamp(min=2 / fs)  # us
     area = (wx * wy) / (2 * math.pi * dist)  # um (or unit)
     # Build event times in μs relative to t0
     t1 = (dist / c) - 0.5 * (Dt1 + Dt2) + delays  # us (or unit)
@@ -34,7 +32,10 @@ def compute_patch_events_batch(
     t3 = t1 + Dt2  # us (or unit)
     t4 = t1 + (Dt1 + Dt2)  # us (or unit)
     hmax = area * apods / Dt2  # space_unit/time_unit (m/s)
-    print(f"dt = {1 / fs}, t1: {t1}, t2: {t2}, t3: {t3}, t4: {t4}, hmax: {hmax}")
+
+    # print(f"distances: {dist}, diff: {diff}, delays: {delays}, apods: {apods}")
+    # print(f"Dt1: {Dt1}, Dt2: {Dt2}, wx: {wx}, wy: {wy}, c: {c}, fs: {fs}")
+    # print(f"dt = {1 / fs}, t1: {t1}, t2: {t2}, t3: {t3}, t4: {t4}, hmax: {hmax}")
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
 
@@ -58,28 +59,27 @@ def accumulate_events_derivative(
     hmax = events[..., 4].reshape(-1)
 
     # compute slopes
+    # Note: the min dt admitted is 1/fs (we clamp Dt1 and Dt2 to this value)
+    # so at the highest frequency, the slope is hmax / (1/fs) = hmax * fs
     s1 = hmax / (t2 - t1)
     s2 = hmax / (t4 - t3)
 
-    # bin indices WITHOUT the +1 shift
-    idx_t1 = torch.ceil((t1 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t2 = torch.ceil((t2 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t3 = torch.floor((t3 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t4 = torch.floor((t4 - t0_us) / dt_us).long().clamp(0, T - 1)
-    # Debugging output printing to check indices
-    print("idx_t1:", idx_t1)
-    print("idx_t2:", idx_t2)
-    print("idx_t3:", idx_t3)
-    print("idx_t4:", idx_t4)
-    critere1 = idx_t2 >= idx_t1
-    critere2 = idx_t3 >= idx_t2
-    critere3 = idx_t4 >= idx_t3
-    if not critere1.any():
-        print("critere1:", critere1)
-    elif not critere2.any():
-        print("critere2:", critere2)
-    elif not critere3.any():
-        print("critere3:", critere3)
+    # Since we created the events taking this min(Dt1, Dt2) = 1/fs into account,
+    # we can counter this artificial artificial increase (to avoid numerical issues)
+    # by computing the indexes of t1 and t3 with ceil and t2 and t4 with floor.
+    # This ensures that we are accumulating the events in the correct time bins.
+    idx_t1 = torch.ceil((t1 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+    idx_t2 = torch.floor((t2 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+    idx_t3 = torch.ceil((t3 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+    idx_t4 = torch.floor((t4 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+
+    # PROBLEMS:
+    # 1) However, when the patch is close to the point and Dt1, Dt2 -> 1/fs,
+    # t1 and t2 index are the same, as well as t3 and t4, and we end up
+    # summing twice the same slope in the same time bin.
+    # 2) Also, there are slightly cases where the bins ends up shifting
+    # by one index. Again, is a problem of indexation, so we need to
+    # ensure that we are accumulating the events in the correct time bins.
 
     # batch indices
     batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
@@ -87,15 +87,29 @@ def accumulate_events_derivative(
     # build derivative accumulator
     dH = torch.zeros(B, T, device=device)
 
-    # CORRECTED signs for the four jumps:
-    dH.index_put_((batch_idx, idx_t1), +s1, accumulate=True)
-    dH.index_put_((batch_idx, idx_t2), -s1, accumulate=True)
-    dH.index_put_((batch_idx, idx_t3), -s2, accumulate=True)
-    dH.index_put_((batch_idx, idx_t4), +s2, accumulate=True)
+    # What we want is to make t1:t2 the value of s1, and t3:t4 the value of -s2.
 
+    # PROBLEMS ON THE ACTUAL CODE:
+    # Here we set directly the values of the slopes in t1 and t2.
+    # 1) When the patch is close to the point, and both t1 and t2 indexes
+    # are the same, we end up summing twice the same slope in the same bin.
+    # 2) When the patch is far from the point, and t1 and t2 indexes are
+    # spaced by more than one sample, just setting t1 and t2 to s1 is not enough,
+    # since we need to ensure that the slope is correctly distributed within the
+    # t1 and t2 time bins. The same applies to t3 and t4 with -s2.
+    dH.index_put_((batch_idx, idx_t1), +s1, accumulate=True)
+    dH.index_put_((batch_idx, idx_t2), +s1, accumulate=True)
+    dH.index_put_((batch_idx, idx_t3), -s2, accumulate=True)
+    dH.index_put_((batch_idx, idx_t4), -s2, accumulate=True)
+
+    # Debugging output printing to check indices
+    print("idx_t1:", idx_t1)
+    print("idx_t2:", idx_t2)
+    print("idx_t3:", idx_t3)
+    print("idx_t4:", idx_t4)
+    # print("s1:", s1, "s2:", s2)
     # integrate by cumsum
-    H = torch.cumsum(dH, dim=1) * dt_us
-    return H
+    return torch.cumsum(dH, dim=1) * dt_us  # [B, T]
 
 
 def create_simulation_grid(simulation_struct, device="cpu"):
@@ -151,18 +165,19 @@ class TorchField(nn.Module):
             np.array(centers) * self.space_m_to_unit,
             dtype=torch.float32,
             device=self.device,
-        )  # um
+        )  # um (or unit)
         self.apods = torch.tensor(apods, dtype=torch.float32, device=self.device)
         self.delays = torch.tensor(
             np.array(delays) * self.time_sec_to_unit,
             dtype=torch.float32,
             device=self.device,
-        )  # us
+        )  # us (or unit)
 
     # --- Full spatial_impulse_response using μs units ---
     def spatial_impulse_response(
         self, field_points_m, batch_size=1024, return_all=False
     ):
+        start_time = TIME()
         if not isinstance(field_points_m, torch.Tensor):
             *_, field_points_m = create_simulation_grid(
                 field_points_m, device=self.device
@@ -178,8 +193,7 @@ class TorchField(nn.Module):
             )  # um - um (or unit)
             max_d = dists.max().item()  # um (or unit)
             min_d = dists.min().item()  # um (or unit)
-        print("centers:", self.centers)
-        print(f"Max distance (um): {max_d}, Min distance (um): {min_d}")
+
         max_time_us = (
             max_d / self.space_m_to_unit / self.c
             + self.delays.max() / self.time_sec_to_unit
@@ -195,7 +209,12 @@ class TorchField(nn.Module):
         print(f"dt (us): {dt_us}")
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
         t_global = min_time_us + torch.arange(T, device=self.device) * dt_us
-        print(f"wx: {self.wx}, wy: {self.wy}, c: {self.c}, fs: {self.fs}")
+
+        # For debugging purposes, print the centers and distances
+        # print("centers:", self.centers)
+        # print(f"Max distance (um): {max_d}, Min distance (um): {min_d}")
+        # print(f"wx: {self.wx}, wy: {self.wy}, c: {self.c}, fs: {self.fs}")
+
         H = torch.zeros(P, T, device=self.device)
         with torch.no_grad():
             for i in range(0, P, batch_size):
@@ -224,7 +243,9 @@ class TorchField(nn.Module):
                 )
                 # Correct call with t0_us
                 H[i:j] = accumulate_events_derivative(events, min_time_us, dt_us, T)
-
+        print(
+            f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds."
+        )
         if return_all:
             return (
                 t_global / self.time_sec_to_unit,
@@ -238,16 +259,20 @@ class TorchField(nn.Module):
 
     def compute_pr_from_sir(self, h_sir, x, y, z):
         n_time = h_sir.shape[0]
-        grid_shape = (len(y), len(x), len(z))
-        h4d = h_sir.T.view(-1, *grid_shape).permute(1, 2, 3, 0)
+        grid_shape = (len(x), len(y), len(z))
+        print(f"Grid shape: {grid_shape}, n_time: {n_time}")
+        print(f"Shape of h_sir: {h_sir.shape}")
+        h4d = h_sir.T.view(-1, *grid_shape).permute(2, 1, 3, 0)
+        print(f"Shape of h4d: {h4d.shape}")
         fft = torch.fft.fft(h4d, dim=-1)
         freqs = torch.fft.fftfreq(n_time, d=1 / self.fs, device=self.device)
         idx = torch.argmin((freqs - self.fc).abs())
+        print(f"Looking for fc: {self.fc} Hz, found freqs: {freqs[idx]}")
         return fft.abs()[..., idx]
 
-    def forward(self, field_info, normalize=False):
+    def forward(self, field_info, batch_size=1024, normalize=False):
         x, y, z, pts = create_simulation_grid(field_info, self.device)
-        t, h = self.spatial_impulse_response(pts)
+        t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
         pr = self.compute_pr_from_sir(h, x, y, z)
         if normalize:
             pr = pr / pr.max()

@@ -71,7 +71,6 @@ def accumulate_events_derivative(
     )
 
     # sum over patches
-    print(H.shape)
     return H.sum(dim=1)
 
 
@@ -161,8 +160,6 @@ class TorchFieldv3(nn.Module):
         with torch.no_grad():
             for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
                 j = min(i + batch_size, P)
-
-                print(i, j)
                 batch = pts[i:j]
                 diff = batch.unsqueeze(1) - self.centers.unsqueeze(0)
                 dist = diff.norm(dim=-1)
