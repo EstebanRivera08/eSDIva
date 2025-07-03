@@ -183,7 +183,7 @@ class TorchFieldv3(nn.Module):
     def compute_pr_from_sir(self, h_sir, x, y, z):
         n_time = h_sir.shape[0]
         grid_shape = (len(y), len(x), len(z))
-        h4d = h_sir.T.view(-1, *grid_shape).permute(1, 2, 3, 0)
+        h4d = h_sir.T.view(-1, *grid_shape).permute(1, 3, 2, 0)
         fft = torch.fft.fft(h4d, dim=-1)
         freqs = torch.fft.fftfreq(n_time, d=1 / self.fs, device=self.device)
         idx = torch.argmin((freqs - self.fc).abs())
