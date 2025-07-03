@@ -68,18 +68,10 @@ def accumulate_events_derivative(
     # we can counter this artificial artificial increase (to avoid numerical issues)
     # by computing the indexes of t1 and t3 with ceil and t2 and t4 with floor.
     # This ensures that we are accumulating the events in the correct time bins.
-    idx_t1 = torch.ceil((t1 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
-    idx_t2 = torch.floor((t2 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
-    idx_t3 = torch.ceil((t3 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
-    idx_t4 = torch.floor((t4 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
-
-    # PROBLEMS:
-    # 1) However, when the patch is close to the point and Dt1, Dt2 -> 1/fs,
-    # t1 and t2 index are the same, as well as t3 and t4, and we end up
-    # summing twice the same slope in the same time bin.
-    # 2) Also, there are slightly cases where the bins ends up shifting
-    # by one index. Again, is a problem of indexation, so we need to
-    # ensure that we are accumulating the events in the correct time bins.
+    idx_t1 = torch.floor((t1 - t0_us) / dt_us).long().clamp(0, T - 1)
+    idx_t2 = torch.floor((t2 - t0_us) / dt_us).long().clamp(0, T - 1)
+    idx_t3 = torch.ceil((t3 - t0_us) / dt_us).long().clamp(0, T - 1)
+    idx_t4 = torch.floor((t4 - t0_us) / dt_us).long().clamp(0, T - 1)
 
     # batch indices
     batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
@@ -89,27 +81,35 @@ def accumulate_events_derivative(
 
     # What we want is to make t1:t2 the value of s1, and t3:t4 the value of -s2.
 
-    # PROBLEMS ON THE ACTUAL CODE:
-    # Here we set directly the values of the slopes in t1 and t2.
-    # 1) When the patch is close to the point, and both t1 and t2 indexes
-    # are the same, we end up summing twice the same slope in the same bin.
-    # 2) When the patch is far from the point, and t1 and t2 indexes are
-    # spaced by more than one sample, just setting t1 and t2 to s1 is not enough,
-    # since we need to ensure that the slope is correctly distributed within the
-    # t1 and t2 time bins. The same applies to t3 and t4 with -s2.
     dH.index_put_((batch_idx, idx_t1), +s1, accumulate=True)
     dH.index_put_((batch_idx, idx_t2), +s1, accumulate=True)
     dH.index_put_((batch_idx, idx_t3), -s2, accumulate=True)
     dH.index_put_((batch_idx, idx_t4), -s2, accumulate=True)
 
     # Debugging output printing to check indices
-    print("idx_t1:", idx_t1)
-    print("idx_t2:", idx_t2)
-    print("idx_t3:", idx_t3)
-    print("idx_t4:", idx_t4)
+    # print("idx_t1:", idx_t1)
+    # print("idx_t2:", idx_t2)
+    # print("idx_t3:", idx_t3)
+    # print("idx_t4:", idx_t4)
     # print("s1:", s1, "s2:", s2)
-    # integrate by cumsum
-    return torch.cumsum(dH, dim=1) * dt_us  # [B, T]
+
+    # PROBLEMS ON THE ACTUAL CODE:
+    # Here, what I wanted to do was to set the values of the slopes between
+    # t1 and t2 to s1, and between t3 and t4 to -s2.
+    # However, I realized that is actually setting the values of the slopes
+    # at the indexes t1 and t2 to s1, and at the indexes t3 and t4 to -s2.
+    # Which lead to two problems:
+    # 1) When the patch is close to the point, Dt1, Dt2 -> 1/fs,
+    # t1 and t2 index are the same, as well as t3 and t4, and we end up
+    # summing twice the s1 in the same time bin.
+    # are the same, we end up summing twice the same slope in the same bin.
+    # 2) When the patch is far from the point, and t1 and t2 indexes are
+    # spaced by more than one sample, just setting t1 and t2 to s1 is not enough,
+    # since we need to ensure that the slope is correctly distributed within the
+    # t1 and t2 time bins. The same applies to t3 and t4 with -s2.
+
+    # we integrate the derivative to get the impulse response
+    return dH  # torch.cumsum(dH, dim=1) * dt_us  # [B, T]
 
 
 def create_simulation_grid(simulation_struct, device="cpu"):
