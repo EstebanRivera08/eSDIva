@@ -33,12 +33,6 @@ def compute_patch_events_batch(
     t4 = t1 + (Dt1 + Dt2)  # us (or unit)
     hmax = area * apods / Dt2.clamp(min=1 / fs)  # space_unit/time_unit (m/s)
 
-    # Now we compute hmax*Dt2, since we haven't clamped Dt2 we still don't deal with
-    # the case where Dt2 is too small, so we can use it directly.
-
-    # print(f"distances: {dist}, diff: {diff}, delays: {delays}, apods: {apods}")
-    # print(f"Dt1: {Dt1}, Dt2: {Dt2}, wx: {wx}, wy: {wy}, c: {c}, fs: {fs}")
-    # print(f"dt = {1 / fs}, t1: {t1}, t2: {t2}, t3: {t3}, t4: {t4}, hmax: {hmax}")
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
 
@@ -92,33 +86,25 @@ def accumulate_events_derivative(
     # by computing the indexes of t1 and t3 with ceil and t2 and t4 with floor.
     # This ensures that we are accumulating the events in the correct time bins.
     # t = torch.arange(T, device=device) * dt_us + t0_us  # [T] in μs (or unit)
-    idx_t1 = torch.ceil((t1 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t2 = torch.ceil((t2 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t3 = torch.ceil((t3 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t4 = torch.ceil((t4 - t0_us) / dt_us).long().clamp(0, T - 1)
+    idx_t1 = torch.floor((t1 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+    idx_t2 = torch.ceil((t2 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+    idx_t3 = torch.floor((t3 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+    idx_t4 = torch.ceil((t4 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
+
+    diff_idx_rampup = idx_t2 - idx_t1  # [B, M]
+    diff_idx_rampdown = idx_t4 - idx_t3  # [B, M]
+
+    # We make sure that the up and down ramps are the same length
+    # If the samples of the rampdown are shorter than the rampup,
+    # the difference is negative, and then will be positive.
+
+    idx_t4 = idx_t4 - (diff_idx_rampdown - diff_idx_rampup)
 
     # batch indices
     batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
 
     # build derivative accumulator
     d2H = torch.zeros(B, T, device=device)
-    # print(case1)
-    # print(case2)
-    # print("d2H shape:", d2H.shape)
-    # print("batch_idx shape:", batch_idx.shape)
-    # print(
-    #     "Idx t1:", idx_t1, "\nIdx t2:", idx_t2, "\nIdx t3:", idx_t3, "\nIdx t4:", idx_t4
-    # )
-    # # print("case1:", case1.shape, "case2:", case2.shape, "case3:", case3.shape)
-    # print(
-    #     "sum of case1:",
-    #     case1.sum(),
-    #     "sum of case2:",
-    #     case2.sum(),
-    #     "sum of case3:",
-    #     case3.sum(),
-    # )
-    # print("case 2:", case2)
 
     # Case 1: trapezoid events
     if case1.any():
@@ -126,24 +112,16 @@ def accumulate_events_derivative(
         d2H.index_put_((batch_idx[case1], idx_t2[case1]), -s1[case1], accumulate=True)
         d2H.index_put_((batch_idx[case1], idx_t3[case1]), -s2[case1], accumulate=True)
         d2H.index_put_((batch_idx[case1], idx_t4[case1]), +s2[case1], accumulate=True)
-        print("Case 1: trapezoid events detected, added s1 and s2 at t1, t2, t3, t4.")
 
-    # avoid_shift = torch.zeros(T, dtype=torch.bool, device=device)
-    # avoid_shift = (t - t4)
-
-    # if case2.any():
-    #     d2H.index_put_((batch_idx[case2], idx_t1[case2]), +s1[case2], accumulate=True)
-    #     d2H.index_put_(
-    #         (batch_idx[case2], (idx_t1[case2] + 1)), -s1[case2], accumulate=True
-    #     )
-    #     d2H.index_put_((batch_idx[case2], (idx_t4[case2])), -s2[case2], accumulate=True)
-    #     d2H.index_put_(
-    #         (batch_idx[case2], idx_t4[case2] + 1), +s2[case2], accumulate=True
-    #     )
-    #     print(
-    #         "Case 2: trapezoid events with Dt1 < 1/fs detected, added s1 and s2 at t1, t2, t3, t4."
-    #     )
-
+    if case2.any():
+        d2H.index_put_((batch_idx[case2], idx_t1[case2]), +s1[case2], accumulate=True)
+        d2H.index_put_(
+            (batch_idx[case2], (idx_t1[case2] + 1)), -s1[case2], accumulate=True
+        )
+        d2H.index_put_(
+            (batch_idx[case2], (idx_t4[case2] - 1)), -s2[case2], accumulate=True
+        )
+        d2H.index_put_((batch_idx[case2], idx_t4[case2]), +s2[case2], accumulate=True)
     # Case 2: trapezoid events with Dt1 < 1/fs
     dH = torch.cumsum(d2H, dim=1) * dt_us  # [B, T]
 
@@ -154,24 +132,8 @@ def accumulate_events_derivative(
         H.index_put_(
             (batch_idx[case3], idx_t2[case3]), hmax[case3], accumulate=True
         )  # For delta events, we just add the hmax value at t2
-        print("Case 3: delta events detected, added hmax at t2.")
-    # print("H shape:", H.shape)
-    # print("d2H shape:", d2H.shape)
-    # print("indexes:", idx_t1.shape, idx_t2.shape, idx_t3.shape, idx_t4.shape)
-    # print("h_max shape:", hmax.shape)
-    # print("idx Dt1:", idx_t2 - idx_t1)
-    # print("idx Dt2:", idx_t4 - idx_t2)
-    # print("idx t4-t3:", idx_t4 - idx_t3)
-    # print("s1:", s1.shape, "s2:", s2.shape)
-    # print("is_delta:", case3)
-    print(t4[138])
-    # print("is_trapezoid:", is_trapezoid)
 
-    # Debugging output printing to check indices
-    # print("s1:", s1, "s2:", s2)
-
-    # we integrate the derivative to get the impulse response
-    return H.clamp(min=0)  # [B, T] in μs (or unit)
+    return H
 
 
 def create_simulation_grid(simulation_struct, device="cpu"):
@@ -206,7 +168,7 @@ class TorchFieldv4(nn.Module):
         self.device = torch.device(device)
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
-        self.fs = 1000e6  # Sampling frequency in Hz
+        self.fs = 300e6  # Sampling frequency in Hz
         self.fc = transducer.fc
         self.time_sec_to_unit = 1e9  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
@@ -324,7 +286,7 @@ class TorchFieldv4(nn.Module):
         grid_shape = (len(x), len(y), len(z))
         print(f"Grid shape: {grid_shape}, n_time: {n_time}")
         print(f"Shape of h_sir: {h_sir.shape}")
-        h4d = h_sir.T.view(-1, *grid_shape).permute(3, 1, 2, 0)
+        h4d = h_sir.view(-1, *grid_shape).permute(1, 2, 3, 0)
         print(f"Shape of h4d: {h4d.shape}")
         fft = torch.fft.fft(h4d, dim=-1)
         freqs = torch.fft.fftfreq(n_time, d=1 / self.fs, device=self.device)
@@ -333,7 +295,9 @@ class TorchFieldv4(nn.Module):
         return fft.abs()[..., idx]
 
     def forward(self, field_info, batch_size=1024, normalize=False):
+        print("hhola")
         x, y, z, pts = create_simulation_grid(field_info, self.device)
+        print("created")
         t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
         pr = self.compute_pr_from_sir(h, x, y, z)
         if normalize:
