@@ -44,6 +44,7 @@ def accumulate_events_derivative(
     t0_us: float,  # Global start time in μs
     dt_us: float,  # sample interval in μs
     T: int,  # number of time bins
+    t: Tensor,
 ) -> Tensor:
     B, M, _ = events.shape
     device = events.device
@@ -73,13 +74,10 @@ def accumulate_events_derivative(
     Dt2 = t4 - t2  # us (or unit)
 
     case3 = Dt2.abs() < 2 * dt_us  # Check if Dt2 is
-    case2 = Dt1.abs() < dt_us  # Check if Dt1 is too small (close to zero)
+    case2 = Dt1.abs() < dt_us / 2  # Check if Dt1 is too small (close to zero)
     case2 = case2 & ~case3  # Case 2: trapezoid events with Dt1 < 1/fs and Dt2 >= 2/fs
     case1 = ~case2 & ~case3  # Case 1: trapezoid events
     # is_trapezoid = case1 | case2  # Case 1 and 2: trapezoid events
-
-    s1 = hmax / (t2 - t1).clamp(min=dt_us)  # us (or unit)
-    s2 = hmax / (t4 - t3).clamp(min=dt_us)  # us (or unit)
 
     # Since we created the events taking this min(Dt1, Dt2) = 1/fs into account,
     # we can counter this artificial artificial increase (to avoid numerical issues)
@@ -91,14 +89,25 @@ def accumulate_events_derivative(
     idx_t3 = torch.floor((t3 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
     idx_t4 = torch.ceil((t4 - t0_us) / dt_us + 1).long().clamp(0, T - 1)
 
-    diff_idx_rampup = idx_t2 - idx_t1  # [B, M]
-    diff_idx_rampdown = idx_t4 - idx_t3  # [B, M]
+    diff_rampdown_rampup = (idx_t4 - idx_t3) - (idx_t2 - idx_t1)  # [B, M]
+    # selected_idx = range((64) * 2, (64 + 5) * 2)
+    # print("selected idx: ", selected_idx)
+    # print(f"diff_rampdown_rampup: {diff_rampdown_rampup[selected_idx]}")
+    # print(
+    #     f"case 1 : {case1[selected_idx]}, case 2 : {case2[selected_idx]} case 3 : {case3[selected_idx]}"
+    # )
+    # print(dt_us)
+    # print(t1[selected_idx], t2[selected_idx], t3[selected_idx], t4[selected_idx])
+    # print(Dt1[selected_idx])
 
     # We make sure that the up and down ramps are the same length
     # If the samples of the rampdown are shorter than the rampup,
     # the difference is negative, and then will be positive.
+    hmax = hmax * (t2 - t1).clamp(min=dt_us) / (t[idx_t2] - t[idx_t1])
+    s1 = hmax / (t2 - t1).clamp(min=dt_us)  # us (or unit)
+    s2 = hmax / (t4 - t3).clamp(min=dt_us)  # us (or unit)
 
-    idx_t4 = idx_t4 - (diff_idx_rampdown - diff_idx_rampup)
+    idx_t4 = idx_t4 - (diff_rampdown_rampup)
 
     # batch indices
     batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
@@ -113,21 +122,18 @@ def accumulate_events_derivative(
         d2H.index_put_((batch_idx[case1], idx_t3[case1]), -s2[case1], accumulate=True)
         d2H.index_put_((batch_idx[case1], idx_t4[case1]), +s2[case1], accumulate=True)
 
+    # Case 2: trapezoid events with Dt1 < 1/fs
     if case2.any():
         d2H.index_put_((batch_idx[case2], idx_t1[case2]), +s1[case2], accumulate=True)
-        d2H.index_put_(
-            (batch_idx[case2], (idx_t1[case2] + 1)), -s1[case2], accumulate=True
-        )
-        d2H.index_put_(
-            (batch_idx[case2], (idx_t4[case2] - 1)), -s2[case2], accumulate=True
-        )
+        d2H.index_put_((batch_idx[case2], (idx_t2[case2])), -s1[case2], accumulate=True)
+        d2H.index_put_((batch_idx[case2], (idx_t3[case2])), -s2[case2], accumulate=True)
         d2H.index_put_((batch_idx[case2], idx_t4[case2]), +s2[case2], accumulate=True)
-    # Case 2: trapezoid events with Dt1 < 1/fs
-    dH = torch.cumsum(d2H, dim=1) * dt_us  # [B, T]
 
-    # Case 3: delta events
+    dH = torch.cumsum(d2H, dim=1)  # [B, T]
+
     H = torch.cumsum(dH, dim=1) * dt_us  # [B, T]
 
+    # Case 3: delta events
     if case3.any():
         H.index_put_(
             (batch_idx[case3], idx_t2[case3]), hmax[case3], accumulate=True
@@ -168,7 +174,7 @@ class TorchFieldv4(nn.Module):
         self.device = torch.device(device)
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
-        self.fs = 300e6  # Sampling frequency in Hz
+        self.fs = 400e6  # Sampling frequency in Hz
         self.fc = transducer.fc
         self.time_sec_to_unit = 1e9  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
@@ -228,9 +234,7 @@ class TorchFieldv4(nn.Module):
             + self.delays.min() / self.time_sec_to_unit
             - min(self.wx, self.wy) / self.space_m_to_unit / self.c
         ) * self.time_sec_to_unit  # us (or unit)
-        print(f"Max time (us): {max_time_us}, Min time (us): {min_time_us}")
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
-        print(f"dt (us): {dt_us}")
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
         t_global = min_time_us + torch.arange(T, device=self.device) * dt_us
 
@@ -266,7 +270,9 @@ class TorchFieldv4(nn.Module):
                     / self.time_sec_to_unit,  # Convert fs to MHz for computation
                 )
                 # Correct call with t0_us
-                H[i:j] = accumulate_events_derivative(events, min_time_us, dt_us, T)
+                H[i:j] = accumulate_events_derivative(
+                    events, min_time_us, dt_us, T, t_global
+                )
         print(
             f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds."
         )
@@ -294,10 +300,8 @@ class TorchFieldv4(nn.Module):
         print(f"Looking for fc: {self.fc} Hz, found freqs: {freqs[idx]}")
         return fft.abs()[..., idx]
 
-    def forward(self, field_info, batch_size=1024, normalize=False):
-        print("hhola")
+    def forward(self, field_info, batch_size=1024, normalize=True):
         x, y, z, pts = create_simulation_grid(field_info, self.device)
-        print("created")
         t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
         pr = self.compute_pr_from_sir(h, x, y, z)
         if normalize:
