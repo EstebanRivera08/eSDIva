@@ -1,10 +1,9 @@
 import numpy as np
-import torch
-from TorchField import TorchField
-
 import pysonogen
 import pysonogen.transducers as Transducers
+import torch
 from pysonogen import pyfield
+from TorchField import TorchField
 
 # print(torch.__version__)
 # print(torch.version.cuda)
@@ -16,6 +15,8 @@ if torch.cuda.is_available():
 else:
     print("No GPU available, running on CPU. May be slow.")
     device = torch.device("cpu")
+
+device = torch.device("cpu")
 
 print(Transducers.available_transducers())
 
