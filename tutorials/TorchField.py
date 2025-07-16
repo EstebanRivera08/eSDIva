@@ -5,11 +5,13 @@ from time import time as TIME
 import numpy as np
 import torch
 import torch.nn as nn
+import torch.profiler
 from torch import Tensor
+from tqdm import tqdm
 
 
 # --- JIT-compiled core event computation (unchanged, but output in μs) ---
-# @torch.jit.script
+@torch.jit.script
 def compute_patch_events_batch(
     wx: float,  # um (or unit)
     wy: float,  # um (or unit)
@@ -17,99 +19,136 @@ def compute_patch_events_batch(
     dist: Tensor,  # [B, M] in um (or unit)
     delays: Tensor,  # [B, M] in us (or unit)
     apods: Tensor,  # [B, M] in unitless
-    c: float,  # Speed of sound in m/s = um/us
-    fs: float,  # Sampling frequency in MHz for computation
+    inv_c: float,  # Speed of sound in m/s = um/us
+    inv_fs: float,  # Sampling frequency in MHz for computation
 ) -> Tensor:
     # Compute times in seconds, then convert to microseconds
     xp = diff[..., 0] / dist  # unitless
     yp = diff[..., 1] / dist  # unitless
-    Dt1 = torch.min((wx * xp / c).abs(), (wy * yp / c).abs()).clamp(min=1 / fs)  # us
-    Dt2 = torch.max((wx * xp / c).abs(), (wy * yp / c).abs()).clamp(min=2 / fs)  # us
+    xp_abs = torch.abs(xp) * wx * inv_c
+    yp_abs = torch.abs(yp) * wy * inv_c
+    Dt1 = torch.min(xp_abs, yp_abs)  # us
+    Dt2 = torch.max(xp_abs, yp_abs)  # us
     area = (wx * wy) / (2 * math.pi * dist)  # um (or unit)
     # Build event times in μs relative to t0
-    t1 = (dist / c) - 0.5 * (Dt1 + Dt2) + delays  # us (or unit)
+    t1 = (dist * inv_c) - 0.5 * (Dt1 + Dt2) + delays  # us (or unit)
     t2 = t1 + Dt1  # us (or unit)
     t3 = t1 + Dt2  # us (or unit)
     t4 = t1 + (Dt1 + Dt2)  # us (or unit)
-    hmax = area * apods / Dt2  # space_unit/time_unit (m/s)
+    hmax = area * apods / Dt2.clamp(min=inv_fs)  # space_unit/time_unit (m/s)
 
-    # print(f"distances: {dist}, diff: {diff}, delays: {delays}, apods: {apods}")
-    # print(f"Dt1: {Dt1}, Dt2: {Dt2}, wx: {wx}, wy: {wy}, c: {c}, fs: {fs}")
-    # print(f"dt = {1 / fs}, t1: {t1}, t2: {t2}, t3: {t3}, t4: {t4}, hmax: {hmax}")
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
 
 # --- Improved accumulation via index_put to ensure correct spatial placement ---
-# @torch.jit.script
 # @torch.jit.script
 def accumulate_events_derivative(
     events: Tensor,  # [B, M, 5]
     t0_us: float,  # Global start time in μs
     dt_us: float,  # sample interval in μs
     T: int,  # number of time bins
+    t: Tensor,
 ) -> Tensor:
     B, M, _ = events.shape
     device = events.device
 
     # flatten
-    t1 = events[..., 0].reshape(-1)
+    t1 = events[..., 0].reshape(-1)  # us (or unit)  [B]
     t2 = events[..., 1].reshape(-1)
     t3 = events[..., 2].reshape(-1)
     t4 = events[..., 3].reshape(-1)
     hmax = events[..., 4].reshape(-1)
 
-    # compute slopes
-    # Note: the min dt admitted is 1/fs (we clamp Dt1 and Dt2 to this value)
-    # so at the highest frequency, the slope is hmax / (1/fs) = hmax * fs
-    s1 = hmax / (t2 - t1)
-    s2 = hmax / (t4 - t3)
+    # We have 3 different cases when integrating from the deltas to compute the
+    # trapezoidal impulse response.
+    # 1. Dt2 > Dt1 >= 1/fs => Dt2 >= 2/fs : This is a trapezoid that could be created
+    # with the temporal resolution of the system and the derivative method. Thus, we
+    # can create the second derivative setting the impulses at t1, t2, t3, t4.
+    # [d2H/dt2 = s1*dirac(t-t1) - s1*dirac(t-t2) - s1*dirac(t-t3) + s1*dirac(t-t4)],
+    # thus after integrating we get dH/dt = s1*u(t-t1) -s1*u(t-t2) - s2*u(t-t3)
+    # + s2*u(t-t4). Which after integrating gives us the trapezoid.
+    # 2. Dt1 < 1/fs and Dt2 >= 2/fs: This means that t1 = t2 and t3 = t4, but t3 and
+    # t2 are spaced by at least 1/fs, so the final expected trapezoid is equivalent
+    # to the result one would have if t1 = t2 - 1/fs and t3 = t4 + 1/fs.
+    # 3. Dt1 < 1/fs and Dt2 < 2/fs: In this case, we have a delta event, which means
+    # that td = t1 = t2 = t3 = t4, and we can just set the value at t2
+    # (for instance) to hmax.
 
     # Since we created the events taking this min(Dt1, Dt2) = 1/fs into account,
     # we can counter this artificial artificial increase (to avoid numerical issues)
     # by computing the indexes of t1 and t3 with ceil and t2 and t4 with floor.
     # This ensures that we are accumulating the events in the correct time bins.
-    idx_t1 = torch.floor((t1 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t2 = torch.floor((t2 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t3 = torch.ceil((t3 - t0_us) / dt_us).long().clamp(0, T - 1)
-    idx_t4 = torch.floor((t4 - t0_us) / dt_us).long().clamp(0, T - 1)
+    # t = torch.arange(T, device=device) * dt_us + t0_us  # [T] in μs (or unit)
+    inv_dt = 1.0 / dt_us  # 1/us (or unit)
+    idx_t1 = torch.floor((t1 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
+    idx_t2 = torch.ceil((t2 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
+    idx_t3 = torch.floor((t3 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
+    idx_t4 = torch.ceil((t4 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
+
+    # Ensure that the rampdown and rampup are the same length
+    diff_rampdown_rampup = (idx_t4 - idx_t3) - (idx_t2 - idx_t1)  # [B, M]
+
+    idx_t4 = idx_t4 - (diff_rampdown_rampup)
+
+    # Create boolean masks for the different cases
+    # Dt1 = t2 - t1  # us (or unit)
+    Dt2 = t4 - t2  # us (or unit)
+    case3 = Dt2**2 < (2 * dt_us) ** 2  # Check if Dt2 is too small (close to zero)
+    case2 = (idx_t2 == idx_t1) | (
+        idx_t4 == idx_t3
+    )  # Check if t2-t1 and t4-t3 is too small (close to zero)
+    case1 = torch.logical_not(case2) & torch.logical_not(
+        case3
+    )  # Case 1: trapezoid events
+
+    # We make sure that the up and down ramps are the same length
+    # If the samples of the rampdown are shorter than the rampup,
+    # the difference is negative, and then will be positive.
+    s1 = hmax / (t[idx_t2] - t[idx_t1]).clamp(min=dt_us)  # us (or unit)
 
     # batch indices
     batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
 
     # build derivative accumulator
-    dH = torch.zeros(B, T, device=device)
+    d2H = torch.zeros(B, T, device=device)
 
-    # What we want is to make t1:t2 the value of s1, and t3:t4 the value of -s2.
+    # Case 1: trapezoid events
+    if case1.any():
+        d2H.index_put_((batch_idx[case1], idx_t1[case1]), +s1[case1], accumulate=True)
+        d2H.index_put_((batch_idx[case1], idx_t2[case1]), -s1[case1], accumulate=True)
+        d2H.index_put_((batch_idx[case1], idx_t3[case1]), -s1[case1], accumulate=True)
+        d2H.index_put_((batch_idx[case1], idx_t4[case1]), +s1[case1], accumulate=True)
 
-    dH.index_put_((batch_idx, idx_t1), +s1, accumulate=True)
-    dH.index_put_((batch_idx, idx_t2), +s1, accumulate=True)
-    dH.index_put_((batch_idx, idx_t3), -s2, accumulate=True)
-    dH.index_put_((batch_idx, idx_t4), -s2, accumulate=True)
+    if torch.any(d2H.isnan()):
+        print("Warning: NaN values found in case1and2.")
+    # Case 2: trapezoid events with Dt1 < 1/fs
+    if case2.any():
+        d2H.index_put_(
+            (batch_idx[case2], idx_t2[case2] - 1), +s1[case2], accumulate=True
+        )
+        d2H.index_put_((batch_idx[case2], idx_t2[case2]), -s1[case2], accumulate=True)
+        d2H.index_put_((batch_idx[case2], idx_t3[case2]), -s1[case2], accumulate=True)
+        d2H.index_put_(
+            (batch_idx[case2], idx_t3[case2] + 1), +s1[case2], accumulate=True
+        )
 
-    # Debugging output printing to check indices
-    # print("idx_t1:", idx_t1)
-    # print("idx_t2:", idx_t2)
-    # print("idx_t3:", idx_t3)
-    # print("idx_t4:", idx_t4)
-    # print("s1:", s1, "s2:", s2)
+    if torch.any(d2H.isnan()):
+        print("Warning: NaN values found in case2.")
+    dH = torch.cumsum(d2H, dim=1)  # [B, T]
+    # No need to multiply by dt_us here because diracs have no width.
 
-    # PROBLEMS ON THE ACTUAL CODE:
-    # Here, what I wanted to do was to set the values of the slopes between
-    # t1 and t2 to s1, and between t3 and t4 to -s2.
-    # However, I realized that is actually setting the values of the slopes
-    # at the indexes t1 and t2 to s1, and at the indexes t3 and t4 to -s2.
-    # Which lead to two problems:
-    # 1) When the patch is close to the point, Dt1, Dt2 -> 1/fs,
-    # t1 and t2 index are the same, as well as t3 and t4, and we end up
-    # summing twice the s1 in the same time bin.
-    # are the same, we end up summing twice the same slope in the same bin.
-    # 2) When the patch is far from the point, and t1 and t2 indexes are
-    # spaced by more than one sample, just setting t1 and t2 to s1 is not enough,
-    # since we need to ensure that the slope is correctly distributed within the
-    # t1 and t2 time bins. The same applies to t3 and t4 with -s2.
+    H = torch.cumsum(dH, dim=1) * dt_us  # [B, T]
 
-    # we integrate the derivative to get the impulse response
-    return dH  # torch.cumsum(dH, dim=1) * dt_us  # [B, T]
+    # Case 3: delta events
+    if case3.any():
+        H.index_put_(
+            (batch_idx[case3], idx_t2[case3]), hmax[case3], accumulate=True
+        )  # For delta events, we just add the hmax value at t2
+
+    if torch.any(H.isnan()):
+        print("Warning: NaN values found in case3.")
+
+    return H
 
 
 def create_simulation_grid(simulation_struct, device="cpu"):
@@ -131,22 +170,27 @@ def create_simulation_grid(simulation_struct, device="cpu"):
         Ny += 1
     if Nz % 2 == 0:
         Nz += 1
+
+    # print(
+    #     f"Creating grid with {Nx} x {Ny} x {Nz} points in x, y, z directions respectively."
+    # )
+    # print(f"Grid extents: x: [{x0}, {xf}], y: [{y0}, {yf}], z: [{z0}, {zf}]")
     x = torch.linspace(x0, xf, Nx, device=device)
     y = torch.linspace(y0, yf, Ny, device=device)
     z = torch.linspace(z0, zf, Nz, device=device)
     grid = torch.stack(torch.meshgrid(x, y, z, indexing="ij"), dim=-1)
-    return x, y, z, grid.reshape(-1, 3) * 1e-3  # Convert to meters
+    return x, y, z, grid.reshape(-1, 3) * 1e-3
 
 
 class TorchField(nn.Module):
     def __init__(self, transducer, device="cpu"):
-        super().__init__()
+        super(TorchField, self).__init__()
         self.device = torch.device(device)
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
-        self.fs = 300e6  # Sampling frequency in Hz
+        self.fs = 400e6  # Sampling frequency in Hz
         self.fc = transducer.fc
-        self.time_sec_to_unit = 1e9  # Convert seconds to microseconds
+        self.time_sec_to_unit = 1e6  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
 
         self.wx = transducer.el_w / transducer.no_sub_x * self.space_m_to_unit  # um
@@ -166,12 +210,17 @@ class TorchField(nn.Module):
             dtype=torch.float32,
             device=self.device,
         )  # um (or unit)
-        self.apods = torch.tensor(apods, dtype=torch.float32, device=self.device)
-        self.delays = torch.tensor(
-            np.array(delays) * self.time_sec_to_unit,
-            dtype=torch.float32,
-            device=self.device,
-        )  # us (or unit)
+        self.apods = nn.Parameter(
+            torch.tensor(apods, dtype=torch.float32, device=device, requires_grad=True)
+        )
+        self.delays = nn.Parameter(
+            torch.tensor(
+                np.array(delays) * self.time_sec_to_unit,
+                dtype=torch.float32,
+                device=device,
+                requires_grad=True,
+            )  # us (or unit)
+        )
 
     # --- Full spatial_impulse_response using μs units ---
     def spatial_impulse_response(
@@ -197,54 +246,53 @@ class TorchField(nn.Module):
         max_time_us = (
             max_d / self.space_m_to_unit / self.c
             + self.delays.max() / self.time_sec_to_unit
-            + 0.5 * (self.wx + self.wy) / self.space_m_to_unit / self.c
+            + max(self.wx, self.wy) / self.space_m_to_unit / self.c
         ) * self.time_sec_to_unit  # us (or unit)
         min_time_us = (
             min_d / self.space_m_to_unit / self.c
             + self.delays.min() / self.time_sec_to_unit
-            - 0.5 * (self.wx + self.wy) / self.space_m_to_unit / self.c
+            - min(self.wx, self.wy) / self.space_m_to_unit / self.c
         ) * self.time_sec_to_unit  # us (or unit)
-        print(f"Max time (us): {max_time_us}, Min time (us): {min_time_us}")
+        # print(f"Time range: {min_time_us:.2f} us to {max_time_us:.2f} us")
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
-        print(f"dt (us): {dt_us}")
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
         t_global = min_time_us + torch.arange(T, device=self.device) * dt_us
 
+        del max_d, min_d  # Free memory
+
+        # Ensure that the centers are in the correct unit (um or unit)
+        self.centers = self.centers.to(self.device)
         # For debugging purposes, print the centers and distances
         # print("centers:", self.centers)
         # print(f"Max distance (um): {max_d}, Min distance (um): {min_d}")
         # print(f"wx: {self.wx}, wy: {self.wy}, c: {self.c}, fs: {self.fs}")
 
         H = torch.zeros(P, T, device=self.device)
-        with torch.no_grad():
-            for i in range(0, P, batch_size):
-                j = min(i + batch_size, P)
-                batch = pts[i:j]  # [j-i, 3] in um (or unit)
-                diff = batch.unsqueeze(1) - self.centers.unsqueeze(
-                    0
-                )  # [j-i, n_elements, 3] in um (or unit)
-                # Compute distances and events
-                dist = diff.norm(dim=-1)  # [j-i, n_elements] in um (or unit)
-                events = compute_patch_events_batch(
-                    self.wx,  # um (or unit)
-                    self.wy,  # um (or unit)
-                    diff,  # um (or unit)
-                    dist,  # um (or unit)
-                    self.delays.unsqueeze(0).expand(
-                        j - i, -1
-                    ),  # Delays in us (or unit)
-                    self.apods.unsqueeze(0).expand(j - i, -1),
-                    self.c
-                    * (
-                        self.space_m_to_unit / self.time_sec_to_unit
-                    ),  # Speed of sound in m/s = um/us
-                    self.fs  # Sampling frequency in Hz
-                    / self.time_sec_to_unit,  # Convert fs to MHz for computation
-                )
-                # Correct call with t0_us
-                H[i:j] = accumulate_events_derivative(events, min_time_us, dt_us, T)
+        for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
+            j = min(i + batch_size, P)
+            batch = pts[i:j]  # [j-i, 3] in um (or unit)
+            diff = batch.unsqueeze(1) - self.centers.unsqueeze(
+                0
+            )  # [j-i, n_elements, 3] in um (or unit)
+            # Compute distances and events
+            dist = diff.norm(dim=-1)  # [j-i, n_elements] in um (or unit)
+            events = compute_patch_events_batch(
+                self.wx,  # um (or unit)
+                self.wy,  # um (or unit)
+                diff,  # um (or unit)
+                dist,  # um (or unit)
+                self.delays.unsqueeze(0).expand(j - i, -1),  # Delays in us (or unit)
+                self.apods.unsqueeze(0).expand(j - i, -1),
+                inv_c=1 / self.c * (self.time_sec_to_unit / self.space_m_to_unit),
+                # Speed of sound in s/m = time unit / space unit
+                inv_fs=self.time_sec_to_unit / self.fs,  # 1/fs (time unit)
+            )
+            # Correct call with t0_us
+            H[i:j] = accumulate_events_derivative(
+                events, min_time_us, dt_us, T, t_global
+            )
         print(
-            f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds."
+            f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds with batch size {batch_size}."
         )
         if return_all:
             return (
@@ -258,22 +306,58 @@ class TorchField(nn.Module):
         )
 
     def compute_pr_from_sir(self, h_sir, x, y, z):
+        start_time = TIME()
         n_time = h_sir.shape[0]
         grid_shape = (len(x), len(y), len(z))
-        print(f"Grid shape: {grid_shape}, n_time: {n_time}")
-        print(f"Shape of h_sir: {h_sir.shape}")
-        h4d = h_sir.T.view(-1, *grid_shape).permute(2, 1, 3, 0)
-        print(f"Shape of h4d: {h4d.shape}")
+        # print(f"Grid shape: {grid_shape}, n_time: {n_time}")
+        # print(f"Shape of h_sir: {h_sir.shape}")
+        h4d = h_sir.view(-1, *grid_shape).permute(1, 2, 3, 0)
+        # print(f"Shape of h4d: {h4d.shape}")
         fft = torch.fft.fft(h4d, dim=-1)
         freqs = torch.fft.fftfreq(n_time, d=1 / self.fs, device=self.device)
-        idx = torch.argmin((freqs - self.fc).abs())
-        print(f"Looking for fc: {self.fc} Hz, found freqs: {freqs[idx]}")
-        return fft.abs()[..., idx]
+        idx = torch.argmin((freqs - self.fc) ** 2)
+        print(
+            f"Looking for fc: {self.fc} Hz, found : {freqs[idx]} Hz, in {TIME() - start_time:.2f} seconds."
+        )
+        return fft[..., idx].abs()
 
-    def forward(self, field_info, batch_size=1024, normalize=False):
+    def examine_bottleneck(
+        self, field_info, batch_size=1024, normalize=True, training=False
+    ):
+        with torch.profiler.profile(
+            activities=[
+                torch.profiler.ProfilerActivity.CPU,
+                torch.profiler.ProfilerActivity.CUDA,
+            ],
+            on_trace_ready=torch.profiler.tensorboard_trace_handler("./log"),
+            record_shapes=True,
+            with_stack=True,
+        ) as prof:
+            pr, x, y, z = self.forward(
+                field_info,
+                batch_size=batch_size,
+                normalize=normalize,
+                training=training,
+            )
+
+        print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
+        return pr, x, y, z
+
+    def forward(self, field_info, batch_size=1024, normalize=True, training=False):
+        start_time = TIME()
         x, y, z, pts = create_simulation_grid(field_info, self.device)
-        t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
-        pr = self.compute_pr_from_sir(h, x, y, z)
+        if training:
+            t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
+            pr = self.compute_pr_from_sir(h, x, y, z)
+        else:
+            with torch.no_grad():
+                print(
+                    f"Computing field for {len(pts)} points with no gradients (No Training)."
+                )
+                t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
+                pr = self.compute_pr_from_sir(h, x, y, z)
+
+        print(f"Pressure field computed in: {TIME() - start_time:.4f} seconds.")
         if normalize:
             pr = pr / pr.max()
         return pr, x, y, z
