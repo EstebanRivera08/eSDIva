@@ -1,22 +1,22 @@
 import numpy as np
+import torch
+from TorchField import TorchField
+
 import pysonogen
 import pysonogen.transducers as Transducers
-import torch
 from pysonogen import pyfield
-from TorchField import TorchField
 
 # print(torch.__version__)
 # print(torch.version.cuda)
 
+use_cuda = True  # Set to False if you want to run on CPU
 device_number = 0  # if you have multiple GPUs
-if torch.cuda.is_available():
+if torch.cuda.is_available() and use_cuda:
     print(f"Using GPU: {torch.cuda.get_device_name(device_number)}")
     device = torch.device(f"cuda:{device_number}")
 else:
     print("No GPU available, running on CPU. May be slow.")
     device = torch.device("cpu")
-
-device = torch.device("cpu")
 
 print(Transducers.available_transducers())
 

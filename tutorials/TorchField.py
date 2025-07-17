@@ -119,21 +119,21 @@ def accumulate_events_derivative(
         d2H.index_put_((batch_idx[case1], idx_t3[case1]), -s1[case1], accumulate=True)
         d2H.index_put_((batch_idx[case1], idx_t4[case1]), +s1[case1], accumulate=True)
 
-    if torch.any(d2H.isnan()):
-        print("Warning: NaN values found in case1and2.")
+    # if torch.any(d2H.isnan()):
+    #     print("Warning: NaN values found in case1and2.")
     # Case 2: trapezoid events with Dt1 < 1/fs
     if case2.any():
+        d2H.index_put_((batch_idx[case2], idx_t1[case2]), +s1[case2], accumulate=True)
         d2H.index_put_(
-            (batch_idx[case2], idx_t2[case2] - 1), +s1[case2], accumulate=True
+            (batch_idx[case2], idx_t1[case2] + 1), -s1[case2], accumulate=True
         )
-        d2H.index_put_((batch_idx[case2], idx_t2[case2]), -s1[case2], accumulate=True)
-        d2H.index_put_((batch_idx[case2], idx_t3[case2]), -s1[case2], accumulate=True)
         d2H.index_put_(
-            (batch_idx[case2], idx_t3[case2] + 1), +s1[case2], accumulate=True
+            (batch_idx[case2], idx_t2[case2] - 1), -s1[case2], accumulate=True
         )
+        d2H.index_put_((batch_idx[case2], idx_t2[case2]), +s1[case2], accumulate=True)
 
-    if torch.any(d2H.isnan()):
-        print("Warning: NaN values found in case2.")
+    # if torch.any(d2H.isnan()):
+    #     print("Warning: NaN values found in case2.")
     dH = torch.cumsum(d2H, dim=1)  # [B, T]
     # No need to multiply by dt_us here because diracs have no width.
 
@@ -145,8 +145,8 @@ def accumulate_events_derivative(
             (batch_idx[case3], idx_t2[case3]), hmax[case3], accumulate=True
         )  # For delta events, we just add the hmax value at t2
 
-    if torch.any(H.isnan()):
-        print("Warning: NaN values found in case3.")
+    # if torch.any(H.isnan()):
+    #     print("Warning: NaN values found in case3.")
 
     return H
 
@@ -195,15 +195,19 @@ class TorchField(nn.Module):
 
         self.wx = transducer.el_w / transducer.no_sub_x * self.space_m_to_unit  # um
         self.wy = transducer.el_h / transducer.no_sub_y * self.space_m_to_unit  # um
-        centers, apods, delays = [], [], []
+        self.n_elements = transducer.n_elements
+        self.no_sub_x = transducer.no_sub_x
+        self.no_sub_y = transducer.no_sub_y
+        centers = []
         for elem in range(transducer.n_elements):
             for sub in range(transducer.no_sub_x * transducer.no_sub_y):
                 verts = transducer.sub_quad_verts[
                     elem * (transducer.no_sub_x * transducer.no_sub_y) + sub
                 ]
                 centers.append(verts.mean(axis=0))
-                apods.append(transducer.apodization[elem])
-                delays.append(transducer.delays[elem])
+
+        apods = transducer.apodization
+        delays = transducer.delays
 
         self.centers = torch.tensor(
             np.array(centers) * self.space_m_to_unit,
@@ -211,15 +215,15 @@ class TorchField(nn.Module):
             device=self.device,
         )  # um (or unit)
         self.apods = nn.Parameter(
-            torch.tensor(apods, dtype=torch.float32, device=device, requires_grad=True)
+            torch.tensor(apods, dtype=torch.float32, device=device, requires_grad=True),
         )
         self.delays = nn.Parameter(
             torch.tensor(
-                np.array(delays) * self.time_sec_to_unit,
+                np.array(delays),
                 dtype=torch.float32,
                 device=device,
                 requires_grad=True,
-            )  # us (or unit)
+            ),  # s,
         )
 
     # --- Full spatial_impulse_response using μs units ---
@@ -243,17 +247,19 @@ class TorchField(nn.Module):
             max_d = dists.max().item()  # um (or unit)
             min_d = dists.min().item()  # um (or unit)
 
+        expanded_delays = torch.relu(self.delays)
+
         max_time_us = (
             max_d / self.space_m_to_unit / self.c
-            + self.delays.max() / self.time_sec_to_unit
+            + expanded_delays.max()
             + max(self.wx, self.wy) / self.space_m_to_unit / self.c
         ) * self.time_sec_to_unit  # us (or unit)
         min_time_us = (
             min_d / self.space_m_to_unit / self.c
-            + self.delays.min() / self.time_sec_to_unit
+            + expanded_delays.min()
             - min(self.wx, self.wy) / self.space_m_to_unit / self.c
         ) * self.time_sec_to_unit  # us (or unit)
-        # print(f"Time range: {min_time_us:.2f} us to {max_time_us:.2f} us")
+        print(f"Time range: {min_time_us:.2f} us to {max_time_us:.2f} us")
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
         t_global = min_time_us + torch.arange(T, device=self.device) * dt_us
@@ -266,6 +272,21 @@ class TorchField(nn.Module):
         # print("centers:", self.centers)
         # print(f"Max distance (um): {max_d}, Min distance (um): {min_d}")
         # print(f"wx: {self.wx}, wy: {self.wy}, c: {self.c}, fs: {self.fs}")
+
+        expanded_delays = (
+            expanded_delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
+            * self.time_sec_to_unit
+        )
+        expanded_apods = torch.sigmoid(
+            10 * self.apods.repeat_interleave(self.no_sub_x * self.no_sub_y)
+        )
+
+        # Create the apodization and delays tensors of the patches
+        # self.apods and self.delays are of shape [n_elements]
+        # Then we expand them to [n_elements * no_sub_x * no_sub_y]
+        # where each element corresponds to a sub-element has the value of the
+        # corresponding element in self.apods and self.delays.
+        # Expand apodization and delays tensors to match the number of sub-elements
 
         H = torch.zeros(P, T, device=self.device)
         for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
@@ -281,8 +302,10 @@ class TorchField(nn.Module):
                 self.wy,  # um (or unit)
                 diff,  # um (or unit)
                 dist,  # um (or unit)
-                self.delays.unsqueeze(0).expand(j - i, -1),  # Delays in us (or unit)
-                self.apods.unsqueeze(0).expand(j - i, -1),
+                expanded_delays.unsqueeze(0).expand(
+                    j - i, -1
+                ),  # Delays in us (or unit)
+                expanded_apods.unsqueeze(0).expand(j - i, -1),
                 inv_c=1 / self.c * (self.time_sec_to_unit / self.space_m_to_unit),
                 # Speed of sound in s/m = time unit / space unit
                 inv_fs=self.time_sec_to_unit / self.fs,  # 1/fs (time unit)
@@ -343,21 +366,27 @@ class TorchField(nn.Module):
         print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
         return pr, x, y, z
 
-    def forward(self, field_info, batch_size=1024, normalize=True, training=False):
+    def forward(self, field_info, batch_size=1024, normalize=False, training=False):
+        # Best batch size is ~ 8e6/M, where M = # patches.
         start_time = TIME()
         x, y, z, pts = create_simulation_grid(field_info, self.device)
         if training:
+            print(
+                f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITH gradients in {self.device}."
+            )
             t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
             pr = self.compute_pr_from_sir(h, x, y, z)
         else:
+            print(
+                f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITHOUT gradients in {self.device}."
+            )
             with torch.no_grad():
-                print(
-                    f"Computing field for {len(pts)} points with no gradients (No Training)."
-                )
                 t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
                 pr = self.compute_pr_from_sir(h, x, y, z)
 
-        print(f"Pressure field computed in: {TIME() - start_time:.4f} seconds.")
+        print(
+            f"Pressure field computed in: {TIME() - start_time:.4f} seconds, using {self.device}."
+        )
         if normalize:
             pr = pr / pr.max()
         return pr, x, y, z
