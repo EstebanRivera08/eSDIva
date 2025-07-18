@@ -40,113 +40,92 @@ def compute_patch_events_batch(
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
 
-# --- Improved accumulation via index_put to ensure correct spatial placement ---
-# @torch.jit.script
 def accumulate_events_derivative(
     events: Tensor,  # [B, M, 5]
     t0_us: float,  # Global start time in μs
     dt_us: float,  # sample interval in μs
     T: int,  # number of time bins
-    t: Tensor,
 ) -> Tensor:
     B, M, _ = events.shape
     device = events.device
 
-    # flatten
-    t1 = events[..., 0].reshape(-1)  # us (or unit)  [B]
+    # Flatten tensors
+    t1 = events[..., 0].reshape(-1)
     t2 = events[..., 1].reshape(-1)
     t3 = events[..., 2].reshape(-1)
     t4 = events[..., 3].reshape(-1)
     hmax = events[..., 4].reshape(-1)
 
-    # We have 3 different cases when integrating from the deltas to compute the
-    # trapezoidal impulse response.
-    # 1. Dt2 > Dt1 >= 1/fs => Dt2 >= 2/fs : This is a trapezoid that could be created
-    # with the temporal resolution of the system and the derivative method. Thus, we
-    # can create the second derivative setting the impulses at t1, t2, t3, t4.
-    # [d2H/dt2 = s1*dirac(t-t1) - s1*dirac(t-t2) - s1*dirac(t-t3) + s1*dirac(t-t4)],
-    # thus after integrating we get dH/dt = s1*u(t-t1) -s1*u(t-t2) - s2*u(t-t3)
-    # + s2*u(t-t4). Which after integrating gives us the trapezoid.
-    # 2. Dt1 < 1/fs and Dt2 >= 2/fs: This means that t1 = t2 and t3 = t4, but t3 and
-    # t2 are spaced by at least 1/fs, so the final expected trapezoid is equivalent
-    # to the result one would have if t1 = t2 - 1/fs and t3 = t4 + 1/fs.
-    # 3. Dt1 < 1/fs and Dt2 < 2/fs: In this case, we have a delta event, which means
-    # that td = t1 = t2 = t3 = t4, and we can just set the value at t2
-    # (for instance) to hmax.
+    inv_dt = 1.0 / dt_us
+    s1 = hmax / (t2 - t1).clamp(min=dt_us)  # Use actual time differences
 
-    # Since we created the events taking this min(Dt1, Dt2) = 1/fs into account,
-    # we can counter this artificial artificial increase (to avoid numerical issues)
-    # by computing the indexes of t1 and t3 with ceil and t2 and t4 with floor.
-    # This ensures that we are accumulating the events in the correct time bins.
-    # t = torch.arange(T, device=device) * dt_us + t0_us  # [T] in μs (or unit)
-    inv_dt = 1.0 / dt_us  # 1/us (or unit)
-    idx_t1 = torch.floor((t1 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
-    idx_t2 = torch.ceil((t2 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
-    idx_t3 = torch.floor((t3 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
-    idx_t4 = torch.ceil((t4 - t0_us) * inv_dt + 1).long().clamp(0, T - 1)
+    # Batch indices for flattened events
+    batch_idx_full = (
+        torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
+    )
 
-    # Ensure that the rampdown and rampup are the same length
-    diff_rampdown_rampup = (idx_t4 - idx_t3) - (idx_t2 - idx_t1)  # [B, M]
+    # Case masks
+    Dt2 = t4 - t2
+    case3 = Dt2**2 < (2 * dt_us) ** 2
+    case1 = ~case3
 
-    idx_t4 = idx_t4 - (diff_rampdown_rampup)
-
-    # Create boolean masks for the different cases
-    # Dt1 = t2 - t1  # us (or unit)
-    Dt2 = t4 - t2  # us (or unit)
-    case3 = Dt2**2 < (2 * dt_us) ** 2  # Check if Dt2 is too small (close to zero)
-    case2 = (idx_t2 == idx_t1) | (
-        idx_t4 == idx_t3
-    )  # Check if t2-t1 and t4-t3 is too small (close to zero)
-    case1 = torch.logical_not(case2) & torch.logical_not(
-        case3
-    )  # Case 1: trapezoid events
-
-    # We make sure that the up and down ramps are the same length
-    # If the samples of the rampdown are shorter than the rampup,
-    # the difference is negative, and then will be positive.
-    s1 = hmax / (t[idx_t2] - t[idx_t1]).clamp(min=dt_us)  # us (or unit)
-
-    # batch indices
-    batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
-
-    # build derivative accumulator
     d2H = torch.zeros(B, T, device=device)
 
-    # Case 1: trapezoid events
-    if case1.any():
-        d2H.index_put_((batch_idx[case1], idx_t1[case1]), +s1[case1], accumulate=True)
-        d2H.index_put_((batch_idx[case1], idx_t2[case1]), -s1[case1], accumulate=True)
-        d2H.index_put_((batch_idx[case1], idx_t3[case1]), -s1[case1], accumulate=True)
-        d2H.index_put_((batch_idx[case1], idx_t4[case1]), +s1[case1], accumulate=True)
+    # Helper for linear-interpolated accumulation
+    def accumulate_impulse(t_event, value, sign, mask):
+        if not mask.any():
+            return
+        t_event_masked = t_event[mask]
+        value_masked = value[mask]
+        batch_idx_masked = batch_idx_full[mask]
 
-    # if torch.any(d2H.isnan()):
-    #     print("Warning: NaN values found in case1and2.")
-    # Case 2: trapezoid events with Dt1 < 1/fs
-    if case2.any():
-        d2H.index_put_((batch_idx[case2], idx_t1[case2]), +s1[case2], accumulate=True)
+        f_idx = (t_event_masked - t0_us) * inv_dt
+        idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
+        idx_ceil = (idx_floor + 1).clamp(0, T - 1)
+        w_floor = 1 - (f_idx - idx_floor)
+        w_ceil = f_idx - idx_floor
+
         d2H.index_put_(
-            (batch_idx[case2], idx_t1[case2] + 1), -s1[case2], accumulate=True
+            (batch_idx_masked, idx_floor),
+            sign * value_masked * w_floor,
+            accumulate=True,
         )
         d2H.index_put_(
-            (batch_idx[case2], idx_t2[case2] - 1), -s1[case2], accumulate=True
+            (batch_idx_masked, idx_ceil), sign * value_masked * w_ceil, accumulate=True
         )
-        d2H.index_put_((batch_idx[case2], idx_t2[case2]), +s1[case2], accumulate=True)
 
-    # if torch.any(d2H.isnan()):
-    #     print("Warning: NaN values found in case2.")
-    dH = torch.cumsum(d2H, dim=1)  # [B, T]
-    # No need to multiply by dt_us here because diracs have no width.
+    # Case 1: Trapezoid events
+    accumulate_impulse(t1, s1, +1, case1)
+    accumulate_impulse(t2, s1, -1, case1)
+    accumulate_impulse(t3, s1, -1, case1)
+    accumulate_impulse(t4, s1, +1, case1)
 
-    H = torch.cumsum(dH, dim=1) * dt_us  # [B, T]
+    # Integrate to get H
+    dH = torch.cumsum(d2H, dim=1)
+    H = torch.cumsum(dH, dim=1) * dt_us
 
-    # Case 3: delta events
-    if case3.any():
+    # Case 3: Delta events
+    def accumulate_delta(t_event, value, mask):
+        if not mask.any():
+            return
+        t_event_masked = t_event[mask]
+        value_masked = value[mask]
+        batch_idx_masked = batch_idx_full[mask]
+
+        f_idx = (t_event_masked - t0_us) * inv_dt
+        idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
+        idx_ceil = (idx_floor + 1).clamp(0, T - 1)
+        w_floor = 1 - (f_idx - idx_floor)
+        w_ceil = f_idx - idx_floor
+
         H.index_put_(
-            (batch_idx[case3], idx_t2[case3]), hmax[case3], accumulate=True
-        )  # For delta events, we just add the hmax value at t2
+            (batch_idx_masked, idx_floor), value_masked * w_floor, accumulate=True
+        )
+        H.index_put_(
+            (batch_idx_masked, idx_ceil), value_masked * w_ceil, accumulate=True
+        )
 
-    # if torch.any(H.isnan()):
-    #     print("Warning: NaN values found in case3.")
+    accumulate_delta(t2, hmax, case3)
 
     return H
 
@@ -182,9 +161,9 @@ def create_simulation_grid(simulation_struct, device="cpu"):
     return x, y, z, grid.reshape(-1, 3) * 1e-3
 
 
-class TorchField(nn.Module):
+class TorchFieldv2(nn.Module):
     def __init__(self, transducer, z_plane_mm=None, device="cpu"):
-        super(TorchField, self).__init__()
+        super(TorchFieldv2, self).__init__()
 
         self.device = torch.device(device)
         self.tx = transducer
@@ -228,9 +207,7 @@ class TorchField(nn.Module):
         )
 
     # --- Full spatial_impulse_response using μs units ---
-    def spatial_impulse_response(
-        self, field_points_m, batch_size=1024, return_all=False
-    ):
+    def spatial_impulse_response(self, field_points_m, batch_size=1024):
         start_time = TIME()
         if not isinstance(field_points_m, torch.Tensor):
             *_, field_points_m = create_simulation_grid(
@@ -270,7 +247,6 @@ class TorchField(nn.Module):
         print(f"max delay: {max_delay:.2f} us, vs real {self.delays.max():.2f} us")
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
-        t_global = min_time_us + torch.arange(T, device=self.device) * dt_us
 
         del max_d, min_d  # Free memory
 
@@ -309,20 +285,13 @@ class TorchField(nn.Module):
                 inv_fs=self.time_sec_to_unit / self.fs,  # 1/fs (time unit)
             )
             # Correct call with t0_us
-            H[i:j] = accumulate_events_derivative(
-                events, min_time_us, dt_us, T, t_global
-            )
+            H[i:j] = accumulate_events_derivative(events, min_time_us, dt_us, T)
         print(
             f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds with batch size {batch_size}."
         )
-        if return_all:
-            return (
-                t_global / self.time_sec_to_unit,
-                H.T * self.time_sec_to_unit / self.space_m_to_unit,
-                events,
-            )
+
         return (
-            t_global / self.time_sec_to_unit,
+            min_time_us / self.time_sec_to_unit,
             H.T * self.time_sec_to_unit / self.space_m_to_unit,
         )
 

@@ -1,6 +1,6 @@
 import numpy as np
 import torch
-from TorchField import TorchField
+from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
 import pysonogen.transducers as Transducers
@@ -34,7 +34,7 @@ field_info_mm = {
     "dz": 0.02,
 }
 
-delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
+delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=True)
 # Zeus_Matrix.show()
 
 torch.cuda.empty_cache()
