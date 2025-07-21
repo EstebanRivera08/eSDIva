@@ -55,6 +55,10 @@ def create_simulation_grid(simulation_struct):
     if Nz % 2 == 0:
         Nz += 1
 
+    # print(
+    #     f"Creating grid with {Nx} x {Ny} x {Nz} points in x, y, z directions respectively."
+    # )
+    # print(f"Grid extents: x: [{x0}, {xf}], y: [{y0}, {yf}], z: [{z0}, {zf}]")
     x = np.linspace(x0, xf, Nx)
     y = np.linspace(y0, yf, Ny)
     z = np.linspace(z0, zf, Nz)
@@ -75,8 +79,10 @@ def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz, lamb
     # if apod < tolerance_apod:
     #     return 0, 0, 0, 0, 0
     epsilon = 1 / (sampling_rate_Hz)  # 1 ns
-    Dt1 = min(abs(wx * xp / c0), abs(wy * yp / c0))
-    Dt2 = max(abs(wx * xp / c0), abs(wy * yp / c0))
+    xp_abs = abs(xp) * wx / c0  # us
+    yp_abs = abs(yp) * wy / c0
+    Dt1 = min(xp_abs, yp_abs)
+    Dt2 = max(xp_abs, yp_abs)
     area = wx * wy / (2 * pi * l)
 
     t1 = l / c0 - 0.5 * (Dt1 + Dt2) + delay
@@ -198,8 +204,6 @@ class PyField:
         self.field = None
         self.x = self.y = self.z = None
 
-        print(f"Successfully initialized PyField with \n {transducer}")
-
     def set_field(self, name_struct_str, value_float):
         """
         Dynamically modifies a class property if it exists.
@@ -282,7 +286,6 @@ class PyField:
         accumulate_from_events(P, M, events, self.fs, t0, h_out)
         print(f"Accumulation of events elapsed in: {TIME() - events_time:.4f} seconds.")
 
-        print(f"SIR computed in {TIME() - start_comput_time:.4f} seconds.")
         if return_all:
             return t_global, h_out.T, events
         return t0, h_out.T
@@ -301,6 +304,7 @@ class PyField:
         pressure : ndarray
             The computed pressure field.
         """
+        start_time = TIME()
         # Reshape the SIR to match the grid dimensions
         # print(f"Original h shape: {h_sir.shape}")
         spatial_impulse_response_field = h_sir.reshape(
@@ -316,8 +320,10 @@ class PyField:
         freq_vect = np.linspace(0, self.fs, spatial_impulse_response_field_FT.shape[0])
 
         # Find the index of the desired frequency
-        idx_freq = np.argmin(np.abs(freq_vect - self.fc))
-        print(f"Frequency searched: {self.fc} Hz. Found: {freq_vect[idx_freq]} Hz")
+        idx_freq = np.argmin((freq_vect - self.fc) ** 2)
+        print(
+            f"Looking for fc: {self.fc} Hz, found : {freq_vect[idx_freq]} Hz, in {TIME() - start_time:.2f} seconds."
+        )
 
         # Amplitude for the given frequency
         amp_response_tx_freq = np.abs(
@@ -357,13 +363,15 @@ class PyField:
         pressure : ndarray
             The computed pressure field.
         """
+        start_time = TIME()
         # print("Creating simulation grid...")
         x, y, z, grid_points = create_simulation_grid(field_info)
         # print("Computing spatial impulse response...")
         start_time, h_sir = self.spatial_impulse_response(grid_points)
-        print("Computing pressure field...")
         pressure_field = self.compute_pr_from_sir(h_sir, x, y, z)
 
+        print(f"Pressure field computed in: {TIME() - start_time:.4f} seconds.")
+        # print(f"Pressure field shape: {pressure_field.shape}")
         if normalize:
             pressure_field = pressure_field / np.max(pressure_field)
 

@@ -1,10 +1,13 @@
+import warnings
+from time import time as TIME
+
 import numpy as np
 import pyvista as pv
-from time import time as TIME
+
 from .base import BaseTransducer
-import warnings
-    
+
 # LinearArrayTransducer class
+
 
 class LinearArrayTransducer:
     def __init__(
@@ -17,7 +20,7 @@ class LinearArrayTransducer:
         elevation_focus_mm,
         no_sub_x,
         no_sub_y,
-        frequency_Hz = None,
+        frequency_Hz=None,
     ):
         """
         Defines a linear array transducer geometry with optional elevation focusing.
@@ -36,22 +39,27 @@ class LinearArrayTransducer:
             Elevation focus distance (m). If None, elements are flat.
         no_sub_x, no_sub_y : int
             Number of subdivisions (patches) in x (element width) and y (element height).
-            
+
         """
         start_time = TIME()
-        element_height, element_width = element_height_mm *1e-3, element_width_mm *1e-3
-        kerf, elevation_focus = kerf_mm *1e-3, elevation_focus_mm *1e-3
+        element_height, element_width = (
+            element_height_mm * 1e-3,
+            element_width_mm * 1e-3,
+        )
+        kerf, elevation_focus = kerf_mm * 1e-3, elevation_focus_mm * 1e-3
         self.n_elements = n_elements
-        self.el_w = element_width # m
+        self.el_w = element_width  # m
         self.el_h = element_height  # m
         self.kerf = kerf  # m
         self.pitch = element_width + kerf  # m
         self.elev_focus = elevation_focus  # m
         self.no_sub_x = no_sub_x
         self.no_sub_y = no_sub_y
-        
+
         if elevation_focus is not None and elevation_focus > 0 and no_sub_y < 2:
-            raise ValueError("Elevation focus requires at least 2 subdivisions in y to model elevation focusing.")
+            raise ValueError(
+                "Elevation focus requires at least 2 subdivisions in y to model elevation focusing."
+            )
 
         if frequency_Hz is not None:
             self.fc = frequency_Hz
@@ -60,7 +68,7 @@ class LinearArrayTransducer:
             print("Warning: No central frequency provided. Defaulting to 1 MHz.")
 
         # Per-element apodization weights and delay placeholders
-        
+
         self.apodization = np.ones(n_elements, dtype=float)
         self.delays = np.zeros(n_elements, dtype=float)
         self.tx_N_active = int(np.sum(self.apodization > 0))
@@ -70,15 +78,19 @@ class LinearArrayTransducer:
         # Compute element centers along x-axis
         total_width = n_elements * element_width + (n_elements - 1) * kerf
         start_x = -total_width / 2 + element_width / 2
-        self.element_centers = np.array([
-            [start_x + i * (element_width + kerf), 0.0, 0.0]
-            for i in range(n_elements)
-        ])
+        self.element_centers = np.array(
+            [
+                [start_x + i * (element_width + kerf), 0.0, 0.0]
+                for i in range(n_elements)
+            ]
+        )
 
         # Build subdivisions boundaries and areas, apply elevation curvature
         self.sub_quad_verts, self.sub_area, self.sub_el_idx = self._build_subdivisions()
         end_time = TIME()
-        print(f"LinearArrayTransducer initialized in {end_time - start_time:.4f} seconds.")
+        print(
+            f"LinearArrayTransducer initialized in {end_time - start_time:.4f} seconds."
+        )
 
     def _build_subdivisions(self):
         """
@@ -90,8 +102,8 @@ class LinearArrayTransducer:
         sub_el_idx : list mapping each patch to its element index
         """
         # Local grid edges in element coordinates
-        xs = np.linspace(-self.el_w/2, self.el_w/2, self.no_sub_x + 1)
-        ys = np.linspace(-self.el_h/2, self.el_h/2, self.no_sub_y + 1)
+        xs = np.linspace(-self.el_w / 2, self.el_w / 2, self.no_sub_x + 1)
+        ys = np.linspace(-self.el_h / 2, self.el_h / 2, self.no_sub_y + 1)
 
         patch_area = (self.el_w / self.no_sub_x) * (self.el_h / self.no_sub_y)
 
@@ -101,28 +113,40 @@ class LinearArrayTransducer:
             for i in range(self.no_sub_x):
                 for j in range(self.no_sub_y):
                     # four corners of the patch in local coords
-                    corners_local = np.array([
-                        [xs[i],   ys[j],   0.0],
-                        [xs[i+1], ys[j],   0.0],
-                        [xs[i+1], ys[j+1], 0.0],
-                        [xs[i],   ys[j+1], 0.0]
-                    ])
+                    corners_local = np.array(
+                        [
+                            [xs[i], ys[j], 0.0],
+                            [xs[i + 1], ys[j], 0.0],
+                            [xs[i + 1], ys[j + 1], 0.0],
+                            [xs[i], ys[j + 1], 0.0],
+                        ]
+                    )
                     # translate to global x,y
                     corners = corners_local.copy()
-                    corners[:,0] += center[0]
-                    corners[:,1] += center[1]
+                    corners[:, 0] += center[0]
+                    corners[:, 1] += center[1]
                     # apply elevation curvature in z
                     if self.elev_focus is not None and self.elev_focus > 0:
-                        y_vals = corners[:,1]
-                        z_offset = self.elev_focus - np.sqrt(np.clip(self.elev_focus**2 - y_vals**2, 0, None))
-                        corners[:,2] += z_offset
+                        y_vals = corners[:, 1]
+                        z_offset = self.elev_focus - np.sqrt(
+                            np.clip(self.elev_focus**2 - y_vals**2, 0, None)
+                        )
+                        corners[:, 2] += z_offset
                     else:
-                        corners[:,2] += center[2]
+                        corners[:, 2] += center[2]
                     quads.append(corners)
                     el_indices.append(idx)
         return quads, patch_area, el_indices
-    
-    def compute_apodization(self, focus_mm, *, F_over_D = None, apodization_type='rect', plot=False, equiv_energy=False):
+
+    def compute_apodization(
+        self,
+        focus_mm,
+        *,
+        F_over_D=None,
+        apodization_type="rect",
+        plot=False,
+        equiv_energy=False,
+    ):
         """
         Compute per‑element apodization for focusing at a given spot.
 
@@ -142,7 +166,7 @@ class LinearArrayTransducer:
             Normalized apodization weights.
         """
         # Unpack and convert to meters
-        focus = np.array(focus_mm) * 1e-3 
+        focus = np.array(focus_mm) * 1e-3
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
@@ -152,22 +176,21 @@ class LinearArrayTransducer:
             y_foc = 0
             # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
-
         if z_foc <= 0:
             raise ValueError("Wrong focus: z_foc must be positive")
 
         N = self.n_elements
-        pitch = self.el_w + self.kerf      # element pitch in meters
-        total_ap = N * pitch               # total array aperture (m)
+        pitch = self.el_w + self.kerf  # element pitch in meters
+        total_ap = N * pitch  # total array aperture (m)
 
         if apodization_type is None:
             pass
-        elif apodization_type == 'none':
+        elif apodization_type == "none":
             apod = np.ones(N, dtype=float)
 
         else:
             # require ratio_F_over_D property
-            if F_over_D is not None :
+            if F_over_D is not None:
                 self.F_over_D = F_over_D
 
             if self.F_over_D is None:
@@ -175,7 +198,7 @@ class LinearArrayTransducer:
                 self.F_over_D = 1.0
 
             # physical extent (in meters) of active aperture for given F/D
-            D = z_foc / self.F_over_D  
+            D = z_foc / self.F_over_D
             # how many elements that corresponds to (must be even)
             if self.n_elements % 2 == 1:
                 N_virt = int(round((D / total_ap) * N / 2) * 2 + 1)
@@ -186,7 +209,9 @@ class LinearArrayTransducer:
             if equiv_energy:
                 # If we want to keep the same energy as a rectangular window
                 # we need to scale the Hanning/Hamming window by a factor to use more elements
-                factor = {'rect': 1.0, 'hanning': 0.5, 'hamming': 0.54}[apodization_type]
+                factor = {"rect": 1.0, "hanning": 0.5, "hamming": 0.54}[
+                    apodization_type
+                ]
             else:
                 factor = 1
 
@@ -198,11 +223,11 @@ class LinearArrayTransducer:
                 N_ext = N
 
             # build window
-            if apodization_type == 'rect':
+            if apodization_type == "rect":
                 wins = np.ones(N_ext)
-            elif apodization_type == 'hanning':
+            elif apodization_type == "hanning":
                 wins = np.hanning(N_ext)
-            elif apodization_type == 'hamming':
+            elif apodization_type == "hamming":
                 wins = np.hamming(N_ext)
             else:
                 raise ValueError(f"Unknown apodization_type '{apodization_type}'")
@@ -210,8 +235,8 @@ class LinearArrayTransducer:
             # now slide this window so its center aligns with x_foc
             # compute how many elements to shift
             shift_elems = int(np.round(x_foc / pitch))
-            center = (N_ext - 1)//2 - shift_elems
-            idxs = np.arange(N_ext) - center + N//2
+            center = (N_ext - 1) // 2 - shift_elems
+            idxs = np.arange(N_ext) - center + N // 2
 
             # only keep those inside the real array
             valid = (idxs >= 0) & (idxs < N)
@@ -221,8 +246,9 @@ class LinearArrayTransducer:
         # optionally plot
         if plot:
             import matplotlib.pyplot as plt
+
             plt.figure()
-            plt.plot(np.arange(N), apod, 'k-', marker='o', markerfacecolor='r')
+            plt.plot(np.arange(N), apod, "k-", marker="o", markerfacecolor="r")
             plt.title(f"Apodization: {apodization_type}")
             plt.xlabel("Element #")
             plt.ylabel("Weight")
@@ -235,8 +261,8 @@ class LinearArrayTransducer:
         self.apodization_type = apodization_type
         self.tx_N_active = int(np.sum(apod > 0))
         return apod
-    
-    def compute_delays(self, *, focus_mm, c = None, plot=False):
+
+    def compute_delays(self, *, focus_mm, c=None, plot=False):
         """
         Compute per-element delays for focusing at a given spot.
 
@@ -251,13 +277,13 @@ class LinearArrayTransducer:
         delays : ndarray, shape (N_elements,)
             Delays in seconds.
         """
-        
+
         if c is None:
             c = 1540.0
             print("Warning: No speed of sound provided. Defaulting to 1540 m/s.")
 
         # Unpack and convert to meters
-        focus = np.array(focus_mm) * 1e-3 
+        focus = np.array(focus_mm) * 1e-3
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
@@ -268,17 +294,27 @@ class LinearArrayTransducer:
             # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
         # Compute distances from each element to the focus point
-        delays = np.linalg.norm(self.element_centers - focus, axis=1) / c 
+        delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
 
         # Compute delays based on the speed of sound in soft tissue
-        delays = delays.min()- delays  # time delays for focusing
+        delays = -delays + delays.max()  # time delays for focusing
+        # delays = -delays + delays.min()  # time delays for focusing
 
         # optionally plot
         if plot:
             import matplotlib.pyplot as plt
+
             plt.figure()
-            plt.plot(np.arange(self.n_elements), delays*1e6, 'k-', marker='o', markerfacecolor='r')
-            plt.title(f"Focusing at: [{x_foc*1e3:.3f} mm, {y_foc*1e3:.3f} mm, {z_foc*1e3:.3f} mm]")
+            plt.plot(
+                np.arange(self.n_elements),
+                delays * 1e6,
+                "k-",
+                marker="o",
+                markerfacecolor="r",
+            )
+            plt.title(
+                f"Focusing at: [{x_foc * 1e3:.3f} mm, {y_foc * 1e3:.3f} mm, {z_foc * 1e3:.3f} mm]"
+            )
             plt.xlabel("Element #")
             plt.ylabel("Time delay (us)")
             plt.grid(True)
@@ -314,41 +350,47 @@ class LinearArrayTransducer:
         for quad, el_idx in zip(self.sub_quad_verts, self.sub_el_idx):
             # quad is 4x3 array, create face [4, p0, p1, p2, p3]
             verts.extend(quad.tolist())
-            face = [4, pt_index, pt_index+1, pt_index+2, pt_index+3]
+            face = [4, pt_index, pt_index + 1, pt_index + 2, pt_index + 3]
             faces.append(face)
             scalars.append(self.apodization[el_idx])
             pt_index += 4
         # Flatten verts and faces
-        verts = np.array(verts)*1e3  # Convert to mm for visualization
+        verts = np.array(verts) * 1e3  # Convert to mm for visualization
         faces_flat = np.hstack(faces)
         mesh = pv.PolyData(verts, faces_flat)
-        mesh.cell_data['Apodization'] = np.array(scalars)
-        return mesh    
-    
-    def show(self, *,
-             window_size = [800, 600], notebook = True, jupyter_backend = None,
-             **kwargs):
+        mesh.cell_data["Apodization"] = np.array(scalars)
+        return mesh
+
+    def show(
+        self, *, window_size=[800, 600], notebook=True, jupyter_backend=None, **kwargs
+    ):
         """
         Visualize the transducer surface mesh and apodization with PyVista.
         """
         mesh = self.get_mesh()
-        plotter = pv.Plotter(window_size= window_size, notebook=notebook)
+        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
         plotter.add_mesh(
             mesh,  # Convert to mm for visualization
-            scalars='Apodization',
-            cmap='cool',
+            scalars="Apodization",
+            cmap="cool",
             clim=[0, 1],
             show_scalar_bar=True,
-            scalar_bar_args={'title':'Apodization', 'vertical': True},
+            scalar_bar_args={"title": "Apodization", "vertical": True},
             opacity=1.0,
             show_edges=True,
-            **kwargs
+            **kwargs,
         )
         plotter.add_axes()
-        plotter.show_grid(font_size = 10, xtitle = "X (mm)", ytitle = "Y (mm)", ztitle = "Z (mm)", show_zlabels=False)
-        plotter.show(jupyter_backend= jupyter_backend)
+        plotter.show_grid(
+            font_size=10,
+            xtitle="X (mm)",
+            ytitle="Y (mm)",
+            ztitle="Z (mm)",
+            show_zlabels=False,
+        )
+        plotter.show(jupyter_backend=jupyter_backend)
         plotter.close()
-    
+
     def clean(self):
         """
         Clean up the transducer object by removing large arrays.
@@ -363,17 +405,17 @@ class LinearArrayTransducer:
 
     def __repr__(self):
         params = {
-            'n_elements': self.n_elements,
-            'el_w_mm': self.el_w*1e3,
-            'el_h_mm': self.el_h*1e3,
-            'kerf_mm': self.kerf*1e3,
-            'elev_focus_mm': self.elev_focus*1e3 if self.elev_focus else None,
-            'no_sub_x': self.no_sub_x,
-            'no_sub_y': self.no_sub_y,
-            'fc_Hz': self.fc,
-            'Apod type': self.apodization_type,
-            'tx_N_active': self.tx_N_active,
-            'F_over_D': self.F_over_D,
+            "n_elements": self.n_elements,
+            "el_w_mm": self.el_w * 1e3,
+            "el_h_mm": self.el_h * 1e3,
+            "kerf_mm": self.kerf * 1e3,
+            "elev_focus_mm": self.elev_focus * 1e3 if self.elev_focus else None,
+            "no_sub_x": self.no_sub_x,
+            "no_sub_y": self.no_sub_y,
+            "fc_Hz": self.fc,
+            "Apod type": self.apodization_type,
+            "tx_N_active": self.tx_N_active,
+            "F_over_D": self.F_over_D,
         }
         parts = [f"{k}={v}" for k, v in params.items()]
         return f"{self.__class__.__name__}({', '.join(parts)})"

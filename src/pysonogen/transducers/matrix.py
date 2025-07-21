@@ -231,7 +231,7 @@ class MatrixArrayTransducer:
         delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
 
         # Compute delays based on the speed of sound in soft tissue
-        delays = delays.min() - delays  # time delays for focusing
+        delays = delays.max() - delays  # time delays for focusing
 
         # optionally plot
         if plot:
@@ -298,7 +298,7 @@ class MatrixArrayTransducer:
         mesh.cell_data["Apodization"] = np.array(scalars)
         return mesh
 
-    def show(self, *, notebook=True, show_edges=False):
+    def show(self, *, notebook=False, show_edges=False):
         """
         Visualize the transducer surface mesh and apodization with PyVista.
         """
