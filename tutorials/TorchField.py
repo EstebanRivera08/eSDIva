@@ -94,9 +94,7 @@ def accumulate_events_derivative(
     # Dt1 = t2 - t1  # us (or unit)
     Dt2 = t4 - t2  # us (or unit)
     case3 = Dt2**2 < (2 * dt_us) ** 2  # Check if Dt2 is too small (close to zero)
-    case2 = (idx_t2 == idx_t1) | (
-        idx_t4 == idx_t3
-    )  # Check if t2-t1 and t4-t3 is too small (close to zero)
+    case2 = idx_t2 == idx_t1
     case1 = torch.logical_not(case2) & torch.logical_not(
         case3
     )  # Case 1: trapezoid events
@@ -128,9 +126,9 @@ def accumulate_events_derivative(
             (batch_idx[case2], idx_t1[case2] + 1), -s1[case2], accumulate=True
         )
         d2H.index_put_(
-            (batch_idx[case2], idx_t2[case2] - 1), -s1[case2], accumulate=True
+            (batch_idx[case2], idx_t3[case2] - 1), -s1[case2], accumulate=True
         )
-        d2H.index_put_((batch_idx[case2], idx_t2[case2]), +s1[case2], accumulate=True)
+        d2H.index_put_((batch_idx[case2], idx_t3[case2]), +s1[case2], accumulate=True)
 
     # if torch.any(d2H.isnan()):
     #     print("Warning: NaN values found in case2.")
@@ -233,7 +231,7 @@ class TorchField(nn.Module):
     ):
         start_time = TIME()
         if not isinstance(field_points_m, torch.Tensor):
-            *_, field_points_m = create_simulation_grid(
+            x, y, z, field_points_m = create_simulation_grid(
                 field_points_m, device=self.device
             )
         pts = field_points_m * self.space_m_to_unit  # Convert to um (or unit)
@@ -252,11 +250,14 @@ class TorchField(nn.Module):
                 max_d = max(max_d, dists_batch.max().item())  # Update max distance
                 min_d = min(min_d, dists_batch.min().item())  # Update min distance
 
+        if self.z_plane_mm is None:
+            self.z_plane_mm = z[int(len(z) / 2)]  # Default to the middle of the z-axis
+
         focal = torch.tensor(
             [0, 0, self.z_plane_mm * self.space_m_to_unit * 1e-3],
             dtype=torch.float32,
             device=self.device,
-        )
+        )  # Focal point in um (or unit)
         delays_to_focal_plane = torch.norm(self.centers - focal, dim=-1) / self.c
         max_delay = (-delays_to_focal_plane + delays_to_focal_plane.max()).max()
 
@@ -276,7 +277,7 @@ class TorchField(nn.Module):
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
         t_global = min_time_us + torch.arange(T, device=self.device) * dt_us
 
-        del max_d, min_d  # Free memory
+        del max_d, min_d, delays_to_focal_plane, dists_batch, batch_pts  # Free memory
 
         # Create the apodization and delays tensors of the patches
         # self.apods and self.delays are of shape [n_elements]
@@ -286,9 +287,7 @@ class TorchField(nn.Module):
         # Expand apodization and delays tensors to match the number of sub-elements
 
         expanded_delays = self.delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
-        expanded_apods = torch.sigmoid(10 * self.apods).repeat_interleave(
-            self.no_sub_x * self.no_sub_y
-        )
+        expanded_apods = self.apods.repeat_interleave(self.no_sub_x * self.no_sub_y)
 
         H = torch.zeros(P, T, device=self.device)
         for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
@@ -379,6 +378,11 @@ class TorchField(nn.Module):
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITH gradients in {self.device}."
             )
+            # Ensure parameters are in the correct range and its continuous
+            self.apod.data = torch.sigmoid(20 * (self.apod.data - 0.5))
+            self.delays.data = torch.relu(
+                self.delays.data
+            )  # Ensure delays are non-negative
             t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
             pr = self.compute_pr_from_sir(h, x, y, z)
         else:

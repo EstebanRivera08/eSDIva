@@ -1,5 +1,6 @@
 import numpy as np
 import torch
+from TorchField import TorchField
 from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
@@ -23,24 +24,24 @@ print(Transducers.available_transducers())
 Zeus_Matrix = Transducers.Zeus_Matrix()
 
 # Focalization spot
-focus_mm = np.array([0, 0, 5])  # mm [x, y, z]
-# delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=True)
+focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
 
 folder = r"..\pressure_fields"
 filename = r"/target_inverse.npz"
 name_model = "opt_20epcochs_init_focus_5mm_FoverD_2.0"
 state_name = f"Matrix_torch_state_{name_model}.pth"
+delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 
-Delta_x = 1  # mm
-Delta_y = 1  # mm
-Delta_z = 2  # mm`
+Delta_x = 0.3  # 1  # mm
+Delta_y = 0.3  # 1  # mm
+Delta_z = 1  # 2  # mm`
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.03,
-    "dy": 0.03,
-    "dz": 0.05,
+    "dx": 0.02,
+    "dy": 0.02,
+    "dz": 0.02,
 }
 
 # Zeus_Matrix.show()
@@ -49,18 +50,18 @@ torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
 # Load the model's state dictionary
-Matrix_torch.load_state_dict(torch.load(state_name))
-print("Model state dictionary loaded from: ", state_name)
+# Matrix_torch.load_state_dict(torch.load(state_name))
+# print("Model state dictionary loaded from: ", state_name)
 
 
-pr2, x2, y2, z2 = Matrix_torch(field_info_mm, batch_size=2048)
+pr2, x2, y2, z2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
 
 pysonogen.plot_field_planes(
     pr2.detach().cpu().numpy(),
     x2.detach().cpu().numpy(),
     y2.detach().cpu().numpy(),
     z2.detach().cpu().numpy(),
-    interpolation="bilinear",
+    interpolation=None,
 )
 
 plotter, vol_mesh = pysonogen.plot_pressure_field(

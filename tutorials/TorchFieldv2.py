@@ -67,31 +67,36 @@ def accumulate_events_derivative(
     # Case masks
     Dt2 = t4 - t2
     case3 = Dt2**2 < (2 * dt_us) ** 2
-    case1 = ~case3
+    case2 = (t2 - t1) < dt_us  # Check if t2-t1 is too small (close to zero)
+    case1 = ~case3 & ~case2  # Case 1: trapezoid events
 
     d2H = torch.zeros(B, T, device=device)
 
     # Helper for linear-interpolated accumulation
-    def accumulate_impulse(t_event, value, sign, mask):
+    def accumulate_impulse(t_event, value, sign, mask, shift=0):
         if not mask.any():
             return
         t_event_masked = t_event[mask]
         value_masked = value[mask]
         batch_idx_masked = batch_idx_full[mask]
 
-        f_idx = (t_event_masked - t0_us) * inv_dt
+        f_idx = (t_event_masked - t0_us) * inv_dt + 1 + shift
         idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
-        idx_ceil = (idx_floor + 1).clamp(0, T - 1)
         w_floor = 1 - (f_idx - idx_floor)
+
+        idx_ceil = (idx_floor + 1).clamp(0, T - 1)
         w_ceil = f_idx - idx_floor
+
+        d2H.index_put_(
+            (batch_idx_masked, idx_ceil),
+            sign * value_masked * w_ceil,
+            accumulate=True,
+        )
 
         d2H.index_put_(
             (batch_idx_masked, idx_floor),
             sign * value_masked * w_floor,
             accumulate=True,
-        )
-        d2H.index_put_(
-            (batch_idx_masked, idx_ceil), sign * value_masked * w_ceil, accumulate=True
         )
 
     # Case 1: Trapezoid events
@@ -99,6 +104,12 @@ def accumulate_events_derivative(
     accumulate_impulse(t2, s1, -1, case1)
     accumulate_impulse(t3, s1, -1, case1)
     accumulate_impulse(t4, s1, +1, case1)
+
+    # Case 2: Trapezoid events with Dt1 close to zero
+    accumulate_impulse(t1, s1, +1, case2)
+    accumulate_impulse(t1, s1, -1, case2, shift=1)  # Shift by 1 to avoid overlap
+    accumulate_impulse(t4, s1, -1, case2, shift=-1)
+    accumulate_impulse(t4, s1, +1, case2)
 
     # Integrate to get H
     dH = torch.cumsum(d2H, dim=1)
@@ -205,18 +216,19 @@ class TorchFieldv2(nn.Module):
                 requires_grad=True,
             ),  # s,
         )
+        self.apod_training = None
+        self.delays_training = None
 
-    # --- Full spatial_impulse_response using μs units ---
-    def spatial_impulse_response(self, field_points_m, batch_size=1024):
-        start_time = TIME()
+    # --- help function ro compute the time grid ---
+    def _compute_spatial_and_temporal_grid(self, field_points_m, batch_size=1024):
         if not isinstance(field_points_m, torch.Tensor):
-            *_, field_points_m = create_simulation_grid(
+            x, y, z, field_points_m = create_simulation_grid(
                 field_points_m, device=self.device
             )
+            print(field_points_m)
         pts = field_points_m * self.space_m_to_unit  # Convert to um (or unit)
         pts = pts.to(torch.float32).to(self.device)
         P = pts.shape[0]
-
         max_d = float("-inf")  # Initialize max distance
         min_d = float("inf")  # Initialize min distance
 
@@ -230,11 +242,14 @@ class TorchFieldv2(nn.Module):
                 max_d = max(max_d, dists_batch.max().item())  # Update max distance
                 min_d = min(min_d, dists_batch.min().item())  # Update min distance
 
+        if self.z_plane_mm is None:
+            self.z_plane_mm = z[int(len(z) / 2)]  # Default to the middle of the z-axis
+
         focal = torch.tensor(
             [0, 0, self.z_plane_mm * self.space_m_to_unit * 1e-3],
             dtype=torch.float32,
             device=self.device,
-        )
+        )  # Focal point in um (or unit)
         delays_to_focal_plane = torch.norm(self.centers - focal, dim=-1) / self.c
         max_delay = (-delays_to_focal_plane + delays_to_focal_plane.max()).max()
 
@@ -248,12 +263,21 @@ class TorchFieldv2(nn.Module):
             + max(self.wx, self.wy) / self.space_m_to_unit / self.c
         ) * self.time_sec_to_unit  # us (or unit)
 
+        del max_d, min_d, dists_batch, batch_pts, delays_to_focal_plane  # Free memory
         print(f"Time range: {min_time_us:.2f} us to {max_time_us:.2f} us")
-        print(f"max delay: {max_delay:.2f} us, vs real {self.delays.max():.2f} us")
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
 
-        del max_d, min_d  # Free memory
+        return min_time_us, dt_us, T, pts, P
+
+    # --- Full spatial_impulse_response using μs units ---
+    def spatial_impulse_response(
+        self, field_points_m, batch_size=1024, return_all=False
+    ):
+        start_time = TIME()
+        min_time_us, dt_us, T, pts, P = self._compute_spatial_and_temporal_grid(
+            field_points_m
+        )
 
         # Create the apodization and delays tensors of the patches
         # self.apods and self.delays are of shape [n_elements]
@@ -263,9 +287,7 @@ class TorchFieldv2(nn.Module):
         # Expand apodization and delays tensors to match the number of sub-elements
 
         expanded_delays = self.delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
-        expanded_apods = torch.sigmoid(10 * self.apods).repeat_interleave(
-            self.no_sub_x * self.no_sub_y
-        )
+        expanded_apods = self.apods.repeat_interleave(self.no_sub_x * self.no_sub_y)
 
         H = torch.zeros(P, T, device=self.device)
         for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
@@ -294,11 +316,20 @@ class TorchFieldv2(nn.Module):
         print(
             f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds with batch size {batch_size}."
         )
-
-        return (
-            min_time_us / self.time_sec_to_unit,
-            H.T * self.time_sec_to_unit / self.space_m_to_unit,
-        )
+        if return_all:
+            return (
+                min_time_us / self.time_sec_to_unit
+                + dt_us
+                / self.time_sec_to_unit
+                * torch.arange(T, device=self.device, dtype=torch.float32),
+                H.T * self.time_sec_to_unit / self.space_m_to_unit,
+                events,
+            )
+        else:
+            return (
+                min_time_us / self.time_sec_to_unit,
+                H.T * self.time_sec_to_unit / self.space_m_to_unit,
+            )
 
     def compute_pr_from_sir(self, h_sir, x, y, z):
         start_time = TIME()
@@ -324,9 +355,9 @@ class TorchFieldv2(nn.Module):
                 torch.profiler.ProfilerActivity.CPU,
                 torch.profiler.ProfilerActivity.CUDA,
             ],
-            on_trace_ready=torch.profiler.tensorboard_trace_handler("./log"),
+            on_trace_ready=None,  # Disable tensorboard trace handler for now
             record_shapes=True,
-            with_stack=True,
+            with_stack=False,  # Disable stack tracing to simplify
         ) as prof:
             pr, x, y, z = self.forward(
                 field_info,
@@ -349,6 +380,10 @@ class TorchFieldv2(nn.Module):
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITH gradients in {self.device}."
             )
+            self.apod.data = torch.sigmoid(20 * (self.apod.data - 0.5))
+            self.delays.data = torch.relu(
+                self.delays.data
+            )  # Ensure delays are non-negative
             t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
             pr = self.compute_pr_from_sir(h, x, y, z)
         else:
