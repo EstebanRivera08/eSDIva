@@ -49,9 +49,9 @@ focus_mm = np.array([0, 0, 5])  # mm [x, y, z]
 F_over_D = 1
 
 field_matrix_mm = {
-    "x_extent": [-55 * 0.3 / 2, 55 * 0.3 / 2],
-    "y_extent": [-55 * 0.3 / 2, 55 * 0.3 / 2],
-    "z_extent": [focus_mm[2] - 1, focus_mm[2] + 1],
+    "x_extent": [-55 * 0.3 / 2, 55 * 0.3 / 2],  # mm (16,5 mm)
+    "y_extent": [-55 * 0.3 / 2, 55 * 0.3 / 2],  # mm(16,5 mm)
+    "z_extent": [focus_mm[2] - 1, focus_mm[2] + 1],  # mm (2 mm)
     "dx": 0.3,
     "dy": 0.3,
     "dz": 0.5,
@@ -101,14 +101,15 @@ Matrix_torch = TorchField(Zeus_Matrix, device=device)
 # ----------------- Load target pattern -----------------
 folder = r"..\pressure_fields"
 filename = r"/target_inverse.npz"
-name_model = "solo_delays"
+name_model = "opt_20epcochs_init_focus_5mm_FoverD_2.0"
+state_name = f"Matrix_torch_state_{name_model}.pth"
 
 target_matrix = np.load(folder + filename)["target"]
 y_target = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
 # ----------------- Define loss function and optimizer -----------------
 # Decide number of iterations and learning rate
-num_epoch = 10
+num_epoch = 20
 
 # MSE loss function
 loss_fn = torch.nn.MSELoss()
@@ -189,8 +190,8 @@ for epoch in range(num_epoch + 1):
 
 
 # Save the model's state dictionary
-torch.save(Matrix_torch.state_dict(), "Matrix_torch_state2.pth")
-print("Model state dictionary saved to 'Matrix_torch_state2.pth'")
+torch.save(Matrix_torch.state_dict(), state_name)
+print("Model state dictionary saved to: ", state_name)
 
 last_prediction = y_pred.detach().cpu().numpy()
 last_apod = Matrix_torch.apods.detach().cpu().numpy()

@@ -239,14 +239,18 @@ class TorchField(nn.Module):
         pts = field_points_m * self.space_m_to_unit  # Convert to um (or unit)
         pts = pts.to(torch.float32).to(self.device)
         P = pts.shape[0]
+        max_d = float("-inf")  # Initialize max distance
+        min_d = float("inf")  # Initialize min distance
 
         # Precompute time range
         with torch.no_grad():
-            dists = (pts.unsqueeze(1) - self.centers.unsqueeze(0)).norm(
-                dim=-1
-            )  # um - um (or unit)
-            max_d = dists.max().item()  # um (or unit)
-            min_d = dists.min().item()  # um (or unit)
+            for i in range(0, P, batch_size):
+                batch_pts = pts[i : i + batch_size]  # Get a batch of points
+                dists_batch = (batch_pts.unsqueeze(1) - self.centers.unsqueeze(0)).norm(
+                    dim=-1
+                )  # [batch_size, n_elements]
+                max_d = max(max_d, dists_batch.max().item())  # Update max distance
+                min_d = min(min_d, dists_batch.min().item())  # Update min distance
 
         focal = torch.tensor(
             [0, 0, self.z_plane_mm * self.space_m_to_unit * 1e-3],
