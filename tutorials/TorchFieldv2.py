@@ -6,6 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.profiler
+from helper_function import apply_gaussian_filter, gaussian_kernel
 from torch import Tensor
 from tqdm import tqdm
 
@@ -74,8 +75,6 @@ def accumulate_events_derivative(
 
     # Helper for linear-interpolated accumulation
     def accumulate_impulse(t_event, value, sign, mask, shift=0):
-        if not mask.any():
-            return
         t_event_masked = t_event[mask]
         value_masked = value[mask]
         batch_idx_masked = batch_idx_full[mask]
@@ -100,16 +99,18 @@ def accumulate_events_derivative(
         )
 
     # Case 1: Trapezoid events
-    accumulate_impulse(t1, s1, +1, case1)
-    accumulate_impulse(t2, s1, -1, case1)
-    accumulate_impulse(t3, s1, -1, case1)
-    accumulate_impulse(t4, s1, +1, case1)
+    if case1.any():
+        accumulate_impulse(t1, s1, +1, case1)
+        accumulate_impulse(t2, s1, -1, case1)
+        accumulate_impulse(t3, s1, -1, case1)
+        accumulate_impulse(t4, s1, +1, case1)
 
     # Case 2: Trapezoid events with Dt1 close to zero
-    accumulate_impulse(t1, s1, +1, case2)
-    accumulate_impulse(t1, s1, -1, case2, shift=1)  # Shift by 1 to avoid overlap
-    accumulate_impulse(t4, s1, -1, case2, shift=-1)
-    accumulate_impulse(t4, s1, +1, case2)
+    if case2.any():
+        accumulate_impulse(t1, s1, +1, case2)
+        accumulate_impulse(t1, s1, -1, case2, shift=1)  # Shift by 1 to avoid overlap
+        accumulate_impulse(t4, s1, -1, case2, shift=-1)
+        accumulate_impulse(t4, s1, +1, case2)
 
     # Integrate to get H
     dH = torch.cumsum(d2H, dim=1)
@@ -117,8 +118,6 @@ def accumulate_events_derivative(
 
     # Case 3: Delta events
     def accumulate_delta(t_event, value, mask):
-        if not mask.any():
-            return
         t_event_masked = t_event[mask]
         value_masked = value[mask]
         batch_idx_masked = batch_idx_full[mask]
@@ -136,7 +135,8 @@ def accumulate_events_derivative(
             (batch_idx_masked, idx_ceil), value_masked * w_ceil, accumulate=True
         )
 
-    accumulate_delta(t2, hmax, case3)
+    if case3.any():
+        accumulate_delta(t2, hmax, case3)
 
     return H
 
@@ -218,8 +218,6 @@ class TorchFieldv2(nn.Module):
                 requires_grad=True,
             ),  # s,
         )
-        self.apod_training = None
-        self.delays_training = None
 
     # --- help function ro compute the time grid ---
     def _compute_spatial_and_temporal_grid(self, field_points_m, batch_size=1024):
@@ -271,6 +269,26 @@ class TorchFieldv2(nn.Module):
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
 
         return min_time_us, dt_us, T, pts, P
+
+    def _process_apodization(self, apod=None):
+        apodization = self.apodization if apod is None else apod
+        apodization = apodization.view(self.tx.n_elem_x, self.tx.n_elem_y)
+        apodization = apply_gaussian_filter(apodization, kernel_size=3, sigma=0.5)
+        apodization = torch.sigmoid(10 * (apodization - 0.5)).view(-1)
+        if apod is None:
+            self.apodization.data = apodization
+        else:
+            return apodization
+
+    def _process_delays(self, delay=None):
+        delays = self.delays if delay is None else delay
+        delays = delays.view(self.tx.n_elem_x, self.tx.n_elem_y)
+        delays = apply_gaussian_filter(delays, kernel_size=3, sigma=0.5)
+        delays = torch.relu(delays).view(-1)
+        if delay is None:
+            self.delays.data = delays
+        else:
+            return delays
 
     # --- Full spatial_impulse_response using μs units ---
     def spatial_impulse_response(
@@ -384,12 +402,10 @@ class TorchFieldv2(nn.Module):
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITH gradients in {self.device}."
             )
-            self.apodization.data = torch.sigmoid(10 * (self.apodization.data - 0.5))
-            self.delays.data = torch.relu(
-                self.delays.data
-            )  # Ensure delays are non-negative
             t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
             pr = self.compute_pr_from_sir(h, x, y, z)
+            self._process_apodization()  # Ensure apodization is in [0, 1]
+            self._process_delays()  # Ensure delays are non-negative
         else:
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITHOUT gradients in {self.device}."

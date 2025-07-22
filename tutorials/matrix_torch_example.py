@@ -1,11 +1,15 @@
 import numpy as np
 import torch
+import torch.nn.functional as F
+from helper_function import (
+    apply_gaussian_filter,
+    gaussian_kernel,  # Import the helper functions
+)
 from TorchField import TorchField
 from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
 import pysonogen.transducers as Transducers
-from pysonogen import pyfield
 
 # print(torch.__version__)
 # print(torch.version.cuda)
@@ -23,14 +27,16 @@ print(Transducers.available_transducers())
 
 Zeus_Matrix = Transducers.Zeus_Matrix()
 
+# ----------------------------
+
 # Focalization spot
 focus_mm = np.array([-0.5, 0, 5])  # mm [x, y, z]
+delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 
 folder = r"..\pressure_fields"
 filename = r"/target_inverse.npz"
-name_model = "opt_20epochs_init_focus_5mm_FoverD_1_v2"
+name_model = "opt_10epochs_init_focus_5mm_FoverD_1_v5"
 state_name = f"Matrix_torch_state_{name_model}.pth"
-delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 
 Delta_x = 2  # 0.3  # 1  # mm
 Delta_y = 2  # 0.3  # 1  # mm
@@ -49,8 +55,18 @@ field_info_mm = {
 torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
-# Load the model's state dictionary
-Matrix_torch.load_state_dict(torch.load(state_name))
+# Load the model's state dictionary# Load the checkpoint
+checkpoint = torch.load(state_name)
+Matrix_torch.load_state_dict(checkpoint)
+apodization = Matrix_torch.apodization.reshape(
+    Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y
+)
+delays = Matrix_torch.delays.reshape(Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)
+
+Zeus_Matrix.plot_apodization(apodization.detach().cpu().numpy())
+Zeus_Matrix.plot_delays(delays.detach().cpu().numpy())
+
+# # Example usage
 print("Model state dictionary loaded from: ", state_name)
 
 
