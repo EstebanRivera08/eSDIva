@@ -68,7 +68,9 @@ def plot_pressure_field(
     return plotter, pressure_vol
 
 
-def plot_field_planes(pressure_field, x, y, z, *, figsize=(10, 5), interpolation=None):
+def plot_field_planes(
+    pressure_field, x, y, z, *, figsize=(10, 5), interpolation=None, centered=False
+):
     """
     Plot the pressure field in 2D slices with a properly placed colorbar.
 
@@ -79,9 +81,14 @@ def plot_field_planes(pressure_field, x, y, z, *, figsize=(10, 5), interpolation
     x, y, z : ndarray
         Coordinate arrays.
     """
-    y0 = int(np.floor(y.shape[0] / 2))
-    x0 = int(np.floor(x.shape[0] / 2))
-    z0 = int(np.floor(z.shape[0] / 2))
+    if centered:
+        # Look for the y, x, z indices that are closest to the max value
+        max_idx = np.unravel_index(np.nanargmax(pressure_field), pressure_field.shape)
+        y0, x0, z0 = max_idx[1], max_idx[0], max_idx[2]
+    else:
+        y0 = int(np.floor(y.shape[0] / 2))
+        x0 = int(np.floor(x.shape[0] / 2))
+        z0 = int(np.floor(z.shape[0] / 2))
     # print(
     #     f"Taking slice x_ind, y_ind, z_ind = {x0 + 1}/{x.shape[0]}, {y0 + 1}/{y.shape[0]}, {z0 + 1}/{z.shape[0]}"
     # )
@@ -161,12 +168,12 @@ def add_transducer_to_plotter(plotter, TX_mesh):
         cmap="cool",  # color map (you can change to "plasma", "coolwarm", etc.)
         show_scalar_bar=True,
         scalar_bar_args={
-            "title": "Apodization",
-            "vertical": True,
+            "title": "Pressure (u.a.)",
             "title_font_size": 16,
             "label_font_size": 12,
-            "position_x": 0.9,
-            "position_y": 0.6,
+            "vertical": True,
+            "position_x": 0.85,
+            "position_y": 0.2,
             "height": 0.3,
         },
         label="Transducer",  # label for the legend

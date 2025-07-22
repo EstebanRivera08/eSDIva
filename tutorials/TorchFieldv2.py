@@ -18,7 +18,7 @@ def compute_patch_events_batch(
     diff: Tensor,  # [B, M, 3] in um (or unit)
     dist: Tensor,  # [B, M] in um (or unit)
     delays: Tensor,  # [B, M] in us (or unit)
-    apods: Tensor,  # [B, M] in unitless
+    apodization: Tensor,  # [B, M] in unitless
     inv_c: float,  # Speed of sound in m/s = um/us
     inv_fs: float,  # Sampling frequency in MHz for computation
 ) -> Tensor:
@@ -35,7 +35,7 @@ def compute_patch_events_batch(
     t2 = t1 + Dt1  # us (or unit)
     t3 = t1 + Dt2  # us (or unit)
     t4 = t1 + (Dt1 + Dt2)  # us (or unit)
-    hmax = area * apods / Dt2.clamp(min=inv_fs)  # space_unit/time_unit (m/s)
+    hmax = area * apodization / Dt2.clamp(min=inv_fs)  # space_unit/time_unit (m/s)
 
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
@@ -197,7 +197,7 @@ class TorchFieldv2(nn.Module):
                 ]
                 centers.append(verts.mean(axis=0))
 
-        apods = transducer.apodization
+        apodization = transducer.apodization
         delays = transducer.delays
 
         self.centers = torch.tensor(
@@ -205,8 +205,10 @@ class TorchFieldv2(nn.Module):
             dtype=torch.float32,
             device=self.device,
         )  # um (or unit)
-        self.apods = nn.Parameter(
-            torch.tensor(apods, dtype=torch.float32, device=device, requires_grad=True),
+        self.apodization = nn.Parameter(
+            torch.tensor(
+                apodization, dtype=torch.float32, device=device, requires_grad=True
+            ),
         )
         self.delays = nn.Parameter(
             torch.tensor(
@@ -280,14 +282,16 @@ class TorchFieldv2(nn.Module):
         )
 
         # Create the apodization and delays tensors of the patches
-        # self.apods and self.delays are of shape [n_elements]
+        # self.apodization and self.delays are of shape [n_elements]
         # Then we expand them to [n_elements * no_sub_x * no_sub_y]
         # where each element corresponds to a sub-element has the value of the
-        # corresponding element in self.apods and self.delays.
+        # corresponding element in self.apodization and self.delays.
         # Expand apodization and delays tensors to match the number of sub-elements
 
         expanded_delays = self.delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
-        expanded_apods = self.apods.repeat_interleave(self.no_sub_x * self.no_sub_y)
+        expanded_apodization = self.apodization.repeat_interleave(
+            self.no_sub_x * self.no_sub_y
+        )
 
         H = torch.zeros(P, T, device=self.device)
         for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
@@ -306,7 +310,7 @@ class TorchFieldv2(nn.Module):
                 expanded_delays.unsqueeze(0).expand(
                     j - i, -1
                 ),  # Delays in us (or unit)
-                expanded_apods.unsqueeze(0).expand(j - i, -1),
+                expanded_apodization.unsqueeze(0).expand(j - i, -1),
                 inv_c=1 / self.c * (self.time_sec_to_unit / self.space_m_to_unit),
                 # Speed of sound in s/m = time unit / space unit
                 inv_fs=self.time_sec_to_unit / self.fs,  # 1/fs (time unit)
@@ -380,7 +384,7 @@ class TorchFieldv2(nn.Module):
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITH gradients in {self.device}."
             )
-            self.apod.data = torch.sigmoid(20 * (self.apod.data - 0.5))
+            self.apodization.data = torch.sigmoid(10 * (self.apodization.data - 0.5))
             self.delays.data = torch.relu(
                 self.delays.data
             )  # Ensure delays are non-negative
