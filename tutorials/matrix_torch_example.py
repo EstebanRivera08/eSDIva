@@ -30,13 +30,15 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 # ----------------------------
 
 # Focalization spot
-focus_mm = np.array([-0.5, 0, 5])  # mm [x, y, z]
+focus_mm = np.array([0, -0.2, 5])  # mm [x, y, z]
 delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 
 folder = r"..\pressure_fields"
 filename = r"/target_inverse.npz"
-name_model = "opt_10epochs_init_focus_5mm_FoverD_1_v5"
+name_model = "opt_20epochs_init_focus_5mm_FoverD_1_v1"
 state_name = f"Matrix_torch_state_{name_model}.pth"
+state_folder = r".\test_models"
+path = f"{state_folder}/{state_name}"
 
 Delta_x = 2  # 0.3  # 1  # mm
 Delta_y = 2  # 0.3  # 1  # mm
@@ -56,7 +58,7 @@ torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
 # Load the model's state dictionary# Load the checkpoint
-checkpoint = torch.load(state_name)
+checkpoint = torch.load(path)
 Matrix_torch.load_state_dict(checkpoint)
 apodization = Matrix_torch.apodization.reshape(
     Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y
@@ -81,7 +83,7 @@ pysonogen.plot_field_planes(
     centered=True,
 )
 
-plotter, vol_mesh = pysonogen.plot_pressure_field(
+plotter = pysonogen.plot_pressure_field(
     pr2.detach().cpu().numpy(),
     x2.detach().cpu().numpy(),
     y2.detach().cpu().numpy(),

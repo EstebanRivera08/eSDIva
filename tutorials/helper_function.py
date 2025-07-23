@@ -22,7 +22,7 @@ def gaussian_kernel(size: int, sigma: float) -> torch.Tensor:
     kernel_2d = torch.outer(g, g)
     kernel_2d = kernel_2d / kernel_2d.sum()  # Normalize again
 
-    return kernel_2d
+    return kernel_2d  # Normalize to max value of 1
 
 
 def apply_gaussian_filter(

@@ -39,14 +39,16 @@ else:
 device = device_cuda if use_cuda else device_cpu
 
 # ----------------- compute pattern from pressure field -----------------
-version = "v5"  # Version of the model
+version = "v1"  # Version of the model
 num_epoch = 10
 FoverD = 1  # Focalization over Diameter ratio
 z_plane = 5  # mm, focalization plane
 folder = r"..\pressure_fields"
 filename = r"/target_inverse.npz"
+destination = r".\test_models"
 name_model = f"opt_{num_epoch}epochs_init_focus_{z_plane}mm_FoverD_{FoverD}_{version}"
 state_name = f"Matrix_torch_state_{name_model}.pth"
+path = destination + "/" + state_name
 
 z_len = 5  # Length of the z-axis
 z_weights = torch.linspace(-1, 1, z_len, device=device)  # Linear range from -1 to 1
@@ -155,7 +157,6 @@ first_prediction = y_pred.detach().cpu().numpy()
 first_apod = apodization
 first_delays = delays * 1e6  # Convert to microseconds for better visualization
 
-
 # # Plot First Prediction, Last Prediction, and Target Pattern
 # fig, ax = plt.subplots(1, 2, figsize=(18, 6))
 # vmin = min(first_prediction.min(), target_matrix.min())
@@ -184,36 +185,39 @@ t0 = time.time()
 loss_vec = np.zeros(num_epoch + 1)
 torch.autograd.set_detect_anomaly(True)
 
-for epoch in range(num_epoch + 1):
-    print(f"Epoch {epoch + 1}/{num_epoch + 1}")
-    # 1) Zero the gradients
-    optimizer.zero_grad()
+train = False  # Set to True to enable training mode
+if train:
+    for epoch in range(num_epoch + 1):
+        print(f"Epoch {epoch + 1}/{num_epoch + 1}")
+        # 1) Zero the gradients
+        optimizer.zero_grad()
 
-    # 2) Forward pass
-    pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=512, training=True)
-    max_pr = pr.max().item()
-    if max_pr > max_pr0:
-        max_pr0 = max_pr
+        # 2) Forward pass
+        pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=512, training=True)
+        max_pr = pr.max().item()
+        if max_pr > max_pr0:
+            max_pr0 = max_pr
 
-    y_pred = pattern_from_pressure_field(pr, max_pr0)
+        y_pred = pattern_from_pressure_field(pr, max_pr0)
 
-    # 3) Compute the loss
-    loss = loss_fn(y_target, y_pred)
+        # 3) Compute the loss
+        loss = loss_fn(y_target, y_pred)
 
-    # 4) Backward pass
-    loss.backward()
+        # 4) Backward pass
+        loss.backward()
 
-    # 5) Update the parameters
-    optimizer.step()
+        # 5) Update the parameters
+        optimizer.step()
 
-    # 6) Store loss
-    loss_vec[epoch] = loss.item()
-    print(f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss.")
+        # 6) Store loss
+        loss_vec[epoch] = loss.item()
+        print(
+            f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
+        )
 
-
-# Save the model's state dictionary
-torch.save(Matrix_torch.state_dict(), state_name)
-print("Model state dictionary saved to: ", state_name)
+    # Save the model's state dictionary
+    torch.save(Matrix_torch.state_dict(), path)
+    print("Model state dictionary saved to: ", state_name)
 
 last_prediction = y_pred.detach().cpu().numpy()
 last_apod = Matrix_torch.apodization.detach().cpu().numpy()
@@ -249,7 +253,7 @@ subplot_index = 1  # Tracking from 1 now because loss is at position 0
 axes = []
 
 # First Prediction
-ax = fig.add_subplot(gs[1, 3])
+ax = fig.add_subplot(gs[0, 3])
 im6 = ax.imshow(first_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
 ax.set_title("h) First Prediction")
 ax.set_xlabel("X (mm)")
@@ -296,7 +300,7 @@ plt.colorbar(im2, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # Last Prediction
-ax = fig.add_subplot(gs[2, 3])
+ax = fig.add_subplot(gs[1, 3])
 im7 = ax.imshow(last_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
 ax.set_title("i) Last Prediction")
 ax.set_xlabel("X (mm)")
@@ -304,11 +308,13 @@ ax.set_ylabel("Y (mm)")
 axes.append(ax)
 # Delays Before
 vmin = min(first_delays.min(), last_delays.min())
+vmax = max(first_delays.max(), last_delays.max())
 ax = fig.add_subplot(gs[2, 0])
 im3 = ax.imshow(
     first_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
     cmap="jet",
     vmin=vmin,
+    vmax=vmax,
 )
 ax.set_title("e) Delays (Before)")
 ax.set_xlabel("Element X")
@@ -322,6 +328,7 @@ im4 = ax.imshow(
     last_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
     cmap="jet",
     vmin=vmin,
+    vmax=vmax,
 )
 ax.set_title("f) Delays (After)")
 ax.set_xlabel("Element X")
@@ -334,7 +341,6 @@ ax = fig.add_subplot(gs[2, 2])
 im5 = ax.imshow(
     diff_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
     cmap="jet",
-    vmin=vmin,
 )
 ax.set_title("g) Delays (Difference)")
 ax.set_xlabel("Element X")
@@ -342,9 +348,8 @@ ax.set_ylabel("Element Y")
 plt.colorbar(im5, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
-
 # Target Pattern
-ax = fig.add_subplot(gs[0, 3])
+ax = fig.add_subplot(gs[2, 3])
 ax.imshow(target_matrix.T, cmap="gray", vmin=0, vmax=1, extent=extent)
 ax.set_title("j) Target Pattern")
 ax.set_xlabel("X (mm)")
@@ -353,10 +358,10 @@ axes.append(ax)
 
 # plt.tight_layout()
 # fig.subplots_adjust(top=0.92, hspace=0.6, wspace=0.4)
-plt.show()
 plt.savefig(f"summary_{state_name}.png", dpi=300, bbox_inches="tight")
+plt.show()
 
-plotter, vol_mesh = pysonogen.plot_pressure_field(
+plotter = pysonogen.plot_pressure_field(
     pr.detach().cpu().numpy(),
     x.detach().cpu().numpy(),
     y.detach().cpu().numpy(),
