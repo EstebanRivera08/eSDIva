@@ -65,7 +65,9 @@ def plot_pressure_field(
 
     plotter.add_axes()  # show XYZ axes
     plotter.show_grid()  # show grid
-    return plotter, pressure_vol
+    if return_mesh:
+        return plotter, pressure_vol
+    return plotter
 
 
 def plot_field_planes(
