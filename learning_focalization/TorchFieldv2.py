@@ -272,9 +272,11 @@ class TorchFieldv2(nn.Module):
 
     def _process_apodization(self, apod=None):
         apodization = self.apodization if apod is None else apod
-        apodization = apodization.view(self.tx.n_elem_x, self.tx.n_elem_y)
-        apodization = apply_gaussian_filter(apodization, kernel_size=3, sigma=0.5)
-        apodization = torch.sigmoid(10 * (apodization - 0.5)).view(-1)
+        # apodization = apodization.view(self.tx.n_elem_x, self.tx.n_elem_y)
+        # apodization = apply_gaussian_filter(apodization, kernel_size=3, sigma=0.5).view(
+        #     -1
+        # )
+        apodization = torch.sigmoid(10 * (apodization - 0.5))
         if apod is None:
             self.apodization.data = apodization
         else:
@@ -282,9 +284,9 @@ class TorchFieldv2(nn.Module):
 
     def _process_delays(self, delay=None):
         delays = self.delays if delay is None else delay
-        delays = delays.view(self.tx.n_elem_x, self.tx.n_elem_y)
-        delays = apply_gaussian_filter(delays, kernel_size=3, sigma=0.5)
-        delays = torch.relu(delays).view(-1)
+        # delays = delays.view(self.tx.n_elem_x, self.tx.n_elem_y)
+        # delays = apply_gaussian_filter(delays, kernel_size=3, sigma=0.5).view(-1)
+        delays = torch.relu(delays)
         if delay is None:
             self.delays.data = delays
         else:
@@ -404,8 +406,6 @@ class TorchFieldv2(nn.Module):
             )
             t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
             pr = self.compute_pr_from_sir(h, x, y, z)
-            self._process_apodization()  # Ensure apodization is in [0, 1]
-            self._process_delays()  # Ensure delays are non-negative
         else:
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITHOUT gradients in {self.device}."

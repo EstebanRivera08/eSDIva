@@ -1,6 +1,7 @@
 import warnings
 from time import time as TIME
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 
@@ -245,22 +246,33 @@ class LinearArrayTransducer:
 
         # optionally plot
         if plot:
-            import matplotlib.pyplot as plt
-
-            plt.figure()
-            plt.plot(np.arange(N), apod, "k-", marker="o", markerfacecolor="r")
-            plt.title(f"Apodization: {apodization_type}")
-            plt.xlabel("Element #")
-            plt.ylabel("Weight")
-            plt.grid(True)
-            plt.show()
-            plt.close()
+            self.plot_apodization()
 
         # save into object for later reference
         self.apodization = apod
         self.apodization_type = apodization_type
         self.tx_N_active = int(np.sum(apod > 0))
         return apod
+
+    def plot_apodization(self):
+        """
+        Plot the current apodization weights.
+        """
+
+        plt.figure()
+        plt.plot(
+            np.arange(self.n_elements),
+            self.apodization,
+            "k-",
+            marker="o",
+            markerfacecolor="r",
+        )
+        plt.title(f"Apodization: {self.apodization_type}")
+        plt.xlabel("Element #")
+        plt.ylabel("Weight")
+        plt.grid(True)
+        plt.show()
+        plt.close()
 
     def compute_delays(self, *, focus_mm, c=None, plot=False):
         """
@@ -285,14 +297,6 @@ class LinearArrayTransducer:
         # Unpack and convert to meters
         focus = np.array(focus_mm) * 1e-3
 
-        if focus.shape == (3,):
-            x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
-        elif focus.shape == (2,):
-            x_foc, z_foc = focus[0], focus[1]
-            y_foc = 0
-            # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
-
         # Compute distances from each element to the focus point
         delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
 
@@ -302,27 +306,29 @@ class LinearArrayTransducer:
 
         # optionally plot
         if plot:
-            import matplotlib.pyplot as plt
-
-            plt.figure()
-            plt.plot(
-                np.arange(self.n_elements),
-                delays * 1e6,
-                "k-",
-                marker="o",
-                markerfacecolor="r",
-            )
-            plt.title(
-                f"Focusing at: [{x_foc * 1e3:.3f} mm, {y_foc * 1e3:.3f} mm, {z_foc * 1e3:.3f} mm]"
-            )
-            plt.xlabel("Element #")
-            plt.ylabel("Time delay (us)")
-            plt.grid(True)
-            plt.show()
-            plt.close()
+            self.plot_delays()
 
         self.delays = delays
         return delays
+
+    def plot_delays(self):
+        """
+        Plot the current delays.
+        """
+        plt.figure()
+        plt.plot(
+            np.arange(self.n_elements),
+            self.delays * 1e6,
+            "k-",
+            marker="o",
+            markerfacecolor="r",
+        )
+        plt.title("Delays")
+        plt.xlabel("Element #")
+        plt.ylabel("Delay (us)")
+        plt.grid(True)
+        plt.show()
+        plt.close()
 
     def set_apodization(self, weights):
         """Set per-element apodization weights (length = n_elements)."""

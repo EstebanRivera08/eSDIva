@@ -8,12 +8,9 @@ import pyvista
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
-from PyFieldTorch import PyFieldTorch
 from TorchFieldv2 import TorchFieldv2 as TorchField
-from tqdm import tqdm
 
 import pysonogen
-from pysonogen import pyfield
 
 
 @atexit.register
@@ -39,8 +36,9 @@ else:
 device = device_cuda if use_cuda else device_cpu
 
 # ----------------- compute pattern from pressure field -----------------
-version = "v1"  # Version of the model
-num_epoch = 10
+train = True  # Set to True to enable training mode
+version = "v2"  # Version of the model
+num_epoch = 20
 FoverD = 1  # Focalization over Diameter ratio
 z_plane = 5  # mm, focalization plane
 folder = r"..\pressure_fields"
@@ -50,11 +48,16 @@ name_model = f"opt_{num_epoch}epochs_init_focus_{z_plane}mm_FoverD_{FoverD}_{ver
 state_name = f"Matrix_torch_state_{name_model}.pth"
 path = destination + "/" + state_name
 
-z_len = 5  # Length of the z-axis
+z_len = 7  # Length of the z-axis
 z_weights = torch.linspace(-1, 1, z_len, device=device)  # Linear range from -1 to 1
-z_weights = torch.exp(-(z_weights**2) / (2 * 0.7**2))  # Gaussian weights (sigma = 0.5)
-z_weights = z_weights / z_weights.sum()  # Normalize weights to sum to 1
+z_weights = torch.exp(-(z_weights**2) / (2 * 0.4**2))  # Gaussian weights (sigma = 0.5)
 z_weights = z_weights / z_weights.max()  # Normalize weights to sum to 1
+
+plt.plot(z_weights.cpu().numpy(), "k-s", label="z_weights")
+plt.xlabel("z index")
+plt.ylabel("Weight")
+plt.grid()
+plt.show()
 
 
 def pattern_from_pressure_field(pressure, max):
@@ -67,6 +70,12 @@ def pattern_from_pressure_field(pressure, max):
     return focal_mask
 
 
+# ----------------- Load target pattern -----------------
+
+target_matrix = np.load(folder + filename)["target"]
+y_target = torch.tensor(target_matrix, dtype=torch.float32, device=device)
+
+
 # ------------------- Transducer Matrix -------------------
 focus_mm = np.array([0, 0, z_plane])  # mm [x, y, z]
 F_over_D = 1
@@ -74,7 +83,7 @@ F_over_D = 1
 field_matrix_mm = {
     "x_extent": [-55 * 0.3 / 2, 55 * 0.3 / 2],  # mm (16,5 mm)
     "y_extent": [-55 * 0.3 / 2, 55 * 0.3 / 2],  # mm(16,5 mm)
-    "z_extent": [focus_mm[2] - 1, focus_mm[2] + 1],  # mm (2 mm)
+    "z_extent": [focus_mm[2] - 1.5, focus_mm[2] + 1.5],  # mm (2 mm)
     "dx": 0.3,
     "dy": 0.3,
     "dz": 0.5,
@@ -113,17 +122,13 @@ Zeus_Matrix.set_apodization(apodization)
 # Zeus_Matrix.plot_delays()
 
 # ------------------- Create Torch Field object -------------------
-del Matrix_torch, pr, x, y, z  # Clear previous instance if any
+del Matrix_torch, x, y, z  # Clear previous instance if any
 torch.cuda.empty_cache()  # Clear CUDA cache if using GPU
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 # Load the model's state dictionary
 # Matrix_torch.load_state_dict(torch.load("Matrix_torch_state.pth"))
 # print("Model state dictionary loaded from 'Matrix_torch_state.pth'")
 
-# ----------------- Load target pattern -----------------
-
-target_matrix = np.load(folder + filename)["target"]
-y_target = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
 # ----------------- Define loss function and optimizer -----------------
 
@@ -149,8 +154,8 @@ for name, param in Matrix_torch.named_parameters():
     if param.requires_grad:
         print(name, param.shape, param[:10])
 pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=512, training=True)
-print(f"Max pressure: {(pr * z_weights).sum(dim=-1).max().item():.2f} units")
-y_pred = pattern_from_pressure_field(pr, max_pr0)
+print(f"Max pressure: {(pr.to(device) * z_weights).sum(dim=-1).max().item():.2f} units")
+y_pred = pattern_from_pressure_field(pr.to(device), max_pr0)
 
 first_loss = loss_fn(y_target, y_pred).item()
 first_prediction = y_pred.detach().cpu().numpy()
@@ -185,7 +190,6 @@ t0 = time.time()
 loss_vec = np.zeros(num_epoch + 1)
 torch.autograd.set_detect_anomaly(True)
 
-train = False  # Set to True to enable training mode
 if train:
     for epoch in range(num_epoch + 1):
         print(f"Epoch {epoch + 1}/{num_epoch + 1}")
@@ -193,6 +197,8 @@ if train:
         optimizer.zero_grad()
 
         # 2) Forward pass
+        Matrix_torch._process_apodization()  # Ensure apodization is in [0, 1]
+        Matrix_torch._process_delays()  # Ensure delays are non-negative
         pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=512, training=True)
         max_pr = pr.max().item()
         if max_pr > max_pr0:
@@ -291,7 +297,7 @@ axes.append(ax)
 # Apodization Difference
 ax = fig.add_subplot(gs[1, 2])
 im2 = ax.imshow(
-    diff_apod.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)), cmap="cool"
+    diff_apod.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)), cmap="gray"
 )
 ax.set_title("d) Apodization (Difference)")
 ax.set_xlabel("Element X")
@@ -340,7 +346,7 @@ axes.append(ax)
 ax = fig.add_subplot(gs[2, 2])
 im5 = ax.imshow(
     diff_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
-    cmap="jet",
+    cmap="gray",
 )
 ax.set_title("g) Delays (Difference)")
 ax.set_xlabel("Element X")

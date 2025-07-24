@@ -1,11 +1,7 @@
 import numpy as np
 import torch
-import torch.nn.functional as F
-from helper_function import (
-    apply_gaussian_filter,
-    gaussian_kernel,  # Import the helper functions
-)
-from TorchField import TorchField
+
+# from TorchField import TorchField
 from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
