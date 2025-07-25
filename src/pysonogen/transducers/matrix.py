@@ -39,6 +39,9 @@ class MatrixArrayTransducer:
     ):
         start_time = TIME()
         # Convert mm to meters
+
+        self.type = "matrix"
+        self.name = "MatrixArrayTransducer"
         self.n_elem_x = N_elem_x
         self.n_elem_y = N_elem_y
         self.n_elements = N_elem_x * N_elem_y

@@ -43,6 +43,8 @@ class LinearArrayTransducer:
 
         """
         start_time = TIME()
+        self.type = "linear"
+        self.name = "LinearArrayTransducer"
         element_height, element_width = (
             element_height_mm * 1e-3,
             element_width_mm * 1e-3,

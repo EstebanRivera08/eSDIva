@@ -6,7 +6,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.profiler
-from helper_function import apply_gaussian_filter, gaussian_kernel
+from helper_function import gaussian_filter_1d, gaussian_filter_2d
 from torch import Tensor
 from tqdm import tqdm
 
@@ -270,22 +270,46 @@ class TorchFieldv2(nn.Module):
 
         return min_time_us, dt_us, T, pts, P
 
-    def _process_apodization(self, apod=None):
+    def _process_apodization(
+        self,
+        apod=None,
+        *,
+        kernel_size=5,
+        sigma=0.75,
+        sigmoid_width=1,
+        sigmoid_center=0.5,
+    ):
         apodization = self.apodization if apod is None else apod
-        # apodization = apodization.view(self.tx.n_elem_x, self.tx.n_elem_y)
-        # apodization = apply_gaussian_filter(apodization, kernel_size=3, sigma=0.5).view(
-        #     -1
-        # )
-        apodization = torch.sigmoid(10 * (apodization - 0.5))
+
+        # Apply Gaussian filter to apodization
+        if self.tx.type == "linear":
+            apodization = gaussian_filter_1d(apodization, kernel_size=7, sigma=sigma)
+        elif self.tx.type == "matrix":
+            apodization = gaussian_filter_2d(
+                apodization.view(self.tx.n_elem_x, self.tx.n_elem_y),
+                kernel_size=kernel_size,
+                sigma=sigma,
+            ).view(-1)
+
+        apodization = torch.sigmoid(10 / sigmoid_width * (apodization - sigmoid_center))
         if apod is None:
             self.apodization.data = apodization
         else:
             return apodization
 
-    def _process_delays(self, delay=None):
+    def _process_delays(self, delay=None, *, kernel_size=7, sigma=0.75):
         delays = self.delays if delay is None else delay
-        # delays = delays.view(self.tx.n_elem_x, self.tx.n_elem_y)
-        # delays = apply_gaussian_filter(delays, kernel_size=3, sigma=0.5).view(-1)
+
+        # Aply gaussian filter to delays
+        if self.tx.type == "linear":
+            delays = gaussian_filter_1d(delays, kernel_size=kernel_size, sigma=sigma)
+        elif self.tx.type == "matrix":
+            delays = gaussian_filter_2d(
+                delays.view(self.tx.n_elem_x, self.tx.n_elem_y),
+                kernel_size=kernel_size,
+                sigma=sigma,
+            ).view(-1)
+
         delays = torch.relu(delays)
         if delay is None:
             self.delays.data = delays
@@ -307,7 +331,14 @@ class TorchFieldv2(nn.Module):
         # where each element corresponds to a sub-element has the value of the
         # corresponding element in self.apodization and self.delays.
         # Expand apodization and delays tensors to match the number of sub-elements
-
+        # if training:
+        #     expanded_delays = self._process_delays(self.delays).repeat_interleave(
+        #         self.no_sub_x * self.no_sub_y
+        #     )
+        #     expanded_apodization = self._process_delays(
+        #         self.apodization
+        #     ).repeat_interleave(self.no_sub_x * self.no_sub_y)
+        # else:
         expanded_delays = self.delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
         expanded_apodization = self.apodization.repeat_interleave(
             self.no_sub_x * self.no_sub_y

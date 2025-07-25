@@ -8,6 +8,7 @@ import pyvista
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
+from helper_function import gaussian_1d, pattern_from_pr_3Dto2D
 from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
@@ -24,14 +25,14 @@ def safe_cleanup():
 print(torch.__version__)
 
 use_cuda = False  # Set to False if you want to run on CPU
+device_cpu = torch.device("cpu")
 device_number = 0  # if you have multiple GPUs
 if torch.cuda.is_available():
     print(f"GPU is available: cuda:{torch.cuda.get_device_name(device_number)}")
     device_cuda = torch.device(f"cuda:{device_number}")
-    device_cpu = torch.device("cpu")
 else:
     print("Not GPU available.")
-    device_cpu = torch.device("cpu")
+    device_cuda = device_cpu
 
 device = device_cuda if use_cuda else device_cpu
 
@@ -47,28 +48,6 @@ destination = r".\test_models"
 name_model = f"opt_{num_epoch}epochs_init_focus_{z_plane}mm_FoverD_{FoverD}_{version}"
 state_name = f"Matrix_torch_state_{name_model}.pth"
 path = destination + "/" + state_name
-
-z_len = 7  # Length of the z-axis
-z_weights = torch.linspace(-1, 1, z_len, device=device)  # Linear range from -1 to 1
-z_weights = torch.exp(-(z_weights**2) / (2 * 0.4**2))  # Gaussian weights (sigma = 0.5)
-z_weights = z_weights / z_weights.max()  # Normalize weights to sum to 1
-
-plt.plot(z_weights.cpu().numpy(), "k-s", label="z_weights")
-plt.xlabel("z index")
-plt.ylabel("Weight")
-plt.grid()
-plt.show()
-
-
-def pattern_from_pressure_field(pressure, max):
-    # Apply the weights to the pressure tensor along the z-axis
-    pressure_disk = (pressure * z_weights).sum(dim=-1)  # Weighted sum along the z-axis
-    pressure_disk = pressure_disk / max  # Normalize
-
-    # Use a differentiable thresholding operation
-    focal_mask = torch.sigmoid(10 * (pressure_disk - 0.5))
-    return focal_mask
-
 
 # ----------------- Load target pattern -----------------
 
@@ -100,8 +79,9 @@ apodization = Zeus_Matrix.compute_apodization(
 # of the wanted amplitude
 Matrix_torch = TorchField(Zeus_Matrix, device=device_cuda)
 pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=1024)
+z_weights = gaussian_1d(pr.shape[-1], sigma=0.75, device=device, plot=True)
 max_pr0 = (
-    (pr * z_weights.to(device_cuda)).sum(dim=-1).max().item()
+    (pr.to(device) * z_weights.unsqueeze(0).unsqueeze(0)).sum(dim=-1).max().item()
 )  # Sum along z-axis, and we take the max of the disk
 print(f"Max pressure: {max_pr0:.2f} units")
 
@@ -154,8 +134,10 @@ for name, param in Matrix_torch.named_parameters():
     if param.requires_grad:
         print(name, param.shape, param[:10])
 pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=512, training=True)
-print(f"Max pressure: {(pr.to(device) * z_weights).sum(dim=-1).max().item():.2f} units")
-y_pred = pattern_from_pressure_field(pr.to(device), max_pr0)
+print(
+    f"Max pressure: {(pr.to(device) * z_weights.unsqueeze(0).unsqueeze(0)).sum(dim=-1).max().item():.2f} units"
+)
+y_pred = pattern_from_pr_3Dto2D(pr.to(device), max_pr0)
 
 first_loss = loss_fn(y_target, y_pred).item()
 first_prediction = y_pred.detach().cpu().numpy()
@@ -204,7 +186,7 @@ if train:
         if max_pr > max_pr0:
             max_pr0 = max_pr
 
-        y_pred = pattern_from_pressure_field(pr, max_pr0)
+        y_pred = pattern_from_pr_3Dto2D(pr, max_pr0)
 
         # 3) Compute the loss
         loss = loss_fn(y_target, y_pred)

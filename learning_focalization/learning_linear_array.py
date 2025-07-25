@@ -6,6 +6,12 @@ import numpy as np
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
+from helper_function import (
+    gaussian_1d,
+    pattern_from_pr_3Dto2D,
+    pattern_from_pr_3Dto3D,
+    stack_2D_to_3D,
+)
 from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
@@ -13,14 +19,14 @@ import pysonogen
 print(torch.__version__)
 
 use_cuda = False  # Set to False if you want to run on CPU
+device_cpu = torch.device("cpu")
 device_number = 0  # if you have multiple GPUs
 if torch.cuda.is_available():
     print(f"GPU is available: cuda:{torch.cuda.get_device_name(device_number)}")
     device_cuda = torch.device(f"cuda:{device_number}")
-    device_cpu = torch.device("cpu")
 else:
     print("Not GPU available.")
-    device_cpu = torch.device("cpu")
+    device_cuda = device_cpu
 
 device = device_cuda if use_cuda else device_cpu
 
@@ -28,37 +34,15 @@ device = device_cuda if use_cuda else device_cpu
 train = True  # Set to True to enable training mode
 version = "v1"  # Version of the model
 num_epoch = 10
-FoverD = 2  # Focalization over Diameter ratio
-
-batch_size = 4096  # Batch size for training
+FoverD = 1  # Focalization over Diameter ratio
+sigma = 0.7
+batch_size = 2048  # Batch size for training
 target_folder = r".\target_masks"
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
-name_model = f"opt_{num_epoch}epochs_{version}"
-state_name = f"Linear_torch_state_{name_model}.pth"
+name_model = f"opt_{num_epoch}epochs_random_5_{version}_delays"
+state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name
-
-z_len = 5  # Length of the z-axis
-z_weights = torch.linspace(-1, 1, z_len, device=device)  # Linear range from -1 to 1
-z_weights = torch.exp(-(z_weights**2) / (2 * 0.5**2))  # Gaussian weights (sigma = 0.5)
-z_weights = z_weights / z_weights.max()  # Normalize weights to sum to 1
-
-plt.plot(z_weights.cpu().numpy(), "k-s", label="z_weights")
-plt.xlabel("z index")
-plt.ylabel("Weight")
-plt.grid()
-plt.show()
-# z_weights = z_weights / z_weights.max()  # Normalize weights to sum to 1
-
-
-def pattern_from_pressure_field(pressure, max):
-    # Apply the weights to the pressure tensor along the z-axis
-    pressure_disk = (pressure * z_weights).sum(dim=-1)  # Weighted sum along the z-axis
-    pressure_disk = pressure_disk / max  # Normalize
-
-    # Use a differentiable thresholding operation
-    focal_mask = torch.sigmoid(10 * (pressure_disk - 0.5))
-    return focal_mask
 
 
 # ----------------- Load target pattern -----------------
@@ -73,9 +57,9 @@ dy = target_dic["dy"]
 
 y_target = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
-
 # ------------------- Transducer Matrix -------------------
-focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
+z_plane_mm = 8  # mm
+focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z]
 
 field_matrix_mm = {
     "x_extent": [-x_length_mm / 2, x_length_mm / 2],  # mm (16,5 mm)
@@ -83,33 +67,50 @@ field_matrix_mm = {
     "z_extent": [focus_mm[2] - 1, focus_mm[2] + 1],  # mm (2 mm)
     "dx": dx,
     "dy": dy,
-    "dz": 0.5,
+    "dz": 0.4,
 }
 
 linear_array_tx = pysonogen.transducers.Domino()
 
 linear_array_tx.compute_apodization(focus_mm=focus_mm, F_over_D=FoverD)
-linear_array_tx.compute_delays(focus_mm=focus_mm)
+delays = linear_array_tx.compute_delays(focus_mm=focus_mm)
 
+# ------------------- Reference (focalization at depth) -------------------
 # We first create how one focalization pattern would look like to have a reference
 # of the wanted amplitude
 linear_array_torch = TorchField(linear_array_tx, device=device_cuda)
 pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size)
+plotter = pysonogen.plot_pressure_field(
+    pr.detach().cpu().numpy(),
+    x.detach().cpu().numpy(),
+    y.detach().cpu().numpy(),
+    z.detach().cpu().numpy(),
+)
+
+plotter.show()
+
+# We compute the Gaussian weights for the z-axis
+nz = pr.shape[-1]  # Number of z points
+z_weights = (
+    gaussian_1d(nz, sigma=sigma, device=device, plot=True).unsqueeze(0).unsqueeze(0)
+)
 max_pr0 = (
-    (pr * z_weights.to(device_cuda)).sum(dim=-1).max().item()
+    (pr.to(device) * z_weights).sum(dim=-1).max().item()
 )  # Sum along z-axis, and we take the max of the disk
 print(f"Max pressure: {max_pr0:.2f} units")
 
-# We then create random delays and apodization to test the learning
-# We will use these random values to initialize the TorchField object
-# and then optimize them to match the target pattern
+# ------------- Set initial delays and apodization -------------------
 
-## We create it on the same scale as the computed delays
-# np.random.seed(42)  # For reproducibility
-# torch.manual_seed(42)  # For reproducibility
-# delays = np.random.rand(linear_array_tx.n_elements) * np.max(delays)
-# apodization = np.random.rand(linear_array_tx.n_elements)  # Random apodization for testing
-delays = np.zeros(linear_array_tx.n_elements)
+# Random apodization for testing
+np.random.seed(42)  # For reproducibility
+torch.manual_seed(42)  # For reproducibility
+delays = np.random.rand(linear_array_tx.n_elements) * np.max(delays)
+# apodization = np.random.rand(
+#     linear_array_tx.n_elements
+# )
+# delays = (
+#     np.zeros(linear_array_tx.n_elements) + np.max(delays) / 2
+# )  # Initial delays set to half the max delay
 apodization = np.ones(linear_array_tx.n_elements)  # Random apodization for testing
 linear_array_tx.set_delays(delays)
 linear_array_tx.set_apodization(apodization)
@@ -136,7 +137,7 @@ learning_rate_apods = 2e-1
 optimizer = torch.optim.Adam(
     [
         {"params": linear_array_torch.delays, "lr": learning_rate_delays},
-        {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
+        # {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
     ]
 )
 
@@ -147,17 +148,18 @@ optimizer = torch.optim.Adam(
 for name, param in linear_array_torch.named_parameters():
     if param.requires_grad:
         print(name, param.shape, param[:10])
-pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=2048, training=True)
+pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size, training=True)
+
 print(f"Max pressure: {(pr.to(device) * z_weights).sum(dim=-1).max().item():.2f} units")
-y_pred = pattern_from_pressure_field(pr.to(device), max_pr0)
+y_pred = pattern_from_pr_3Dto3D(pr.to(device), max_pr0)
+
+y_target = stack_2D_to_3D(y_target, nz=nz, sigma=sigma)
+print(f"Target shape: {y_target.shape}, Prediction shape: {y_pred.shape}")
 
 first_loss = loss_fn(y_target, y_pred).item()
-first_prediction = y_pred.detach().cpu().numpy()
-first_apod = linear_array_torch.apodization.detach().cpu().numpy()
-first_delays = (
-    linear_array_torch.delays.detach().cpu().numpy()
-)  # Convert to microseconds for better visualization
-
+first_prediction = y_pred.sum(dim=-1).detach().cpu().numpy()
+first_apod = apodization
+first_delays = delays * 1e6
 # Plot First Prediction, Last Prediction, and Target Pattern
 fig, ax = plt.subplots(1, 2, figsize=(18, 6))
 vmin = min(first_prediction.min(), target_matrix.min())
@@ -184,7 +186,8 @@ plt.close()
 # ----------------- Training loop -----------------
 t0 = time.time()
 loss_vec = np.zeros(num_epoch + 1)
-torch.autograd.set_detect_anomaly(True)
+apod_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
+delays_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
 
 if train:
     for epoch in range(num_epoch + 1):
@@ -200,7 +203,7 @@ if train:
         if max_pr > max_pr0:
             max_pr0 = max_pr
 
-        y_pred = pattern_from_pressure_field(pr, max_pr0)
+        y_pred = pattern_from_pr_3Dto3D(pr, max_pr0)
 
         # 3) Compute the loss
         loss = loss_fn(y_target, y_pred)
@@ -211,17 +214,24 @@ if train:
         # 5) Update the parameters
         optimizer.step()
 
+        # 8) Rectify delays and apodization
+        linear_array_torch._process_apodization()
+        linear_array_torch._process_delays()
+
         # 6) Store loss
+        apod_vect[epoch] = linear_array_torch.apodization.detach().cpu().numpy()
+        delays_vect[epoch] = linear_array_torch.delays.detach().cpu().numpy()
         loss_vec[epoch] = loss.item()
         print(
             f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
         )
 
     # Save the model's state dictionary
-    torch.save(linear_array_torch.state_dict(), path)
+    torch.save(linear_array_torch.state_dict(), path + ".pth")
     print("Model state dictionary saved to: ", state_name)
 
-last_prediction = y_pred.detach().cpu().numpy()
+
+last_prediction = y_pred.sum(-1).detach().cpu().numpy()
 last_apod = linear_array_torch.apodization.detach().cpu().numpy()
 last_delays = linear_array_torch.delays.detach().cpu().numpy()
 print(f"Apodization is {last_apod.min():.2f} to {last_apod.max():.2f} units.")
@@ -231,6 +241,9 @@ t1 = time.time()
 print(f"Computation took {t1 - t0:.1f} seconds.")
 
 # ----------------- Plot results -----------------
+
+
+# ---------------- MAIN RESULTS PLOT -----------------
 diff_apod = last_apod - first_apod
 diff_delays = last_delays - first_delays
 
@@ -356,7 +369,7 @@ im4 = ax.plot(
     diff_delays,
     "k-",
     marker="o",
-    markerfacecolor="r",
+    markerfacecolor="b",
 )
 ax.set_title("e) Delays difference")
 ax.set_xlabel("Element #")
@@ -374,8 +387,71 @@ axes.append(ax)
 
 # plt.tight_layout()
 # fig.subplots_adjust(top=0.92, hspace=0.6, wspace=0.4)
-plt.savefig(f"summary_{state_name}.png", dpi=300, bbox_inches="tight")
+plt.savefig(
+    destination + "/" + f"summary_{state_name}.png", dpi=300, bbox_inches="tight"
+)
 plt.show()
+
+
+# ---------------- PARAMS VS EPOCHS -----------------
+
+fig, axes = plt.subplots(1, 2, figsize=(18, 6), constrained_layout=True)
+
+# Colormap for epochs
+cmap = plt.cm.jet
+norm = plt.Normalize(vmin=0, vmax=num_epoch)
+
+# Plot apodization (left)
+for epoch in range(num_epoch + 1):
+    color = cmap(norm(epoch))
+    label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
+    axes[0].plot(
+        np.arange(linear_array_tx.n_elements),
+        apod_vect[epoch],
+        color=color,
+        label=label,
+        linewidth=1,
+    )
+
+axes[0].set_title("Apodization Across Epochs")
+axes[0].set_xlabel("Element #")
+axes[0].set_ylabel("Apodization")
+axes[0].grid(True)
+axes[0].set_xlim([0, linear_array_tx.n_elements - 1])
+
+# Plot delays (right)
+for epoch in range(num_epoch + 1):
+    color = cmap(norm(epoch))
+    label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
+    axes[1].plot(
+        np.arange(linear_array_tx.n_elements),
+        delays_vect[epoch],
+        color=color,
+        label=label,
+        linewidth=1,
+    )
+
+axes[1].set_title("Delays Across Epochs")
+axes[1].set_xlabel("Element #")
+axes[1].set_ylabel("Delay (μs)")
+axes[1].grid(True)
+axes[1].set_xlim([0, linear_array_tx.n_elements - 1])
+
+# Add colorbar
+sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+sm.set_array([])
+cbar = fig.colorbar(sm, ax=axes, orientation="horizontal", pad=0.08, aspect=40)
+cbar.set_label("Epochs")
+
+plt.savefig(
+    destination + "/" + f"params_vs_epochs_{state_name}.png",
+    dpi=300,
+    bbox_inches="tight",
+)
+plt.show()
+plt.close()
+
+# ----------------- Plot the final pressure field -----------------
 
 plotter = pysonogen.plot_pressure_field(
     pr.detach().cpu().numpy(),
