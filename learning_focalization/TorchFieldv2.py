@@ -6,9 +6,13 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.profiler
-from helper_function import gaussian_filter_1d, gaussian_filter_2d
 from torch import Tensor
 from tqdm import tqdm
+
+from learning_focalization.helper_function import gaussian_filter_1d, gaussian_filter_2d
+
+# Ensure all elements of the array are printed
+np.set_printoptions(threshold=np.inf)
 
 
 # --- JIT-compiled core event computation (unchanged, but output in μs) ---
@@ -98,19 +102,19 @@ def accumulate_events_derivative(
             accumulate=True,
         )
 
-    # Case 1: Trapezoid events
-    if case1.any():
-        accumulate_impulse(t1, s1, +1, case1)
-        accumulate_impulse(t2, s1, -1, case1)
-        accumulate_impulse(t3, s1, -1, case1)
-        accumulate_impulse(t4, s1, +1, case1)
+    # # Case 1: Trapezoid events
+    # if case1.any():
+    #     accumulate_impulse(t1, s1, +1, case1)
+    #     accumulate_impulse(t2, s1, -1, case1)
+    #     accumulate_impulse(t3, s1, -1, case1)
+    #     accumulate_impulse(t4, s1, +1, case1)
 
-    # Case 2: Trapezoid events with Dt1 close to zero
-    if case2.any():
-        accumulate_impulse(t1, s1, +1, case2)
-        accumulate_impulse(t1, s1, -1, case2, shift=1)  # Shift by 1 to avoid overlap
-        accumulate_impulse(t4, s1, -1, case2, shift=-1)
-        accumulate_impulse(t4, s1, +1, case2)
+    # # Case 2: Trapezoid events with Dt1 close to zero
+    # if case2.any():
+    #     accumulate_impulse(t1, s1, +1, case2)
+    #     accumulate_impulse(t1, s1, -1, case2, shift=1)  # Shift by 1 to avoid overlap
+    #     accumulate_impulse(t4, s1, -1, case2, shift=-1)
+    #     accumulate_impulse(t4, s1, +1, case2)
 
     # Integrate to get H
     dH = torch.cumsum(d2H, dim=1)
@@ -219,6 +223,8 @@ class TorchFieldv2(nn.Module):
             ),  # s,
         )
 
+        self.softplus = nn.Softplus(beta=1, threshold=20)
+
     # --- help function ro compute the time grid ---
     def _compute_spatial_and_temporal_grid(self, field_points_m, batch_size=1024):
         if not isinstance(field_points_m, torch.Tensor):
@@ -272,15 +278,13 @@ class TorchFieldv2(nn.Module):
 
     def _process_apodization(
         self,
-        apod=None,
+        apodization=None,
         *,
         kernel_size=5,
         sigma=0.75,
         sigmoid_width=1,
         sigmoid_center=0.5,
     ):
-        apodization = self.apodization if apod is None else apod
-
         # Apply Gaussian filter to apodization
         if self.tx.type == "linear":
             apodization = gaussian_filter_1d(apodization, kernel_size=7, sigma=sigma)
@@ -292,14 +296,10 @@ class TorchFieldv2(nn.Module):
             ).view(-1)
 
         apodization = torch.sigmoid(10 / sigmoid_width * (apodization - sigmoid_center))
-        if apod is None:
-            self.apodization.data = apodization
-        else:
-            return apodization
 
-    def _process_delays(self, delay=None, *, kernel_size=7, sigma=0.75):
-        delays = self.delays if delay is None else delay
+        return apodization
 
+    def _process_delays(self, delays=None, *, kernel_size=7, sigma=0.75):
         # Aply gaussian filter to delays
         if self.tx.type == "linear":
             delays = gaussian_filter_1d(delays, kernel_size=kernel_size, sigma=sigma)
@@ -310,15 +310,18 @@ class TorchFieldv2(nn.Module):
                 sigma=sigma,
             ).view(-1)
 
-        delays = torch.relu(delays)
-        if delay is None:
-            self.delays.data = delays
-        else:
-            return delays
+        delays = self.softplus(delays)
+        return delays
 
     # --- Full spatial_impulse_response using μs units ---
     def spatial_impulse_response(
-        self, field_points_m, batch_size=1024, return_all=False
+        self,
+        field_points_m,
+        batch_size=1024,
+        return_all=False,
+        *,
+        delays=None,
+        apodization=None,
     ):
         start_time = TIME()
         min_time_us, dt_us, T, pts, P = self._compute_spatial_and_temporal_grid(
@@ -331,26 +334,23 @@ class TorchFieldv2(nn.Module):
         # where each element corresponds to a sub-element has the value of the
         # corresponding element in self.apodization and self.delays.
         # Expand apodization and delays tensors to match the number of sub-elements
-        # if training:
-        #     expanded_delays = self._process_delays(self.delays).repeat_interleave(
-        #         self.no_sub_x * self.no_sub_y
-        #     )
-        #     expanded_apodization = self._process_delays(
-        #         self.apodization
-        #     ).repeat_interleave(self.no_sub_x * self.no_sub_y)
-        # else:
-        expanded_delays = self.delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
-        expanded_apodization = self.apodization.repeat_interleave(
+
+        expanded_delays = delays.repeat_interleave(self.no_sub_x * self.no_sub_y)
+        expanded_apodization = apodization.repeat_interleave(
             self.no_sub_x * self.no_sub_y
         )
 
         H = torch.zeros(P, T, device=self.device)
+        batch_idx = 0
+        list_dH0 = torch.zeros(np.ceil(P / batch_size).astype(int), device=self.device)
+
         for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
             j = min(i + batch_size, P)
             batch = pts[i:j]  # [j-i, 3] in um (or unit)
             diff = batch.unsqueeze(1) - self.centers.unsqueeze(
                 0
             )  # [j-i, n_elements, 3] in um (or unit)
+            list_dH0[batch_idx] = H[-1, -1]
             # Compute distances and events
             dist = diff.norm(dim=-1)  # [j-i, n_elements] in um (or unit)
             events = compute_patch_events_batch(
@@ -367,10 +367,15 @@ class TorchFieldv2(nn.Module):
                 inv_fs=self.time_sec_to_unit / self.fs,  # 1/fs (time unit)
             )
             # Correct call with t0_us
+
             H[i:j] = accumulate_events_derivative(events, min_time_us, dt_us, T)
+            batch_idx += 1
+
         print(
             f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds with batch size {batch_size}."
         )
+
+        print(f"List of dH0 values: {list_dH0}")
         if return_all:
             return (
                 min_time_us / self.time_sec_to_unit
@@ -435,14 +440,24 @@ class TorchFieldv2(nn.Module):
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITH gradients in {self.device}."
             )
-            t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
+            t, h = self.spatial_impulse_response(
+                pts,
+                batch_size=batch_size,
+                delays=self._process_delays(self.delays),
+                apodization=self._process_apodization(self.apodization),
+            )
             pr = self.compute_pr_from_sir(h, x, y, z)
         else:
             print(
                 f"Computing field for {len(pts)} points and {self.centers.shape[0]} patches, WITHOUT gradients in {self.device}."
             )
             with torch.no_grad():
-                t, h = self.spatial_impulse_response(pts, batch_size=batch_size)
+                t, h = self.spatial_impulse_response(
+                    pts,
+                    batch_size=batch_size,
+                    delays=self.delays,
+                    apodization=self.apodization,
+                )
                 pr = self.compute_pr_from_sir(h, x, y, z)
 
         print(

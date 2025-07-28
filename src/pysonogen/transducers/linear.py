@@ -370,7 +370,7 @@ class LinearArrayTransducer:
         return mesh
 
     def show(
-        self, *, window_size=[800, 600], notebook=True, jupyter_backend=None, **kwargs
+        self, *, window_size=[800, 600], notebook=False, jupyter_backend=None, **kwargs
     ):
         """
         Visualize the transducer surface mesh and apodization with PyVista.

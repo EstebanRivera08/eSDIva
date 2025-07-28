@@ -32,7 +32,7 @@ device = device_cuda if use_cuda else device_cpu
 
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
-version = "v1"  # Version of the model
+version = "v5"  # Version of the model
 num_epoch = 10
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
@@ -40,7 +40,7 @@ batch_size = 2048  # Batch size for training
 target_folder = r".\target_masks"
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
-name_model = f"opt_{num_epoch}epochs_random_5_{version}_delays"
+name_model = f"opt_{num_epoch}epochs_loss_5_{version}_delays"
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name
 
@@ -89,6 +89,7 @@ plotter = pysonogen.plot_pressure_field(
 
 plotter.show()
 
+
 # We compute the Gaussian weights for the z-axis
 nz = pr.shape[-1]  # Number of z points
 z_weights = (
@@ -108,9 +109,9 @@ delays = np.random.rand(linear_array_tx.n_elements) * np.max(delays)
 # apodization = np.random.rand(
 #     linear_array_tx.n_elements
 # )
-# delays = (
-#     np.zeros(linear_array_tx.n_elements) + np.max(delays) / 2
-# )  # Initial delays set to half the max delay
+delays = (
+    np.zeros(linear_array_tx.n_elements) + np.max(delays) / 2
+)  # Initial delays set to half the max delay
 apodization = np.ones(linear_array_tx.n_elements)  # Random apodization for testing
 linear_array_tx.set_delays(delays)
 linear_array_tx.set_apodization(apodization)
@@ -127,11 +128,21 @@ linear_array_torch = TorchField(linear_array_tx, device=device)
 
 # ----------------- Define loss function and optimizer -----------------
 
+
 # MSE loss function
-loss_fn = torch.nn.MSELoss()
+# loss_fn = torch.nn.MSELoss()
+def loss_fn(y_target, y_pred):
+    """
+    Custom loss function that computes the mean squared error between the target and predicted patterns.
+    """
+    # Compute the MSE loss
+    sum_focal = (y_target * y_pred) ** 2
+    sum_focal = sum_focal.sum()
+    return 1 / sum_focal
+
 
 # Initialize the optimizer
-learning_rate_delays = 2e-2
+learning_rate_delays = 1e-1
 learning_rate_apods = 2e-1
 
 optimizer = torch.optim.Adam(
@@ -151,13 +162,24 @@ for name, param in linear_array_torch.named_parameters():
 pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size, training=True)
 
 print(f"Max pressure: {(pr.to(device) * z_weights).sum(dim=-1).max().item():.2f} units")
-y_pred = pattern_from_pr_3Dto3D(pr.to(device), max_pr0)
+# y_pred = pattern_from_pr_3Dto3D(pr.to(device), max_pr0)
+y_pred = pr
 
 y_target = stack_2D_to_3D(y_target, nz=nz, sigma=sigma)
 print(f"Target shape: {y_target.shape}, Prediction shape: {y_pred.shape}")
 
+plotter = pysonogen.plot_pressure_field(
+    y_target.detach().cpu().numpy(),
+    x.detach().cpu().numpy(),
+    y.detach().cpu().numpy(),
+    z.detach().cpu().numpy(),
+)
+
+plotter.show()
+
 first_loss = loss_fn(y_target, y_pred).item()
-first_prediction = y_pred.sum(dim=-1).detach().cpu().numpy()
+first_prediction = y_pred.sum(dim=-1).detach().cpu().numpy() / max_pr0
+print(f"First loss: {first_loss:.4f} units")
 first_apod = apodization
 first_delays = delays * 1e6
 # Plot First Prediction, Last Prediction, and Target Pattern
@@ -203,7 +225,8 @@ if train:
         if max_pr > max_pr0:
             max_pr0 = max_pr
 
-        y_pred = pattern_from_pr_3Dto3D(pr, max_pr0)
+        # y_pred = pattern_from_pr_3Dto3D(pr, max_pr0)
+        y_pred = pr
 
         # 3) Compute the loss
         loss = loss_fn(y_target, y_pred)
@@ -215,8 +238,8 @@ if train:
         optimizer.step()
 
         # 8) Rectify delays and apodization
-        linear_array_torch._process_apodization()
-        linear_array_torch._process_delays()
+        # linear_array_torch._process_apodization()
+        # linear_array_torch._process_delays()
 
         # 6) Store loss
         apod_vect[epoch] = linear_array_torch.apodization.detach().cpu().numpy()
@@ -269,7 +292,9 @@ axes = []
 
 # First Prediction
 ax = fig.add_subplot(gs[0, 3])
-im6 = ax.imshow(first_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
+im6 = ax.imshow(
+    first_prediction.T / max_pr0, cmap="gray", extent=extent, vmin=0, vmax=1
+)
 ax.set_title("h) First Prediction")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")
@@ -326,7 +351,7 @@ axes.append(ax)
 
 # Last Prediction
 ax = fig.add_subplot(gs[1, 3])
-im7 = ax.imshow(last_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
+im7 = ax.imshow(last_prediction.T / max_pr0, cmap="gray", extent=extent, vmin=0, vmax=1)
 ax.set_title("i) Last Prediction")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")
