@@ -6,10 +6,9 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.profiler
+from helper_function import gaussian_filter_1d, gaussian_filter_2d
 from torch import Tensor
 from tqdm import tqdm
-
-from learning_focalization.helper_function import gaussian_filter_1d, gaussian_filter_2d
 
 # Ensure all elements of the array are printed
 np.set_printoptions(threshold=np.inf)
@@ -45,11 +44,56 @@ def compute_patch_events_batch(
     return torch.stack((t1, t2, t3, t4, hmax), dim=-1)
 
 
+# Helper for linear-interpolated accumulation
+def accumulate_d2H_mean(
+    d2H, batch_idx_full, t_event, value, sign, mask, t0_us, inv_dt, T, shift=0
+):
+    t_event_masked = t_event[mask]
+    value_masked = value[mask]
+    batch_idx_masked = batch_idx_full[mask]
+
+    f_idx = (t_event_masked - t0_us) * inv_dt + 1 + shift
+    idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
+    w_floor = 1 - (f_idx - idx_floor)
+
+    idx_ceil = (idx_floor + 1).clamp(0, T - 1)
+    w_ceil = f_idx - idx_floor
+
+    d2H.index_put_(
+        (batch_idx_masked, idx_ceil),
+        sign * value_masked * w_ceil,
+        accumulate=True,
+    )
+
+    d2H.index_put_(
+        (batch_idx_masked, idx_floor),
+        sign * value_masked * w_floor,
+        accumulate=True,
+    )
+
+
+# Case 3: Delta events
+def accumulate_H_delta(H, batch_idx_full, t_event, value, mask, t0_us, inv_dt, T):
+    t_event_masked = t_event[mask]
+    value_masked = value[mask]
+    batch_idx_masked = batch_idx_full[mask]
+
+    f_idx = (t_event_masked - t0_us) * inv_dt
+    idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
+    idx_ceil = (idx_floor + 1).clamp(0, T - 1)
+    w_floor = 1 - (f_idx - idx_floor)
+    w_ceil = f_idx - idx_floor
+
+    H.index_put_((batch_idx_masked, idx_floor), value_masked * w_floor, accumulate=True)
+    H.index_put_((batch_idx_masked, idx_ceil), value_masked * w_ceil, accumulate=True)
+
+
 def accumulate_events_derivative(
     events: Tensor,  # [B, M, 5]
     t0_us: float,  # Global start time in μs
     dt_us: float,  # sample interval in μs
     T: int,  # number of time bins
+    tolerance: float = 0.5,  # tolerance for numerical
 ) -> Tensor:
     B, M, _ = events.shape
     device = events.device
@@ -70,77 +114,39 @@ def accumulate_events_derivative(
     )
 
     # Case masks
-    Dt2 = t4 - t2
-    case3 = Dt2**2 < (2 * dt_us) ** 2
-    case2 = (t2 - t1) < dt_us  # Check if t2-t1 is too small (close to zero)
+    case3 = (t4 - t2) < ((2 - tolerance) * dt_us)  # opposite of criteria1 Dt2 > 2*dt_us
+    case2 = (t2 - t1) < ((1 - tolerance) * dt_us)  # opposite of criteria2 Dt1 > dt_us
     case1 = ~case3 & ~case2  # Case 1: trapezoid events
 
     d2H = torch.zeros(B, T, device=device)
 
-    # Helper for linear-interpolated accumulation
-    def accumulate_impulse(t_event, value, sign, mask, shift=0):
-        t_event_masked = t_event[mask]
-        value_masked = value[mask]
-        batch_idx_masked = batch_idx_full[mask]
-
-        f_idx = (t_event_masked - t0_us) * inv_dt + 1 + shift
-        idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
-        w_floor = 1 - (f_idx - idx_floor)
-
-        idx_ceil = (idx_floor + 1).clamp(0, T - 1)
-        w_ceil = f_idx - idx_floor
-
-        d2H.index_put_(
-            (batch_idx_masked, idx_ceil),
-            sign * value_masked * w_ceil,
-            accumulate=True,
-        )
-
-        d2H.index_put_(
-            (batch_idx_masked, idx_floor),
-            sign * value_masked * w_floor,
-            accumulate=True,
-        )
-
-    # # Case 1: Trapezoid events
-    # if case1.any():
-    #     accumulate_impulse(t1, s1, +1, case1)
-    #     accumulate_impulse(t2, s1, -1, case1)
-    #     accumulate_impulse(t3, s1, -1, case1)
-    #     accumulate_impulse(t4, s1, +1, case1)
+    # Case 1: Trapezoid events
+    if case1.any():
+        accumulate_d2H_mean(d2H, batch_idx_full, t1, s1, +1, case1, t0_us, inv_dt, T)
+        accumulate_d2H_mean(d2H, batch_idx_full, t2, s1, -1, case1, t0_us, inv_dt, T)
+        accumulate_d2H_mean(d2H, batch_idx_full, t3, s1, -1, case1, t0_us, inv_dt, T)
+        accumulate_d2H_mean(d2H, batch_idx_full, t4, s1, +1, case1, t0_us, inv_dt, T)
 
     # # Case 2: Trapezoid events with Dt1 close to zero
-    # if case2.any():
-    #     accumulate_impulse(t1, s1, +1, case2)
-    #     accumulate_impulse(t1, s1, -1, case2, shift=1)  # Shift by 1 to avoid overlap
-    #     accumulate_impulse(t4, s1, -1, case2, shift=-1)
-    #     accumulate_impulse(t4, s1, +1, case2)
+    if case2.any():
+        t12 = ((t2 + t1) * 0.5).clamp(min=dt_us)
+        t34 = ((t4 + t3) * 0.5).clamp(min=dt_us)
+        accumulate_d2H_mean(d2H, batch_idx_full, t12, s1, +1, case2, t0_us, inv_dt, T)
+        accumulate_d2H_mean(
+            d2H, batch_idx_full, t12, s1, -1, case2, t0_us, inv_dt, T, shift=1
+        )  # Shift by 1 to avoid overlap
+        accumulate_d2H_mean(
+            d2H, batch_idx_full, t34, s1, -1, case2, t0_us, inv_dt, T, shift=-1
+        )
+        accumulate_d2H_mean(d2H, batch_idx_full, t34, s1, +1, case2, t0_us, inv_dt, T)
 
     # Integrate to get H
     dH = torch.cumsum(d2H, dim=1)
     H = torch.cumsum(dH, dim=1) * dt_us
 
-    # Case 3: Delta events
-    def accumulate_delta(t_event, value, mask):
-        t_event_masked = t_event[mask]
-        value_masked = value[mask]
-        batch_idx_masked = batch_idx_full[mask]
-
-        f_idx = (t_event_masked - t0_us) * inv_dt
-        idx_floor = torch.floor(f_idx).long().clamp(0, T - 1)
-        idx_ceil = (idx_floor + 1).clamp(0, T - 1)
-        w_floor = 1 - (f_idx - idx_floor)
-        w_ceil = f_idx - idx_floor
-
-        H.index_put_(
-            (batch_idx_masked, idx_floor), value_masked * w_floor, accumulate=True
-        )
-        H.index_put_(
-            (batch_idx_masked, idx_ceil), value_masked * w_ceil, accumulate=True
-        )
-
     if case3.any():
-        accumulate_delta(t2, hmax, case3)
+        t23 = ((t2 + t3) * 0.5).clamp(min=dt_us)
+        accumulate_H_delta(H, batch_idx_full, t23, hmax, case3, t0_us, inv_dt, T)
 
     return H
 
@@ -341,16 +347,12 @@ class TorchFieldv2(nn.Module):
         )
 
         H = torch.zeros(P, T, device=self.device)
-        batch_idx = 0
-        list_dH0 = torch.zeros(np.ceil(P / batch_size).astype(int), device=self.device)
-
         for i in tqdm(range(0, P, batch_size), desc="Computing SIR", unit="batch"):
             j = min(i + batch_size, P)
             batch = pts[i:j]  # [j-i, 3] in um (or unit)
             diff = batch.unsqueeze(1) - self.centers.unsqueeze(
                 0
             )  # [j-i, n_elements, 3] in um (or unit)
-            list_dH0[batch_idx] = H[-1, -1]
             # Compute distances and events
             dist = diff.norm(dim=-1)  # [j-i, n_elements] in um (or unit)
             events = compute_patch_events_batch(
@@ -369,13 +371,11 @@ class TorchFieldv2(nn.Module):
             # Correct call with t0_us
 
             H[i:j] = accumulate_events_derivative(events, min_time_us, dt_us, T)
-            batch_idx += 1
 
         print(
             f"Spatial impulse response computed in {TIME() - start_time:.2f} seconds with batch size {batch_size}."
         )
 
-        print(f"List of dH0 values: {list_dH0}")
         if return_all:
             return (
                 min_time_us / self.time_sec_to_unit

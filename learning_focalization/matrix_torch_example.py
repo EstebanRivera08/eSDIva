@@ -26,7 +26,7 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 # ----------------------------
 
 # Focalization spot
-focus_mm = np.array([0, -0.2, 5])  # mm [x, y, z]
+focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
 delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 
 folder = r"..\pressure_fields"
@@ -36,16 +36,16 @@ state_name = f"Matrix_torch_state_{name_model}.pth"
 state_folder = r".\test_models"
 path = f"{state_folder}/{state_name}"
 
-Delta_x = 2  # 0.3  # 1  # mm
-Delta_y = 2  # 0.3  # 1  # mm
-Delta_z = 3  # 1  # 2  # mm`
+Delta_x = 0.3  # 2  # mm
+Delta_y = 0.3  # 2  # mm
+Delta_z = 1  # 3  # mm`
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.075,
-    "dy": 0.075,
-    "dz": 0.075,
+    "dx": 0.02,  # 0.075
+    "dy": 0.02,  # 0.075
+    "dz": 0.02,  # 0.075
 }
 
 # Zeus_Matrix.show()
@@ -54,8 +54,8 @@ torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
 # Load the model's state dictionary# Load the checkpoint
-checkpoint = torch.load(path)
-Matrix_torch.load_state_dict(checkpoint)
+# checkpoint = torch.load(path)
+# Matrix_torch.load_state_dict(checkpoint)
 apodization = Matrix_torch.apodization.reshape(
     Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y
 )
@@ -76,7 +76,7 @@ pysonogen.plot_field_planes(
     y2.detach().cpu().numpy(),
     z2.detach().cpu().numpy(),
     interpolation=None,
-    centered=True,
+    centered=False,
 )
 
 plotter = pysonogen.plot_pressure_field(
