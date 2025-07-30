@@ -256,15 +256,18 @@ class LinearArrayTransducer:
         self.tx_N_active = int(np.sum(apod > 0))
         return apod
 
-    def plot_apodization(self):
+    def plot_apodization(self, apodization=None):
         """
         Plot the current apodization weights.
         """
 
+        if apodization is None:
+            apodization = self.apodization
+
         plt.figure()
         plt.plot(
             np.arange(self.n_elements),
-            self.apodization,
+            apodization,
             "k-",
             marker="o",
             markerfacecolor="r",
@@ -313,14 +316,17 @@ class LinearArrayTransducer:
         self.delays = delays
         return delays
 
-    def plot_delays(self):
+    def plot_delays(self, delays=None):
         """
         Plot the current delays.
         """
+        if delays is None:
+            delays = self.delays
+
         plt.figure()
         plt.plot(
             np.arange(self.n_elements),
-            self.delays * 1e6,
+            delays * 1e6,
             "k-",
             marker="o",
             markerfacecolor="r",

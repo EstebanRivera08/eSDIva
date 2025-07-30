@@ -78,12 +78,17 @@ def stack_2D_to_3D(matrix_2D: torch.Tensor, nz: int, *, sigma=0.5) -> torch.Tens
     matrix_3D = matrix_3D.repeat(1, 1, nz)  # Shape: [H, W, depth]
 
     # Create a Gaussian kernel for the z-axis
-    z_weights = gaussian_1d(nz, sigma, device=matrix_2D.device)
-    # Normalize the weights to its max, so that at the center of the z-axis, the weights are 1
-    # and at the edges, the weights are 0
-    z_weights = (
-        z_weights.unsqueeze(0).unsqueeze(0) / z_weights.max()
-    )  # Shape: [1, 1, depth]
+    if sigma != 0:
+        z_weights = gaussian_1d(nz, sigma, device=matrix_2D.device)
+        # Normalize the weights to its max, so that at the center of the z-axis, the weights are 1
+        # and at the edges, the weights are 0
+        z_weights = (
+            z_weights.unsqueeze(0).unsqueeze(0) / z_weights.max()
+        )  # Shape: [1, 1, depth]
+    else:
+        z_weights = torch.zeros(nz, device=matrix_2D.device)
+        z_weights[nz // 2] = 1.0  # Set the center weight to 1
+        z_weights = z_weights.unsqueeze(0).unsqueeze(0)  # Shape: [1, 1, depth]
 
     # Apply the Gaussian weights to the 3D matrix
     matrix_3D = matrix_3D * z_weights

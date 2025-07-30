@@ -229,7 +229,7 @@ class TorchFieldv2(nn.Module):
             ),  # s,
         )
 
-        self.softplus = nn.Softplus(beta=1, threshold=20)
+        self.softplus = nn.Softplus(beta=20, threshold=0.5)
 
     # --- help function ro compute the time grid ---
     def _compute_spatial_and_temporal_grid(self, field_points_m, batch_size=1024):
@@ -317,6 +317,7 @@ class TorchFieldv2(nn.Module):
             ).view(-1)
 
         delays = self.softplus(delays)
+        # delays = torch.relu(delays)
         return delays
 
     # --- Full spatial_impulse_response using μs units ---
@@ -408,7 +409,7 @@ class TorchFieldv2(nn.Module):
         return fft[..., idx].abs()
 
     def examine_bottleneck(
-        self, field_info, batch_size=1024, normalize=True, training=False
+        self, field_info, batch_size=1024, normalize=False, training=False
     ):
         with torch.profiler.profile(
             activities=[
