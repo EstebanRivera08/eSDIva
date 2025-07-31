@@ -316,8 +316,7 @@ class TorchFieldv2(nn.Module):
                 sigma=sigma,
             ).view(-1)
 
-        delays = self.softplus(delays)
-        # delays = torch.relu(delays)
+        delays = torch.relu(delays)
         return delays
 
     # --- Full spatial_impulse_response using μs units ---

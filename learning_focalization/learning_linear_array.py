@@ -33,8 +33,8 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v1"  # Version of the model
-num_epoch = 5
+version = "v4"  # Version of the model
+num_epoch = 20
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 2048  # Batch size for training
@@ -147,33 +147,31 @@ def loss_fn(y_target, y_pred, min_error=1e-6):
 
     log_loss = (
         torch.log(E_sides.mean() + min_error)  # Minimize mean value outside the focus
-        + torch.log(
-            E_sides.var() + E_focus.var() + min_error
-        )  # Minimize variance everywhere
+        + torch.log(y_pred.var() + min_error)  # Minimize variance everywhere
         - torch.log(E_focus.mean() + min_error)  # Maximize Mean value inside the focus
     )
     return log_loss
 
 
-def loss_smoothness_delays(delays, smooth_factor=5):
-    """
-    Smoothness loss function that penalizes large differences between adjacent elements in apodization and delays.
-    """
-    diff_delays = torch.abs(delays[1:] - delays[:-1]).mean()
-    diff_delays_mid = torch.abs(delays[2:] - delays[:-2]).mean()
+# def loss_smoothness_delays(delays, smooth_factor=5):
+#     """
+#     Smoothness loss function that penalizes large differences between adjacent elements in apodization and delays.
+#     """
+#     diff_delays = torch.abs(delays[1:] - delays[:-1]).mean()
+#     diff_delays_mid = torch.abs(delays[2:] - delays[:-2]).mean()
 
-    # Penalize large differences between
-    return (
-        smooth_factor * 10 * (diff_delays + diff_delays_mid / 2) / 2
-    )  # Adjust the factor as needed
+#     # Penalize large differences between
+#     return (
+#         smooth_factor * 10 * (diff_delays + diff_delays_mid / 2) / 2
+#     )  # Adjust the factor as needed
 
 
-def loss_smoothness_apodization(apodization, smooth_factor=1):
-    """
-    Smoothness loss function that penalizes large differences between adjacent elements in apodization.
-    """
-    apodization_diff = torch.abs(apodization[1:] - apodization[:-1]).mean()
-    return smooth_factor * apodization_diff
+# def loss_smoothness_apodization(apodization, smooth_factor=1):
+#     """
+#     Smoothness loss function that penalizes large differences between adjacent elements in apodization.
+#     """
+#     apodization_diff = torch.abs(apodization[1:] - apodization[:-1]).mean()
+#     return smooth_factor * apodization_diff
 
 
 # Initialize the optimizer
@@ -194,7 +192,7 @@ optimizer = torch.optim.Adam(
 pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size, training=False)
 
 # y_pred = pattern_from_pr_3Dto3D(pr.to(device), max_pr0)
-y_pred = pr
+y_pred = pr  # Normalize the prediction
 
 y_target = stack_2D_to_3D(y_target0, nz=nz, sigma=0)
 
@@ -222,11 +220,11 @@ for name, param in linear_array_torch.named_parameters():
     if param.requires_grad:
         print(name, param.shape, param[:10])
 
-target_loss = loss_fn(y_target, y_pred).item()
-loss_delays = loss_smoothness_delays(delays).item()
-loss_apodization = loss_smoothness_apodization(apodization).item()
-first_loss = target_loss + loss_delays + loss_apodization
+loss_target = loss_fn(y_target, y_pred).item()
+# loss_delays = loss_smoothness_delays(delays).item()
+# loss_apodization = loss_smoothness_apodization(apodization).item()
 
+first_loss = loss_target  # + loss_delays + loss_apodization
 first_prediction = first_prediction.detach().cpu().numpy()
 first_apod = apodization.detach().cpu().clone().numpy()
 first_delays = delays.detach().cpu().clone().numpy()
@@ -296,13 +294,13 @@ if train:
             max_pr0 = max_pr
 
         # y_pred = pattern_from_pr_3Dto3D(pr, max_pr0)
-        y_pred = pr
+        y_pred = pr  # Normalize the prediction
 
         # 3) Compute the loss
         loss_target = loss_fn(y_target, y_pred)
-        loss_delays = loss_smoothness_delays(linear_array_torch.delays)
-        loss_apodization = loss_smoothness_apodization(linear_array_torch.apodization)
-        loss = loss_target + loss_delays + loss_apodization
+        # loss_delays = loss_smoothness_delays(linear_array_torch.delays)
+        # loss_apodization = loss_smoothness_apodization(linear_array_torch.apodization)
+        loss = loss_target  # + loss_delays + loss_apodization
 
         # 4) Backward pass
         loss.backward()
@@ -319,14 +317,14 @@ if train:
         delays_vect[epoch] = linear_array_torch.delays.detach().cpu().numpy()
         loss_vec[epoch] = loss.item()
         target_loss_vec[epoch] = loss_target.item()
-        apod_loss_vec[epoch] = loss_apodization.item()
-        delays_loss_vec[epoch] = loss_delays.item()
+        # apod_loss_vec[epoch] = loss_apodization.item()
+        # delays_loss_vec[epoch] = loss_delays.item()
         max_pr_vec[epoch] = max_pr
         print(
             f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
         )
         print(
-            f"loss [target, delays, apodization]: {loss_target.item():.4f} {loss_delays.item():.4f} {loss_apodization.item():.4f}"
+            f"loss [target, delays, apodization]: {loss_target.item():.4f}"  # {loss_delays.item():.4f} {loss_apodization.item():.4f}"
         )
 
     # Save the model's state dictionary

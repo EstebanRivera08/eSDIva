@@ -24,6 +24,7 @@ print(Transducers.available_transducers())
 
 
 Domino = Transducers.Domino()
+Domino.show()
 
 # ----------------------------
 version = "v1"
@@ -32,7 +33,7 @@ num_epoch = 30
 target_folder = r".\target_masks"
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_5planes_delays_random_{version}"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_5planes_delays_zeros_{version}"
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
 data = destination + "/" + name_model + ".npz"  # Add the correct extension
@@ -40,7 +41,7 @@ data = destination + "/" + name_model + ".npz"  # Add the correct extension
 
 # Focalization spot
 focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
-delays = Domino.compute_delays(focus_mm=focus_mm, plot=False)
+# delays = Domino.compute_delays(focus_mm=focus_mm, plot=False)
 
 
 Delta_x = 1.2  # 2  # mm
