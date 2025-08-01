@@ -20,10 +20,15 @@ def gaussian_1d(
 
     Returns:
     - gaussian: torch.Tensor, the computed Gaussian values.
+
     """
-    x = torch.arange(-size // 2 + 1, size // 2 + 1, dtype=torch.float32)
-    kernel_1d = torch.exp(-(x**2) / (2 * sigma**2))
-    kernel_1d = kernel_1d / kernel_1d.sum()  # Normalize to sum to 1
+    if size > 1:
+        x = torch.arange(-size // 2 + 1, size // 2 + 1, dtype=torch.float32)
+        kernel_1d = torch.exp(-(x**2) / (2 * sigma**2))
+        kernel_1d = kernel_1d / kernel_1d.sum()  # Normalize to sum to 1
+    else:
+        kernel_1d = torch.tensor(1)
+
     if plot:
         plt.plot(kernel_1d.cpu().numpy(), label=f"Gaussian 1D (σ={sigma})")
         plt.xlabel("Index")
@@ -93,7 +98,7 @@ def stack_2D_to_3D(matrix_2D: torch.Tensor, nz: int, *, sigma=0.5) -> torch.Tens
     # Apply the Gaussian weights to the 3D matrix
     matrix_3D = matrix_3D * z_weights
 
-    return matrix_3D.squeeze()
+    return matrix_3D.squeeze(0).squeeze(0)
 
 
 def pattern_from_pr_3Dto3D(pressure, max):

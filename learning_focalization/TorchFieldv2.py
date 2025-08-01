@@ -306,17 +306,17 @@ class TorchFieldv2(nn.Module):
         return apodization
 
     def _process_delays(self, delays=None, *, kernel_size=7, sigma=0.75):
-        # Aply gaussian filter to delays
-        if self.tx.type == "linear":
-            delays = gaussian_filter_1d(delays, kernel_size=kernel_size, sigma=sigma)
-        elif self.tx.type == "matrix":
-            delays = gaussian_filter_2d(
-                delays.view(self.tx.n_elem_x, self.tx.n_elem_y),
-                kernel_size=kernel_size,
-                sigma=sigma,
-            ).view(-1)
+        # # Aply gaussian filter to delays
+        # if self.tx.type == "linear":
+        #     delays = gaussian_filter_1d(delays, kernel_size=kernel_size, sigma=sigma)
+        # elif self.tx.type == "matrix":
+        #     delays = gaussian_filter_2d(
+        #         delays.view(self.tx.n_elem_x, self.tx.n_elem_y),
+        #         kernel_size=kernel_size,
+        #         sigma=sigma,
+        #     ).view(-1)
 
-        delays = torch.relu(delays)
+        # delays = self.softplus(delays)
         return delays
 
     # --- Full spatial_impulse_response using μs units ---
