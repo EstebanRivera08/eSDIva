@@ -71,7 +71,15 @@ def plot_pressure_field(
 
 
 def plot_field_planes(
-    pressure_field, x, y, z, *, figsize=(10, 5), interpolation=None, centered=False
+    pressure_field,
+    x,
+    y,
+    z,
+    *,
+    figsize=(10, 5),
+    interpolation=None,
+    centered=False,
+    save_fig_name=None,
 ):
     """
     Plot the pressure field in 2D slices with a properly placed colorbar.
@@ -158,6 +166,8 @@ def plot_field_planes(
     cbar.set_label("Pressure (normalized)")
 
     plt.tight_layout()
+    if save_fig_name:
+        plt.savefig(save_fig_name, dpi=300)
     plt.show()
     plt.close(fig)  # Close the figure to free memory
 

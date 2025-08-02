@@ -6,7 +6,7 @@ build/
 dist/
 wheels/
 log/
-*.pth
+#*.pth
 *.egg-info
 pressure_fields/
 

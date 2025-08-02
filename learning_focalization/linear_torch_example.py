@@ -34,11 +34,12 @@ target_folder = r".\target_masks"
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
 name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_zeros_target2_{version}"
+    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_half_target2_{version}"
 )
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
 data = destination + "/" + name_model + ".npz"  # Add the correct extension
+figure_name = destination + "/" + state_name + ".png"  # Add the correct extension
 
 
 # Focalization spot
@@ -130,7 +131,6 @@ ax = ax.flatten()
 k = 0
 ax[k].plot(delays_before, "ro", label="unprocessed Delays (µs)")
 ax[k].plot(delays_before, "-k", label="unprocessed Delays (µs)")
-ax[k].hlines(0, 0, len(delays), colors="k", linestyles="--", label="Zero Line")
 ax[k].set_xlabel("Element Index")
 ax[k].set_ylabel("Delay (µs)")
 ax[k].set_title("unprocessed Delays")
@@ -139,7 +139,6 @@ k += 1
 
 ax[k].plot(delays, "ro", label="wrapped Delays (µs)")
 ax[k].plot(delays, "-k", label="wrapped Delays (µs)")
-ax[k].hlines(0, 0, len(delays), colors="k", linestyles="--", label="Zero Line")
 ax[k].set_xlabel("Element Index")
 ax[k].set_ylabel("Delay (µs)")
 ax[k].set_title("process Delays")
@@ -178,6 +177,7 @@ pysonogen.plot_field_planes(
     z2.detach().cpu().numpy(),
     interpolation=None,
     centered=False,
+    save_fig_name=figure_name,
 )
 
 plotter = pysonogen.plot_pressure_field(
