@@ -39,7 +39,9 @@ name_model = (
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
 data = destination + "/" + name_model + ".npz"  # Add the correct extension
-figure_name = destination + "/" + state_name + ".png"  # Add the correct extension
+figure_name = (
+    destination + "/" + state_name + ".png"  # + "_unwrap_"
+)  # Add the correct extension
 
 
 # Focalization spot
@@ -104,7 +106,10 @@ def compute_unwrap_threshold(wrapped_delays, expected_delays, unwrap_threshold):
     """
 
     unwrapped_delays = np.unwrap(wrapped_delays, period=unwrap_threshold)
-    return np.abs(unwrapped_delays - expected_delays).sum()
+    return np.abs(
+        (unwrapped_delays - unwrapped_delays.max())
+        - (expected_delays - expected_delays.max())
+    ).sum()
 
 
 thresholds = np.linspace(0.01, 0.15, 100)
@@ -117,7 +122,7 @@ for i, threshold in enumerate(thresholds):
 argmin_error = np.argmin(errors)
 unwrap_threshold = thresholds[argmin_error]
 print(f"Optimal unwrap threshold: {unwrap_threshold:.4f} µs")
-unwrapped_delays = np.unwrap(delays, period=unwrap_threshold)
+unwrapped_delays = np.unwrap(delays, period=0.08)
 # plt.plot(thresholds, errors, label="Error vs Threshold")
 # plt.xlabel("Unwrap Threshold (µs)")
 
@@ -159,6 +164,8 @@ plt.show()
 # ----------------- Compute the pressure field -----------------
 Domino.set_apodization(apodization)
 Domino.set_delays(delays * 1e-6)
+# Domino.set_delays(unwrapped_delays * 1e-6)
+Domino.plot_delays()
 
 domino_torch = TorchField(Domino, device=device)
 
@@ -178,18 +185,18 @@ pysonogen.plot_field_planes(
     save_fig_name=figure_name,
 )
 
-plotter = pysonogen.plot_pressure_field(
-    pr2.detach().cpu().numpy(),
-    x2.detach().cpu().numpy(),
-    y2.detach().cpu().numpy(),
-    z2.detach().cpu().numpy(),
-)
+# plotter = pysonogen.plot_pressure_field(
+#     pr2.detach().cpu().numpy(),
+#     x2.detach().cpu().numpy(),
+#     y2.detach().cpu().numpy(),
+#     z2.detach().cpu().numpy(),
+# )
 
-plotter.show()
-plotter.deep_clean()  # Explicitly clean up PyVista objects
-plotter.close()
+# plotter.show()
+# plotter.deep_clean()  # Explicitly clean up PyVista objects
+# plotter.close()
 
-# Matrix_field = pyfield.PyField(Zeus_Matrix)
-# pr1, x1, y1, z1 = Matrix_field.compute_pressure_field(field_info_mm, inplace=False)
-# pysonogen.plot_field_planes(pr1, x1, y1, z1, interpolation=None)
-del plotter
+# # Matrix_field = pyfield.PyField(Zeus_Matrix)
+# # pr1, x1, y1, z1 = Matrix_field.compute_pressure_field(field_info_mm, inplace=False)
+# # pysonogen.plot_field_planes(pr1, x1, y1, z1, interpolation=None)
+# del plotter

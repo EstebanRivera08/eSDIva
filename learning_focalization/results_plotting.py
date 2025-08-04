@@ -92,10 +92,13 @@ plt.show()
 dif_delays1 = np.diff(delays1)
 dif_delays0 = np.diff(delays0)
 
+delays10 = delays0 - delays1
+dif_delays10 = np.diff(delays10)
+
 fig, ax = plt.subplots(1, 2, figsize=(8, 4))
 ax[0].plot(delays0, "k-", label="Expected Delays")
 ax[0].plot(delays1, "r-", label="Model 1 Delays")
-ax[0].plot(delays0 - delays1, "b-", label="Expected - Model 1 Delays")
+ax[0].plot(delays10, "b-", label="Expected - Model 1 Delays")
 ax[0].set_title("a) Delays")
 ax[0].set_xlabel("Element Index")
 ax[0].set_ylabel("Delay (us)")
@@ -106,6 +109,7 @@ ax[0].legend()
 linewidth = 1
 ax[1].plot(dif_delays0, "k-", label="Expected Delay derivative")
 ax[1].plot(dif_delays1, "r-", linewidth=linewidth, label="Model 1 Delay derivative")
+ax[1].plot(dif_delays10, "b-", linewidth=linewidth, label="Diff derivative")
 ax[1].set_title("b) Delay Derivative")
 ax[1].set_xlabel("Element Index")
 ax[1].set_ylabel("Delay derivative (us)")
@@ -119,7 +123,9 @@ plt.show()
 
 unwrapped_delays = np.unwrap(delays1, period=0.08)
 delays3 = unwrapped_delays
+delays30 = delays0 - delays3
 dif_delays3 = np.diff(delays3)
+dif_delays30 = np.diff(delays30)
 
 fig, ax = plt.subplots(1, 2, figsize=(12, 4))
 ax[0].plot(delays0, "k-", label="Expected Delays")
@@ -137,6 +143,7 @@ ax[1].plot(dif_delays0, "k-", label="Expected Delay derivative")
 ax[1].plot(
     dif_delays3, "r-", linewidth=linewidth, label="unwrapped Model 1 Delay derivative"
 )
+ax[1].plot(dif_delays30, "b-", linewidth=linewidth, label="Diff derivative")
 ax[1].set_title("b) Delay Derivative")
 ax[1].set_xlabel("Element Index")
 ax[1].set_ylabel("Delay derivative (us)")
