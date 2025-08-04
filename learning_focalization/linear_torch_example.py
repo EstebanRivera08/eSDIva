@@ -66,8 +66,8 @@ domino_torch = TorchField(Domino, device=device)
 
 # Load the model's state dictionary# Load the checkpoint
 checkpoint = torch.load(path)
-process = True
 domino_torch.load_state_dict(checkpoint)
+process = True
 apodization = domino_torch.apodization
 delays_before = domino_torch.delays
 if process:
@@ -118,10 +118,8 @@ argmin_error = np.argmin(errors)
 unwrap_threshold = thresholds[argmin_error]
 print(f"Optimal unwrap threshold: {unwrap_threshold:.4f} µs")
 unwrapped_delays = np.unwrap(delays, period=unwrap_threshold)
-
-
-plt.plot(thresholds, errors, label="Error vs Threshold")
-plt.xlabel("Unwrap Threshold (µs)")
+# plt.plot(thresholds, errors, label="Error vs Threshold")
+# plt.xlabel("Unwrap Threshold (µs)")
 
 
 print(f"period: {period} µs")

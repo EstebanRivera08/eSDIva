@@ -236,12 +236,12 @@ class MatrixArrayTransducer:
         # Compute delays based on the speed of sound in soft tissue
         delays = delays.max() - delays  # time delays for focusing
 
+        if inline:
+            self.delays = delays
         # optionally plot
         if plot:
             self.plot_delays(delays)
 
-        if inline:
-            self.delays = delays
         return delays
 
     def plot_apodization(self, apodization=None):
