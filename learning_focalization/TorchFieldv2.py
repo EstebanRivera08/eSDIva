@@ -466,3 +466,16 @@ class TorchFieldv2(nn.Module):
         if normalize:
             pr = pr / pr.max()
         return pr, x, y, z
+
+    def __repr__(self):
+        """
+        String representation of the PyField object.
+
+        Returns
+        -------
+        str
+            A string representation of the PyField object.
+        """
+        return (
+            f"TorchField(transducer={self.tx}, c={self.c}, fs={self.fs}, fc={self.fc})"
+        )

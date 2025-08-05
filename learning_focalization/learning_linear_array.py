@@ -33,17 +33,17 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v3"  # Version of the model
+version = "v1"  # Version of the model
 num_epoch = 200
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 2048  # Batch size for training
-target = "1lambda"  # Target pattern to use
+target = "lambda2"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = f"/linear_{target}.npz"
 destination = r".\test_models\linear"
 name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_half_target2_{version}"
+    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
 )
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name
@@ -98,7 +98,7 @@ max_pr_plane0 = (
     (pr.to(device) * z_weights).sum(dim=-1).max().item()
 )  # Sum along z-axis, and we take the max of the disk
 
-y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
+# y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
 max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
 
 # ------------- Set initial delays and apodization -------------------
@@ -154,7 +154,7 @@ learning_rate_apods = 1e-2
 optimizer = torch.optim.Adam(
     [
         {"params": linear_array_torch.delays, "lr": learning_rate_delays},
-        # {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
+        {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
     ]
 )
 
@@ -576,13 +576,13 @@ plt.close()
 
 # ----------------- Plot the final pressure field -----------------
 
-plotter = pysonogen.plot_pressure_field(
-    pr,
-    x,
-    y,
-    z,
-)
+# plotter = pysonogen.plot_pressure_field(
+#     pr,
+#     x,
+#     y,
+#     z,
+# )
 
-plotter.show()
+# plotter.show()
 
-del plotter  # Delete the plotter object
+# del plotter  # Delete the plotter object

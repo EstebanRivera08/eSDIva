@@ -27,14 +27,15 @@ Domino = Transducers.Domino()
 # Domino.show()
 
 # ----------------------------
-version = "v3"
+version = "v1"
 num_epoch = 200
 
+target = "4lambda"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
 name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_half_target2_{version}"
+    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
 )
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
