@@ -2,16 +2,21 @@ import matplotlib.pyplot as plt
 import numpy as np
 
 folder = r".\target_masks"
-filename = r"/linear_lambda4.npz"
 
-f_c = 12.5e6  # center frequency in Hz
+
+times_lambda = 1 / 2  # number of wavelengths in the target
+f_c = 10  # center frequency in Hz
+
+filename = f"/matrix_{times_lambda}lambda_{f_c}MHz.npz"
+
+f_c = f_c * 1e6  # convert to Hz
+
 c = 1540  # speed of sound in m/s
 lambda_ = c / f_c * 1e3  # wavelength in mm
 
-times_lambda = 1 / 4  # number of wavelengths in the target
 
-x_length_mm = 5
-y_length_mm = 5
+x_length_mm = 5  # half-wavelength in mm
+y_length_mm = 5  # half-wavelength in mm
 dx = lambda_ / 4  # half-wavelength in mm
 dy = lambda_ / 4  # half-wavelength in mm
 Nx = int(x_length_mm / dx) + 2

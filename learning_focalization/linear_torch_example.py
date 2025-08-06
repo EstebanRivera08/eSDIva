@@ -27,21 +27,23 @@ Domino = Transducers.Domino()
 # Domino.show()
 
 # ----------------------------
-version = "v1"
+version = "v3"
 num_epoch = 200
 
 target = "4lambda"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
+
+target = "target2"  # Target pattern to use
 name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
+    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_zeros_{target}_{version}"
 )
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
 data = destination + "/" + name_model + ".npz"  # Add the correct extension
 figure_name = (
-    destination + "/" + state_name + ".png"  # + "_unwrap_"
+    destination + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
 
@@ -123,29 +125,29 @@ for i, threshold in enumerate(thresholds):
 argmin_error = np.argmin(errors)
 unwrap_threshold = thresholds[argmin_error]
 print(f"Optimal unwrap threshold: {unwrap_threshold:.4f} µs")
-unwrapped_delays = np.unwrap(delays, period=0.08)
+unwrapped_delays = np.unwrap(delays, period=0.072)
 # plt.plot(thresholds, errors, label="Error vs Threshold")
 # plt.xlabel("Unwrap Threshold (µs)")
 
 
 print(f"period: {period} µs")
-fig, ax = plt.subplots(1, 3, figsize=(15, 5))
+fig, ax = plt.subplots(1, 2, figsize=(7, 4))
 ax = ax.flatten()
 
 k = 0
-ax[k].plot(delays_before, "ro", label="unprocessed Delays (µs)")
-ax[k].plot(delays_before, "-k", label="unprocessed Delays (µs)")
-ax[k].set_xlabel("Element Index")
-ax[k].set_ylabel("Delay (µs)")
-ax[k].set_title("unprocessed Delays")
-ax[k].grid()
-k += 1
+# ax[k].plot(delays_before, "ro", label="unprocessed Delays (µs)")
+# ax[k].plot(delays_before, "-k", label="unprocessed Delays (µs)")
+# ax[k].set_xlabel("Element Index")
+# ax[k].set_ylabel("Delay (µs)")
+# ax[k].set_title("unprocessed Delays")
+# ax[k].grid()
+# k += 1
 
 ax[k].plot(delays, "ro", label="wrapped Delays (µs)")
 ax[k].plot(delays, "-k", label="wrapped Delays (µs)")
 ax[k].set_xlabel("Element Index")
 ax[k].set_ylabel("Delay (µs)")
-ax[k].set_title("process Delays")
+ax[k].set_title("Wrapped Delays")
 ax[k].grid()
 k += 1
 
@@ -165,7 +167,7 @@ plt.show()
 # ----------------- Compute the pressure field -----------------
 Domino.set_apodization(apodization)
 Domino.set_delays(delays * 1e-6)
-# Domino.set_delays(unwrapped_delays * 1e-6)
+Domino.set_delays(unwrapped_delays * 1e-6)
 Domino.plot_delays()
 
 domino_torch = TorchField(Domino, device=device)
@@ -181,6 +183,7 @@ pysonogen.plot_field_planes(
     x2.detach().cpu().numpy(),
     y2.detach().cpu().numpy(),
     z2.detach().cpu().numpy(),
+    figsize=(14, 4),
     interpolation=None,
     centered=False,
     save_fig_name=figure_name,

@@ -1,8 +1,10 @@
+import atexit
 import time
 
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import pyvista
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
@@ -16,9 +18,18 @@ from TorchFieldv2 import TorchFieldv2 as TorchField
 
 import pysonogen
 
+
+@atexit.register
+def safe_cleanup():
+    try:
+        pyvista.plotting.plotter.close_all()
+    except Exception:
+        pass  # Ignore shutdown errors
+
+
 print(torch.__version__)
 
-use_cuda = True  # Set to False if you want to run on CPU
+use_cuda = False  # Set to False if you want to run on CPU
 device_cpu = torch.device("cpu")
 device_number = 0  # if you have multiple GPUs
 if torch.cuda.is_available():
@@ -34,20 +45,19 @@ device = device_cuda if use_cuda else device_cpu
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
 version = "v1"  # Version of the model
-num_epoch = 200
+num_epoch = 30
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
-batch_size = 2048  # Batch size for training
-target = "lambda2"  # Target pattern to use
+batch_size = 1024  # Batch size for training
+target = "05lambda"  # Target pattern to use
 target_folder = r".\target_masks"
-target_filename = f"/linear_{target}.npz"
-destination = r".\test_models\linear"
+target_filename = f"/matrix_{target}_10MHz.npz"
+destination = r".\test_models\matrix"
 name_model = (
     f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
 )
-state_name = f"Linear_torch_state_{name_model}"
+state_name = f"Matrix_torch_state_{name_model}.pth"
 path = destination + "/" + state_name
-
 
 # ----------------- Load target pattern -----------------
 
@@ -59,14 +69,13 @@ y_length_mm = target_dic["y_length_mm"]
 dx = target_dic["dx"]
 dy = target_dic["dy"]
 
-print(f"Extent: {x_length_mm} mm x {y_length_mm} mm, dx={dx} mm, dy={dy} mm")
-
-
 y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
+
 # ------------------- Transducer Matrix -------------------
-z_plane_mm = 8  # mm
+z_plane_mm = 5  # mm
 focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z]
+F_over_D = 1
 
 field_matrix_mm = {
     "x_extent": [-x_length_mm / 2, x_length_mm / 2],  # mm (16,5 mm)
@@ -77,15 +86,21 @@ field_matrix_mm = {
     "dz": 1,
 }
 
-linear_array_tx = pysonogen.transducers.Domino()
-linear_array_tx.compute_apodization(focus_mm=focus_mm, F_over_D=FoverD)
-delays = linear_array_tx.compute_delays(focus_mm=focus_mm)
+Zeus_Matrix = pysonogen.transducers.Zeus_Matrix()
+
 
 # ------------------- Reference (focalization at depth) -------------------
 # We first create how one focalization pattern would look like to have a reference
 # of the wanted amplitude
-linear_array_torch = TorchField(linear_array_tx, device=device_cuda)
-pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size)
+
+plot_figures = False
+
+delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=plot_figures)
+apodization = Zeus_Matrix.compute_apodization(
+    focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=plot_figures
+)
+Matrix_torch = TorchField(Zeus_Matrix, device=device_cuda)
+pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=batch_size)
 
 # We compute the Gaussian weights for the z-axis
 nz = pr.shape[-1]  # Number of z points
@@ -101,6 +116,7 @@ max_pr_plane0 = (
 # y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
 max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
 
+
 # ------------- Set initial delays and apodization -------------------
 
 ## Random apodization for testing
@@ -112,18 +128,19 @@ torch.manual_seed(42)  # For reproducibility
 # )
 
 ## Zeros delays and ones apodization for testing
-delays = (
-    np.zeros(linear_array_tx.n_elements) + np.max(delays) * 0.5
-)  # Initial delays set to half the max delay
-apodization = np.ones(linear_array_tx.n_elements)  # Random apodization for testing
-linear_array_tx.set_delays(delays)
-linear_array_tx.set_apodization(apodization)
+delays = np.zeros(Zeus_Matrix.n_elements)  # Initial delays set to half the max delay
+apodization = np.ones(Zeus_Matrix.n_elements)  # Random apodization for testing
+Zeus_Matrix.set_delays(delays)
+Zeus_Matrix.set_apodization(apodization)
 
 # ------------------- Create Torch Field object -------------------
 
-del linear_array_torch, x, y, z  # Clear previous instance if any
+del Matrix_torch, x, y, z  # Clear previous instance if any
 torch.cuda.empty_cache()  # Clear CUDA cache if using GPU
-linear_array_torch = TorchField(linear_array_tx, device=device)
+Matrix_torch = TorchField(Zeus_Matrix, device=device)
+# Load the model's state dictionary
+# Matrix_torch.load_state_dict(torch.load("Matrix_torch_state.pth"))
+# print("Model state dictionary loaded from 'Matrix_torch_state.pth'")
 
 # ----------------- Define loss function and optimizer -----------------
 
@@ -153,16 +170,17 @@ learning_rate_apods = 1e-2
 
 optimizer = torch.optim.Adam(
     [
-        {"params": linear_array_torch.delays, "lr": learning_rate_delays},
-        {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
+        {"params": Matrix_torch.delays, "lr": learning_rate_delays},
+        {"params": Matrix_torch.apodization, "lr": learning_rate_apods},
     ]
 )
+
 
 # ----------------- check forward of the model -----------------
 
 # 2) Forward pass
 
-pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size, training=False)
+pr, x, y, z = Matrix_torch(field_matrix_mm, batch_size=batch_size, training=False)
 
 y_pred = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
 
@@ -178,10 +196,10 @@ if y_pred.ndim > 2:
 else:
     first_prediction = y_pred
 
-apodization = linear_array_torch.apodization
-delays = linear_array_torch.delays
+apodization = Matrix_torch.apodization
+delays = Matrix_torch.delays
 
-for name, param in linear_array_torch.named_parameters():
+for name, param in Matrix_torch.named_parameters():
     if param.requires_grad:
         print(name, param.shape, param[:10])
 
@@ -200,9 +218,8 @@ first_prediction_np = first_prediction.detach().cpu().clone().numpy()
 first_apod = apodization.detach().cpu().clone().numpy()
 first_delays = delays.detach().cpu().clone().numpy()
 
-linear_array_tx.plot_apodization(first_apod)
-linear_array_tx.plot_delays(first_delays * 1e-6)
-
+Zeus_Matrix.plot_apodization(first_apod)
+Zeus_Matrix.plot_delays(first_delays * 1e-6)
 
 # ------------- Print and plot first prediction -------------
 
@@ -256,7 +273,6 @@ plt.show()
 plt.close()
 
 # ----------------- Training loop -----------------
-
 t0 = time.time()
 loss_vec = np.zeros(num_epoch + 1)
 loss_energies_vec = np.zeros(num_epoch + 1)
@@ -264,8 +280,8 @@ target_loss_vec = np.zeros(num_epoch + 1)
 
 pred_vect = np.zeros((num_epoch + 1, y_target2D.shape[0], y_target2D.shape[1]))
 max_pr_vec = np.zeros(num_epoch + 1)
-apod_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
-delays_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
+apod_vect = np.zeros((num_epoch + 1, Zeus_Matrix.n_elements))
+delays_vect = np.zeros((num_epoch + 1, Zeus_Matrix.n_elements))
 
 if train:
     for epoch in range(num_epoch + 1):
@@ -274,7 +290,7 @@ if train:
         optimizer.zero_grad()
 
         # 2) Forward pass
-        pr, x, y, z = linear_array_torch(
+        pr, x, y, z = Matrix_torch(
             field_matrix_mm, batch_size=batch_size, training=True
         )
         max_pr = pr.max().item()
@@ -300,8 +316,8 @@ if train:
         optimizer.step()
 
         # 6) Store information
-        apod_vect[epoch] = linear_array_torch.apodization.detach().cpu().numpy()
-        delays_vect[epoch] = linear_array_torch.delays.detach().cpu().numpy()
+        apod_vect[epoch] = Matrix_torch.apodization.detach().cpu().numpy()
+        delays_vect[epoch] = Matrix_torch.delays.detach().cpu().numpy()
         loss_vec[epoch] = loss.item()
         loss_energies_vec[epoch] = loss_physic.item()
         target_loss_vec[epoch] = loss_comparison.item()
@@ -315,7 +331,7 @@ if train:
         )
 
     # Save the model's state dictionary
-    torch.save(linear_array_torch.state_dict(), path + ".pth")
+    torch.save(Matrix_torch.state_dict(), path + ".pth")
     print("Model state dictionary saved to: ", state_name)
     # Save other data
     np.savez(
@@ -328,23 +344,22 @@ if train:
         max_pr=max_pr_vec,
     )
 
-
 if y_pred.ndim > 2:
     last_prediction = pattern_from_pr_3Dto2D(pr.to(device), max_pr0)
 else:
     last_prediction = y_pred
 
-
-last_prediction_np = last_prediction.detach().cpu().numpy()
+last_prediction = y_pred.detach().cpu().numpy()
 pr = pr.detach().cpu().numpy()
 x = x.detach().cpu().numpy()
 y = y.detach().cpu().numpy()
 z = z.detach().cpu().numpy()
 
-last_apod = linear_array_torch.apodization
-last_apod = linear_array_torch._process_apodization(last_apod).detach().cpu().numpy()
-last_delays = linear_array_torch.delays
-last_delays = linear_array_torch._process_delays(last_delays).detach().cpu().numpy()
+
+last_apod = Matrix_torch.apodization
+last_apod = Matrix_torch._process_apodization(last_apod).detach().cpu().numpy()
+last_delays = Matrix_torch.delays
+last_delays = Matrix_torch._process_delays(last_delays).detach().cpu().numpy()
 print(f"Apodization is {last_apod.min():.2f} to {last_apod.max():.2f} units.")
 print(f"Delays are {last_delays.min():.2f} to {last_delays.max():.2f} microseconds.")
 
@@ -362,7 +377,7 @@ extent = [x.min(), x.max(), y.min(), y.max()]
 
 
 plt.rcParams.update({"axes.titlesize": 12, "axes.labelsize": 10})
-fig = plt.figure(figsize=(16, 10))
+fig = plt.figure(figsize=(17, 12), constrained_layout=True)
 gs = gridspec.GridSpec(3, 4, figure=fig)
 
 # Loss Plot spanning first row (3 columns)
@@ -380,102 +395,91 @@ ax_loss.legend()
 subplot_index = 1  # Tracking from 1 now because loss is at position 0
 axes = []
 
+
 # Apodization Before
 ax = fig.add_subplot(gs[1, 0])
-
-im1 = ax.plot(
-    np.arange(linear_array_tx.n_elements),
-    first_apod,
-    "k-",
-    marker="o",
-    markerfacecolor="r",
+im0 = ax.imshow(
+    first_apod.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
+    cmap="cool",
+    vmin=0,
+    vmax=1,
 )
-ax.grid(True)
 ax.set_title("b) Apodization (Before)")
-ax.set_xlabel("Element #")
-ax.set_ylabel("Apodization")
+ax.set_xlabel("Element X")
+ax.set_ylabel("Element Y")
+plt.colorbar(im0, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # Apodization After
 ax = fig.add_subplot(gs[1, 1])
-
-im2 = ax.plot(
-    np.arange(linear_array_tx.n_elements),
-    last_apod,
-    "k-",
-    marker="o",
-    markerfacecolor="r",
+im1 = ax.imshow(
+    last_apod.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
+    cmap="cool",
+    vmin=0,
+    vmax=1,
 )
-ax.grid(True)
 ax.set_title("c) Apodization (After)")
-ax.set_xlabel("Element #")
-ax.set_ylabel("Apodization")
+ax.set_xlabel("Element X")
+ax.set_ylabel("Element Y")
+plt.colorbar(im1, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # Apodization Difference
 ax = fig.add_subplot(gs[1, 2])
-
-im3 = ax.plot(
-    np.arange(linear_array_tx.n_elements),
-    diff_apod,
-    "k-",
-    marker="o",
-    markerfacecolor="b",
+im2 = ax.imshow(
+    diff_apod.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)), cmap="gray"
 )
-ax.grid(True)
-ax.set_title("d) Apodization (Before)")
-ax.set_xlabel("Element #")
-ax.set_ylabel("Apodization")
+ax.set_title("d) Apodization (Difference)")
+ax.set_xlabel("Element X")
+ax.set_ylabel("Element Y")
+plt.colorbar(im2, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # Delays Before
+vmin = min(first_delays.min(), last_delays.min())
+vmax = max(first_delays.max(), last_delays.max())
 ax = fig.add_subplot(gs[2, 0])
-im4 = ax.plot(
-    np.arange(linear_array_tx.n_elements),
-    first_delays,
-    "k-",
-    marker="o",
-    markerfacecolor="r",
+im3 = ax.imshow(
+    first_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
+    cmap="jet",
+    vmin=vmin,
+    vmax=vmax,
 )
 ax.set_title("e) Delays (Before)")
-ax.set_xlabel("Element #")
-ax.set_ylabel("Delay (us)")
-ax.grid(True)
+ax.set_xlabel("Element X")
+ax.set_ylabel("Element Y")
+plt.colorbar(im3, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # Delays After
 ax = fig.add_subplot(gs[2, 1])
-im5 = ax.plot(
-    np.arange(linear_array_tx.n_elements),
-    last_delays,
-    "k-",
-    marker="o",
-    markerfacecolor="r",
+im4 = ax.imshow(
+    last_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
+    cmap="jet",
+    vmin=vmin,
+    vmax=vmax,
 )
 ax.set_title("f) Delays (After)")
-ax.set_xlabel("Element #")
-ax.set_ylabel("Delay (us)")
-ax.grid(True)
+ax.set_xlabel("Element X")
+ax.set_ylabel("Element Y")
+plt.colorbar(im4, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # Delays Difference
 ax = fig.add_subplot(gs[2, 2])
-im6 = ax.plot(
-    np.arange(linear_array_tx.n_elements),
-    diff_delays,
-    "k-",
-    marker="o",
-    markerfacecolor="b",
+im5 = ax.imshow(
+    diff_delays.reshape((Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)),
+    cmap="gray",
 )
-ax.set_title("g) Delays difference")
-ax.set_xlabel("Element #")
-ax.set_ylabel("Delay (us)")
-ax.grid(True)
+ax.set_title("g) Delays (Difference)")
+ax.set_xlabel("Element X")
+ax.set_ylabel("Element Y")
+plt.colorbar(im5, ax=ax, orientation="vertical", fraction=0.046, pad=0.04)
 axes.append(ax)
 
 # First Prediction
 ax = fig.add_subplot(gs[0, 3])
-im7 = ax.imshow(first_prediction_np.T, cmap="gray", extent=extent, vmin=0, vmax=1)
+im6 = ax.imshow(first_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
 ax.set_title("h) First Prediction")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")
@@ -483,7 +487,7 @@ axes.append(ax)
 
 # Last Prediction
 ax = fig.add_subplot(gs[1, 3])
-im8 = ax.imshow(last_prediction_np.T, cmap="gray", extent=extent, vmin=0, vmax=1)
+im7 = ax.imshow(last_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
 ax.set_title("i) Last Prediction")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")
@@ -491,22 +495,14 @@ axes.append(ax)
 
 # Target Pattern
 ax = fig.add_subplot(gs[2, 3])
-im9 = ax.imshow(
-    y_target2D.detach().cpu().numpy().T, cmap="gray", vmin=0, vmax=1, extent=extent
-)
+ax.imshow(target_matrix.T, cmap="gray", vmin=0, vmax=1, extent=extent)
 ax.set_title("j) Target Pattern")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")
 axes.append(ax)
 
-# Add a single colorbar for all imshow subplots
-cbar_ax = fig.add_axes([0.92, 0.3, 0.02, 0.4])  # [left, bottom, width, height]
-cbar = fig.colorbar(im9, cax=cbar_ax)
-cbar.set_label("Intensity")
-# Final manual layout adjustments
-fig.subplots_adjust(left=0.05, right=0.9, top=0.95, bottom=0.05, hspace=0.6, wspace=0.4)
-
-
+# plt.tight_layout()
+# fig.subplots_adjust(top=0.92, hspace=0.6, wspace=0.4)
 if save_fig:
     plt.savefig(
         destination + "/" + f"summary_{state_name}.png", dpi=300, bbox_inches="tight"
@@ -516,7 +512,7 @@ plt.show()
 
 # ---------------- PARAMS VS EPOCHS -----------------
 
-fig, axes = plt.subplots(1, 2, figsize=(18, 6), constrained_layout=True)
+fig, axes = plt.subplots(2, 1, figsize=(12, 8), constrained_layout=True)
 
 # Colormap for epochs
 cmap = plt.cm.jet
@@ -527,7 +523,7 @@ for epoch in range(num_epoch + 1):
     color = cmap(norm(epoch))
     label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
     axes[0].plot(
-        np.arange(linear_array_tx.n_elements),
+        np.arange(Zeus_Matrix.n_elements),
         apod_vect[epoch],
         color=color,
         label=label,
@@ -538,14 +534,14 @@ axes[0].set_title("Apodization Across Epochs")
 axes[0].set_xlabel("Element #")
 axes[0].set_ylabel("Apodization")
 axes[0].grid(True)
-axes[0].set_xlim([0, linear_array_tx.n_elements - 1])
+axes[0].set_xlim([0, Zeus_Matrix.n_elements - 1])
 
 # Plot delays (right)
 for epoch in range(num_epoch + 1):
     color = cmap(norm(epoch))
     label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
     axes[1].plot(
-        np.arange(linear_array_tx.n_elements),
+        np.arange(Zeus_Matrix.n_elements),
         delays_vect[epoch],
         color=color,
         label=label,
@@ -556,7 +552,7 @@ axes[1].set_title("Delays Across Epochs")
 axes[1].set_xlabel("Element #")
 axes[1].set_ylabel("Delay (μs)")
 axes[1].grid(True)
-axes[1].set_xlim([0, linear_array_tx.n_elements - 1])
+axes[1].set_xlim([0, Zeus_Matrix.n_elements - 1])
 
 # Add colorbar
 sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
@@ -574,15 +570,16 @@ if save_fig:
 plt.show()
 plt.close()
 
+
 # ----------------- Plot the final pressure field -----------------
 
 # plotter = pysonogen.plot_pressure_field(
-#     pr,
-#     x,
-#     y,
-#     z,
+#     pr.detach().cpu().numpy(),
+#     x.detach().cpu().numpy(),
+#     y.detach().cpu().numpy(),
+#     z.detach().cpu().numpy(),
 # )
 
 # plotter.show()
 
-# del plotter  # Delete the plotter object
+# del plotter  # Clear the plotter to free memory

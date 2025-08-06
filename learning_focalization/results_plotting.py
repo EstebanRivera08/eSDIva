@@ -114,7 +114,7 @@ ax[1].set_title("b) Delay Derivative")
 ax[1].set_xlabel("Element Index")
 ax[1].set_ylabel("Delay derivative (us)")
 ax[1].grid()
-ax[1].legend()
+# ax[1].legend()
 plt.tight_layout()
 plt.show()
 
@@ -122,6 +122,8 @@ plt.show()
 # ---------- unwrap delays ----------
 
 unwrapped_delays = np.unwrap(delays1, period=0.08)
+unwrapped_delays = np.unwrap(unwrapped_delays, period=0.071)
+unwrapped_delays = np.unwrap(unwrapped_delays, period=0.065)
 delays3 = unwrapped_delays
 delays30 = delays0 - delays3
 dif_delays3 = np.diff(delays3)
@@ -148,7 +150,7 @@ ax[1].set_title("b) Delay Derivative")
 ax[1].set_xlabel("Element Index")
 ax[1].set_ylabel("Delay derivative (us)")
 ax[1].grid()
-ax[1].legend()
+# ax[1].legend()
 plt.tight_layout()
 plt.show()
 
@@ -156,7 +158,8 @@ plt.show()
 pitch = Domino.kerf + Domino.el_w  # in m
 zf = 8 * 1e-3  # focal depth in meters
 
-element = np.arange(-200, 200)  # element indices
+x_width = 300
+element = np.arange(-x_width, x_width)  # element indices
 r0 = np.sqrt(zf**2 + (element * pitch) ** 2)
 r1 = np.sqrt(zf**2 + ((element + 1) * pitch) ** 2)
 max_delta_tau = pitch / 1540 * 1e6  # in microseconds
@@ -167,19 +170,15 @@ print(f"max_delta_tau: {max_delta_tau} us")
 
 unwrapped_delays = np.unwrap(delays1, period=max_delta_tau)
 delays4 = unwrapped_delays
+delays40 = delays0 - delays4
 dif_delays4 = np.diff(delays4)
+dif_delays40 = np.diff(delays40)
 
-fig, ax = plt.subplots(1, 2, figsize=(10, 5))
+fig, ax = plt.subplots(1, 3, figsize=(15, 5))
 
-ax[1].plot(
-    element,
-    delta_tau * 1e3,
-    "g-",
-    label="theoretical $\\Delta \\tau$",
-)
 ax[0].plot(delays0, "k-", label="Expected Delays")
 ax[0].plot(delays4, "r-", label="unwrapped Delays")
-ax[0].plot(delays0 - delays4, "b-", label="Expected - unwrapped Delays")
+ax[0].plot(delays40, "b-", label="Expected - unwrapped Delays")
 ax[0].set_title("a) Delays")
 ax[0].set_xlabel("Element Index")
 ax[0].set_ylabel("Delay (us)")
@@ -187,28 +186,62 @@ ax[0].grid()
 ax[0].legend()
 
 linewidth = 1
-ax[1].plot(dif_delays0 * 1e3, "k-", label="Expected Delay derivative")
+
 ax[1].plot(
-    dif_delays4 * 1e3,
-    "r-",
+    element,
+    delta_tau * 1e3,
+    "k--",
+    label="theoretical $\\Delta \\tau$",
+)
+ax[1].plot(dif_delays0 * 1e3, "k-", label="_nolegend_")
+ax[1].plot(dif_delays4 * 1e3, "r-", linewidth=linewidth, label="_nolegend_")
+ax[1].plot(
+    dif_delays40 * 1e3,
+    "b-",
     linewidth=linewidth,
-    label="unwrapped Delay derivative",
+    label="_nolegend_",
 )
-ax[1].axhline(
-    max_delta_tau * 1e3, color="y", linestyle="-", linewidth=linewidth, label="pitch/c"
-)
+ax[1].axhline(max_delta_tau * 1e3, color="g", linestyle="-", label="$p_x/c$")
 ax[1].axhline(
     -max_delta_tau * 1e3,
-    color="y",
+    color="g",
     linestyle="-",
-    linewidth=linewidth,
-    label="- pitch/c",
+    label="$-p_x/c$",
 )
 ax[1].set_title("b) Delay Derivative")
 ax[1].set_xlabel("Element Index")
 ax[1].set_ylabel("Delay derivative (ns)")
 ax[1].grid()
-ax[1].legend()
+ax[1].set_xlim([-10, 138])  # Adjusted to fit the element range
+
+linewidth = 0.3
+ax[2].plot(
+    element,
+    delta_tau * 1e3,
+    "k--",
+    label="theoretical $\\Delta \\tau$",
+)
+ax[2].plot(dif_delays0 * 1e3, "k-", label="_nolegend_")
+ax[2].plot(dif_delays4 * 1e3, "r-", linewidth=linewidth, label="_nolegend_")
+ax[2].plot(
+    dif_delays40 * 1e3,
+    "b-",
+    linewidth=linewidth,
+    label="_nolegend_",
+)
+ax[2].axhline(max_delta_tau * 1e3, color="g", linestyle="-", label="$p_x/c$")
+ax[2].axhline(
+    -max_delta_tau * 1e3,
+    color="g",
+    linestyle="-",
+    label="$-p_x/c$",
+)
+ax[2].set_title("c) Delay Derivative (Zoomed out)")
+ax[2].set_xlabel("Element Index")
+ax[2].set_ylabel("Delay derivative (ns)")
+ax[2].grid()
+ax[2].legend()
+ax[2].set_xlim([element.min(), element.max()])
 plt.tight_layout()
 plt.show()
 

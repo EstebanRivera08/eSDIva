@@ -292,14 +292,14 @@ class TorchFieldv2(nn.Module):
         sigmoid_center=0.5,
     ):
         # Apply Gaussian filter to apodization
-        if self.tx.type == "linear":
-            apodization = gaussian_filter_1d(apodization, kernel_size=7, sigma=sigma)
-        elif self.tx.type == "matrix":
-            apodization = gaussian_filter_2d(
-                apodization.view(self.tx.n_elem_x, self.tx.n_elem_y),
-                kernel_size=kernel_size,
-                sigma=sigma,
-            ).view(-1)
+        # if self.tx.type == "linear":
+        #     apodization = gaussian_filter_1d(apodization, kernel_size=7, sigma=sigma)
+        # elif self.tx.type == "matrix":
+        #     apodization = gaussian_filter_2d(
+        #         apodization.view(self.tx.n_elem_x, self.tx.n_elem_y),
+        #         kernel_size=kernel_size,
+        #         sigma=sigma,
+        #     ).view(-1)
 
         apodization = torch.sigmoid(10 / sigmoid_width * (apodization - sigmoid_center))
 
