@@ -26,26 +26,32 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 # ----------------------------
 
 # Focalization spot
-focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
+focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
+FoverD = 0.75
 delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
+apodization = Zeus_Matrix.compute_apodization(
+    focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
+)
 
-folder = r"..\pressure_fields"
-filename = r"/target_inverse.npz"
-name_model = "opt_20epochs_init_focus_5mm_FoverD_1_v1"
-state_name = f"Matrix_torch_state_{name_model}.pth"
-state_folder = r".\test_models"
+name_model = "opt_150epochs_3DloglossE_1planes_noprocess_delay_apod_4lambda_v1"
+state_name = f"Matrix_torch_state_{name_model}"
+state_folder = r".\test_models\matrix"
 path = f"{state_folder}/{state_name}"
+figure_name = (
+    state_folder + "/" + state_name + "large.png"  # "_unwrap08.png"  # + "_unwrap_"
+)  # Add the correct extension
 
-Delta_x = 0.3  # 2  # mm
-Delta_y = 0.3  # 2  # mm
-Delta_z = 1  # 3  # mm`
+
+Delta_x = 2  # 0.3  #0.8  # mm
+Delta_y = 2  # 0.3  # 0.8  # mm
+Delta_z = 3  # 2  # 1 mm
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.02,  # 0.075
-    "dy": 0.02,  # 0.075
-    "dz": 0.02,  # 0.075
+    "dx": 0.075,  # 0.04, 0.02
+    "dy": 0.075,  # 0.04,  # 0.02
+    "dz": 0.075,  # 0.04,  # 0.02
 }
 
 # Zeus_Matrix.show()
@@ -54,8 +60,8 @@ torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
 # Load the model's state dictionary# Load the checkpoint
-# checkpoint = torch.load(path)
-# Matrix_torch.load_state_dict(checkpoint)
+checkpoint = torch.load(path)
+Matrix_torch.load_state_dict(checkpoint)
 apodization = Matrix_torch.apodization.reshape(
     Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y
 )
@@ -77,6 +83,7 @@ pysonogen.plot_field_planes(
     z2.detach().cpu().numpy(),
     interpolation=None,
     centered=False,
+    save_fig_name=figure_name,
 )
 
 plotter = pysonogen.plot_pressure_field(

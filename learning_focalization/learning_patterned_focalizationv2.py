@@ -45,22 +45,22 @@ device = device_cuda if use_cuda else device_cpu
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
 version = "v1"  # Version of the model
-num_epoch = 30
+num_epoch = 150
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 1024  # Batch size for training
-target = "05lambda"  # Target pattern to use
+target = "4lambda"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = f"/matrix_{target}_10MHz.npz"
 destination = r".\test_models\matrix"
 name_model = (
     f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
 )
-state_name = f"Matrix_torch_state_{name_model}.pth"
+state_name = f"Matrix_torch_state_{name_model}"
 path = destination + "/" + state_name
 
 # ----------------- Load target pattern -----------------
-
+print(f"Loading target pattern {target_filename}")
 target_dic = np.load(target_folder + target_filename)
 target_matrix = target_dic["target"]
 wavelength = target_dic["wavelength"]

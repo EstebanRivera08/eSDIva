@@ -21,20 +21,19 @@ print(Transducers.available_transducers())
 # Domino.show()
 
 # ----------------------------
-version = "v3"
+version = "v1"
 num_epoch = 200
 
 target_folder = r".\target_masks"
+target = "4lambda"  # target2
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
+comment1 = "_delay_apod"
+comment2 = "_delay_apod"
 
-name_model1 = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_half_target2_{version}"
-)
+name_model1 = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess{comment1}_{target}_{version}"  # _half
 
-name_model2 = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_zeros_target2_{version}"
-)
+name_model2 = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess{comment2}_{target}_{version}"  # _zeros
 
 
 torch.cuda.empty_cache()
@@ -122,8 +121,6 @@ plt.show()
 # ---------- unwrap delays ----------
 
 unwrapped_delays = np.unwrap(delays1, period=0.08)
-unwrapped_delays = np.unwrap(unwrapped_delays, period=0.071)
-unwrapped_delays = np.unwrap(unwrapped_delays, period=0.065)
 delays3 = unwrapped_delays
 delays30 = delays0 - delays3
 dif_delays3 = np.diff(delays3)
@@ -168,7 +165,7 @@ delta_tau = (r0 - r1) / 1540 * 1e6  # in microseconds
 element = element + Domino.n_elements / 2  # shift to positive indices
 print(f"max_delta_tau: {max_delta_tau} us")
 
-unwrapped_delays = np.unwrap(delays1, period=max_delta_tau)
+unwrapped_delays = np.unwrap(delays1, period=max_delta_tau + 1 / 0.4)
 delays4 = unwrapped_delays
 delays40 = delays0 - delays4
 dif_delays4 = np.diff(delays4)
