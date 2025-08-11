@@ -96,6 +96,7 @@ def plot_field_planes(
         max_idx = np.unravel_index(np.nanargmax(pressure_field), pressure_field.shape)
         y0, x0, z0 = max_idx[1], max_idx[0], max_idx[2]
     else:
+        # Use the middle indices
         y0 = int(np.floor(y.shape[0] / 2))
         x0 = int(np.floor(x.shape[0] / 2))
         z0 = int(np.floor(z.shape[0] / 2))

@@ -34,16 +34,16 @@ device = device_cuda if use_cuda else device_cpu
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
 version = "v1"  # Version of the model
-num_epoch = 200
+num_epoch = 100
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 2048  # Batch size for training
-target = "lambda2"  # Target pattern to use
+target = "1lambda"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = f"/linear_{target}.npz"
 destination = r".\test_models\linear"
 name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
+    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod0_{target}_{version}"
 )
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name
@@ -112,10 +112,12 @@ torch.manual_seed(42)  # For reproducibility
 # )
 
 ## Zeros delays and ones apodization for testing
-delays = (
-    np.zeros(linear_array_tx.n_elements) + np.max(delays) * 0.5
+delays = np.zeros(
+    linear_array_tx.n_elements
 )  # Initial delays set to half the max delay
-apodization = np.ones(linear_array_tx.n_elements)  # Random apodization for testing
+apodization = (
+    np.ones(linear_array_tx.n_elements) * 0.5
+)  # Random apodization for testing
 linear_array_tx.set_delays(delays)
 linear_array_tx.set_apodization(apodization)
 
@@ -268,6 +270,7 @@ apod_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
 delays_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
 
 if train:
+    # Training just delays
     for epoch in range(num_epoch + 1):
         print(f"Epoch {epoch + 1}/{num_epoch + 1}")
         # 1) Zero the gradients
@@ -289,8 +292,53 @@ if train:
         # 3) Compute the loss
         loss_physic = loss_energy(y_target3D, pr)
         loss_comparison = loss_MSE(y_target2D, y_pred)
-        # loss_delays = loss_smoothness_delays(linear_array_torch.delays)
-        # loss_apodization = loss_smoothness_apodization(linear_array_torch.apodization)
+
+        loss = alpha * loss_comparison + loss_physic  # + loss_delays + loss_apodization
+
+        # 4) Backward pass
+        loss.backward()
+
+        # 5) Update the parameters
+        optimizer.step()
+
+        # 6) Store information
+        apod_vect[epoch] = linear_array_torch.apodization.detach().cpu().numpy()
+        delays_vect[epoch] = linear_array_torch.delays.detach().cpu().numpy()
+        loss_vec[epoch] = loss.item()
+        loss_energies_vec[epoch] = loss_physic.item()
+        target_loss_vec[epoch] = loss_comparison.item()
+        pred_vect[epoch] = y_pred.detach().cpu().numpy()
+        max_pr_vec[epoch] = max_pr
+        print(
+            f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
+        )
+        print(
+            f"loss = energy + alpha*target : {loss.item():.4f} = {loss_physic.item():.4f} + alpha*{loss_comparison.item():.4f}"
+        )
+
+    # Training just delays and apodization
+    for epoch in range(num_epoch + 1):
+        print(f"Epoch {epoch + 1}/{num_epoch + 1}")
+        # 1) Zero the gradients
+        optimizer.zero_grad()
+
+        # 2) Forward pass
+        pr, x, y, z = linear_array_torch(
+            field_matrix_mm, batch_size=batch_size, training=True
+        )
+        max_pr = pr.max().item()
+        print(f"Max pressure: {max_pr:.2f} units")
+        if max_pr > max_pr0:
+            print(f"Found a new max pressure at epoch {epoch}")
+            max_pr0 = max_pr
+            max_pr_plane0 = (pr * z_weights).sum(dim=-1).max().item()
+
+        y_pred = pattern_from_pr_3Dto2D(pr, max_pr_plane0)
+
+        # 3) Compute the loss
+        loss_physic = loss_energy(y_target3D, pr)
+        loss_comparison = loss_MSE(y_target2D, y_pred)
+
         loss = alpha * loss_comparison + loss_physic  # + loss_delays + loss_apodization
 
         # 4) Backward pass

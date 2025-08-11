@@ -49,12 +49,12 @@ num_epoch = 150
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 1024  # Batch size for training
-target = "4lambda"  # Target pattern to use
+target = "1lambda"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = f"/matrix_{target}_10MHz.npz"
 destination = r".\test_models\matrix"
 name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod_{target}_{version}"
+    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod0_{target}_{version}"
 )
 state_name = f"Matrix_torch_state_{name_model}"
 path = destination + "/" + state_name
@@ -129,7 +129,7 @@ torch.manual_seed(42)  # For reproducibility
 
 ## Zeros delays and ones apodization for testing
 delays = np.zeros(Zeus_Matrix.n_elements)  # Initial delays set to half the max delay
-apodization = np.ones(Zeus_Matrix.n_elements)  # Random apodization for testing
+apodization = np.ones(Zeus_Matrix.n_elements) * 0.5  # Random apodization for testing
 Zeus_Matrix.set_delays(delays)
 Zeus_Matrix.set_apodization(apodization)
 
@@ -305,8 +305,7 @@ if train:
         # 3) Compute the loss
         loss_physic = loss_energy(y_target3D, pr)
         loss_comparison = loss_MSE(y_target2D, y_pred)
-        # loss_delays = loss_smoothness_delays(linear_array_torch.delays)
-        # loss_apodization = loss_smoothness_apodization(linear_array_torch.apodization)
+
         loss = alpha * loss_comparison + loss_physic  # + loss_delays + loss_apodization
 
         # 4) Backward pass
@@ -338,7 +337,9 @@ if train:
         path + "_data.npz",
         apodization=apod_vect,
         delays=delays_vect,
-        loss=loss_vec,
+        target_loss=target_loss_vec,
+        energy_loss=loss_energies_vec,
+        pred_vect=pred_vect,
         first_loss=first_loss,
         max_pr0=max_pr0,
         max_pr=max_pr_vec,
