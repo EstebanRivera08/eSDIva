@@ -34,7 +34,9 @@ device = device_cuda if use_cuda else device_cpu
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
 version = "v1"  # Version of the model
-num_epoch = 100
+num_delays = 50
+num_delays_apods = 50
+num_epoch = num_delays + num_delays_apods
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 2048  # Batch size for training
@@ -42,12 +44,11 @@ target = "1lambda"  # Target pattern to use
 target_folder = r".\target_masks"
 target_filename = f"/linear_{target}.npz"
 destination = r".\test_models\linear"
-name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod0_{target}_{version}"
-)
+target2 = "focal"  # Target pattern to use
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodf_{target2}_{version}"
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name
-
+type_train = "delay_apod"  # Type of training
 
 # ----------------- Load target pattern -----------------
 
@@ -78,14 +79,14 @@ field_matrix_mm = {
 }
 
 linear_array_tx = pysonogen.transducers.Domino()
-linear_array_tx.compute_apodization(focus_mm=focus_mm, F_over_D=FoverD)
+apodization = linear_array_tx.compute_apodization(focus_mm=focus_mm, F_over_D=FoverD)
 delays = linear_array_tx.compute_delays(focus_mm=focus_mm)
 
 # ------------------- Reference (focalization at depth) -------------------
 # We first create how one focalization pattern would look like to have a reference
 # of the wanted amplitude
 linear_array_torch = TorchField(linear_array_tx, device=device_cuda)
-pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size)
+pr, x, y, z = linear_array_torch(field_matrix_mm, batch_size=batch_size, training=False)
 
 # We compute the Gaussian weights for the z-axis
 nz = pr.shape[-1]  # Number of z points
@@ -98,7 +99,7 @@ max_pr_plane0 = (
     (pr.to(device) * z_weights).sum(dim=-1).max().item()
 )  # Sum along z-axis, and we take the max of the disk
 
-# y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
+y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
 max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
 
 # ------------- Set initial delays and apodization -------------------
@@ -107,17 +108,15 @@ max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
 np.random.seed(42)  # For reproducibility
 torch.manual_seed(42)  # For reproducibility
 # delays = np.random.rand(linear_array_tx.n_elements) * np.max(delays)
-# apodization = np.random.rand(
-#     linear_array_tx.n_elements
-# )
+# apodization = np.random.rand(linear_array_tx.n_elements)
 
 ## Zeros delays and ones apodization for testing
 delays = np.zeros(
     linear_array_tx.n_elements
 )  # Initial delays set to half the max delay
-apodization = (
-    np.ones(linear_array_tx.n_elements) * 0.5
-)  # Random apodization for testing
+# apodization = (
+#     np.ones(linear_array_tx.n_elements) * 0.5
+# )  # Random apodization for testing
 linear_array_tx.set_delays(delays)
 linear_array_tx.set_apodization(apodization)
 
@@ -152,13 +151,6 @@ def loss_energy(y_target_3D, PII, min_error=1e-6):
 # Initialize the optimizer
 learning_rate_delays = 1e-3
 learning_rate_apods = 1e-2
-
-optimizer = torch.optim.Adam(
-    [
-        {"params": linear_array_torch.delays, "lr": learning_rate_delays},
-        {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
-    ]
-)
 
 # ----------------- check forward of the model -----------------
 
@@ -271,7 +263,15 @@ delays_vect = np.zeros((num_epoch + 1, linear_array_tx.n_elements))
 
 if train:
     # Training just delays
-    for epoch in range(num_epoch + 1):
+    optimizer = torch.optim.Adam(
+        [
+            {"params": linear_array_torch.delays, "lr": learning_rate_delays},
+            # {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
+        ]
+    )
+
+    count = 0
+    for epoch in range(num_delays):
         print(f"Epoch {epoch + 1}/{num_epoch + 1}")
         # 1) Zero the gradients
         optimizer.zero_grad()
@@ -310,14 +310,22 @@ if train:
         pred_vect[epoch] = y_pred.detach().cpu().numpy()
         max_pr_vec[epoch] = max_pr
         print(
-            f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
+            f"epoch {count} loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
         )
         print(
             f"loss = energy + alpha*target : {loss.item():.4f} = {loss_physic.item():.4f} + alpha*{loss_comparison.item():.4f}"
         )
 
+        count += 1
+
     # Training just delays and apodization
-    for epoch in range(num_epoch + 1):
+    optimizer = torch.optim.Adam(
+        [
+            {"params": linear_array_torch.delays, "lr": learning_rate_delays},
+            {"params": linear_array_torch.apodization, "lr": learning_rate_apods},
+        ]
+    )
+    for epoch in range(count, num_epoch + 1):
         print(f"Epoch {epoch + 1}/{num_epoch + 1}")
         # 1) Zero the gradients
         optimizer.zero_grad()

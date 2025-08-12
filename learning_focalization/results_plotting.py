@@ -18,31 +18,51 @@ else:
 print(Transducers.available_transducers())
 
 
+def wrap_vector(vector, period):
+    """
+    Wraps the input vector within the range [-period/2, period/2].
+
+    Parameters:
+        vector (array-like): The input vector to wrap.
+        period (float): The period to wrap the values around.
+
+    Returns:
+        np.ndarray: The wrapped vector.
+    """
+    wrapped_vector = (vector + period / 2) % period - period / 2
+    return wrapped_vector
+
+
 # Domino.show()
 
 # ----------------------------
-version = "v1"
-num_epoch = 200
+version = "v2"
+num_epoch = 100
 
 target_folder = r".\target_masks"
 target = "4lambda"  # target2
 target_filename = r"/linear_4lambda.npz"
 destination = r".\test_models\linear"
-comment1 = "_delay_apod"
-comment2 = "_delay_apod"
+comment1 = "_delayz_apodf"
+comment2 = "_delayz_apodf"
+target2 = "focal"  # Target pattern to use
 
-name_model1 = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess{comment1}_{target}_{version}"  # _half
+name_model1 = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess{comment1}_{target2}_{version}"  # _half
 
-name_model2 = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess{comment2}_{target}_{version}"  # _zeros
+name_model2 = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess{comment2}_{target2}_{version}"  # _zeros
 
 
 torch.cuda.empty_cache()
 Domino = Transducers.Domino()
 focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
 
-delays0 = Domino.compute_delays(focus_mm=focus_mm, plot=True)
+delays0 = Domino.compute_delays(focus_mm=focus_mm)
 
 delays0 = (delays0 - delays0.min()) * 1e6  # Normalize delays to start from zero
+
+period = 0.081  # us
+delays0_wrapped = wrap_vector(delays0, period)  # Wrap delays around 0.081 us
+
 
 domino_torch = TorchField(Domino, device=device)
 
@@ -66,27 +86,48 @@ delays2 = delays2 - delays2.min()
 
 # -------------- Plotting the delays for comparison --------------
 
-fig, ax = plt.subplots(1, 2, figsize=(12, 6))
+# fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 
-ax[0].plot(delays1, "r-", label="Model 1 Delays")
-ax[0].plot(delays2, "b-.", label="Model 2 Delays")
-ax[0].set_title("Delays Comparison")
-ax[0].set_xlabel("Element Index")
-ax[0].set_ylabel("Delay (us)")
-ax[0].grid()
-ax[0].legend()
-ax[1].plot(delays2 - delays1, "k", label="difference (Model 2 - Model 1)")
-# ax[1].plot(delays2 - delays1, "ks", label="difference (Model 2 - Model 1)")
-ax[1].set_title("Delays Comparison")
-ax[1].set_xlabel("Element Index")
-ax[1].set_ylabel("Delay (us)")
-ax[1].grid()
-ax[1].legend()
+# ax[0].plot(delays1, "r-", label="Model 1 Delays")
+# ax[0].plot(delays2, "b-.", label="Model 2 Delays")
+# ax[0].set_title("Delays Comparison")
+# ax[0].set_xlabel("Element Index")
+# ax[0].set_ylabel("Delay (us)")
+# ax[0].grid()
+# ax[0].legend()
+# ax[1].plot(delays2 - delays1, "k", label="difference (Model 2 - Model 1)")
+# # ax[1].plot(delays2 - delays1, "ks", label="difference (Model 2 - Model 1)")
+# ax[1].set_title("Delays Comparison")
+# ax[1].set_xlabel("Element Index")
+# ax[1].set_ylabel("Delay (us)")
+# ax[1].grid()
+# ax[1].legend()
 
-plt.tight_layout()
-plt.show()
+# plt.tight_layout()
+# plt.show()
 
 # ------------- Compare to parabolic delays --------------
+Domino.set_apodization(apodization1)
+Domino.plot_apodization()
+
+fig, ax = plt.subplots(1, 1, figsize=(12, 4))
+delays1 = delays1 - delays1[64]  # Normalize to start from zero
+delays0_wrapped = delays0_wrapped - delays0_wrapped[64]  # Normalize to start from zero
+# Plot the data
+ax.plot(delays0_wrapped, "k--", linewidth=1, label="_nolegend_")
+ax.plot(delays0_wrapped, "rs", label="Wrapped Parabola")  # Suppress from legend
+ax.plot(delays1, "k-", label="_nolegend_")
+ax.plot(delays1, "b^", label="Model Delays")  # Suppress from legend
+
+# Add grid, labels, and legend
+ax.grid()
+ax.set_xlabel("Element Index")
+ax.set_ylabel("Delay (us)")
+ax.legend(loc="best")  # Automatically handles the legend
+
+# Show the plot
+plt.tight_layout()
+plt.show()
 
 dif_delays1 = np.diff(delays1)
 dif_delays0 = np.diff(delays0)
@@ -120,7 +161,7 @@ plt.show()
 
 # ---------- unwrap delays ----------
 
-unwrapped_delays = np.unwrap(delays1, period=0.08)
+unwrapped_delays = np.unwrap(delays1, period=period)
 delays3 = unwrapped_delays
 delays30 = delays0 - delays3
 dif_delays3 = np.diff(delays3)
@@ -159,13 +200,15 @@ x_width = 300
 element = np.arange(-x_width, x_width)  # element indices
 r0 = np.sqrt(zf**2 + (element * pitch) ** 2)
 r1 = np.sqrt(zf**2 + ((element + 1) * pitch) ** 2)
-max_delta_tau = pitch / 1540 * 1e6  # in microseconds
+
+
+max_delta_tau = 1 / (Domino.fc * 1e-6) + np.round(1 / 400 / 2, 2)  # in microseconds
 delta_tau = (r0 - r1) / 1540 * 1e6  # in microseconds
 
 element = element + Domino.n_elements / 2  # shift to positive indices
 print(f"max_delta_tau: {max_delta_tau} us")
 
-unwrapped_delays = np.unwrap(delays1, period=max_delta_tau + 1 / 0.4)
+unwrapped_delays = np.unwrap(delays1, period=max_delta_tau)
 delays4 = unwrapped_delays
 delays40 = delays0 - delays4
 dif_delays4 = np.diff(delays4)

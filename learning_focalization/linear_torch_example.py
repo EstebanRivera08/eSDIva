@@ -27,28 +27,26 @@ Domino = Transducers.Domino()
 # Domino.show()
 
 # ----------------------------
-version = "v3"
-num_epoch = 200
+version = "v2"
+num_epoch = 100
 
 target = "4lambda"  # Target pattern to use
 target_folder = r".\target_masks"
-target_filename = r"/linear_4lambda.npz"
+target_filename = f"/linear_{target}.npz"
 destination = r".\test_models\linear"
 
-target = "target2"  # Target pattern to use
-name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_zeros_{target}_{version}"
-)
+target2 = "focal"  # Target pattern to use
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod0_{target2}_{version}"
 state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
 data = destination + "/" + name_model + ".npz"  # Add the correct extension
 figure_name = (
-    destination + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
+    destination + "/" + state_name + "wrap.png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
 
 # Focalization spot
-focus_mm = np.array([0, 0, 8])  # mm [x, y, z]
+focus_mm = np.array([0, 0, 6])  # mm [x, y, z]
 delays_expected = Domino.compute_delays(focus_mm=focus_mm, plot=False)
 
 
@@ -100,49 +98,19 @@ print(f"Delays shape: {delays.shape}")
 d_delays = np.abs(np.diff(delays))
 
 
-period = 2 * np.pi / Domino.fc * 1e6  # Convert to microseconds
+period = 1 / Domino.fc * 1e6 + np.round(1 / 400 / 2, 3)  # Convert to microseconds
+print(f"Period: {period} µs")
 
-
-def compute_unwrap_threshold(wrapped_delays, expected_delays, unwrap_threshold):
-    """
-    Compute the unwrapped delays based on a threshold.
-    """
-
-    unwrapped_delays = np.unwrap(wrapped_delays, period=unwrap_threshold)
-    return np.abs(
-        (unwrapped_delays - unwrapped_delays.max())
-        - (expected_delays - expected_delays.max())
-    ).sum()
-
-
-thresholds = np.linspace(0.01, 0.15, 100)
-errors = np.zeros_like(thresholds)
-for i, threshold in enumerate(thresholds):
-    error = compute_unwrap_threshold(delays, delays_expected, threshold)
-    errors[i] = error
-# Domino.plot_apodization()
-# Domino.plot_delays()
-argmin_error = np.argmin(errors)
-unwrap_threshold = thresholds[argmin_error]
-print(f"Optimal unwrap threshold: {unwrap_threshold:.4f} µs")
-unwrapped_delays = np.unwrap(delays, period=0.072)
-# plt.plot(thresholds, errors, label="Error vs Threshold")
-# plt.xlabel("Unwrap Threshold (µs)")
+unwrapped_delays = np.unwrap(delays, period=0.081)
 
 
 print(f"period: {period} µs")
+
+# ------------- Plot unwrapped delays --------------
 fig, ax = plt.subplots(1, 2, figsize=(7, 4))
 ax = ax.flatten()
 
 k = 0
-# ax[k].plot(delays_before, "ro", label="unprocessed Delays (µs)")
-# ax[k].plot(delays_before, "-k", label="unprocessed Delays (µs)")
-# ax[k].set_xlabel("Element Index")
-# ax[k].set_ylabel("Delay (µs)")
-# ax[k].set_title("unprocessed Delays")
-# ax[k].grid()
-# k += 1
-
 ax[k].plot(delays, "ro", label="wrapped Delays (µs)")
 ax[k].plot(delays, "-k", label="wrapped Delays (µs)")
 ax[k].set_xlabel("Element Index")
@@ -164,11 +132,37 @@ ax[k].grid()
 plt.tight_layout()
 plt.show()
 
-# ----------------- Compute the pressure field -----------------
+# ----------------- Plot delays and apodization -----------------
 Domino.set_apodization(apodization)
 Domino.set_delays(delays * 1e-6)
-Domino.set_delays(unwrapped_delays * 1e-6)
-Domino.plot_delays()
+# Domino.set_delays(unwrapped_delays * 1e-6)
+
+
+# Example data (replace with your actual delays and apodization vectors)
+delays = np.array(Domino.delays) * 1e6  # Ensure delays is a NumPy array
+apodization = np.array(Domino.apodization)  # Ensure apodization is a NumPy array
+index = np.arange(1, Domino.n_elements + 1)  # Element indices
+# Create the scatter plot
+plt.figure(figsize=(5, 4))
+scatter = plt.scatter(index, delays, c=apodization, cmap="cool", s=50)
+plt.plot(index, delays, "-k", linewidth=1)  # Line connecting points
+
+# Add a colorbar to show the apodization values
+cbar = plt.colorbar(scatter)
+cbar.set_label("Apodization (0 to 1)")
+
+# Add labels and title
+plt.xlabel("Element Index")
+plt.ylabel("Delay (µs)")
+plt.grid()
+
+# Show the plot
+plt.tight_layout()
+plt.show()
+
+
+# ----------------- Compute the pressure field -----------------
+
 
 domino_torch = TorchField(Domino, device=device)
 
