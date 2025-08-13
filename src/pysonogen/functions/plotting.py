@@ -55,8 +55,8 @@ def plot_pressure_field(
             "vertical": True,
             "title_font_size": 16,
             "label_font_size": 12,
-            "position_x": 0.9,
-            "position_y": 0.2,
+            "position_x": 0.85,
+            "position_y": 0.1,
             "height": 0.3,
         },
         label="Pressure PII",
@@ -80,6 +80,7 @@ def plot_field_planes(
     interpolation=None,
     centered=False,
     save_fig_name=None,
+    ratios=None,
 ):
     """
     Plot the pressure field in 2D slices with a properly placed colorbar.
@@ -113,8 +114,16 @@ def plot_field_planes(
     YZ_plane = pressure_field[x0, :, :].squeeze()
 
     Dx, Dy, Dz = x.max() - x.min(), y.max() - y.min(), z.max() - z.min()
-    ratios = [Dx / Dz, Dx / Dy, Dy / Dz]
-    ratios = ratios / np.sum(ratios)
+
+    if ratios is not None:
+        # check if ratios has length 3
+        if len(ratios) != 3:
+            raise ValueError("Ratios must have length 3.")
+        else:
+            ratios = ratios / np.sum(ratios)
+    else:
+        ratios = [Dx / Dz, Dx / Dy, Dy / Dz]
+        ratios = ratios / np.sum(ratios)
 
     # Create a GridSpec layout
     fig = plt.figure(figsize=figsize)

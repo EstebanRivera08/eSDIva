@@ -263,7 +263,7 @@ def add_transducer_mesh(
             "label_font_size": 12,
             "vertical": True,
             "position_x": 0.85,
-            "position_y": 0.5,
+            "position_y": 0.6,
             "height": 0.3,
         },
     }

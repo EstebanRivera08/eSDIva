@@ -29,7 +29,7 @@ def safe_cleanup():
 
 print(torch.__version__)
 
-use_cuda = False  # Set to False if you want to run on CPU
+use_cuda = True  # Set to False if you want to run on CPU
 device_cpu = torch.device("cpu")
 device_number = 0  # if you have multiple GPUs
 if torch.cuda.is_available():
@@ -44,30 +44,28 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v1"  # Version of the model
-num_epoch = 150
+version = "v2"  # Version of the model
+num_delays = 50
+num_delays_apod = 150
+num_epoch = num_delays + num_delays_apod  # Total number of epochs for training
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
 batch_size = 1024  # Batch size for training
-target = "1lambda"  # Target pattern to use
+# target = "1lambda"  # Target pattern to use
+# target_filename = f"/matrix_{target}_10MHz.npz"
 target_folder = r".\target_masks"
-target_filename = f"/matrix_{target}_10MHz.npz"
+target = "custom1"
+target_filename = f"/matrix_customtarget1.npz"
 destination = r".\test_models\matrix"
-name_model = (
-    f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delay_apod0_{target}_{version}"
-)
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 path = destination + "/" + state_name
 
 # ----------------- Load target pattern -----------------
 print(f"Loading target pattern {target_filename}")
 target_dic = np.load(target_folder + target_filename)
-target_matrix = target_dic["target"]
-wavelength = target_dic["wavelength"]
-x_length_mm = target_dic["x_length_mm"]
-y_length_mm = target_dic["y_length_mm"]
-dx = target_dic["dx"]
-dy = target_dic["dy"]
+target_matrix = target_dic["target"].T
+
 
 y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
@@ -76,14 +74,29 @@ y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 z_plane_mm = 5  # mm
 focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z]
 F_over_D = 1
+# wavelength = target_dic["wavelength"]
+# x_length_mm = target_dic["x_length_mm"]
+# y_length_mm = target_dic["y_length_mm"]
+# dx = target_dic["dx"]
+# dy = target_dic["dy"]
+# field_matrix_mm = {
+#     "x_extent": [-x_length_mm / 2, x_length_mm / 2],  # mm (16,5 mm)
+#     "y_extent": [-y_length_mm / 2, y_length_mm / 2],  # mm(16,5 mm)
+#     "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
+#     "dx": dx,
+#     "dy": dy,
+#     "dz": 1,
+# }
+x_length_mm = target_matrix.shape[0] * 0.3
+y_length_mm = target_matrix.shape[1] * 0.3
 
 field_matrix_mm = {
     "x_extent": [-x_length_mm / 2, x_length_mm / 2],  # mm (16,5 mm)
     "y_extent": [-y_length_mm / 2, y_length_mm / 2],  # mm(16,5 mm)
     "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
-    "dx": dx,
-    "dy": dy,
-    "dz": 1,
+    "dx": 0.3,
+    "dy": 0.3,
+    "dz": 0.5,
 }
 
 Zeus_Matrix = pysonogen.transducers.Zeus_Matrix()
@@ -167,14 +180,6 @@ def loss_energy(y_target_3D, PII, min_error=1e-6):
 # Initialize the optimizer
 learning_rate_delays = 1e-3
 learning_rate_apods = 1e-2
-
-optimizer = torch.optim.Adam(
-    [
-        {"params": Matrix_torch.delays, "lr": learning_rate_delays},
-        {"params": Matrix_torch.apodization, "lr": learning_rate_apods},
-    ]
-)
-
 
 # ----------------- check forward of the model -----------------
 
@@ -283,9 +288,28 @@ max_pr_vec = np.zeros(num_epoch + 1)
 apod_vect = np.zeros((num_epoch + 1, Zeus_Matrix.n_elements))
 delays_vect = np.zeros((num_epoch + 1, Zeus_Matrix.n_elements))
 
+loss_vec[0] = first_loss
+loss_energies_vec[0] = loss_physic
+target_loss_vec[0] = loss_comparison
+
+pred_vect[0, :] = y_pred.detach().cpu().numpy()
+apod_vect[0, :] = first_apod
+delays_vect[0, :] = first_delays
+max_pr_vec[0] = max_pr0
+
+
 if train:
-    for epoch in range(num_epoch + 1):
-        print(f"Epoch {epoch + 1}/{num_epoch + 1}")
+    # Training just delays
+    optimizer = torch.optim.Adam(
+        [
+            {"params": Matrix_torch.delays, "lr": learning_rate_delays},
+            # {"params": Matrix_torch.apodization, "lr": learning_rate_apods},
+        ]
+    )
+
+    count = 0
+    for epoch in range(1, num_delays + 1):
+        print(f"1 Epoch {epoch + 1}/{num_epoch + 1}")
         # 1) Zero the gradients
         optimizer.zero_grad()
 
@@ -328,6 +352,63 @@ if train:
         print(
             f"loss = energy + alpha*target : {loss.item():.4f} = {loss_physic.item():.4f} + alpha*{loss_comparison.item():.4f}"
         )
+
+        count += 1
+
+    # Training just delays
+    optimizer = torch.optim.Adam(
+        [
+            {"params": Matrix_torch.delays, "lr": learning_rate_delays},
+            {"params": Matrix_torch.apodization, "lr": learning_rate_apods},
+        ]
+    )
+
+    for epoch in range(count, num_epoch + 1):
+        print(f"2 Epoch {epoch + 1}/{num_epoch + 1}")
+        # 1) Zero the gradients
+        optimizer.zero_grad()
+
+        # 2) Forward pass
+        pr, x, y, z = Matrix_torch(
+            field_matrix_mm, batch_size=batch_size, training=True
+        )
+        max_pr = pr.max().item()
+        print(f"Max pressure: {max_pr:.2f} units")
+        if max_pr > max_pr0:
+            print(f"Found a new max pressure at epoch {epoch}")
+            max_pr0 = max_pr
+            max_pr_plane0 = (pr * z_weights).sum(dim=-1).max().item()
+
+        y_pred = pattern_from_pr_3Dto2D(pr, max_pr_plane0)
+
+        # 3) Compute the loss
+        loss_physic = loss_energy(y_target3D, pr)
+        loss_comparison = loss_MSE(y_target2D, y_pred)
+
+        loss = alpha * loss_comparison + loss_physic  # + loss_delays + loss_apodization
+
+        # 4) Backward pass
+        loss.backward()
+
+        # 5) Update the parameters
+        optimizer.step()
+
+        # 6) Store information
+        apod_vect[epoch] = Matrix_torch.apodization.detach().cpu().numpy()
+        delays_vect[epoch] = Matrix_torch.delays.detach().cpu().numpy()
+        loss_vec[epoch] = loss.item()
+        loss_energies_vec[epoch] = loss_physic.item()
+        target_loss_vec[epoch] = loss_comparison.item()
+        pred_vect[epoch] = y_pred.detach().cpu().numpy()
+        max_pr_vec[epoch] = max_pr
+        print(
+            f"loss: {loss_vec[epoch] / first_loss * 100:.4f} % relative to first loss."
+        )
+        print(
+            f"loss = energy + alpha*target : {loss.item():.4f} = {loss_physic.item():.4f} + alpha*{loss_comparison.item():.4f}"
+        )
+
+        count += 1
 
     # Save the model's state dictionary
     torch.save(Matrix_torch.state_dict(), path + ".pth")
@@ -480,7 +561,7 @@ axes.append(ax)
 
 # First Prediction
 ax = fig.add_subplot(gs[0, 3])
-im6 = ax.imshow(first_prediction.T, cmap="gray", extent=extent, vmin=0, vmax=1)
+im6 = ax.imshow(first_prediction_np.T, cmap="gray", extent=extent, vmin=0, vmax=1)
 ax.set_title("h) First Prediction")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")
@@ -511,65 +592,65 @@ if save_fig:
 plt.show()
 
 
-# ---------------- PARAMS VS EPOCHS -----------------
+# # ---------------- PARAMS VS EPOCHS -----------------
 
-fig, axes = plt.subplots(2, 1, figsize=(12, 8), constrained_layout=True)
+# fig, axes = plt.subplots(2, 1, figsize=(12, 8), constrained_layout=True)
 
-# Colormap for epochs
-cmap = plt.cm.jet
-norm = plt.Normalize(vmin=0, vmax=num_epoch)
+# # Colormap for epochs
+# cmap = plt.cm.jet
+# norm = plt.Normalize(vmin=0, vmax=num_epoch)
 
-# Plot apodization (left)
-for epoch in range(num_epoch + 1):
-    color = cmap(norm(epoch))
-    label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
-    axes[0].plot(
-        np.arange(Zeus_Matrix.n_elements),
-        apod_vect[epoch],
-        color=color,
-        label=label,
-        linewidth=1,
-    )
+# # Plot apodization (left)
+# for epoch in range(num_epoch + 1):
+#     color = cmap(norm(epoch))
+#     label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
+#     axes[0].plot(
+#         np.arange(Zeus_Matrix.n_elements),
+#         apod_vect[epoch],
+#         color=color,
+#         label=label,
+#         linewidth=1,
+#     )
 
-axes[0].set_title("Apodization Across Epochs")
-axes[0].set_xlabel("Element #")
-axes[0].set_ylabel("Apodization")
-axes[0].grid(True)
-axes[0].set_xlim([0, Zeus_Matrix.n_elements - 1])
+# axes[0].set_title("Apodization Across Epochs")
+# axes[0].set_xlabel("Element #")
+# axes[0].set_ylabel("Apodization")
+# axes[0].grid(True)
+# axes[0].set_xlim([0, Zeus_Matrix.n_elements - 1])
 
-# Plot delays (right)
-for epoch in range(num_epoch + 1):
-    color = cmap(norm(epoch))
-    label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
-    axes[1].plot(
-        np.arange(Zeus_Matrix.n_elements),
-        delays_vect[epoch],
-        color=color,
-        label=label,
-        linewidth=1,
-    )
+# # Plot delays (right)
+# for epoch in range(num_epoch + 1):
+#     color = cmap(norm(epoch))
+#     label = f"Epoch {epoch}" if epoch % max(1, (num_epoch // 10)) == 0 else None
+#     axes[1].plot(
+#         np.arange(Zeus_Matrix.n_elements),
+#         delays_vect[epoch],
+#         color=color,
+#         label=label,
+#         linewidth=1,
+#     )
 
-axes[1].set_title("Delays Across Epochs")
-axes[1].set_xlabel("Element #")
-axes[1].set_ylabel("Delay (μs)")
-axes[1].grid(True)
-axes[1].set_xlim([0, Zeus_Matrix.n_elements - 1])
+# axes[1].set_title("Delays Across Epochs")
+# axes[1].set_xlabel("Element #")
+# axes[1].set_ylabel("Delay (μs)")
+# axes[1].grid(True)
+# axes[1].set_xlim([0, Zeus_Matrix.n_elements - 1])
 
-# Add colorbar
-sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
-sm.set_array([])
-cbar = fig.colorbar(sm, ax=axes, orientation="horizontal", pad=0.08, aspect=40)
-cbar.set_label("Epochs")
+# # Add colorbar
+# sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+# sm.set_array([])
+# cbar = fig.colorbar(sm, ax=axes, orientation="horizontal", pad=0.08, aspect=40)
+# cbar.set_label("Epochs")
 
-if save_fig:
-    # Save the figur
-    plt.savefig(
-        destination + "/" + f"params_vs_epochs_{state_name}.png",
-        dpi=300,
-        bbox_inches="tight",
-    )
-plt.show()
-plt.close()
+# if save_fig:
+#     # Save the figur
+#     plt.savefig(
+#         destination + "/" + f"params_vs_epochs_{state_name}.png",
+#         dpi=300,
+#         bbox_inches="tight",
+#     )
+# plt.show()
+# plt.close()
 
 
 # ----------------- Plot the final pressure field -----------------

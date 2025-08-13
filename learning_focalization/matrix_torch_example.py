@@ -30,31 +30,50 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 
 # Focalization spot
 focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
-FoverD = 0.75
-delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
-apodization = Zeus_Matrix.compute_apodization(
-    focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
-)
+# FoverD = 0.75
+# delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
+# apodization = Zeus_Matrix.compute_apodization(
+#     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
+# )
 
-name_model = "opt_150epochs_3DloglossE_1planes_noprocess_delay_apod_4lambda_v1"
+# name_model = "opt_150epochs_3DloglossE_1planes_noprocess_delay_apod_4lambda_v1"
+version = "v2"
+num_epoch = 200
+target = "custom1"
+target_filename = f"/matrix_customtarget1.npz"
+destination = r".\test_models\matrix"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 state_folder = r".\test_models\matrix"
 path = f"{state_folder}/{state_name}.pth"
 figure_name = (
-    state_folder + "/" + state_name + "small.png"  # "_unwrap08.png"  # + "_unwrap_"
+    state_folder + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
 
-Delta_x = 0.3  # 2  #0.8  # mm
-Delta_y = 0.3  # 2  #  0.8  # mm
-Delta_z = 1  # 3  #  1 mm
+# Delta_x = 0.3  # 2  #0.8  # mm
+# Delta_y = 0.3  # 2  #  0.8  # mm
+# Delta_z = 1  # 3  #  1 mm
+# field_info_mm = {
+#     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
+#     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
+#     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
+#     "dx": 0.02,  # 0.075, # 0.02
+#     "dy": 0.02,  # 0.075, # 0.02
+#     "dz": 0.02,  # 0.075, # 0.02
+
+# }
+
+Delta_x = 4  # 2  #0.8  # mm
+Delta_y = 4  # 2  #  0.8  # mm
+Delta_z = 0.2  # 3  #  1 mm
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.02,  # 0.075, # 0.02
-    "dy": 0.02,  # 0.075, # 0.02
-    "dz": 0.02,  # 0.075, # 0.02
+    "dx": 0.1,  # 0.075, # 0.02
+    "dy": 0.1,  # 0.075, # 0.02
+    "dz": 0.1,  # 0.075, # 0.02
 }
 
 # Zeus_Matrix.show()
@@ -65,13 +84,14 @@ Matrix_torch = TorchField(Zeus_Matrix, device=device)
 # Load the model's state dictionary# Load the checkpoint
 checkpoint = torch.load(path)
 Matrix_torch.load_state_dict(checkpoint)
-apodization = Matrix_torch.apodization.reshape(
-    Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y
-)
-delays = Matrix_torch.delays.reshape(Zeus_Matrix.n_elem_x, Zeus_Matrix.n_elem_y)
 
-Zeus_Matrix.plot_apodization(apodization.detach().cpu().numpy())
-Zeus_Matrix.plot_delays(delays.detach().cpu().numpy())
+apodization = Matrix_torch.apodization.detach().cpu().numpy()
+delays = Matrix_torch.delays.detach().cpu().numpy()
+print(apodization.shape, delays.shape)
+Zeus_Matrix.set_apodization(apodization)
+Zeus_Matrix.set_delays(delays)
+Zeus_Matrix.plot_apodization()
+Zeus_Matrix.plot_delays()
 
 # # Example usage
 print("Model state dictionary loaded from: ", state_name)
@@ -86,6 +106,7 @@ pysonogen.plot_field_planes(
     z2.detach().cpu().numpy(),
     interpolation=None,
     centered=False,
+    ratios=[0.2, 1, 0.2],
     save_fig_name=figure_name,
 )
 
@@ -96,9 +117,15 @@ plotter = pysonogen.plot_pressure_field(
     z2.detach().cpu().numpy(),
 )
 
+
+plotter = pysonogen.functions.add_transducer_mesh(
+    Zeus_Matrix.get_mesh(), plotter=plotter, lighting=True, ambient=1
+)
+
 plotter.show()
 plotter.deep_clean()  # Explicitly clean up PyVista objects
 plotter.close()
+del plotter
 
 # Matrix_field = pyfield.PyField(Zeus_Matrix)
 # pr1, x1, y1, z1 = Matrix_field.compute_pressure_field(field_info_mm, inplace=False)
