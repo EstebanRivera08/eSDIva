@@ -35,13 +35,13 @@ delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 apodization = Zeus_Matrix.compute_apodization(
     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
 )
-version = "v2"
-num_epoch = 200
+version = "v1"
+num_epoch = 300
 target_folder = r".\target_masks"
-target = "custom1"
-target_filename = f"/matrix_customtarget1.npz"
+target = "custom2"
+target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apod1_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 state_folder = r".\test_models\matrix"
 state_path = f"{state_folder}/{state_name}.pth"
@@ -79,21 +79,22 @@ max_pr_vect = data["max_pr"]
 # delays_vect = np.concatenate(([delays0], delays_vect), axis=0)
 
 # ----------------- Define field info --------------------
-test = True
+test = False
+epoch = -1
 interpolation = None  # "nearest", "bilinear", "bicubic"
 z_plane_mm = 5  # mm
-focus_mm = np.array([-0.5, 0, z_plane_mm])  # mm [x, y, z]
-x_slice = 0.6
-y_slice = 1.5
+focus_mm = np.array([0.5, 0.5, z_plane_mm])  # mm [x, y, z]
+x_slice = 0
+y_slice = 0
 z_slice = focus_mm[2]
 
 dx = 0.075
 dy = 0.075
-dz = 0.075
+dz = 0.01
 
-Delta_x = 3  #  0.8  # mm
-Delta_y = 3  #  0.8  # mm
-Delta_z = 3  #  1 mm
+Delta_x = 6  #  0.8  # mm
+Delta_y = 6  #  0.8  # mm
+Delta_z = 1  #  1 mm
 
 # dx = 0.075
 # dy = 0.075
@@ -307,7 +308,6 @@ def plot_figure(epoch):
 
 
 if test:
-    epoch = 0
     fig = plot_figure(epoch)
     plt.show()
 else:

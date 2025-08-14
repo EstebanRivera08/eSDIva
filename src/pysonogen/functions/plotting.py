@@ -148,7 +148,7 @@ def plot_field_planes(
     im1 = ax1.imshow(
         XY_plane.T,
         cmap="jet",
-        extent=[x.min(), x.max(), y.min(), y.max()],
+        extent=[x.min(), x.max(), y.max(), y.min()],
         vmin=vmin,
         vmax=vmax,
         interpolation=interpolation,

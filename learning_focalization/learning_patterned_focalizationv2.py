@@ -44,9 +44,9 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v2"  # Version of the model
-num_delays = 50
-num_delays_apod = 150
+version = "v1"  # Version of the model
+num_delays = 0
+num_delays_apod = 300
 num_epoch = num_delays + num_delays_apod  # Total number of epochs for training
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
@@ -54,10 +54,10 @@ batch_size = 1024  # Batch size for training
 # target = "1lambda"  # Target pattern to use
 # target_filename = f"/matrix_{target}_10MHz.npz"
 target_folder = r".\target_masks"
-target = "custom1"
-target_filename = f"/matrix_customtarget1.npz"
+target = "custom2"
+target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apod1_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 path = destination + "/" + state_name
 
@@ -142,7 +142,7 @@ torch.manual_seed(42)  # For reproducibility
 
 ## Zeros delays and ones apodization for testing
 delays = np.zeros(Zeus_Matrix.n_elements)  # Initial delays set to half the max delay
-apodization = np.ones(Zeus_Matrix.n_elements) * 0.5  # Random apodization for testing
+apodization = np.ones(Zeus_Matrix.n_elements)  # Random apodization for testing
 Zeus_Matrix.set_delays(delays)
 Zeus_Matrix.set_apodization(apodization)
 
@@ -178,7 +178,7 @@ def loss_energy(y_target_3D, PII, min_error=1e-6):
 
 
 # Initialize the optimizer
-learning_rate_delays = 1e-3
+learning_rate_delays = 1e-2
 learning_rate_apods = 1e-2
 
 # ----------------- check forward of the model -----------------

@@ -29,7 +29,7 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 # ----------------------------
 
 # Focalization spot
-focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
+focus_mm = np.array([0.5, 0.5, 5])  # mm [x, y, z] #8
 # FoverD = 0.75
 # delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 # apodization = Zeus_Matrix.compute_apodization(
@@ -37,12 +37,12 @@ focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
 # )
 
 # name_model = "opt_150epochs_3DloglossE_1planes_noprocess_delay_apod_4lambda_v1"
-version = "v2"
+version = "v1"
 num_epoch = 200
 target = "custom1"
-target_filename = f"/matrix_customtarget1.npz"
+target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apod1_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 state_folder = r".\test_models\matrix"
 path = f"{state_folder}/{state_name}.pth"
@@ -64,8 +64,8 @@ figure_name = (
 
 # }
 
-Delta_x = 4  # 2  #0.8  # mm
-Delta_y = 4  # 2  #  0.8  # mm
+Delta_x = 6  # 2  #0.8  # mm
+Delta_y = 6  # 2  #  0.8  # mm
 Delta_z = 0.2  # 3  #  1 mm
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
