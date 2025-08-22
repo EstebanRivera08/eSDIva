@@ -73,7 +73,7 @@ tolerance_apod = 1e-3
 
 
 @njit
-def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz, lambda_mm):
+def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz):
     # Common sampling rate is 100 MHz
     # Then minimum time step is 0.01 us,
     # if apod < tolerance_apod:
@@ -99,7 +99,7 @@ def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz, lamb
 
 @njit(parallel=True)
 def compute_all_events(
-    P, M, pts, centers, wx, wy, c, apods, delays, events, sampling_rate_Hz, lambda_mm
+    P, M, pts, centers, wx, wy, c, apods, delays, events, sampling_rate_Hz
 ):
     for p in prange(P):
         for i in range(M):
@@ -119,7 +119,6 @@ def compute_all_events(
                 apods[i],
                 delays[i],
                 sampling_rate_Hz,
-                lambda_mm,
             )
             events[p, i, 0] = t1
             events[p, i, 1] = t2
@@ -204,37 +203,6 @@ class PyField:
         self.field = None
         self.x = self.y = self.z = None
 
-    def set_field(self, name_struct_str, value_float):
-        """
-        Dynamically modifies a class property if it exists.
-
-        Parameters
-        ----------
-        name_struct_str : str
-            The name of the property to modify.
-        value_float : float
-            The new value to assign to the property.
-
-        Raises
-        ------
-        AttributeError
-            If the property does not exist in the class.
-        TypeError
-            If the value is not a float.
-        """
-        if not isinstance(value_float, (float, int)):  # Allow integers as well
-            raise TypeError(
-                f"The value must be a float or int, got {type(value_float).__name__}."
-            )
-
-        if hasattr(self, name_struct_str):
-            setattr(self, name_struct_str, value_float)
-            print(f"Property '{name_struct_str}' updated to {value_float}.")
-        else:
-            raise AttributeError(
-                f"Property '{name_struct_str}' does not exist in the class."
-            )
-
     def spatial_impulse_response(self, field_points, return_all=False):
         start_comput_time = TIME()
         if not isinstance(field_points, np.ndarray):
@@ -265,7 +233,6 @@ class PyField:
             self.delays,
             events,
             self.fs,
-            self.lambda_mm,
         )
         events_time = TIME()
         print(
@@ -383,6 +350,37 @@ class PyField:
         else:
             return pressure_field, x, y, z
 
+    def set_field(self, name_struct_str, value_float):
+        """
+        Dynamically modifies a class property if it exists.
+
+        Parameters
+        ----------
+        name_struct_str : str
+            The name of the property to modify.
+        value_float : float
+            The new value to assign to the property.
+
+        Raises
+        ------
+        AttributeError
+            If the property does not exist in the class.
+        TypeError
+            If the value is not a float.
+        """
+        if not isinstance(value_float, (float, int)):  # Allow integers as well
+            raise TypeError(
+                f"The value must be a float or int, got {type(value_float).__name__}."
+            )
+
+        if hasattr(self, name_struct_str):
+            setattr(self, name_struct_str, value_float)
+            print(f"Property '{name_struct_str}' updated to {value_float}.")
+        else:
+            raise AttributeError(
+                f"Property '{name_struct_str}' does not exist in the class."
+            )
+
     def get_mesh(self):
         """
         Get the mesh of the pressure field.
@@ -427,6 +425,29 @@ class PyField:
         self.y = None
         self.z = None
         print("PyField object cleaned.")
+
+    def __call__(self, field_info, *, normalize=True, inplace=False):
+        """
+        Make the class callable. Calls the compute_pressure_field method.
+
+        Parameters
+        ----------
+        field_info : dict
+            The input field information for the pressure computation.
+        normalize : bool, optional
+            If True, normalize the pressure field. Default is True.
+        inplace : bool, optional
+            If True, store the pressure field in the instance variables. Default is False.
+
+        Returns
+        -------
+        pressure : ndarray
+            The computed pressure field.
+        """
+
+        return self.compute_pressure_field(
+            field_info, normalize=normalize, inplace=inplace
+        )
 
     def __repr__(self):
         """

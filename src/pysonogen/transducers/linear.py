@@ -61,7 +61,7 @@ class LinearArrayTransducer:
 
         if elevation_focus is not None and elevation_focus > 0 and no_sub_y < 2:
             raise ValueError(
-                "Elevation focus requires at least 2 subdivisions in y to model elevation focusing."
+                "Elevation focus requires at least 2 subdivisions in y-dir to model elevation focusing."
             )
 
         if frequency_Hz is not None:
