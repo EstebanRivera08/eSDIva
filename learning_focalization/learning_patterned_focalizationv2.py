@@ -27,7 +27,9 @@ def safe_cleanup():
         pass  # Ignore shutdown errors
 
 
-print(torch.__version__)
+print("\n ----------------- LEARNING PATTERNED STIMULATION ----------------- \n")
+
+# print(torch.__version__)
 
 use_cuda = True  # Set to False if you want to run on CPU
 device_cpu = torch.device("cpu")
@@ -44,9 +46,9 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v1"  # Version of the model
+version = "v154um_2I_smoothv3"  # Version of the model
 num_delays = 0
-num_delays_apod = 300
+num_delays_apod = 100
 num_epoch = num_delays + num_delays_apod  # Total number of epochs for training
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
@@ -54,19 +56,24 @@ batch_size = 1024  # Batch size for training
 # target = "1lambda"  # Target pattern to use
 # target_filename = f"/matrix_{target}_10MHz.npz"
 target_folder = r".\target_masks"
-target = "custom2"
+target = "custom3"
 target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apod1_{target}_{version}"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 path = destination + "/" + state_name
+
+print(f"Output file name : {name_model}")
 
 # ----------------- Load target pattern -----------------
 print(f"Loading target pattern {target_filename}")
 target_dic = np.load(target_folder + target_filename)
 target_matrix = target_dic["target"].T
 
-
+nx, ny = 55, 55
+print(f"Target matrix shape: {nx}x{ny}")
+target_matrix = np.zeros((nx, ny))
+target_matrix[nx // 2, ny // 2] = 1
 y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
 
@@ -74,32 +81,46 @@ y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 z_plane_mm = 5  # mm
 focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z]
 F_over_D = 1
+
+
 # wavelength = target_dic["wavelength"]
 # x_length_mm = target_dic["x_length_mm"]
 # y_length_mm = target_dic["y_length_mm"]
 # dx = target_dic["dx"]
 # dy = target_dic["dy"]
 # field_matrix_mm = {
-#     "x_extent": [-x_length_mm / 2, x_length_mm / 2],  # mm (16,5 mm)
-#     "y_extent": [-y_length_mm / 2, y_length_mm / 2],  # mm(16,5 mm)
+#     "x_extent": [-x_length_mm / 2-dx, x_length_mm / 2-dx],  # mm (16,5 mm)
+#     "y_extent": [-y_length_mm / 2-dy, y_length_mm / 2-dy],  # mm(16,5 mm)
 #     "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
 #     "dx": dx,
 #     "dy": dy,
 #     "dz": 1,
 # }
-x_length_mm = target_matrix.shape[0] * 0.3
-y_length_mm = target_matrix.shape[1] * 0.3
+
+Zeus_Matrix = pysonogen.transducers.Zeus_Matrix()
+
+nx = target_matrix.shape[0]
+ny = target_matrix.shape[1]
+c = 1540  # m/s
+fc = Zeus_Matrix.fc  # Hz
+lambda_mm = c / (fc) * 1e3  # mm
+# deltax = Zeus_Matrix.pitch_x * 1e3  # mm
+# deltay = Zeus_Matrix.pitch_y * 1e3  # mm
+deltax = 0.154  # mm
+deltay = 0.154  # mm
+x_extent = [(-nx / 2) * deltax, (nx / 2) * deltax]
+y_extent = [(-nx / 2) * deltax, (ny / 2) * deltay]
 
 field_matrix_mm = {
-    "x_extent": [-x_length_mm / 2, x_length_mm / 2],  # mm (16,5 mm)
-    "y_extent": [-y_length_mm / 2, y_length_mm / 2],  # mm(16,5 mm)
+    "x_extent": x_extent,  # mm (16,5 mm)
+    "y_extent": y_extent,  # mm(16,5 mm)
     "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
-    "dx": 0.3,
-    "dy": 0.3,
+    "dx": deltax,
+    "dy": deltay,
     "dz": 0.5,
 }
 
-Zeus_Matrix = pysonogen.transducers.Zeus_Matrix()
+print("deltaxy: ", deltax, deltay)
 
 
 # ------------------- Reference (focalization at depth) -------------------
@@ -124,11 +145,17 @@ z_weights = (
 
 max_pr_plane0 = (
     (pr.to(device) * z_weights).sum(dim=-1).max().item()
-)  # Sum along z-axis, and we take the max of the disk
+) * 2  # Sum along z-axis, and we take the max of the disk
 
 # y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
-max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
+max_pr0 = pr.max().item() * 2  # Sum along z-axis, and we take the max of the disk
 
+
+x_cmass_target = (y_target2D.sum(dim=0) * y_target2D.shape[0]).argmax().item() - 1
+y_cmass_target = (y_target2D.sum(dim=1) * y_target2D.shape[1]).argmax().item() - 1
+print(f"Center of mass (target index): ({x_cmass_target}, {y_cmass_target})")
+print(f"Center of mass (target value): ({x[x_cmass_target]}, {y[y_cmass_target]})")
+# print(x)
 
 # ------------- Set initial delays and apodization -------------------
 
@@ -142,7 +169,7 @@ torch.manual_seed(42)  # For reproducibility
 
 ## Zeros delays and ones apodization for testing
 delays = np.zeros(Zeus_Matrix.n_elements)  # Initial delays set to half the max delay
-apodization = np.ones(Zeus_Matrix.n_elements)  # Random apodization for testing
+apodization = np.ones(Zeus_Matrix.n_elements) * 0.5  # Random apodization for testing
 Zeus_Matrix.set_delays(delays)
 Zeus_Matrix.set_apodization(apodization)
 
@@ -178,10 +205,12 @@ def loss_energy(y_target_3D, PII, min_error=1e-6):
 
 
 # Initialize the optimizer
-learning_rate_delays = 1e-2
-learning_rate_apods = 1e-2
+learning_rate_delays = 1e-3
+learning_rate_apods = 5e-3
 
 # ----------------- check forward of the model -----------------
+
+print("------- Forward pass test --------")
 
 # 2) Forward pass
 
@@ -193,8 +222,8 @@ y_target3D = stack_2D_to_3D(y_target2D, nz=nz, sigma=0)
 
 ## ---------------- Compute first loss -----------------
 
-print(f"Target3D shape: {y_target3D.shape}, Pressure shape: {pr.shape}")
-print(f"Target2D shape: {y_target2D.shape}, Predicted pattern shape: {y_pred.shape}")
+# print(f"Target3D shape: {y_target3D.shape}, Pressure shape: {pr.shape}")
+# print(f"Target2D shape: {y_target2D.shape}, Predicted pattern shape: {y_pred.shape}")
 
 if y_pred.ndim > 2:
     first_prediction = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
@@ -204,9 +233,9 @@ else:
 apodization = Matrix_torch.apodization
 delays = Matrix_torch.delays
 
-for name, param in Matrix_torch.named_parameters():
-    if param.requires_grad:
-        print(name, param.shape, param[:10])
+# for name, param in Matrix_torch.named_parameters():
+#     if param.requires_grad:
+#         print(name, param.shape, param[:10])
 
 loss_physic = loss_energy(y_target3D, pr).item()
 loss_comparison = loss_MSE(y_target2D, y_pred).item()
@@ -231,45 +260,66 @@ Zeus_Matrix.plot_delays(first_delays * 1e-6)
 print(f"Max pressure focal: {max_pr0:.2f} units")
 
 print(f"Max pressure init: {pr.max().item():.2f} units")
-print(f"x shape: {x.shape}, y shape: {y.shape}, z shape: {z.shape}")
+print(
+    f"x shape: {x.detach().cpu().numpy().shape}, y shape: {y.detach().cpu().numpy().shape}, z shape: {z.detach().cpu().numpy().shape}"
+)
 print(f"first loss: {first_loss:.4f} units")
+
+x = x.detach().cpu().numpy()
+y = y.detach().cpu().numpy()
+z = z.detach().cpu().numpy()
 
 plotter = pysonogen.plot_pressure_field(
     pr.detach().cpu().numpy(),
-    x.detach().cpu().numpy(),
-    y.detach().cpu().numpy(),
-    z.detach().cpu().numpy(),
+    x,
+    y,
+    z,
 )
 plotter.show()
 
 plotter = pysonogen.plot_pressure_field(
     y_target3D.detach().cpu().numpy(),
-    x.detach().cpu().numpy(),
-    y.detach().cpu().numpy(),
-    z.detach().cpu().numpy(),
+    x,
+    y,
+    z,
 )
+
 plotter.show()
 
 del plotter  # Clear the plotter to free memory
 
 # Plot First Prediction, Last Prediction, and Target Pattern
-fig, ax = plt.subplots(1, 2, figsize=(18, 6))
+fig, ax = plt.subplots(1, 2, figsize=(12, 6))
 vmin = min(first_prediction_np.min(), target_matrix.min())
 vmax = max(first_prediction_np.max(), target_matrix.max())
 # First Prediction
-im0 = ax[0].imshow(first_prediction_np.T, cmap="gray", vmin=vmin, vmax=vmax)
+im0 = ax[0].imshow(
+    first_prediction_np.T,
+    cmap="gray",
+    vmin=vmin,
+    vmax=vmax,
+    extent=[x.min(), x.max(), y.max(), y.min()],
+)
 ax[0].set_title("First Prediction")
-ax[0].axis("off")
+ax[0].set_xlabel("X Position (mm)")
+ax[0].set_ylabel("Y Position (mm)")
 
 # Target Pattern
-im2 = ax[1].imshow(
-    y_target2D.detach().cpu().numpy().T, cmap="gray", vmin=vmin, vmax=vmax
+im1 = ax[1].imshow(
+    y_target2D.detach().cpu().numpy().T,
+    cmap="gray",
+    vmin=vmin,
+    vmax=vmax,
+    extent=[x.min(), x.max(), y.max(), y.min()],
 )
 ax[1].set_title("Target Pattern")
-ax[1].axis("off")
+ax[1].set_xlabel("X Position (mm)")
+ax[1].set_ylabel("Y Position (mm)")
 
 # Add colorbar to the last subplot
-plt.colorbar(im2, ax=ax[1], orientation="vertical", fraction=0.046, pad=0.04)
+# Add colorbar to the last subplot
+plt.colorbar(im0, ax=ax[0], orientation="vertical", fraction=0.046, pad=0.04)
+plt.colorbar(im1, ax=ax[1], orientation="vertical", fraction=0.046, pad=0.04)
 
 # Adjust layout
 plt.tight_layout()
@@ -278,6 +328,14 @@ plt.show()
 plt.close()
 
 # ----------------- Training loop -----------------
+# Countdown from 10 seconds
+countdown_time = 10
+
+print("Entering optimization loop in:\n", end=" ")
+for t in range(countdown_time, 0, -1):
+    print(f"{t} seconds...", end="\r", flush=True)
+    time.sleep(1)
+
 t0 = time.time()
 loss_vec = np.zeros(num_epoch + 1)
 loss_energies_vec = np.zeros(num_epoch + 1)

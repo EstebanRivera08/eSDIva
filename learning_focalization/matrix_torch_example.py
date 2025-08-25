@@ -28,21 +28,12 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 
 # ----------------------------
 
-# Focalization spot
-focus_mm = np.array([0.5, 0.5, 5])  # mm [x, y, z] #8
-# FoverD = 0.75
-# delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
-# apodization = Zeus_Matrix.compute_apodization(
-#     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
-# )
-
-# name_model = "opt_150epochs_3DloglossE_1planes_noprocess_delay_apod_4lambda_v1"
-version = "v1"
-num_epoch = 200
-target = "custom1"
+version = "v200um_2I_smooth"
+num_epoch = 100
+target = "custom3"
 target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apod1_{target}_{version}"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 state_folder = r".\test_models\matrix"
 path = f"{state_folder}/{state_name}.pth"
@@ -50,31 +41,35 @@ figure_name = (
     state_folder + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
-
-# Delta_x = 0.3  # 2  #0.8  # mm
-# Delta_y = 0.3  # 2  #  0.8  # mm
-# Delta_z = 1  # 3  #  1 mm
-# field_info_mm = {
-#     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
-#     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
-#     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-#     "dx": 0.02,  # 0.075, # 0.02
-#     "dy": 0.02,  # 0.075, # 0.02
-#     "dz": 0.02,  # 0.075, # 0.02
-
-# }
-
-Delta_x = 6  # 2  #0.8  # mm
-Delta_y = 6  # 2  #  0.8  # mm
-Delta_z = 0.2  # 3  #  1 mm
+focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
+# FoverD = 0.75
+# delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
+# apodization = Zeus_Matrix.compute_apodization(
+#     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
+# )
+Delta_x = 0.3  # 2  #0.8  # mm
+Delta_y = 0.3  # 2  #  0.8  # mm
+Delta_z = 1  # 3  #  1 mm
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.1,  # 0.075, # 0.02
-    "dy": 0.1,  # 0.075, # 0.02
-    "dz": 0.1,  # 0.075, # 0.02
+    "dx": 0.02,  # 0.075, # 0.02
+    "dy": 0.02,  # 0.075, # 0.02
+    "dz": 0.02,  # 0.075, # 0.02
 }
+
+# Delta_x = 6  # 2  #0.8  # mm
+# Delta_y = 6  # 2  #  0.8  # mm
+# Delta_z = 0.2  # 3  #  1 mm
+# field_info_mm = {
+#     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
+#     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
+#     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
+#     "dx": 0.1,  # 0.075, # 0.02
+#     "dy": 0.1,  # 0.075, # 0.02
+#     "dz": 0.1,  # 0.075, # 0.02
+# }
 
 # Zeus_Matrix.show()
 
@@ -99,11 +94,16 @@ print("Model state dictionary loaded from: ", state_name)
 
 pr2, x2, y2, z2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
 
+pr2 = pr2.detach().cpu().numpy()
+x2 = x2.detach().cpu().numpy()
+y2 = y2.detach().cpu().numpy()
+z2 = z2.detach().cpu().numpy()
+
 pysonogen.plot_field_planes(
-    pr2.detach().cpu().numpy(),
-    x2.detach().cpu().numpy(),
-    y2.detach().cpu().numpy(),
-    z2.detach().cpu().numpy(),
+    pr2,
+    x2,
+    y2,
+    z2,
     interpolation=None,
     centered=False,
     ratios=[0.2, 1, 0.2],
@@ -111,10 +111,10 @@ pysonogen.plot_field_planes(
 )
 
 plotter = pysonogen.plot_pressure_field(
-    pr2.detach().cpu().numpy(),
-    x2.detach().cpu().numpy(),
-    y2.detach().cpu().numpy(),
-    z2.detach().cpu().numpy(),
+    pr2,
+    x2,
+    y2,
+    z2,
 )
 
 
