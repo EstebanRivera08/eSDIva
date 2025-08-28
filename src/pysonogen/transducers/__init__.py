@@ -11,24 +11,21 @@ Usage:
   t = LinearArrayTransducer(...)
   print(t)
 """
-from .base import BaseTransducer
+
 from .linear import LinearArrayTransducer
 from .matrix import MatrixArrayTransducer
 from .saved_transducers import Domino, Zeus_Matrix
 
-__all__ = [
-    'BaseTransducer',
-    'LinearArrayTransducer',
-    'MatrixArrayTransducer',
-    'Domino',
-    'Zeus_Matrix'
-    ]
+__all__ = ["LinearArrayTransducer", "MatrixArrayTransducer", "Domino", "Zeus_Matrix"]
+
 
 def available_transducers():
     """List all available transducer classes."""
     return __all__[1:]
 
+
 # Optional: helper factory
+
 
 def create_transducer(kind, **kwargs):
     """
@@ -36,8 +33,8 @@ def create_transducer(kind, **kwargs):
       kind: 'linear' or 'matrix'
     """
     kind = kind.lower()
-    if kind == 'linear':
+    if kind == "linear":
         return LinearArrayTransducer(**kwargs)
-    if kind == 'matrix':
+    if kind == "matrix":
         return MatrixArrayTransducer(**kwargs)
     raise ValueError(f"Unknown transducer kind: {kind}")

@@ -53,9 +53,7 @@ pr, x, y, z = linear_array_torch.examine_bottleneck(
     field_matrix_mm, batch_size=4096, normalize=False
 )
 # linear_array_torch = PyField(linear_array_tx)
-# pr, x, y, z = linear_array_torch.compute_pressure_field(
-#     field_matrix_mm, normalize=False
-# )
+# pr, x, y, z = linear_array_torch(field_matrix_mm, normalize=False)
 
 
 # ------------------- Plotting -------------------

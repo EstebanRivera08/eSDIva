@@ -5,8 +5,6 @@ import numpy as np
 import pyvista as pv
 from scipy.signal import windows
 
-from .base import BaseTransducer
-
 warnings.filterwarnings("ignore", category=UserWarning)
 
 

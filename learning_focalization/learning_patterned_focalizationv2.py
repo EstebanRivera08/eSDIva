@@ -46,9 +46,9 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v154um_2I_smoothv3"  # Version of the model
+version = "v300um_2I_z8mmv2"  # Version of the model
 num_delays = 0
-num_delays_apod = 100
+num_delays_apod = 200
 num_epoch = num_delays + num_delays_apod  # Total number of epochs for training
 FoverD = 1  # Focalization over Diameter ratio
 sigma = 0.7
@@ -56,7 +56,7 @@ batch_size = 1024  # Batch size for training
 # target = "1lambda"  # Target pattern to use
 # target_filename = f"/matrix_{target}_10MHz.npz"
 target_folder = r".\target_masks"
-target = "custom3"
+target = "Colombia"
 target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
 name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
@@ -70,18 +70,17 @@ print(f"Loading target pattern {target_filename}")
 target_dic = np.load(target_folder + target_filename)
 target_matrix = target_dic["target"].T
 
-nx, ny = 55, 55
-print(f"Target matrix shape: {nx}x{ny}")
-target_matrix = np.zeros((nx, ny))
-target_matrix[nx // 2, ny // 2] = 1
+# nx, ny = 55, 55
+# print(f"Target matrix shape: {nx}x{ny}")
+# target_matrix = np.zeros((nx, ny))
+# target_matrix[nx // 2, ny // 2] = 1
+
 y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
-
 # ------------------- Transducer Matrix -------------------
-z_plane_mm = 5  # mm
+z_plane_mm = 8  # mm
 focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z]
 F_over_D = 1
-
 
 # wavelength = target_dic["wavelength"]
 # x_length_mm = target_dic["x_length_mm"]
@@ -106,8 +105,8 @@ fc = Zeus_Matrix.fc  # Hz
 lambda_mm = c / (fc) * 1e3  # mm
 # deltax = Zeus_Matrix.pitch_x * 1e3  # mm
 # deltay = Zeus_Matrix.pitch_y * 1e3  # mm
-deltax = 0.154  # mm
-deltay = 0.154  # mm
+deltax = 0.300  # mm
+deltay = 0.300  # mm
 x_extent = [(-nx / 2) * deltax, (nx / 2) * deltax]
 y_extent = [(-nx / 2) * deltax, (ny / 2) * deltay]
 

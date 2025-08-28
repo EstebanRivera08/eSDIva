@@ -28,9 +28,9 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 
 # ----------------------------
 
-version = "v200um_2I_smooth"
-num_epoch = 100
-target = "custom3"
+version = "v300um_2I_z8mmv2"
+num_epoch = 200
+target = "Colombia"
 target_filename = f"/matrix_customtarget2.npz"
 destination = r".\test_models\matrix"
 name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
@@ -47,29 +47,29 @@ focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
 # apodization = Zeus_Matrix.compute_apodization(
 #     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
 # )
-Delta_x = 0.3  # 2  #0.8  # mm
-Delta_y = 0.3  # 2  #  0.8  # mm
-Delta_z = 1  # 3  #  1 mm
-field_info_mm = {
-    "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
-    "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
-    "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.02,  # 0.075, # 0.02
-    "dy": 0.02,  # 0.075, # 0.02
-    "dz": 0.02,  # 0.075, # 0.02
-}
-
-# Delta_x = 6  # 2  #0.8  # mm
-# Delta_y = 6  # 2  #  0.8  # mm
-# Delta_z = 0.2  # 3  #  1 mm
+# Delta_x = 0.3  # 2  #0.8  # mm
+# Delta_y = 0.3  # 2  #  0.8  # mm
+# Delta_z = 1  # 3  #  1 mm
 # field_info_mm = {
 #     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
 #     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
 #     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-#     "dx": 0.1,  # 0.075, # 0.02
-#     "dy": 0.1,  # 0.075, # 0.02
-#     "dz": 0.1,  # 0.075, # 0.02
+#     "dx": 0.02,  # 0.075, # 0.02
+#     "dy": 0.02,  # 0.075, # 0.02
+#     "dz": 0.02,  # 0.075, # 0.02
 # }
+factor = 1
+Delta_x = 6 / factor  # 2  #0.8  # mm
+Delta_y = 6 / factor  # 2  #  0.8  # mm
+Delta_z = 0.2  # 3  #  1 mm
+field_info_mm = {
+    "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
+    "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
+    "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
+    "dx": 0.1 / factor,  # 0.075, # 0.02
+    "dy": 0.1 / factor,  # 0.075, # 0.02
+    "dz": 0.1,  # 0.075, # 0.02
+}
 
 # Zeus_Matrix.show()
 
