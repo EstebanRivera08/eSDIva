@@ -356,5 +356,4 @@ def add_markers(
                 **kwargs,
             )
 
-    plotter.add_axes()
     return plotter

@@ -28,10 +28,9 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 
 # ----------------------------
 
-version = "v300um_2I_z8mmv2"
-num_epoch = 200
-target = "Colombia"
-target_filename = f"/matrix_customtarget2.npz"
+version = "vAddition"
+num_epoch = 100
+target = "Point"
 destination = r".\test_models\matrix"
 name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
@@ -41,12 +40,14 @@ figure_name = (
     state_folder + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
-focus_mm = np.array([0, 0, 5])  # mm [x, y, z] #8
+focus_mm = np.array([0, 0, 8])  # mm [x, y, z] #8
 # FoverD = 0.75
 # delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 # apodization = Zeus_Matrix.compute_apodization(
 #     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
 # )
+
+
 # Delta_x = 0.3  # 2  #0.8  # mm
 # Delta_y = 0.3  # 2  #  0.8  # mm
 # Delta_z = 1  # 3  #  1 mm
@@ -80,7 +81,8 @@ Matrix_torch = TorchField(Zeus_Matrix, device=device)
 checkpoint = torch.load(path)
 Matrix_torch.load_state_dict(checkpoint)
 
-apodization = Matrix_torch.apodization.detach().cpu().numpy()
+apodization = Matrix_torch.apodization
+apodization = Matrix_torch._process_apodization(apodization).detach().cpu().numpy()
 delays = Matrix_torch.delays.detach().cpu().numpy()
 print(apodization.shape, delays.shape)
 Zeus_Matrix.set_apodization(apodization)

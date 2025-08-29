@@ -46,7 +46,7 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "v300um_2I_z8mmv2"  # Version of the model
+version = "vAddition"  # Version of the model
 num_delays = 0
 num_delays_apod = 200
 num_epoch = num_delays + num_delays_apod  # Total number of epochs for training
@@ -56,8 +56,8 @@ batch_size = 1024  # Batch size for training
 # target = "1lambda"  # Target pattern to use
 # target_filename = f"/matrix_{target}_10MHz.npz"
 target_folder = r".\target_masks"
-target = "Colombia"
-target_filename = f"/matrix_customtarget2.npz"
+target = "Bar"
+target_filename = f"/matrix_customtarget1.npz"
 destination = r".\test_models\matrix"
 name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
@@ -70,10 +70,13 @@ print(f"Loading target pattern {target_filename}")
 target_dic = np.load(target_folder + target_filename)
 target_matrix = target_dic["target"].T
 
-# nx, ny = 55, 55
-# print(f"Target matrix shape: {nx}x{ny}")
-# target_matrix = np.zeros((nx, ny))
-# target_matrix[nx // 2, ny // 2] = 1
+nx, ny = 55, 55
+print(f"Target matrix shape: {nx}x{ny}")
+target_matrix = np.zeros((nx, ny))
+range_bar = 10
+for i in range(-range_bar // 2, range_bar // 2 + 1):
+    target_matrix[nx // 2 + i, ny // 2 + i] = 1
+# target_matrix[nx // 2 + shift, ny // 2 + shift] = 1
 
 y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
@@ -144,10 +147,10 @@ z_weights = (
 
 max_pr_plane0 = (
     (pr.to(device) * z_weights).sum(dim=-1).max().item()
-) * 2  # Sum along z-axis, and we take the max of the disk
+)  # Sum along z-axis, and we take the max of the disk
 
 # y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
-max_pr0 = pr.max().item() * 2  # Sum along z-axis, and we take the max of the disk
+max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
 
 
 x_cmass_target = (y_target2D.sum(dim=0) * y_target2D.shape[0]).argmax().item() - 1

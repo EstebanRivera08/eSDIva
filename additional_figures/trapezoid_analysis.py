@@ -3,11 +3,12 @@ import numpy as np
 from matplotlib.widgets import Button, Slider
 
 plt.rcParams["figure.figsize"] = [10, 6]
-plt.rcParams.update({"font.size": 18})
+plt.rcParams.update({"font.size": 20})
 plt.style.use("seaborn-v0_8")
+# plt.rcParams["text.usetex"] = True
+# plt.rcParams["font.weight"] = "bold"
 
-
-mainpath = r"C:\Users\INSERM\Documents\Esteban\Ressources\trapezoid" + "/"
+mainpath = ""
 
 N_continue = 1000
 N_naive = 10
@@ -30,8 +31,8 @@ l_c = 3
 Dt1 = 1
 Dt2 = 2
 shift = 0
-range_Dt1 = (0, 2)
-range_Dt2 = (0, 3)
+range_Dt1 = (0.001, 2)
+range_Dt2 = (0.001, 3)
 range_shift = (-1, 1)
 
 
@@ -99,20 +100,22 @@ def compute_trapezoid(Dt1, Dt2, shift):
 
 
 # Create the figure and axes
-fig, ax = plt.subplots(figsize=(10, 4))
+fig, ax = plt.subplots(figsize=(11, 5))
 plt.subplots_adjust(bottom=0.3)
 plt.subplots_adjust(right=0.8)
 
 times, h_continue, h_naive, d2h, dh, h_derivative = compute_trapezoid(Dt1, Dt2, shift)
 t1, t2, t3, t4 = times
 # Initial plot
-(line_continue,) = ax.plot(t_continue, h_continue, "-", label="h_continue", color="k")
-vline_t1 = ax.axvline(t1, color="gray", linestyle="--", label="t1")
-vline_t2 = ax.axvline(t2, color="gray", linestyle="--", label="t2")
-vline_t3 = ax.axvline(t3, color="gray", linestyle="--", label="t3")
-vline_t4 = ax.axvline(t4, color="gray", linestyle="--", label="t4")
+(line_continue,) = ax.plot(
+    t_continue, h_continue, "-", label=r"$h_{continue}$", color="k"
+)
+vline_t1 = ax.axvline(t1, color="gray", linestyle="--", label=r"$t_1$")
+vline_t2 = ax.axvline(t2, color="gray", linestyle="--", label=r"$t_2$")
+vline_t3 = ax.axvline(t3, color="gray", linestyle="--", label=r"$t_3$")
+vline_t4 = ax.axvline(t4, color="gray", linestyle="--", label=r"$t_4$")
 (line_h_naive,) = ax.plot(
-    t_naive, h_naive, "o", label="h_naive", color="r", ms=5, zorder=8
+    t_naive, h_naive, "o", label=r"$h_{naive}$", color="r", ms=5, zorder=8
 )
 stem_container = ax.stem(
     t_derivative,
@@ -120,16 +123,21 @@ stem_container = ax.stem(
     linefmt="g-",
     markerfmt="gs",
     basefmt=" ",
-    label="d2h",
+    label=r"$\partial^2 h / \partial t^2$",
 )
 (line_h_derivative,) = ax.plot(
-    t_derivative, h_derivative, "s", label="h_derivative", color="b"
+    t_derivative, h_derivative, "s", label=r"$h_{derivative}$", color="b"
 )
-(line_dh,) = ax.plot(t_derivative, dh, "y--s", label="dh", ms=4, zorder=5)
+(line_dh,) = ax.plot(
+    t_derivative, dh, "y--s", label=r"$\partial h / \partial t$", ms=4, zorder=5
+)
 
 ax.set_xlabel("Time (s)")
 ax.set_ylabel("Amplitude")
-ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+leg = ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+for text in leg.get_texts():
+    text.set_fontweight("bold")
+    text.set_fontsize(15)
 ax.grid("minor")
 
 
@@ -173,7 +181,7 @@ handle_style = {"edgecolor": "black", "facecolor": "darkgray"}
 
 slider_Dt1 = Slider(
     ax_Dt1,
-    "Dt1",
+    r"$\Delta t1$",
     range_Dt1[0],
     range_Dt1[1],
     valinit=Dt1,
@@ -184,7 +192,7 @@ slider_Dt1 = Slider(
 )
 slider_Dt2 = Slider(
     ax_Dt2,
-    "Dt2",
+    r"$\Delta t2$",
     range_Dt2[0],
     range_Dt2[1],
     valinit=Dt2,
@@ -227,7 +235,7 @@ slider_Dt2.on_changed(update)
 slider_shift.on_changed(update)
 
 # Add a "Save" button
-ax_save = plt.axes([0.8, 0.9, 0.1, 0.05])
+ax_save = plt.axes([0.8, 0.08, 0.1, 0.05])
 button_save = Button(ax_save, "Save")
 button_save.label.set_fontsize(fontsize_widgets)
 
