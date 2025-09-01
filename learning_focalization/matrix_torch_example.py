@@ -36,41 +36,44 @@ name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{
 state_name = f"Matrix_torch_state_{name_model}"
 state_folder = r".\test_models\matrix"
 path = f"{state_folder}/{state_name}.pth"
+
+save_figure = False
+plot_example = False
 figure_name = (
     state_folder + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
 focus_mm = np.array([0, 0, 8])  # mm [x, y, z] #8
+delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 # FoverD = 0.75
-# delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 # apodization = Zeus_Matrix.compute_apodization(
 #     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
 # )
 
 
-# Delta_x = 0.3  # 2  #0.8  # mm
-# Delta_y = 0.3  # 2  #  0.8  # mm
-# Delta_z = 1  # 3  #  1 mm
-# field_info_mm = {
-#     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
-#     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
-#     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-#     "dx": 0.02,  # 0.075, # 0.02
-#     "dy": 0.02,  # 0.075, # 0.02
-#     "dz": 0.02,  # 0.075, # 0.02
-# }
-factor = 1
-Delta_x = 6 / factor  # 2  #0.8  # mm
-Delta_y = 6 / factor  # 2  #  0.8  # mm
-Delta_z = 0.2  # 3  #  1 mm
+Delta_x = 0.3  # 2  #0.8  # mm
+Delta_y = 0.3  # 2  #  0.8  # mm
+Delta_z = 1  # 3  #  1 mm
 field_info_mm = {
     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
-    "dx": 0.1 / factor,  # 0.075, # 0.02
-    "dy": 0.1 / factor,  # 0.075, # 0.02
-    "dz": 0.1,  # 0.075, # 0.02
+    "dx": 0.02,  # 0.075, # 0.02
+    "dy": 0.02,  # 0.075, # 0.02
+    "dz": 0.02,  # 0.075, # 0.02
 }
+# factor = 1
+# Delta_x = 6 / factor  # 2  #0.8  # mm
+# Delta_y = 6 / factor  # 2  #  0.8  # mm
+# Delta_z = 0.2  # 3  #  1 mm
+# field_info_mm = {
+#     "x_extent": [-Delta_x + focus_mm[0], Delta_x + focus_mm[0]],
+#     "y_extent": [-Delta_y + focus_mm[1], Delta_y + focus_mm[1]],
+#     "z_extent": [-Delta_z + focus_mm[2], Delta_z + focus_mm[2]],
+#     "dx": 0.1 / factor,  # 0.075, # 0.02
+#     "dy": 0.1 / factor,  # 0.075, # 0.02
+#     "dz": 0.1,  # 0.075, # 0.02
+# }
 
 # Zeus_Matrix.show()
 
@@ -78,20 +81,20 @@ torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
 # Load the model's state dictionary# Load the checkpoint
-checkpoint = torch.load(path)
-Matrix_torch.load_state_dict(checkpoint)
+if plot_example:
+    checkpoint = torch.load(path)
+    Matrix_torch.load_state_dict(checkpoint)
+    apodization = Matrix_torch.apodization
+    apodization = Matrix_torch._process_apodization(apodization).detach().cpu().numpy()
+    delays = Matrix_torch.delays.detach().cpu().numpy()
+    print(apodization.shape, delays.shape)
+    Zeus_Matrix.set_apodization(apodization)
+    Zeus_Matrix.set_delays(delays)
+    # # Example usage
+    print("Model state dictionary loaded from: ", state_name)
 
-apodization = Matrix_torch.apodization
-apodization = Matrix_torch._process_apodization(apodization).detach().cpu().numpy()
-delays = Matrix_torch.delays.detach().cpu().numpy()
-print(apodization.shape, delays.shape)
-Zeus_Matrix.set_apodization(apodization)
-Zeus_Matrix.set_delays(delays)
 Zeus_Matrix.plot_apodization()
 Zeus_Matrix.plot_delays()
-
-# # Example usage
-print("Model state dictionary loaded from: ", state_name)
 
 
 pr2, x2, y2, z2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
@@ -100,6 +103,9 @@ pr2 = pr2.detach().cpu().numpy()
 x2 = x2.detach().cpu().numpy()
 y2 = y2.detach().cpu().numpy()
 z2 = z2.detach().cpu().numpy()
+
+if not save_figure:
+    figure_name = None
 
 pysonogen.plot_field_planes(
     pr2,

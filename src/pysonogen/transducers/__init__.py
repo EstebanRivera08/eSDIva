@@ -21,7 +21,7 @@ __all__ = ["LinearArrayTransducer", "MatrixArrayTransducer", "Domino", "Zeus_Mat
 
 def available_transducers():
     """List all available transducer classes."""
-    return __all__[1:]
+    return __all__[:]
 
 
 # Optional: helper factory

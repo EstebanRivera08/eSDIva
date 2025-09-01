@@ -131,7 +131,7 @@ def create_simulation_grid_from_dict(simulation_struct, device="cpu"):
 
 
 class TorchFieldv2(nn.Module):
-    def __init__(self, transducer, z_plane_mm=None, device="cpu"):
+    def __init__(self, transducer, device="cpu"):
         super(TorchFieldv2, self).__init__()
 
         # -------------- Medium and TX characteristics ----------------
@@ -142,7 +142,6 @@ class TorchFieldv2(nn.Module):
         self.fc = transducer.fc
         self.time_sec_to_unit = 1e6  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
-        self.z_plane_mm = z_plane_mm  # Plane where the field is computed
         self.wx = transducer.el_w / transducer.no_sub_x * self.space_m_to_unit  # um
         self.wy = transducer.el_h / transducer.no_sub_y * self.space_m_to_unit  # um
         self.n_elements = transducer.n_elements
