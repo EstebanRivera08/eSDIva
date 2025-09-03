@@ -46,7 +46,7 @@ device = device_cuda if use_cuda else device_cpu
 # ----------------- compute pattern from pressure field -----------------
 train = True  # Set to True to enable training mode
 save_fig = True  # Set to True to save the model's state dictionary
-version = "vAddition"  # Version of the model
+
 num_delays = 0
 num_delays_apod = 200
 num_epoch = num_delays + num_delays_apod  # Total number of epochs for training
@@ -55,49 +55,71 @@ sigma = 0.7
 batch_size = 1024  # Batch size for training
 # target = "1lambda"  # Target pattern to use
 # target_filename = f"/matrix_{target}_10MHz.npz"
-target_folder = r".\target_masks"
-target = "Bar"
-target_filename = f"/matrix_customtarget1.npz"
-destination = r".\test_models\matrix"
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
+target = "Focus"
+z_plane_mm = 10  # mm
+version = f"v{z_plane_mm}mm"  # Version of the model
+destination = r".\test_models\matrix\Phase_tests"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 path = destination + "/" + state_name
+
 
 print(f"Output file name : {name_model}")
 
 # ----------------- Load target pattern -----------------
+target_folder = r".\target_masks"
+target_filename = f"/matrix_1lambda_10MHz.npz"
 print(f"Loading target pattern {target_filename}")
 target_dic = np.load(target_folder + target_filename)
 target_matrix = target_dic["target"].T
 
-nx, ny = 55, 55
-print(f"Target matrix shape: {nx}x{ny}")
-target_matrix = np.zeros((nx, ny))
-range_bar = 10
-for i in range(-range_bar // 2, range_bar // 2 + 1):
-    target_matrix[nx // 2 + i, ny // 2 + i] = 1
-# target_matrix[nx // 2 + shift, ny // 2 + shift] = 1
+# nx, ny = 55, 55
+# print(f"Target matrix shape: {nx}x{ny}")
+# target_matrix = np.zeros((nx, ny))
+# # range_bar = 10
+# # for i in range(-range_bar // 2, range_bar // 2 + 1):
+# #     target_matrix[nx // 2 + i, ny // 2 + i] = 1
+# target_matrix[nx // 2, ny // 2] = 1
 
-y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
+# # crop the borders of the target to make it smaller
+crop_pix = 50  # mm
+
+# if crop_pix > 0:
+#     shift_pix = 0
+#     print("First size of the matrix: ", target_matrix.shape)
+#     target_matrix = target_matrix[
+#         crop_pix + shift_pix : -crop_pix + shift_pix,
+#         crop_pix + shift_pix : -crop_pix + shift_pix,
+#     ]
+#     print("Cropped size of the matrix: ", target_matrix.shape)
+
+# y_target2D = torch.tensor(target_matrix, dtype=torch.float32, device=device)
 
 # ------------------- Transducer Matrix -------------------
-z_plane_mm = 8  # mm
 focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z]
 F_over_D = 1
 
-# wavelength = target_dic["wavelength"]
-# x_length_mm = target_dic["x_length_mm"]
-# y_length_mm = target_dic["y_length_mm"]
-# dx = target_dic["dx"]
-# dy = target_dic["dy"]
-# field_matrix_mm = {
-#     "x_extent": [-x_length_mm / 2-dx, x_length_mm / 2-dx],  # mm (16,5 mm)
-#     "y_extent": [-y_length_mm / 2-dy, y_length_mm / 2-dy],  # mm(16,5 mm)
-#     "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
-#     "dx": dx,
-#     "dy": dy,
-#     "dz": 1,
-# }
+wavelength = target_dic["wavelength"]
+dx = target_dic["dx"]
+dy = target_dic["dy"]
+x_length_mm = target_dic["x_length_mm"] - 2 * crop_pix * dx
+y_length_mm = target_dic["y_length_mm"] - 2 * crop_pix * dy
+shift_x = 0
+shift_y = 0
+field_matrix_mm = {
+    "x_extent": [
+        -x_length_mm / 2 - dx - shift_x,
+        x_length_mm / 2 + dx - shift_x,
+    ],  # mm (16,5 mm)
+    "y_extent": [
+        -y_length_mm / 2 - dy - shift_y,
+        y_length_mm / 2 + dy - shift_y,
+    ],  # mm(16,5 mm)
+    "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
+    "dx": dx,
+    "dy": dy,
+    "dz": 1,
+}
 
 Zeus_Matrix = pysonogen.transducers.Zeus_Matrix()
 
@@ -108,21 +130,21 @@ fc = Zeus_Matrix.fc  # Hz
 lambda_mm = c / (fc) * 1e3  # mm
 # deltax = Zeus_Matrix.pitch_x * 1e3  # mm
 # deltay = Zeus_Matrix.pitch_y * 1e3  # mm
-deltax = 0.300  # mm
-deltay = 0.300  # mm
-x_extent = [(-nx / 2) * deltax, (nx / 2) * deltax]
-y_extent = [(-nx / 2) * deltax, (ny / 2) * deltay]
+# deltax = 0.300  # mm
+# deltay = 0.300  # mm
+# x_extent = [(-nx / 2) * deltax, (nx / 2) * deltax]
+# y_extent = [(-nx / 2) * deltax, (ny / 2) * deltay]
 
-field_matrix_mm = {
-    "x_extent": x_extent,  # mm (16,5 mm)
-    "y_extent": y_extent,  # mm(16,5 mm)
-    "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
-    "dx": deltax,
-    "dy": deltay,
-    "dz": 0.5,
-}
+# field_matrix_mm = {
+#     "x_extent": x_extent,  # mm (16,5 mm)
+#     "y_extent": y_extent,  # mm(16,5 mm)
+#     "z_extent": [focus_mm[2], focus_mm[2]],  # mm (2 mm)
+#     "dx": deltax,
+#     "dy": deltay,
+#     "dz": 0.5,
+# }
 
-print("deltaxy: ", deltax, deltay)
+# print("deltaxy: ", deltax, deltay)
 
 
 # ------------------- Reference (focalization at depth) -------------------
@@ -149,7 +171,7 @@ max_pr_plane0 = (
     (pr.to(device) * z_weights).sum(dim=-1).max().item()
 )  # Sum along z-axis, and we take the max of the disk
 
-# y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
+y_target2D = pattern_from_pr_3Dto2D(pr.to(device), max_pr_plane0)
 max_pr0 = pr.max().item()  # Sum along z-axis, and we take the max of the disk
 
 
@@ -637,7 +659,9 @@ axes.append(ax)
 
 # Target Pattern
 ax = fig.add_subplot(gs[2, 3])
-ax.imshow(target_matrix.T, cmap="gray", vmin=0, vmax=1, extent=extent)
+ax.imshow(
+    y_target2D.detach().cpu().numpy().T, cmap="gray", vmin=0, vmax=1, extent=extent
+)
 ax.set_title("j) Target Pattern")
 ax.set_xlabel("X (mm)")
 ax.set_ylabel("Y (mm)")

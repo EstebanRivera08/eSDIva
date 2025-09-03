@@ -27,7 +27,7 @@ Domino = Transducers.Domino()
 # Domino.show()
 
 # ----------------------------
-version = "v2"
+version = "v3mm"
 num_epoch = 100
 
 target = "4lambda"  # Target pattern to use
@@ -41,7 +41,7 @@ state_name = f"Linear_torch_state_{name_model}"
 path = destination + "/" + state_name + ".pth"  # Add the correct extension
 data = destination + "/" + name_model + ".npz"  # Add the correct extension
 figure_name = (
-    destination + "/" + state_name + "wrap.png"  # "_unwrap08.png"  # + "_unwrap_"
+    destination + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
 

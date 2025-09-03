@@ -28,22 +28,22 @@ Zeus_Matrix = Transducers.Zeus_Matrix()
 
 # ----------------------------
 
-version = "vAddition"
-num_epoch = 100
-target = "Point"
-destination = r".\test_models\matrix"
+version = "v10mm"
+num_epoch = 200
+target = "Focus"
+
 name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
-state_folder = r".\test_models\matrix"
+state_folder = r".\test_models\matrix\Phase_tests"
 path = f"{state_folder}/{state_name}.pth"
 
 save_figure = False
-plot_example = False
+plot_example = True
 figure_name = (
     state_folder + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
-focus_mm = np.array([0, 0, 8])  # mm [x, y, z] #8
+focus_mm = np.array([0, 0, 10])  # mm [x, y, z] #8
 delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
 # FoverD = 0.75
 # apodization = Zeus_Matrix.compute_apodization(
@@ -94,7 +94,7 @@ if plot_example:
     print("Model state dictionary loaded from: ", state_name)
 
 Zeus_Matrix.plot_apodization()
-Zeus_Matrix.plot_delays()
+Zeus_Matrix.plot_delays(clim=[-0.05, 0.05])
 
 
 pr2, x2, y2, z2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
