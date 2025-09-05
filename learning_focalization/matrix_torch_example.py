@@ -1,13 +1,13 @@
+import time
+
 import numpy as np
 import torch
 from helper_function import (
     pattern_from_pr_3Dto2D,
 )
 
-# from TorchField import TorchField
-from TorchFieldv2 import TorchFieldv2 as TorchField
-
 import pysonogen
+import pysonogen.psimulation.TorchField as TorchField
 import pysonogen.transducers as Transducers
 
 # print(torch.__version__)
@@ -26,29 +26,37 @@ print(Transducers.available_transducers())
 
 Zeus_Matrix = Transducers.Zeus_Matrix()
 
-# ----------------------------
+# ----------- Main booleans ----------------
+plot_result = False
+save_figure = False
 
-version = "v10mm"
-num_epoch = 200
-target = "Focus"
 
-name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_noprocess_delayz_apodh_{target}_{version}"
+# ---------- Result, path and model info ---------------
+delay_type = "z"  # 'f' for focus, 'z' for zeros, etc
+apodization_type = "h"  # 'h' for half, '1' for ones, etc
+z_plane_mm = 5
+num_epoch = 150
+target = "Point100um"
+I_times = 1.5
+
+version = f"v{z_plane_mm}mm2"
+name_model = f"opt_{num_epoch}epochs_3DloglossE_1planes_delay{delay_type}_apod{apodization_type}_I{I_times}_{target}_{version}"
 state_name = f"Matrix_torch_state_{name_model}"
 state_folder = r".\test_models\matrix\Phase_tests"
 path = f"{state_folder}/{state_name}.pth"
 
-save_figure = False
-plot_example = True
 figure_name = (
     state_folder + "/" + state_name + ".png"  # "_unwrap08.png"  # + "_unwrap_"
 )  # Add the correct extension
 
-focus_mm = np.array([0, 0, 10])  # mm [x, y, z] #8
+
+# ---------- Set up the transducer and field computation ---------------
+focus_mm = np.array([0, 0, z_plane_mm])  # mm [x, y, z] #8
+FoverD = 1
 delays = Zeus_Matrix.compute_delays(focus_mm=focus_mm, plot=False)
-# FoverD = 0.75
-# apodization = Zeus_Matrix.compute_apodization(
-#     focus_mm=focus_mm, F_over_D=FoverD, apodization_type="circular", plot=False
-# )
+apodization = Zeus_Matrix.compute_apodization(
+    focus_mm=focus_mm, FoverD=FoverD, plot=False
+)
 
 
 Delta_x = 0.3  # 2  #0.8  # mm
@@ -74,28 +82,49 @@ field_info_mm = {
 #     "dy": 0.1 / factor,  # 0.075, # 0.02
 #     "dz": 0.1,  # 0.075, # 0.02
 # }
-
-# Zeus_Matrix.show()
+# ----------- Create the field object and load the model ---------------
 
 torch.cuda.empty_cache()
 Matrix_torch = TorchField(Zeus_Matrix, device=device)
 
 # Load the model's state dictionary# Load the checkpoint
-if plot_example:
-    checkpoint = torch.load(path)
-    Matrix_torch.load_state_dict(checkpoint)
-    apodization = Matrix_torch.apodization
-    apodization = Matrix_torch._process_apodization(apodization).detach().cpu().numpy()
-    delays = Matrix_torch.delays.detach().cpu().numpy()
-    print(apodization.shape, delays.shape)
-    Zeus_Matrix.set_apodization(apodization)
-    Zeus_Matrix.set_delays(delays)
-    # # Example usage
-    print("Model state dictionary loaded from: ", state_name)
+path_found_flag = True
+if plot_result:
+    try:
+        checkpoint = torch.load(path)
+        Matrix_torch.load_state_dict(checkpoint)
+        apodization = Matrix_torch.apodization
+        apodization = (
+            Matrix_torch._process_apodization(apodization).detach().cpu().numpy()
+        )
+        delays = Matrix_torch.delays.detach().cpu().numpy()
+        print(apodization.shape, delays.shape)
+        # # Example usage
+        print("Model state dictionary loaded from: ", state_name)
+        # Units in TorchField are in us
+        delays = delays * 1e-6  # Convert to seconds
 
+    except Exception as e:
+        path_found_flag = False
+        print("Error loading the model state dictionary:", e)
+        # Countdown from 10 seconds
+
+if not path_found_flag:
+    countdown_time = 5
+
+    print("Computing focalization example in:\n", end=" ")
+    for t in range(countdown_time, 0, -1):
+        print(f"{t} seconds...", end="\r", flush=True)
+        time.sleep(1)
+
+Zeus_Matrix.set_apodization(apodization)
+Zeus_Matrix.set_delays(delays)
 Zeus_Matrix.plot_apodization()
-Zeus_Matrix.plot_delays(clim=[-0.05, 0.05])
+clim = None  # [-0.06, 0.06]
+Zeus_Matrix.plot_delays(clim=clim)
 
+
+# ----------- Compute and plot the field ---------------
 
 pr2, x2, y2, z2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
 

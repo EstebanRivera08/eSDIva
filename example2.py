@@ -13,7 +13,7 @@ from pysonogen.functions import (
     align_transducer_to_probe,
     compute_affine_from_markers,
 )
-from pysonogen.pyfield import PyField
+from pysonogen.psimulation import PyField, TorchField
 from pysonogen.scans import DopplerScan
 
 # ----------------- Get the scan objects --------------------
@@ -61,11 +61,11 @@ apodization = domino.compute_apodization(
 )
 
 # Get the meshes and get them to the probe coordinate system
-# TX_mesh = domino.get_mesh()
+TX_mesh = domino.get_mesh()
 
 # ------------------ Compute the pressue field --------------------
 # Use PyField to compute the pressure field
-Domino_field = PyField(domino)
+Domino_field = TorchField(domino)
 field_info_mm = {
     "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
     "y_extent": [-0.5 + focus_mm[1], 0.5 + focus_mm[1]],
@@ -74,9 +74,9 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-# Domino_field.compute_pressure_field(field_info_mm)
+# Domino_field(field_info_mm, inplace=True)
 
-# Compute the pressure volume mesh
+# # Compute the pressure volume mesh
 # pressure_vol_mesh = Domino_field.get_mesh()
 
 # ------------------ Transform the meshes --------------------
@@ -192,32 +192,41 @@ final_plotter = add_markers(
     label_font_size=14,
 )
 
-# final_plotter = add_transducer_mesh(TX_mesh,
-#                         plotter=final_plotter, show_edges=False, lighting=True, ambient=1,
-#                         scalar_bar_args={
-#                             'title': 'Apodization',
-#                             "title_font_size": 16,
-#                             "label_font_size": 12,
-#                             'vertical': True,
-#                             'position_x': 0.85,
-#                             'position_y': 0.6,
-#                             "height": 0.3,
-#                             'color' : 'white',
-#                         })
+# final_plotter = add_transducer_mesh(
+#     TX_mesh,
+#     plotter=final_plotter,
+#     show_edges=False,
+#     lighting=True,
+#     ambient=1,
+#     scalar_bar_args={
+#         "title": "Apodization",
+#         "title_font_size": 16,
+#         "label_font_size": 12,
+#         "vertical": True,
+#         "position_x": 0.85,
+#         "position_y": 0.6,
+#         "height": 0.3,
+#         "color": "white",
+#     },
+# )
 
-# final_plotter = add_pressure_vol(pressure_vol_mesh,
-#                         plotter=final_plotter,
-#                         plot_focal_spot=False, lighting=True, ambient=1,
-#                         scalar_bar_args={
-#                             'title': 'Pressure Field (PII)',
-#                             "title_font_size": 16,
-#                             "label_font_size": 12,
-#                             'vertical': True,
-#                             'position_x': 0.85,
-#                             'position_y': 0.2,
-#                             "height": 0.3,
-#                             'color' : 'white',
-#                         })
+# final_plotter = add_pressure_vol(
+#     pressure_vol_mesh,
+#     plotter=final_plotter,
+#     plot_focal_spot=False,
+#     lighting=True,
+#     ambient=1,
+#     scalar_bar_args={
+#         "title": "Pressure Field (PII)",
+#         "title_font_size": 16,
+#         "label_font_size": 12,
+#         "vertical": True,
+#         "position_x": 0.85,
+#         "position_y": 0.2,
+#         "height": 0.3,
+#         "color": "white",
+#     },
+# )
 
 final_plotter.set_background("black")
 final_plotter.show_grid(
@@ -237,5 +246,5 @@ Doppler2D.clean()  # for scans
 Domino_field.clean()  # for fields
 domino.clean()  # for transducers
 Brain_Atlas.clean()  # for atlas
-# del TX_mesh, pressure_vol_mesh       # for mesh objects
+del TX_mesh  # for mesh objects
 del final_plotter  # for plotters

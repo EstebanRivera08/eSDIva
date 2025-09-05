@@ -56,7 +56,7 @@ class MatrixArrayTransducer:
 
         # Per-element apodization weights and delay placeholders
         self.apodization_type = None
-        self.F_over_D = None
+        self.FoverD = None
         self.apodization = np.ones(self.n_elements, dtype=float)
         self.delays = np.zeros(self.n_elements, dtype=float)
 
@@ -109,8 +109,8 @@ class MatrixArrayTransducer:
         self,
         focus_mm,
         *,
-        F_over_D=None,
-        apodization_type="rect",
+        FoverD=None,
+        apodization_type="circular",
         plot=False,
         inline=True,
     ):
@@ -152,14 +152,14 @@ class MatrixArrayTransducer:
             apod = np.ones((N_x, N_y))
         else:
             # require ratio_F_over_D property
-            if F_over_D is not None:
-                self.F_over_D = F_over_D
+            if FoverD is not None:
+                self.FoverD = FoverD
 
-            if self.F_over_D is None:
+            if self.FoverD is None:
                 print("Warning: F/D ratio not set. Using default value of 1.0.")
-                self.F_over_D = 1.0
+                self.FoverD = 1.0
 
-            d_tx = 2 * z_foc * np.tan(np.radians(self.dir_angle_deg)) / self.F_over_D
+            d_tx = 2 * z_foc * np.tan(np.radians(self.dir_angle_deg)) / self.FoverD
             Nvx = round(d_tx / (self.pitch_x))
             Nvy = round(d_tx / (self.pitch_y))
             if Nvx % 2 == 0:
@@ -232,7 +232,7 @@ class MatrixArrayTransducer:
         delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
 
         # Compute delays based on the speed of sound in soft tissue
-        delays = delays.max() - delays  # time delays for focusing
+        delays = delays.max() - delays  # time delays for focusing (in microseconds)
 
         if inline:
             self.delays = delays
@@ -268,8 +268,10 @@ class MatrixArrayTransducer:
             delays = self.delays
 
         plt.figure(figsize=(6, 5))
-        plt.imshow(delays.reshape((self.n_elem_x, self.n_elem_y)), cmap="jet", **kwargs)
-        plt.title("Delays (s)")
+        plt.imshow(
+            delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6, cmap="jet", **kwargs
+        )
+        plt.title("Delays (us)")
         plt.colorbar()
         plt.xlabel("Element X")
         plt.ylabel("Element Y")

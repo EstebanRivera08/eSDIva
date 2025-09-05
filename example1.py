@@ -10,7 +10,7 @@ from pysonogen.functions import (
     add_transducer_mesh,
     align_transducer_to_probe,
 )
-from pysonogen.pyfield import PyField
+from pysonogen.psimulation import PyField, TorchField
 from pysonogen.scans import DopplerScan
 
 # ----------------- Get the scan objects --------------------
@@ -47,12 +47,12 @@ focus_mm = np.array([-1, 0, 4.5])  # mm [x, y, z]
 # Define apodization and delay law
 delays = domino.compute_delays(focus_mm=focus_mm)
 apodization = domino.compute_apodization(
-    focus_mm=focus_mm, F_over_D=1, apodization_type="rect"
+    focus_mm=focus_mm, FoverD=1, apodization_type="rect"
 )
 
 # ------------------ Compute the pressue field --------------------
 # Use PyField to compute the pressure field
-Domino_field = PyField(domino)
+Domino_field = TorchField(domino)
 field_info_mm = {
     "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
     "y_extent": [-0.5 + focus_mm[1], 0.5 + focus_mm[1]],
@@ -61,7 +61,7 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-Domino_field.compute_pressure_field(field_info_mm, inplace=True)
+pr, x, y, z = Domino_field(field_info_mm, inplace=True)
 
 # ------------------ Transform the meshes --------------------
 
@@ -189,8 +189,8 @@ final_plotter.close()  # for plotters
 
 Doppler3D.clean()  # for scans
 Doppler2D.clean()  # for scans
-Domino_field.clean()  # for fields
 domino.clean()  # for transducers
 Brain_Atlas.clean()  # for atlas
+# Domino_field.clean()  # for fields
 del TX_mesh, pressure_vol_mesh  # for mesh objects
 del final_plotter  # for plotters

@@ -74,7 +74,7 @@ class LinearArrayTransducer:
         self.delays = np.zeros(n_elements, dtype=float)
         self.tx_N_active = int(np.sum(self.apodization > 0))
         self.apodization_type = None
-        self.F_over_D = None
+        self.FoverD = None
 
         # Compute element centers along x-axis
         total_width = n_elements * element_width + (n_elements - 1) * kerf
@@ -143,8 +143,8 @@ class LinearArrayTransducer:
         self,
         focus_mm,
         *,
-        F_over_D=None,
-        apodization_type="rect",
+        FoverD=None,
+        apodization_type=None,
         plot=False,
         equiv_energy=False,
     ):
@@ -166,6 +166,13 @@ class LinearArrayTransducer:
         apod : ndarray, shape (N_elements,)
             Normalized apodization weights.
         """
+        defined_types = {None, "none", "rect", "hanning", "hamming"}
+        if apodization_type not in defined_types:
+            raise ValueError(
+                f"Unknown apodization_type '{apodization_type}' \n \
+                             Must be one of {defined_types}"
+            )
+
         # Unpack and convert to meters
         focus = np.array(focus_mm) * 1e-3
 
@@ -185,21 +192,23 @@ class LinearArrayTransducer:
         total_ap = N * pitch  # total array aperture (m)
 
         if apodization_type is None:
-            pass
-        elif apodization_type == "none":
+            print("Warning: No apodization type provided. Using 'rect'.")
+            apodization_type = "rect"
+
+        if apodization_type == "none":
             apod = np.ones(N, dtype=float)
 
         else:
             # require ratio_F_over_D property
-            if F_over_D is not None:
-                self.F_over_D = F_over_D
+            if FoverD is not None:
+                self.FoverD = FoverD
 
-            if self.F_over_D is None:
+            if self.FoverD is None:
                 print("Warning: F/D ratio not set. Using default value of 1.0.")
-                self.F_over_D = 1.0
+                self.FoverD = 1.0
 
             # physical extent (in meters) of active aperture for given F/D
-            D = z_foc / self.F_over_D
+            D = z_foc / self.FoverD
             # how many elements that corresponds to (must be even)
             if self.n_elements % 2 == 1:
                 N_virt = int(round((D / total_ap) * N / 2) * 2 + 1)
@@ -254,28 +263,35 @@ class LinearArrayTransducer:
         self.tx_N_active = int(np.sum(apod > 0))
         return apod
 
-    def plot_apodization(self, apodization=None):
+    def plot_apodization(self, apodization=None, *, ax=None):
         """
         Plot the current apodization weights.
         """
-
+        flag = False
         if apodization is None:
             apodization = self.apodization
 
-        plt.figure()
-        plt.plot(
+        if ax is None:
+            flag = True
+            fig, ax = plt.subplots()
+
+        ax.plot(
             np.arange(self.n_elements),
             apodization,
             "k-",
             marker="o",
             markerfacecolor="r",
         )
-        plt.title(f"Apodization: {self.apodization_type}")
-        plt.xlabel("Element #")
-        plt.ylabel("Weight")
-        plt.grid(True)
-        plt.show()
-        plt.close()
+        ax.set_title(f"Apodization: {self.apodization_type}")
+        ax.set_xlabel("Element #")
+        ax.set_ylabel("Weight")
+        ax.grid(True)
+
+        if flag:
+            plt.show()
+            plt.close()
+        else:
+            return ax
 
     def compute_delays(self, *, focus_mm, c=None, inline=True, plot=False):
         """
@@ -315,25 +331,44 @@ class LinearArrayTransducer:
 
         return delays
 
-    def plot_delays(self, delays=None):
+    def plot_delays(self, delays=None, *, ax=None):
         """
         Plot the current delays.
         """
+        flag = False
         if delays is None:
             delays = self.delays
 
-        plt.figure()
-        plt.plot(
+        if ax is None:
+            flag = True
+            fig, ax = plt.subplots()
+
+        ax.plot(
             np.arange(self.n_elements),
             delays * 1e6,
             "k-",
             marker="o",
             markerfacecolor="r",
         )
-        plt.title("Delays")
-        plt.xlabel("Element #")
-        plt.ylabel("Delay (us)")
-        plt.grid(True)
+        ax.set_title("Delays")
+        ax.set_xlabel("Element #")
+        ax.set_ylabel("Delay (us)")
+        ax.grid(True)
+
+        if flag:
+            plt.show()
+            plt.close()
+        else:
+            return ax
+
+    def plot_delays_apodization(self):
+        """
+        Plot the current delays and apodization side by side.
+        """
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+        self.plot_delays(ax=ax1)
+        self.plot_apodization(ax=ax2)
+        plt.tight_layout()
         plt.show()
         plt.close()
 
@@ -359,6 +394,7 @@ class LinearArrayTransducer:
         verts = []
         faces = []
         scalars = []
+        scalars2 = []  # delays
         pt_index = 0
         for quad, el_idx in zip(self.sub_quad_verts, self.sub_el_idx):
             # quad is 4x3 array, create face [4, p0, p1, p2, p3]
@@ -366,33 +402,66 @@ class LinearArrayTransducer:
             face = [4, pt_index, pt_index + 1, pt_index + 2, pt_index + 3]
             faces.append(face)
             scalars.append(self.apodization[el_idx])
+            scalars2.append(self.delays[el_idx])
             pt_index += 4
         # Flatten verts and faces
         verts = np.array(verts) * 1e3  # Convert to mm for visualization
         faces_flat = np.hstack(faces)
         mesh = pv.PolyData(verts, faces_flat)
         mesh.cell_data["Apodization"] = np.array(scalars)
+        mesh.cell_data["Delays"] = np.array(scalars2)
         return mesh
 
     def show(
-        self, *, window_size=[800, 600], notebook=False, jupyter_backend=None, **kwargs
+        self,
+        *,
+        window_size=[800, 600],
+        scalars="Apodization",
+        notebook=False,
+        jupyter_backend=None,
+        **kwargs,
     ):
         """
         Visualize the transducer surface mesh and apodization with PyVista.
         """
         mesh = self.get_mesh()
         plotter = pv.Plotter(window_size=window_size, notebook=notebook)
-        plotter.add_mesh(
-            mesh,  # Convert to mm for visualization
-            scalars="Apodization",
-            cmap="cool",
-            clim=[0, 1],
-            show_scalar_bar=True,
-            scalar_bar_args={"title": "Apodization", "vertical": True},
-            opacity=1.0,
-            show_edges=True,
-            **kwargs,
-        )
+
+        if scalars == "Apodization":
+            plotter.add_mesh(
+                mesh,  # Convert to mm for visualization
+                scalars=scalars,
+                cmap="cool",
+                clim=[0, 1],
+                show_scalar_bar=True,
+                scalar_bar_args={
+                    "title": "Apodization",
+                    "vertical": True,
+                    "position_x": 0.8,
+                },
+                opacity=1.0,
+                show_edges=True,
+                **kwargs,
+            )
+        elif scalars == "Delays":
+            plotter.add_mesh(
+                mesh,  # Convert to mm for visualization
+                scalars=scalars,
+                cmap="rainbow",
+                clim=None,
+                show_scalar_bar=True,
+                scalar_bar_args={
+                    "title": "Delays (s)",
+                    "vertical": True,
+                    "position_x": 0.8,
+                },
+                opacity=1.0,
+                show_edges=True,
+                **kwargs,
+            )
+        else:
+            raise ValueError("scalars must be 'Apodization' or 'Delays'")
+
         plotter.add_axes()
         plotter.show_grid(
             font_size=10,
@@ -401,6 +470,11 @@ class LinearArrayTransducer:
             ztitle="Z (mm)",
             show_zlabels=False,
         )
+        plotter.camera_position = [
+            (12.520367408261166, 13.689471886505752, 13.940982550648721),
+            (1.4163759408294876, 0.20198691702220328, -0.9914130664803784),
+            (-0.5077013315077692, -0.41679734969120574, 0.7540022064129689),
+        ]
         plotter.show(jupyter_backend=jupyter_backend)
         plotter.close()
 
@@ -428,7 +502,7 @@ class LinearArrayTransducer:
             "fc_Hz": self.fc,
             "Apod type": self.apodization_type,
             "tx_N_active": self.tx_N_active,
-            "F_over_D": self.F_over_D,
+            "FoverD": self.FoverD,
         }
         parts = [f"{k}={v}" for k, v in params.items()]
         return f"{self.__class__.__name__}({', '.join(parts)})"

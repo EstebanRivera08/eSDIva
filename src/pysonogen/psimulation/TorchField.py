@@ -9,6 +9,8 @@ import torch.profiler
 from torch import Tensor
 from tqdm import tqdm
 
+import pysonogen
+
 
 # --- JIT-compiled core event computation (unchanged, but output in μs) ---
 @torch.jit.script
@@ -27,7 +29,9 @@ def compute_patch_events_batch(
     yp = diff[..., 1] / dist  # unitless
     xp_abs = torch.abs(xp) * wx * inv_c
     yp_abs = torch.abs(yp) * wy * inv_c
-    Dt1 = torch.min(xp_abs, yp_abs)  # .clamp(min=0.1 * inv_fs)  # us
+    Dt1 = torch.min(xp_abs, yp_abs).clamp(
+        min=0.05 * inv_fs
+    )  # us  # .clamp(min=0.1 * inv_fs)  # us
     Dt2 = torch.max(xp_abs, yp_abs).clamp(min=0.15 * inv_fs)  # us
     area = (wx * wy) / (2 * math.pi * dist)  # um (or unit)
     # Build event times in μs relative to t0
@@ -130,12 +134,16 @@ def create_simulation_grid_from_dict(simulation_struct, device="cpu"):
     return x, y, z, grid.reshape(-1, 3)  # [P, 3]
 
 
-class TorchFieldv2(nn.Module):
-    def __init__(self, transducer, device="cpu"):
-        super(TorchFieldv2, self).__init__()
+class TorchField(nn.Module):
+    def __init__(self, transducer, *, use_cuda=True, device=None):
+        super(TorchField, self).__init__()
 
         # -------------- Medium and TX characteristics ----------------
-        self.device = torch.device(device)
+        if device is not None:
+            self.device = device
+        else:
+            device = self._check_cuda_availability(use_cuda)
+        self.device = device
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
         self.fs = 400e6  # Sampling frequency in Hz
@@ -165,6 +173,9 @@ class TorchFieldv2(nn.Module):
         )  # um (or unit)
 
         # self.softplus = nn.Softplus(beta=20, threshold=0.5)
+
+        self.x = self.y = self.z = None
+        self.pr = None
 
         # ------------------ Define parameters -----------------------
         self.apodization = nn.Parameter(
@@ -327,7 +338,15 @@ class TorchFieldv2(nn.Module):
         print(f"Transformed from SIR to Pressure in {TIME() - start_time:.2f} seconds.")
         return pr_field
 
-    def forward(self, field_info_mm, batch_size=1024, normalize=False, training=False):
+    def forward(
+        self,
+        field_info_mm,
+        *,
+        batch_size=1024,
+        normalize=False,
+        training=False,
+        inplace=False,
+    ):
         """
         Forward pass for the model: 1) Compute of the SIR. 2) Compute Pr from SIR.
 
@@ -367,6 +386,14 @@ class TorchFieldv2(nn.Module):
         )
         if normalize:
             pr = pr / pr.max()
+
+        if inplace:
+            print("Saving pr, x, y, z in class...")
+            self.pr = pr.detach().cpu().numpy()
+            self.x = x.detach().cpu().numpy()
+            self.y = y.detach().cpu().numpy()
+            self.z = z.detach().cpu().numpy()
+
         return pr, x, y, z
 
     def examine_bottleneck(
@@ -420,7 +447,43 @@ class TorchFieldv2(nn.Module):
         print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
         return pr, x, y, z
 
+    def get_mesh(self):
+        """
+        Get the mesh of the pressure field.
+
+        Returns
+        -------
+        pv_mesh : pyvista.PolyData
+            The mesh of the pressure field.
+        """
+        if self.pr is None or self.x is None or self.y is None or self.z is None:
+            raise ValueError(
+                "Pressure field has not been saved in the class.\n"
+                " Call compute_pressure_field(inplace=True) first.\n"
+            )
+        return pysonogen.compute_pressure_vol_mesh(self.pr, self.x, self.y, self.z)
+
+    def clean(self):
+        """
+        Clean the stored pressure field and coordinates from the class to free memory.
+        """
+        self.pr = None
+        self.x = None
+        self.y = None
+        self.z = None
+
     # ----------------------------- helper functions --------------------------------------
+    def _check_cuda_availability(self, use_cuda=True):
+        device_cpu = torch.device("cpu")
+        device_number = 0  # if you have multiple GPUs
+        if torch.cuda.is_available():
+            print(f"GPU is available: cuda:{torch.cuda.get_device_name(device_number)}")
+            device_cuda = torch.device(f"cuda:{device_number}")
+        else:
+            print("Not GPU available.")
+            device_cuda = device_cpu
+        return device_cuda if use_cuda else device_cpu
+
     def _compute_spatial_grid(self, field_points_mm):
         # Check field inputs
         if isinstance(field_points_mm, torch.Tensor):
@@ -434,18 +497,23 @@ class TorchFieldv2(nn.Module):
                     field_points_mm[:, 1],
                     field_points_mm[:, 2],
                 )
+        elif isinstance(field_points_mm, np.ndarray):
+            if field_points_mm.ndim > 2 or field_points_mm.shape[1] != 3:
+                raise ValueError(
+                    "field_points_mm must be a 2D np.array of shape [P, 3]"
+                )
+            else:
+                field_points_mm = torch.tensor(
+                    field_points_mm, dtype=torch.float32, device=self.device
+                )
+                x, y, z = (
+                    field_points_mm[:, 0],
+                    field_points_mm[:, 1],
+                    field_points_mm[:, 2],
+                )
         elif isinstance(field_points_mm, dict):
             x, y, z, field_points_mm = create_simulation_grid_from_dict(
                 field_points_mm, device=self.device
-            )
-        elif isinstance(field_points_mm, np.ndarray):
-            field_points_mm = torch.tensor(
-                field_points_mm, dtype=torch.float32, device=self.device
-            )
-            x, y, z = (
-                field_points_mm[:, 0],
-                field_points_mm[:, 1],
-                field_points_mm[:, 2],
             )
         else:
             raise ValueError(

@@ -3,10 +3,10 @@ import numpy as np
 from scipy.signal import fftconvolve
 
 # ----- transducer / physics params -----
-save_figure = True
+save_figure = False
 
-z0 = 3  # focus depth in mm
-name_figure = f"fresnel_zones_matrix_{z0}mm"
+z0 = 5  # focus depth in mm
+name_figure = f"fresnel_zones_matrix_{z0}mm_v3"
 fc = 10.0  # MHz
 c = 1540.0  # m/s
 lambda_mm = c / (fc * 1e3)  # mm
@@ -33,7 +33,7 @@ Hx = (Nx_e - 1) / 2.0 * px
 Hy = (Ny_e - 1) / 2.0 * py
 
 # fine grid aligned to pitch/oversample so centers fall on nodes
-oversample = 100
+oversample = 151
 dx = px / oversample
 dy = py / oversample
 Nx = np.round((Hx * 2) / dx).astype(int)
@@ -103,19 +103,6 @@ Xc, Yc = np.meshgrid(x_elem_c, y_elem_c, indexing="xy")
 n_tx = bilinear_sample(n, Xc, Yc, x[0], y[0], dx, dy)
 correlation_tx1 = bilinear_sample(correlation_element1, Xc, Yc, x[0], y[0], dx, dy)
 correlation_tx2 = bilinear_sample(correlation_element2, Xc, Yc, x[0], y[0], dx, dy)
-
-# n_tx = np.zeros((num_elem_x, num_elem_y), dtype=int)
-# correlation_tx1 = np.zeros((num_elem_x, num_elem_y))
-# correlation_tx2 = np.zeros((num_elem_x, num_elem_y))
-# for i, ix in enumerate(ix_centers):
-#     for j, iy in enumerate(iy_centers):
-#         n_tx[j, i] = n[iy, ix]
-#         correlation_tx1[j, i] = correlation_element1[
-#             iy, ix
-#         ]  # note ordering (row,col) vs x,y
-#         correlation_tx2[j, i] = correlation_element2[
-#             iy, ix
-#         ]  # note ordering (row,col) vs x,y
 
 # Create masks
 mask_tx1 = np.zeros_like(correlation_tx1)
@@ -288,3 +275,14 @@ plt.show()
 
 if save_figure:
     fig.savefig(name_figure + ".png", dpi=300, bbox_inches="tight")
+
+
+mask_v2 = np.zeros_like(correlation_element2)
+mask_v2[mask_tx2 > 0] = correlation_element2[mask_tx2 > 0]
+plt.figure()
+plt.imshow(mask_tx2.T, origin="lower", cmap="gray")
+plt.title("Constructive interference")
+plt.xlabel("x (mm)")
+plt.ylabel("y (mm)")
+plt.colorbar(label="Mask value")
+plt.show()

@@ -200,7 +200,7 @@ class PyField:
         self.wx = el_w
         self.wy = el_h
 
-        self.field = None
+        self.pr = None
         self.x = self.y = self.z = None
 
     def spatial_impulse_response(self, field_points, return_all=False):
@@ -299,7 +299,7 @@ class PyField:
 
         return amp_response_tx_freq
 
-    def compute_pressure_field(self, field_info, *, normalize=True, inplace=False):
+    def compute_pressure_field(self, field_info, *, normalize=False, inplace=False):
         """
         Compute the pressure field from the Spatial Impulse Response (SIR).
 
@@ -343,12 +343,12 @@ class PyField:
             pressure_field = pressure_field / np.max(pressure_field)
 
         if inplace:
-            self.field = pressure_field
+            self.pr = pressure_field
             self.x = x
             self.y = y
             self.z = z
-        else:
-            return pressure_field, x, y, z
+
+        return pressure_field, x, y, z
 
     def set_field(self, name_struct_str, value_float):
         """
@@ -390,12 +390,12 @@ class PyField:
         pv_mesh : pyvista.PolyData
             The mesh of the pressure field.
         """
-        if self.field is None or self.x is None or self.y is None or self.z is None:
+        if self.pr is None or self.x is None or self.y is None or self.z is None:
             raise ValueError(
                 "Pressure field has not been computed yet. Call compute_pressure_field() first."
             )
 
-        return pysonogen.compute_pressure_vol_mesh(self.field, self.x, self.y, self.z)
+        return pysonogen.compute_pressure_vol_mesh(self.pr, self.x, self.y, self.z)
 
     def summary(self):
         """
@@ -426,7 +426,7 @@ class PyField:
         self.z = None
         print("PyField object cleaned.")
 
-    def __call__(self, field_info, *, normalize=True, inplace=False):
+    def __call__(self, field_info, *, normalize=False, inplace=False):
         """
         Make the class callable. Calls the compute_pressure_field method.
 
