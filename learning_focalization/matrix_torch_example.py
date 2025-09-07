@@ -7,15 +7,15 @@ from helper_function import (
 )
 
 import pysonogen
-import pysonogen.psimulation.TorchField as TorchField
 import pysonogen.transducers as Transducers
+from pysonogen.psimulation import PyField, TorchField
 
 # print(torch.__version__)
 # print(torch.version.cuda)
 
-use_cuda = True  # Set to False if you want to run on CPU
+use_gpu = False  # Set to False if you want to run on CPU
 device_number = 0  # if you have multiple GPUs
-if torch.cuda.is_available() and use_cuda:
+if torch.cuda.is_available() and use_gpu:
     print(f"Using GPU: {torch.cuda.get_device_name(device_number)}")
     device = torch.device(f"cuda:{device_number}")
 else:
@@ -85,7 +85,7 @@ field_info_mm = {
 # ----------- Create the field object and load the model ---------------
 
 torch.cuda.empty_cache()
-Matrix_torch = TorchField(Zeus_Matrix, device=device)
+Matrix_torch = PyField(Zeus_Matrix)  # , device=device)
 
 # Load the model's state dictionary# Load the checkpoint
 path_found_flag = True
@@ -126,7 +126,8 @@ Zeus_Matrix.plot_delays(clim=clim)
 
 # ----------- Compute and plot the field ---------------
 
-pr2, x2, y2, z2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
+# x2, y2, z2, pr2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
+x2, y2, z2, pr2 = Matrix_torch(field_info_mm)
 
 pr2 = pr2.detach().cpu().numpy()
 x2 = x2.detach().cpu().numpy()

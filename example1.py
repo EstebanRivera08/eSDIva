@@ -61,7 +61,7 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-pr, x, y, z = Domino_field(field_info_mm, inplace=True)
+x, y, z, pressure_field = Domino_field(field_info_mm, inplace=True)
 
 # ------------------ Transform the meshes --------------------
 
@@ -104,39 +104,39 @@ final_plotter = add_regions_mesh(
     label="Brain Atlas",
 )
 
-final_plotter = add_3D_vol(
-    Doppler3D.pv_mesh,
-    plotter=final_plotter,
-    cmap="hot",
-    opacity="sigmoid",
-    opacity_unit_distance=1,
-    scalar_bar_args={
-        "title": "3D Doppler (dB)",
-        "title_font_size": 16,
-        "label_font_size": 12,
-        "color": "white",
-    },
-)
+# final_plotter = add_3D_vol(
+#     Doppler3D.pv_mesh,
+#     plotter=final_plotter,
+#     cmap="hot",
+#     opacity="sigmoid",
+#     opacity_unit_distance=1,
+#     scalar_bar_args={
+#         "title": "3D Doppler (dB)",
+#         "title_font_size": 16,
+#         "label_font_size": 12,
+#         "color": "white",
+#     },
+# )
 
-final_plotter = add_2D_image(
-    Doppler2D.pv_mesh,
-    plotter=final_plotter,
-    cmap="gray",
-    opacity=1.0,
-    show_scalar_bar=True,
-    lighting=True,
-    ambient=1,
-    scalar_bar_args={
-        "title": "2D Doppler (dB)",
-        "title_font_size": 16,
-        "label_font_size": 12,
-        "vertical": True,
-        "position_x": 0.1,
-        "position_y": 0.2,
-        "height": 0.3,
-        "color": "white",
-    },
-)
+# final_plotter = add_2D_image(
+#     Doppler2D.pv_mesh,
+#     plotter=final_plotter,
+#     cmap="gray",
+#     opacity=1.0,
+#     show_scalar_bar=True,
+#     lighting=True,
+#     ambient=1,
+#     scalar_bar_args={
+#         "title": "2D Doppler (dB)",
+#         "title_font_size": 16,
+#         "label_font_size": 12,
+#         "vertical": True,
+#         "position_x": 0.1,
+#         "position_y": 0.2,
+#         "height": 0.3,
+#         "color": "white",
+#     },
+# )
 
 final_plotter = add_transducer_mesh(
     TX_mesh,
@@ -161,7 +161,6 @@ final_plotter = add_pressure_vol(
     plotter=final_plotter,
     plot_focal_spot=False,
     lighting=True,
-    ambient=1,
     scalar_bar_args={
         "title": "Pressure Field (PII)",
         "title_font_size": 16,

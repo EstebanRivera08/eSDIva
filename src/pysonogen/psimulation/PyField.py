@@ -65,7 +65,7 @@ def create_simulation_grid(simulation_struct):
     # Create a meshgrid of points
     grid_points = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
 
-    return x, y, z, grid_points * 1e-3
+    return x, y, z, grid_points
 
 
 pi = np.pi
@@ -205,14 +205,8 @@ class PyField:
 
     def spatial_impulse_response(self, field_points, return_all=False):
         start_comput_time = TIME()
-        if not isinstance(field_points, np.ndarray):
-            try:
-                # Only use the grid_points (last element of the tuple)
-                *_, field_points = create_simulation_grid(field_points)
-            except Exception as e:
-                raise ValueError(
-                    "Invalid field_points input. It should be a numpy array or a dictionary with simulation parameters."
-                ) from e
+
+        # _ , field_points = self._check_points(field_points)
 
         pts = np.atleast_2d(field_points).astype(np.float32)
         P, M = pts.shape[0], self.centers.shape[0]
@@ -239,23 +233,49 @@ class PyField:
             f"Events patch - field points computed in: {events_time - start_comput_time:.4f} seconds."
         )
         # build global time vector from real event times
-        all_times = np.unique(events[:, :, 0:4].ravel())
-        all_times.sort()
-        t0, tN = all_times[0], all_times[-1]
-        # create sampling grid
-        dt = 1.0 / self.fs
-        num_samples = int(np.ceil((tN - t0) * self.fs)) if tN > t0 else 1
-        # next power of two
-        n2 = 2 ** max(int(np.ceil(np.log2(num_samples))), 5)
-        t_global = t0 + np.arange(n2, dtype=np.float32) * dt
+        t_grid, t0, n2 = self._compute_time_grid(events)
         h_out = np.zeros((P, n2), dtype=np.float32)
         # tqdm.write("Accumulating SIR from events...")
         accumulate_from_events(P, M, events, self.fs, t0, h_out)
         print(f"Accumulation of events elapsed in: {TIME() - events_time:.4f} seconds.")
 
         if return_all:
-            return t_global, h_out.T, events
+            return t_grid, h_out.T, events
         return t0, h_out.T
+
+    def _check_points(self, field_points_mm):
+        if isinstance(field_points_mm, dict):
+            x, y, z, spatial_grid = create_simulation_grid(field_points_mm)
+        else:
+            if isinstance(field_points_mm, list):
+                field_points_mm = np.array(field_points_mm)
+            elif isinstance(field_points_mm, np.ndarray):
+                pass
+            else:
+                raise ValueError("field_points_mm must be a list or numpy array")
+
+            if field_points_mm.ndim != 2 or field_points_mm.shape[1] != 3:
+                raise ValueError("field_points_mm must be of shape (N, 3)")
+
+            pts = np.atleast_2d(field_points_mm).astype(np.float32)
+            # Check
+            x = np.sort(np.unique(pts[:, 0]))
+            y = np.sort(np.unique(pts[:, 1]))
+            z = np.sort(np.unique(pts[:, 2]))
+            spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+        return x, y, z, spatial_grid
+
+    def _compute_time_grid(self, events):
+        all_times = events[:, :, 0:4]
+        t0, tN = all_times.min(), all_times.max()
+        print(f"Time grid from {t0 * 1e6:.2f} us to {tN * 1e6:.2f} us")
+        # create sampling grid
+        dt = 1.0 / self.fs
+        num_samples = int(np.ceil((tN - t0) * self.fs))
+        # next power of two
+        n2 = 2 ** max(int(np.ceil(np.log2(num_samples))), 5)
+        t_grid = t0 + np.arange(n2, dtype=np.float32) * dt
+        return t_grid, t0, n2
 
     def compute_pr_from_sir(self, h_sir, x, y, z):
         """
@@ -277,6 +297,7 @@ class PyField:
         spatial_impulse_response_field = h_sir.reshape(
             -1, z.shape[0], x.shape[0], y.shape[0]
         ).transpose(0, 2, 3, 1)
+        # .view(len(z), len(x), len(y)).permute(1, 2, 0)
         # print(f"Reshaped h shape: {spatial_impulse_response_field.shape}")
 
         # Perform FFT along the first axis
@@ -299,7 +320,7 @@ class PyField:
 
         return amp_response_tx_freq
 
-    def compute_pressure_field(self, field_info, *, normalize=False, inplace=False):
+    def compute_pressure_field(self, field_points, *, normalize=False, inplace=False):
         """
         Compute the pressure field from the Spatial Impulse Response (SIR).
 
@@ -332,12 +353,12 @@ class PyField:
         """
         start_time = TIME()
         # print("Creating simulation grid...")
-        x, y, z, grid_points = create_simulation_grid(field_info)
+        x, y, z, field_points = self._check_points(field_points)
+
         # print("Computing spatial impulse response...")
-        start_time, h_sir = self.spatial_impulse_response(grid_points)
+        t0, h_sir = self.spatial_impulse_response(field_points * 1e-3)
         pressure_field = self.compute_pr_from_sir(h_sir, x, y, z)
 
-        print(f"Pressure field computed in: {TIME() - start_time:.4f} seconds.")
         # print(f"Pressure field shape: {pressure_field.shape}")
         if normalize:
             pressure_field = pressure_field / np.max(pressure_field)
@@ -348,7 +369,8 @@ class PyField:
             self.y = y
             self.z = z
 
-        return pressure_field, x, y, z
+        print(f"Pressure field computed in: {TIME() - start_time:.4f} seconds.")
+        return x, y, z, pressure_field
 
     def set_field(self, name_struct_str, value_float):
         """

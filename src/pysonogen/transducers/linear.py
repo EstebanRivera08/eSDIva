@@ -293,7 +293,7 @@ class LinearArrayTransducer:
         else:
             return ax
 
-    def compute_delays(self, *, focus_mm, c=None, inline=True, plot=False):
+    def compute_delays(self, focus_mm, *, c=None, inline=True, plot=False):
         """
         Compute per-element delays for focusing at a given spot.
 

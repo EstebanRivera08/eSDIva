@@ -30,9 +30,9 @@ def compute_patch_events_batch(
     xp_abs = torch.abs(xp) * wx * inv_c
     yp_abs = torch.abs(yp) * wy * inv_c
     Dt1 = torch.min(xp_abs, yp_abs).clamp(
-        min=0.05 * inv_fs
+        min=0.1 * inv_fs
     )  # us  # .clamp(min=0.1 * inv_fs)  # us
-    Dt2 = torch.max(xp_abs, yp_abs).clamp(min=0.15 * inv_fs)  # us
+    Dt2 = torch.max(xp_abs, yp_abs).clamp(min=0.1 * inv_fs)  # us
     area = (wx * wy) / (2 * math.pi * dist)  # um (or unit)
     # Build event times in μs relative to t0
     t1 = (dist * inv_c) - 0.5 * (Dt1 + Dt2) + delays  # us (or unit)
@@ -107,10 +107,38 @@ def accumulate_events_derivative(
     return H
 
 
-def create_simulation_grid_from_dict(simulation_struct, device="cpu"):
-    x0, xf = simulation_struct["x_extent"]
-    y0, yf = simulation_struct["y_extent"]
-    z0, zf = simulation_struct["z_extent"]
+def create_simulation_grid_from_dict(simulation_struct):
+    """
+    Create a simulation mesh for the ultrasound field.
+
+    Parameters
+    ----------
+    simulation_grid_dict : dict
+        Dictionary containing the simulation parameters:
+        - x_extent : list
+            The extent of the simulation in the x direction (in mm).
+        - y_extent : list
+            The extent of the simulation in the y direction (in mm).
+        - z_extent : list
+            The extent of the simulation in the z direction (in mm).
+        - dx : float
+            The grid spacing in the x direction (in mm).
+        - dy : float
+            The grid spacing in the y direction (in mm).
+        - dz : float
+            The grid spacing in the z direction (in mm).
+
+    Returns
+    -------
+    grid_points : ndarray
+        Array of points in the simulation space.
+    """
+    # Create a grid of points in the simulation space
+    [x0, xf], [y0, yf], [z0, zf] = (
+        simulation_struct["x_extent"],
+        simulation_struct["y_extent"],
+        simulation_struct["z_extent"],
+    )
     dx, dy, dz = (
         simulation_struct["dx"],
         simulation_struct["dy"],
@@ -127,22 +155,26 @@ def create_simulation_grid_from_dict(simulation_struct, device="cpu"):
     if Nz % 2 == 0:
         Nz += 1
 
-    x = torch.linspace(x0, xf, Nx, device=device)
-    y = torch.linspace(y0, yf, Ny, device=device)
-    z = torch.linspace(z0, zf, Nz, device=device)
-    grid = torch.stack(torch.meshgrid(x, y, z, indexing="ij"), dim=-1)
-    return x, y, z, grid.reshape(-1, 3)  # [P, 3]
+    # print(
+    #     f"Creating grid with {Nx} x {Ny} x {Nz} points in x, y, z directions respectively."
+    # )
+    # print(f"Grid extents: x: [{x0}, {xf}], y: [{y0}, {yf}], z: [{z0}, {zf}]")
+    x = np.linspace(x0, xf, Nx)
+    y = np.linspace(y0, yf, Ny)
+    z = np.linspace(z0, zf, Nz)
+    # Create a meshgrid of points
+    grid_points = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+
+    return x, y, z, grid_points
 
 
 class TorchField(nn.Module):
-    def __init__(self, transducer, *, use_cuda=True, device=None):
-        super(TorchField, self).__init__()
+    def __init__(self, transducer, *, use_gpu=False, device=None):
+        super().__init__()
 
         # -------------- Medium and TX characteristics ----------------
-        if device is not None:
-            self.device = device
-        else:
-            device = self._check_cuda_availability(use_cuda)
+        if device is None:
+            device = self._check_cuda_availability(use_gpu)
         self.device = device
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
@@ -196,8 +228,8 @@ class TorchField(nn.Module):
     def spatial_impulse_response(
         self,
         pts,
-        batch_size=1024,
         *,
+        batch_size=2048,
         P=None,
         delays=None,
         apodization=None,
@@ -277,7 +309,7 @@ class TorchField(nn.Module):
             H.T * self.time_sec_to_unit / self.space_m_to_unit,
         )
 
-    def compute_pr_from_sir(self, h_sir, x, y, z, batch_size=1024):
+    def compute_pr_from_sir(self, h_sir, x, y, z, batch_size=2048):
         """
         Compute the pressure field from the spatial impulse response (SIR) in batches.
 
@@ -330,8 +362,8 @@ class TorchField(nn.Module):
         fft_results = torch.cat(fft_results, dim=0)
 
         # Reshape and permute the data after FFT
-        h4d = fft_results.view(len(x), len(y), len(z)).permute(0, 1, 2)
-
+        # h4d = fft_results.view(len(x), len(y), len(z)).permute(0, 1, 2)
+        h4d = fft_results.view(len(z), len(x), len(y)).permute(1, 2, 0)
         # Add the reshaped data to the output tensor
         pr_field += h4d
 
@@ -342,7 +374,7 @@ class TorchField(nn.Module):
         self,
         field_info_mm,
         *,
-        batch_size=1024,
+        batch_size=2048,
         normalize=False,
         training=False,
         inplace=False,
@@ -355,7 +387,7 @@ class TorchField(nn.Module):
         """
         # Best batch size is ~ 8e6/M, where M = # patches.
         start_time = TIME()
-        x, y, z, pts, P = self._compute_spatial_grid(field_info_mm)
+        x, y, z, pts, P = self._check_points(field_info_mm)
 
         if training:
             print(
@@ -394,10 +426,10 @@ class TorchField(nn.Module):
             self.y = y.detach().cpu().numpy()
             self.z = z.detach().cpu().numpy()
 
-        return pr, x, y, z
+        return x, y, z, pr
 
     def examine_bottleneck(
-        self, field_info, batch_size=1024, normalize=False, training=False
+        self, field_info, batch_size=2048, normalize=False, training=False
     ):
         """
         Examine the bottleneck of the model by profiling the forward pass.
@@ -437,7 +469,7 @@ class TorchField(nn.Module):
             record_shapes=True,
             with_stack=False,  # Disable stack tracing to simplify
         ) as prof:
-            pr, x, y, z = self.forward(
+            x, y, z, pr = self.forward(
                 field_info,
                 batch_size=batch_size,
                 normalize=normalize,
@@ -445,7 +477,38 @@ class TorchField(nn.Module):
             )
 
         print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=10))
-        return pr, x, y, z
+        return x, y, z, pr
+
+    def set_field(self, name_struct_str, value_float):
+        """
+        Dynamically modifies a class property if it exists.
+
+        Parameters
+        ----------
+        name_struct_str : str
+            The name of the property to modify.
+        value_float : float
+            The new value to assign to the property.
+
+        Raises
+        ------
+        AttributeError
+            If the property does not exist in the class.
+        TypeError
+            If the value is not a float.
+        """
+        if not isinstance(value_float, (float, int)):  # Allow integers as well
+            raise TypeError(
+                f"The value must be a float or int, got {type(value_float).__name__}."
+            )
+
+        if hasattr(self, name_struct_str):
+            setattr(self, name_struct_str, value_float)
+            print(f"Property '{name_struct_str}' updated to {value_float}.")
+        else:
+            raise AttributeError(
+                f"Property '{name_struct_str}' does not exist in the class."
+            )
 
     def get_mesh(self):
         """
@@ -473,7 +536,7 @@ class TorchField(nn.Module):
         self.z = None
 
     # ----------------------------- helper functions --------------------------------------
-    def _check_cuda_availability(self, use_cuda=True):
+    def _check_cuda_availability(self, use_gpu=True):
         device_cpu = torch.device("cpu")
         device_number = 0  # if you have multiple GPUs
         if torch.cuda.is_available():
@@ -482,48 +545,47 @@ class TorchField(nn.Module):
         else:
             print("Not GPU available.")
             device_cuda = device_cpu
-        return device_cuda if use_cuda else device_cpu
 
-    def _compute_spatial_grid(self, field_points_mm):
-        # Check field inputs
-        if isinstance(field_points_mm, torch.Tensor):
-            # Check dimentsions [P, 3]
-            if field_points_mm.ndim > 2 or field_points_mm.shape[1] != 3:
-                raise ValueError("field_points_mm must be a 2D tensor of shape [P, 3]")
-            else:
-                field_points_mm.to(self.device)
-                x, y, z = (
-                    field_points_mm[:, 0],
-                    field_points_mm[:, 1],
-                    field_points_mm[:, 2],
-                )
-        elif isinstance(field_points_mm, np.ndarray):
-            if field_points_mm.ndim > 2 or field_points_mm.shape[1] != 3:
-                raise ValueError(
-                    "field_points_mm must be a 2D np.array of shape [P, 3]"
-                )
-            else:
-                field_points_mm = torch.tensor(
-                    field_points_mm, dtype=torch.float32, device=self.device
-                )
-                x, y, z = (
-                    field_points_mm[:, 0],
-                    field_points_mm[:, 1],
-                    field_points_mm[:, 2],
-                )
-        elif isinstance(field_points_mm, dict):
-            x, y, z, field_points_mm = create_simulation_grid_from_dict(
-                field_points_mm, device=self.device
-            )
+        if use_gpu and not torch.cuda.is_available():
+            print("Warning: GPU requested but not available. Using CPU instead.")
         else:
-            raise ValueError(
-                "field_points_mm must be a 2D tensor/np.array of shape [P, 3], or \n"
-                " a dict with keys 'x_entent', 'y_entent', 'z_entent', 'dx', 'dy', 'dz'."
-            )
+            print(f"Using device: {device_cuda if use_gpu else device_cpu}")
+
+        return device_cuda if use_gpu else device_cpu
+
+    def _check_points(self, field_points_mm):
+        if isinstance(field_points_mm, dict):
+            x, y, z, pts = create_simulation_grid_from_dict(field_points_mm)
+        else:
+            if isinstance(field_points_mm, list):
+                field_points_mm = np.array(field_points_mm)
+            elif isinstance(field_points_mm, np.ndarray):
+                pass
+            else:
+                raise ValueError(
+                    "field_points_mm must be a 2D tensor/np.array of shape [P, 3], or \n"
+                    " a dict with keys 'x_entent', 'y_entent', 'z_entent', 'dx', 'dy', 'dz'."
+                )
+            if field_points_mm.ndim != 2 or field_points_mm.shape[1] != 3:
+                raise ValueError(
+                    "field_points_mm must be a 2D tensor/np.array of shape [P, 3]."
+                )
+            field_points_mm = np.atleast_2d(field_points_mm)
+            # Check
+            x = np.sort(np.unique(field_points_mm[:, 0]))
+            y = np.sort(np.unique(field_points_mm[:, 1]))
+            z = np.sort(np.unique(field_points_mm[:, 2]))
+            pts = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+
+        # Convert to torch tensors
+        pts = torch.tensor(pts, dtype=torch.float32, device=self.device)
+        x = torch.tensor(x, dtype=torch.float32, device=self.device)
+        y = torch.tensor(y, dtype=torch.float32, device=self.device)
+        z = torch.tensor(z, dtype=torch.float32, device=self.device)
 
         # Convert to unit
-        pts = field_points_mm * 1e-3 * self.space_m_to_unit  # Convert to um (or unit)
-        pts = pts.to(torch.float32).to(self.device)
+        pts = pts * 1e-3 * self.space_m_to_unit  # Convert to um (or unit)
+
         return x, y, z, pts, pts.shape[0]
 
     def _compute_temporal_grid(self, pts, P, batch_size=1024):
