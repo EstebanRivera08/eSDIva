@@ -3,14 +3,12 @@ import time
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import pysonogen
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
+from pysonogen.psimulation import PyField, TorchField
 from scipy.io import savemat
-
-import pysonogen
-from learning_focalization.TorchFieldv2 import TorchFieldv2 as TorchField
-from pysonogen.pyfield import PyField
 
 print(torch.__version__)
 torch.cuda.empty_cache()  # Clear CUDA cache if using GPU
@@ -48,10 +46,8 @@ linear_array_tx.show()
 
 # ------------------- Create TorchField -------------------
 
-linear_array_torch = TorchField(linear_array_tx, device=device_cuda)
-pr, x, y, z = linear_array_torch.examine_bottleneck(
-    field_matrix_mm, batch_size=4096, normalize=False
-)
+linear_array_torch = PyField(linear_array_tx)
+x, y, z, pr = linear_array_torch(field_matrix_mm, normalize=False)
 # linear_array_torch = PyField(linear_array_tx)
 # pr, x, y, z = linear_array_torch(field_matrix_mm, normalize=False)
 
