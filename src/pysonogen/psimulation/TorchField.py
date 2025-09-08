@@ -30,9 +30,9 @@ def compute_patch_events_batch(
     xp_abs = torch.abs(xp) * wx * inv_c
     yp_abs = torch.abs(yp) * wy * inv_c
     Dt1 = torch.min(xp_abs, yp_abs).clamp(
-        min=0.1 * inv_fs
+        min=inv_fs
     )  # us  # .clamp(min=0.1 * inv_fs)  # us
-    Dt2 = torch.max(xp_abs, yp_abs).clamp(min=0.1 * inv_fs)  # us
+    Dt2 = torch.max(xp_abs, yp_abs).clamp(min=inv_fs)  # us
     area = (wx * wy) / (2 * math.pi * dist)  # um (or unit)
     # Build event times in μs relative to t0
     t1 = (dist * inv_c) - 0.5 * (Dt1 + Dt2) + delays  # us (or unit)
@@ -169,7 +169,7 @@ def create_simulation_grid_from_dict(simulation_struct):
 
 
 class TorchField(nn.Module):
-    def __init__(self, transducer, *, use_gpu=False, device=None):
+    def __init__(self, transducer, *, use_gpu=True, device=None):
         super().__init__()
 
         # -------------- Medium and TX characteristics ----------------
@@ -178,7 +178,7 @@ class TorchField(nn.Module):
         self.device = device
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
-        self.fs = 400e6  # Sampling frequency in Hz
+        self.fs = 200e6  # Sampling frequency in Hz
         self.fc = transducer.fc
         self.time_sec_to_unit = 1e6  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
@@ -204,6 +204,7 @@ class TorchField(nn.Module):
             device=self.device,
         )  # um (or unit)
 
+        self.c_unit = self.c * self.space_m_to_unit / self.time_sec_to_unit  # um/us
         # self.softplus = nn.Softplus(beta=20, threshold=0.5)
 
         self.x = self.y = self.z = None
@@ -292,7 +293,7 @@ class TorchField(nn.Module):
                     j - i, -1
                 ),  # Delays in us (or unit)
                 expanded_apodization.unsqueeze(0).expand(j - i, -1),
-                inv_c=1 / self.c * (self.time_sec_to_unit / self.space_m_to_unit),
+                inv_c=1 / self.c_unit,
                 # Speed of sound in s/m = time unit / space unit
                 inv_fs=self.time_sec_to_unit / self.fs,  # 1/fs (time unit)
             )
@@ -412,6 +413,12 @@ class TorchField(nn.Module):
                     P=P,
                 )
                 pr = self.compute_pr_from_sir(h, x, y, z)
+                x, y, z, pr = (
+                    x.detach().cpu().numpy(),
+                    y.detach().cpu().numpy(),
+                    z.detach().cpu().numpy(),
+                    pr.detach().cpu().numpy(),
+                )
 
         print(
             f"Pressure field computed in: {TIME() - start_time:.4f} seconds, using {self.device}."
@@ -420,11 +427,13 @@ class TorchField(nn.Module):
             pr = pr / pr.max()
 
         if inplace:
-            print("Saving pr, x, y, z in class...")
-            self.pr = pr.detach().cpu().numpy()
-            self.x = x.detach().cpu().numpy()
-            self.y = y.detach().cpu().numpy()
-            self.z = z.detach().cpu().numpy()
+            if training:
+                raise ValueError("Cannot use inplace=True during training mode.")
+            else:
+                self.pr = pr
+                self.x = x
+                self.y = y
+                self.z = z
 
         return x, y, z, pr
 
@@ -613,29 +622,18 @@ class TorchField(nn.Module):
                 max_d = max(max_d, dists_batch.max().item())  # Update max distance
                 min_d = min(min_d, dists_batch.min().item())  # Update min distance
 
-        # Assuming focalization, we set a virtual focal point to compute a max delay
-        max_z = pts[:, 2].max().item()
-
-        focal = torch.tensor(
-            [0, 0, max_z * self.space_m_to_unit * 1e-3],
-            dtype=torch.float32,
-            device=self.device,
-        )  # Focal point in um (or unit)
-        delays_to_focal_plane = torch.norm(self.centers - focal, dim=-1) / self.c
-        max_delay = (-delays_to_focal_plane + delays_to_focal_plane.max()).max()
+        # Get max delay
+        max_delay = self.delays.max().item()  # in us (or unit)
 
         # Compute min and max time
         min_time_us = (
-            min_d / self.space_m_to_unit / self.c
-            - min(self.wx, self.wy) / self.space_m_to_unit / self.c
-        ) * self.time_sec_to_unit  # us (or unit)
-        max_time_us = (
-            max_d / self.space_m_to_unit / self.c
-            + max_delay / self.time_sec_to_unit
-            + max(self.wx, self.wy) / self.space_m_to_unit / self.c
-        ) * self.time_sec_to_unit  # us (or unit)
+            min_d - 0.5 * (self.wx + self.wy)
+        ) / self.c_unit + max_delay  # us (or unit)
 
-        del max_d, min_d, dists_batch, batch_pts, delays_to_focal_plane  # Free memory
+        max_time_us = (
+            max_d + (self.wx + self.wy)
+        ) / self.c_unit + max_delay  # us (or unit)
+        # del max_d, min_d, dists_batch, batch_pts  # Free memory
 
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))

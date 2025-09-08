@@ -73,16 +73,15 @@ tolerance_apod = 1e-3
 
 
 @njit
-def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz):
+def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, dt):
     # Common sampling rate is 100 MHz
     # Then minimum time step is 0.01 us,
     # if apod < tolerance_apod:
     #     return 0, 0, 0, 0, 0
-    epsilon = 1 / (sampling_rate_Hz)  # 1 ns
     xp_abs = abs(xp) * wx / c0  # us
     yp_abs = abs(yp) * wy / c0
-    Dt1 = min(xp_abs, yp_abs)
-    Dt2 = max(xp_abs, yp_abs)
+    Dt1 = max(min(xp_abs, yp_abs), dt)
+    Dt2 = max(max(xp_abs, yp_abs), dt)
     area = wx * wy / (2 * pi * l)
 
     t1 = l / c0 - 0.5 * (Dt1 + Dt2) + delay
@@ -90,17 +89,13 @@ def compute_patch_sir(wx, wy, xp, yp, l, c0, apod, delay, sampling_rate_Hz):
     t3 = t1 + Dt2
     t4 = t1 + Dt1 + Dt2
 
-    if 2 * Dt2 < epsilon:
-        Dt2 = epsilon
     # trapezoid area
     h_max = area * apod / Dt2
     return t1, t2, t3, t4, h_max
 
 
 @njit(parallel=True)
-def compute_all_events(
-    P, M, pts, centers, wx, wy, c, apods, delays, events, sampling_rate_Hz
-):
+def compute_all_events(P, M, pts, centers, wx, wy, c, apods, delays, events, dt):
     for p in prange(P):
         for i in range(M):
             dx = pts[p, 0] - centers[i, 0]
@@ -118,7 +113,7 @@ def compute_all_events(
                 c,
                 apods[i],
                 delays[i],
-                sampling_rate_Hz,
+                dt,
             )
             events[p, i, 0] = t1
             events[p, i, 1] = t2
@@ -128,14 +123,12 @@ def compute_all_events(
 
 
 @njit(parallel=True)
-def accumulate_from_events(P, M, events, fs, t0, h_out):
+def accumulate_from_events(P, M, events, fs, t0, time_grid, T, h_out):
     """
     Parallel accumulation of trapezoidal SIR contributions for all patches.
     events shape: (P, M, 5) storing t1, t2, t3, t4, h_max.
     h_out: (P, n2) output array, t0: start time, fs: sampling rate.
     """
-    dt = 1.0 / fs
-    n2 = h_out.shape[1]
     for p in prange(P):
         for i in range(M):
             t1, t2, t3, t4, h_max = (
@@ -145,31 +138,32 @@ def accumulate_from_events(P, M, events, fs, t0, h_out):
                 events[p, i, 3],
                 events[p, i, 4],
             )
+            inv_Dt1 = 1 / (t2 - t1)
 
             # find the first/last sample indices that could possibly overlap
-            k_start = int(np.floor((t1 - t0) * fs) + 1)
+            k_start = int(np.floor((t1 - t0) * fs))
             k_end = int(np.ceil((t4 - t0) * fs) + 1)
 
             # clamp to valid range
-            if k_end < 0 or k_start >= n2:
+            if k_end < 0 or k_start >= T:
                 continue
             if k_start < 0:
                 k_start = 0
-            if k_end > n2:
-                k_end = n2
+            if k_end > T:
+                k_end = T
 
             # loop over every sample that might see part of this trapezoid
             for k in range(k_start, k_end):
-                t = t0 + k * dt
+                t = time_grid[k]
                 # evaluate continuous trapezoid h(t)
                 if t < t1 or t >= t4:
                     continue
                 elif t < t2:
-                    h = h_max * ((t - t1) / (t2 - t1))
+                    h = h_max * ((t - t1) * inv_Dt1)
                 elif t < t3:
                     h = h_max
                 else:
-                    h = h_max * ((t4 - t) / (t4 - t3))
+                    h = h_max * ((t4 - t) * inv_Dt1)
 
                 # accumulate
                 h_out[p, k] += h
@@ -179,7 +173,7 @@ class PyField:
     def __init__(self, transducer):
         self.tx = transducer
         self.c = 1540.0
-        self.fs = 300e6  # Hz
+        self.fs = 200e6  # Hz
         self.fc = transducer.fc  # Hz
         self.lambda_mm = self.c / self.fc
         # compute patch centers/apods/delays once
@@ -226,17 +220,17 @@ class PyField:
             self.apods,
             self.delays,
             events,
-            self.fs,
+            1 / self.fs,
         )
         events_time = TIME()
         print(
             f"Events patch - field points computed in: {events_time - start_comput_time:.4f} seconds."
         )
         # build global time vector from real event times
-        t_grid, t0, n2 = self._compute_time_grid(events)
-        h_out = np.zeros((P, n2), dtype=np.float32)
+        t_grid, t0, T = self._compute_time_grid(events)
+        h_out = np.zeros((P, T), dtype=np.float32)
         # tqdm.write("Accumulating SIR from events...")
-        accumulate_from_events(P, M, events, self.fs, t0, h_out)
+        accumulate_from_events(P, M, events, self.fs, t0, t_grid, T, h_out)
         print(f"Accumulation of events elapsed in: {TIME() - events_time:.4f} seconds.")
 
         if return_all:
@@ -268,16 +262,18 @@ class PyField:
     def _compute_time_grid(self, events):
         all_times = events[:, :, 0:4]
         t0, tN = all_times.min(), all_times.max()
-        print(f"Time grid from {t0 * 1e6:.2f} us to {tN * 1e6:.2f} us")
         # create sampling grid
         dt = 1.0 / self.fs
         num_samples = int(np.ceil((tN - t0) * self.fs))
         # next power of two
         n2 = 2 ** max(int(np.ceil(np.log2(num_samples))), 5)
+        print(
+            f"Time grid from {t0 * 1e6:.2f} us to {n2 * dt * 1e6:.2f} us, with {n2} samples."
+        )
         t_grid = t0 + np.arange(n2, dtype=np.float32) * dt
         return t_grid, t0, n2
 
-    def compute_pr_from_sir(self, h_sir, x, y, z):
+    def from_sir_to_pressure(self, h_sir, x, y, z, batch_size):
         """
         Compute the pressure field from the Spatial Impulse Response (SIR).
 
@@ -291,34 +287,27 @@ class PyField:
         pressure : ndarray
             The computed pressure field.
         """
-        start_time = TIME()
-        # Reshape the SIR to match the grid dimensions
-        # print(f"Original h shape: {h_sir.shape}")
-        spatial_impulse_response_field = h_sir.reshape(
-            -1, z.shape[0], x.shape[0], y.shape[0]
-        ).transpose(0, 2, 3, 1)
-        # .view(len(z), len(x), len(y)).permute(1, 2, 0)
-        # print(f"Reshaped h shape: {spatial_impulse_response_field.shape}")
-
-        # Perform FFT along the first axis
-        spatial_impulse_response_field_FT = np.fft.fft(
-            spatial_impulse_response_field, axis=0
-        )
+        n_points = h_sir.shape[1]
         # Generate the frequency vector
-        freq_vect = np.linspace(0, self.fs, spatial_impulse_response_field_FT.shape[0])
+        freq_vect = np.linspace(0, self.fs, h_sir.shape[0])
+        idx = np.argmin((freq_vect - self.fc) ** 2)
 
-        # Find the index of the desired frequency
-        idx_freq = np.argmin((freq_vect - self.fc) ** 2)
-        print(
-            f"Looking for fc: {self.fc} Hz, found : {freq_vect[idx_freq]} Hz, in {TIME() - start_time:.2f} seconds."
+        # Process the FFT in batches to reduce memory usage
+        # and try to parallelized computation
+        fft_results = np.zeros(h_sir.shape[1], dtype=np.float32)
+        for i in range(0, n_points, batch_size):
+            batch_start = i
+            batch_end = min(i + batch_size, n_points)
+            fft_batch = np.fft.fft(h_sir[:, batch_start:batch_end], axis=0)
+            fft_results[batch_start:batch_end] = np.abs(fft_batch[idx, :])
+
+        # Amplitude for the given frequency
+        amp_sir_at_tx_freq = fft_results.reshape(len(z), len(x), len(y)).transpose(
+            1, 2, 0
         )
 
         # Amplitude for the given frequency
-        amp_response_tx_freq = np.abs(
-            spatial_impulse_response_field_FT[idx_freq, :, :, :]
-        )
-
-        return amp_response_tx_freq
+        return amp_sir_at_tx_freq
 
     def compute_pressure_field(self, field_points, *, normalize=False, inplace=False):
         """
@@ -357,7 +346,10 @@ class PyField:
 
         # print("Computing spatial impulse response...")
         t0, h_sir = self.spatial_impulse_response(field_points * 1e-3)
-        pressure_field = self.compute_pr_from_sir(h_sir, x, y, z)
+
+        t1 = TIME()
+        pressure_field = self.from_sir_to_pressure(h_sir, x, y, z, batch_size=4096)
+        print(f"SIR transformed to pressure field in {TIME() - t1}...")
 
         # print(f"Pressure field shape: {pressure_field.shape}")
         if normalize:
