@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor
 from time import time as TIME
 
 import numpy as np
@@ -273,40 +274,48 @@ class PyField:
         t_grid = t0 + np.arange(n2, dtype=np.float32) * dt
         return t_grid, t0, n2
 
-    def from_sir_to_pressure(self, h_sir, x, y, z, batch_size):
-        """
-        Compute the pressure field from the Spatial Impulse Response (SIR).
+    # def from_sir_to_pressure(self, h_sir, x, y, z, batch_size):
+    #     freq_vect = np.linspace(0, self.fs, h_sir.shape[0])
+    #     idx = np.argmin((freq_vect - self.fc) ** 2)
 
-        Parameters
-        ----------
-        field_points : ndarray
-            Array of points in the simulation space.
+    #     fft_all = np.fft.fft(h_sir, axis=0)
+    #     fft_results = np.abs(fft_all[idx, :]).astype(np.float32)
 
-        Returns
-        -------
-        pressure : ndarray
-            The computed pressure field.
+    #     amp_sir_at_tx_freq = fft_results.reshape(len(z), len(x), len(y)).transpose(
+    #         1, 2, 0
+    #     )
+    #     return amp_sir_at_tx_freq
+
+    def from_sir_to_pressure_parallel(
+        self, h_sir, x, y, z, batch_size=8192, max_workers=None
+    ):
         """
+        Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
+        """
+
         n_points = h_sir.shape[1]
-        # Generate the frequency vector
+        # Frequency vector
         freq_vect = np.linspace(0, self.fs, h_sir.shape[0])
         idx = np.argmin((freq_vect - self.fc) ** 2)
 
-        # Process the FFT in batches to reduce memory usage
-        # and try to parallelized computation
-        fft_results = np.zeros(h_sir.shape[1], dtype=np.float32)
-        for i in range(0, n_points, batch_size):
-            batch_start = i
-            batch_end = min(i + batch_size, n_points)
-            fft_batch = np.fft.fft(h_sir[:, batch_start:batch_end], axis=0)
-            fft_results[batch_start:batch_end] = np.abs(fft_batch[idx, :])
+        fft_results = np.zeros(n_points, dtype=np.float32)
 
-        # Amplitude for the given frequency
+        def process_batch(start):
+            end = min(start + batch_size, n_points)
+            fft_batch = np.fft.fft(h_sir[:, start:end], axis=0)
+            return start, end, np.abs(fft_batch[idx, :])
+
+        # Parallel loop
+        with ThreadPoolExecutor(max_workers=max_workers) as executor:
+            for start, end, vals in executor.map(
+                process_batch, range(0, n_points, batch_size)
+            ):
+                fft_results[start:end] = vals
+
+        # Reshape back to 3D grid
         amp_sir_at_tx_freq = fft_results.reshape(len(z), len(x), len(y)).transpose(
             1, 2, 0
         )
-
-        # Amplitude for the given frequency
         return amp_sir_at_tx_freq
 
     def compute_pressure_field(self, field_points, *, normalize=False, inplace=False):
@@ -348,7 +357,7 @@ class PyField:
         t0, h_sir = self.spatial_impulse_response(field_points * 1e-3)
 
         t1 = TIME()
-        pressure_field = self.from_sir_to_pressure(h_sir, x, y, z, batch_size=4096)
+        pressure_field = self.from_sir_to_pressure_parallel(h_sir, x, y, z)
         print(f"SIR transformed to pressure field in {TIME() - t1}...")
 
         # print(f"Pressure field shape: {pressure_field.shape}")

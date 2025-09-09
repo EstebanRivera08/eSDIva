@@ -18,6 +18,7 @@ dependencies = [
     "ipykernel>=6.29.5",
     "ipympl>=0.9.7",
     "ipyvtklink>=0.2.3",
+    "joblib>=1.4.2",
     "markupsafe<3.0.2",
     "matplotlib>=3.10.1",
     "numpy<=2.1.2",

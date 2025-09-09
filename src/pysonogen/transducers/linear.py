@@ -263,7 +263,7 @@ class LinearArrayTransducer:
         self.tx_N_active = int(np.sum(apod > 0))
         return apod
 
-    def plot_apodization(self, apodization=None, *, ax=None):
+    def plot_apodization(self, apodization=None, *, figsize=(6, 5), ax=None):
         """
         Plot the current apodization weights.
         """
@@ -273,7 +273,7 @@ class LinearArrayTransducer:
 
         if ax is None:
             flag = True
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=figsize)
 
         ax.plot(
             np.arange(self.n_elements),
@@ -331,7 +331,7 @@ class LinearArrayTransducer:
 
         return delays
 
-    def plot_delays(self, delays=None, *, ax=None):
+    def plot_delays(self, delays=None, *, figsize=(6, 5), ax=None):
         """
         Plot the current delays.
         """
@@ -341,7 +341,7 @@ class LinearArrayTransducer:
 
         if ax is None:
             flag = True
-            fig, ax = plt.subplots()
+            fig, ax = plt.subplots(figsize=figsize)
 
         ax.plot(
             np.arange(self.n_elements),
@@ -428,39 +428,35 @@ class LinearArrayTransducer:
         plotter = pv.Plotter(window_size=window_size, notebook=notebook)
 
         if scalars == "Apodization":
-            plotter.add_mesh(
-                mesh,  # Convert to mm for visualization
-                scalars=scalars,
-                cmap="cool",
-                clim=[0, 1],
-                show_scalar_bar=True,
-                scalar_bar_args={
-                    "title": "Apodization",
-                    "vertical": True,
-                    "position_x": 0.8,
-                },
-                opacity=1.0,
-                show_edges=True,
-                **kwargs,
-            )
+            title = "Apodization"
+            cmap = "cool"
         elif scalars == "Delays":
-            plotter.add_mesh(
-                mesh,  # Convert to mm for visualization
-                scalars=scalars,
-                cmap="rainbow",
-                clim=None,
-                show_scalar_bar=True,
-                scalar_bar_args={
-                    "title": "Delays (s)",
-                    "vertical": True,
-                    "position_x": 0.8,
-                },
-                opacity=1.0,
-                show_edges=True,
-                **kwargs,
-            )
+            title = "Delays (s)"
+            cmap = "rainbow"
         else:
-            raise ValueError("scalars must be 'Apodization' or 'Delays'")
+            raise ValueError("Scalars must be 'Apodization' or 'Delays'")
+
+        default_kwargs = {
+            "scalars": scalars,
+            "cmap": cmap,
+            "clim": [0, 1] if scalars == "Apodization" else None,
+            "show_scalar_bar": True,
+            "scalar_bar_args": {
+                "title": title,
+                "vertical": True,
+            },
+            "opacity": 1.0,
+            "show_edges": True,
+        }
+
+        for key, value in default_kwargs.items():
+            if key not in kwargs:
+                kwargs[key] = value
+
+        plotter.add_mesh(
+            mesh,
+            **kwargs,
+        )
 
         plotter.add_axes()
         plotter.show_grid(

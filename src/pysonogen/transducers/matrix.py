@@ -1,6 +1,7 @@
 import warnings
 from time import time as TIME
 
+import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 from scipy.signal import windows
@@ -242,40 +243,67 @@ class MatrixArrayTransducer:
 
         return delays
 
-    def plot_apodization(self, apodization=None, **kwargs):
-        import matplotlib.pyplot as plt
-
+    def plot_apodization(self, apodization=None, *, figsize=(6, 5), ax=None, **kwargs):
+        flag = False
         if apodization is None:
             apodization = self.apodization
-        plt.figure(figsize=(6, 5))
-        plt.imshow(
+
+        if ax is None:
+            flag = True
+            fig, ax = plt.subplots(figsize=figsize)
+
+        ax.imshow(
             apodization.reshape((self.n_elem_x, self.n_elem_y)),
             cmap="cool",
             vmin=0,
             vmax=1,
             **kwargs,
         )
-        plt.title("Apodization")
-        plt.colorbar()
-        plt.xlabel("Element X")
-        plt.ylabel("Element Y")
-        plt.show()
+        ax.set_title("Delays")
+        ax.set_xlabel("Element #")
+        ax.set_ylabel("Delay (us)")
+        ax.grid(True)
 
-    def plot_delays(self, delays=None, **kwargs):
-        import matplotlib.pyplot as plt
+        if flag:
+            plt.show()
+            plt.close()
+        else:
+            return ax
+
+    def plot_delays(self, delays=None, *, figsize=(6, 5), ax=None, **kwargs):
+        flag = False
 
         if delays is None:
             delays = self.delays
 
-        plt.figure(figsize=(6, 5))
-        plt.imshow(
+        if ax is None:
+            flag = True
+            fig, ax = plt.subplots(figsize=figsize)
+
+        ax.imshow(
             delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6, cmap="jet", **kwargs
         )
-        plt.title("Delays (us)")
-        plt.colorbar()
-        plt.xlabel("Element X")
-        plt.ylabel("Element Y")
+        ax.set_title("Delays")
+        ax.set_xlabel("Element #")
+        ax.set_ylabel("Delay (us)")
+        ax.grid(True)
+
+        if flag:
+            plt.show()
+            plt.close()
+        else:
+            return ax
+
+    def plot_delays_apodization(self):
+        """
+        Plot the current delays and apodization side by side.
+        """
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+        self.plot_delays(ax=ax1)
+        self.plot_apodization(ax=ax2)
+        plt.tight_layout()
         plt.show()
+        plt.close()
 
     def set_apodization(self, weights):
         weights = np.asarray(weights, dtype=float)
@@ -290,33 +318,69 @@ class MatrixArrayTransducer:
         self.delays = delays
 
     def get_mesh(self):
-        verts, faces, scalars = [], [], []
+        verts = []
+        faces = []
+        scalars = []
+        scalars2 = []  # delays
         pt_index = 0
         for quad, el_idx in zip(self.sub_quad_verts, self.sub_el_idx):
             verts.extend(quad.tolist())
             faces.append([4, pt_index, pt_index + 1, pt_index + 2, pt_index + 3])
             scalars.append(self.apodization[el_idx])
+            scalars2.append(self.delays[el_idx])
             pt_index += 4
         verts = np.array(verts) * 1e3
         mesh = pv.PolyData(verts, np.hstack(faces))
         mesh.cell_data["Apodization"] = np.array(scalars)
+        mesh.cell_data["Delays"] = np.array(scalars2) * 1e-6  # in seconds
         return mesh
 
-    def show(self, *, notebook=False, show_edges=False):
+    def show(
+        self,
+        *,
+        window_size=[800, 600],
+        scalars="Apodization",
+        notebook=False,
+        jupyter_backend=None,
+        **kwargs,
+    ):
         """
         Visualize the transducer surface mesh and apodization with PyVista.
         """
         mesh = self.get_mesh()
+        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+
+        if scalars == "Apodization":
+            title = "Apodization"
+            cmap = "cool"
+        elif scalars == "Delays":
+            title = "Delays (s)"
+            cmap = "rainbow"
+        else:
+            raise ValueError("Scalars must be 'Apodization' or 'Delays'")
+
+        default_kwargs = {
+            "scalars": scalars,
+            "cmap": cmap,
+            "clim": [0, 1] if scalars == "Apodization" else None,
+            "show_scalar_bar": True,
+            "scalar_bar_args": {
+                "title": title,
+                "vertical": True,
+            },
+            "opacity": 1.0,
+            "show_edges": True,
+        }
+
+        for key, value in default_kwargs.items():
+            if key not in kwargs:
+                kwargs[key] = value
+
+        mesh = self.get_mesh()
         plotter = pv.Plotter(notebook=notebook)
         plotter.add_mesh(
             mesh,  # Convert to mm for visualization
-            scalars="Apodization",
-            cmap="cool",
-            clim=[0, 1],
-            show_scalar_bar=True,
-            scalar_bar_args={"title": "Apodization", "vertical": True},
-            opacity=1.0,
-            show_edges=show_edges,
+            **kwargs,
         )
         plotter.add_axes()
         plotter.show_grid(
@@ -326,7 +390,12 @@ class MatrixArrayTransducer:
             ztitle="Z (mm)",
             show_zlabels=False,
         )
-        plotter.show()
+        plotter.camera_position = [
+            (16.72465241530815, 20.611591228182785, 26.54115950699113),
+            (1.31674789370372, 1.5498150789167457, -1.4859004666360698),
+            (-0.568581023901881, -0.5004125236360828, 0.6529187740039761),
+        ]
+        plotter.show(jupyter_backend=jupyter_backend)
         plotter.close()
 
     def clean(self):
