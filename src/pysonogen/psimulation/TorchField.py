@@ -626,12 +626,10 @@ class TorchField(nn.Module):
         max_delay = self.delays.max().item()  # in us (or unit)
 
         # Compute min and max time
-        min_time_us = (
-            min_d - 0.5 * (self.wx + self.wy)
-        ) / self.c_unit + max_delay  # us (or unit)
+        min_time_us = (min_d - 0.5 * (self.wx + self.wy)) / self.c_unit  # us (or unit)
 
         max_time_us = (
-            max_d + (self.wx + self.wy)
+            max_d + 0.5 * (self.wx + self.wy)
         ) / self.c_unit + max_delay  # us (or unit)
         # del max_d, min_d, dists_batch, batch_pts  # Free memory
 

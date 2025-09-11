@@ -367,6 +367,8 @@ class MatrixArrayTransducer:
             "scalar_bar_args": {
                 "title": title,
                 "vertical": True,
+                "position_x": 0.8,
+                "position_y": 0.1,
             },
             "opacity": 1.0,
             "show_edges": True,
