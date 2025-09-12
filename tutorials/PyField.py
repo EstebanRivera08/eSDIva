@@ -28,12 +28,13 @@ def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
         Dt2 = dt
 
     area = (wx * wy * inv_2pi) / dist
-    # time-of-flight base
-    base = dist * inv_c - 0.5 * (Dt1 + Dt2) + delay
-    t1 = base
-    t2 = base + Dt1
-    t3 = base + Dt2
-    t4 = base + Dt1 + Dt2
+    # time-of-flight
+    t1 = dist * inv_c - 0.5 * (Dt1 + Dt2) + delay
+    t2 = t1 + Dt1
+    t3 = t1 + Dt2
+    t4 = t1 + Dt1 + Dt2
+
+    # max height of trapezoid
     h_max = area * apod / Dt2
 
     return t1, t2, t3, t4, h_max
@@ -54,7 +55,6 @@ def compute_parallelized_sir_optimized(
     apodization,
     delays,
     time_grid,
-    t0,
     fs,
     dt,
     method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
@@ -66,12 +66,13 @@ def compute_parallelized_sir_optimized(
     h_out = np.zeros((P, T), dtype=np.float32)
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
     range_k_matrix = np.zeros((P, M), dtype=np.int32)
+    t0 = time_grid[0]
 
     # precompute threshold term for auto decision (8 + 2*T/M)
     threshold_term = 8.0 + 2.0 * (T / M)
 
     for p in prange(P):
-        # per-point local event buffers for SDI (max 4*M entries)
+        # per-point local event buffers for SDI (max 8*M entries)
         idxs = np.empty(8 * M, dtype=np.int32)
         vals = np.empty(8 * M, dtype=np.float32)
 
@@ -97,6 +98,8 @@ def compute_parallelized_sir_optimized(
             k_end = int(np.ceil((t4 - t0) * fs) + 1)
 
             # clamp to valid range
+            if k_end < 0 or k_start >= T:
+                continue
             if k_start < 0:
                 k_start = 0
             if k_end > T:
@@ -108,7 +111,9 @@ def compute_parallelized_sir_optimized(
             # decide method for this patch
             use_naive = True
 
-            if method_flag == 1:  # sdi
+            if method_flag == 0:  # naive
+                use_naive = True
+            elif method_flag == 1:  # sdi
                 use_naive = False
             else:  # auto
                 if range_k > threshold_term:
@@ -136,7 +141,6 @@ def compute_parallelized_sir_optimized(
             else:
                 # SDI: accumulate eight events (floor+ceil weights per time) to d2h[p, ...]
                 evt = 0
-
                 # t1 (+)
                 k1f = (t1 - t0) * fs
                 k4f = (t4 - t0) * fs
@@ -215,6 +219,7 @@ def compute_parallelized_sir_optimized(
         for k in range(T):
             acc += d2h[p, k]
             d2h[p, k] = acc
+            # we dont multiply by dt here, because delta width is 1 sample in discrete sum
         acc2 = 0.0
         for k in range(T):
             acc2 += d2h[p, k]
@@ -251,10 +256,10 @@ class PyField:
         self.fc = transducer.fc  # Hz
         self.lambda_mm = self.c / self.fc
         # compute patch centers/apodization/delays once
-        el_h = self.tx.el_h / self.tx.no_sub_y
-        el_w = self.tx.el_w / self.tx.no_sub_x
-        self.wx = el_w
-        self.wy = el_h
+        elem_height = self.tx.elem_height / self.tx.no_sub_y
+        elem_width = self.tx.elem_width / self.tx.no_sub_x
+        self.wx = elem_width
+        self.wy = elem_height
         centers, apodization, delays = [], [], []
         for elem in range(self.tx.n_elements):
             for sub_elem in range(self.tx.no_sub_x * self.tx.no_sub_y):
@@ -305,7 +310,6 @@ class PyField:
             self.apodization,
             self.delays,
             time_grid,
-            t0,
             self.fs,
             dt,
             method_flag=method,  # 0 -> naive, 1 -> sdi, 2 -> auto

@@ -178,8 +178,8 @@ class PyField:
         self.fc = transducer.fc  # Hz
         self.lambda_mm = self.c / self.fc
         # compute patch centers/apods/delays once
-        el_h = self.tx.el_h / self.tx.no_sub_y
-        el_w = self.tx.el_w / self.tx.no_sub_x
+        elem_height = self.tx.elem_height / self.tx.no_sub_y
+        elem_width = self.tx.elem_width / self.tx.no_sub_x
         centers, apods, delays = [], [], []
         for elem in range(self.tx.n_elements):
             for sub_elem in range(self.tx.no_sub_x * self.tx.no_sub_y):
@@ -192,8 +192,8 @@ class PyField:
         self.centers = np.array(centers, dtype=np.float32)
         self.apods = np.array(apods, dtype=np.float32)
         self.delays = np.array(delays, dtype=np.float32)
-        self.wx = el_w
-        self.wy = el_h
+        self.wx = elem_width
+        self.wy = elem_height
 
         self.pr = None
         self.x = self.y = self.z = None

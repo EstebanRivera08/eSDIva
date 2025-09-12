@@ -44,12 +44,12 @@ class MatrixArrayTransducer:
         self.n_elem_x = N_elem_x
         self.n_elem_y = N_elem_y
         self.n_elements = N_elem_x * N_elem_y
-        self.el_w = elem_width_mm * 1e-3
-        self.el_h = elem_height_mm * 1e-3
+        self.elem_width = elem_width_mm * 1e-3
+        self.elem_height = elem_height_mm * 1e-3
         self.kerf_x = kerf_x_mm * 1e-3
         self.kerf_y = kerf_y_mm * 1e-3
-        self.pitch_x = self.el_w + self.kerf_x
-        self.pitch_y = self.el_w + self.kerf_x
+        self.pitch_x = self.elem_width + self.kerf_x
+        self.pitch_y = self.elem_width + self.kerf_x
         self.no_sub_x = no_sub_x
         self.no_sub_y = no_sub_y
         self.fc = frequency_Hz or 1.0
@@ -62,16 +62,16 @@ class MatrixArrayTransducer:
         self.delays = np.zeros(self.n_elements, dtype=float)
 
         # compute element centers in x and y
-        total_w = self.n_elem_x * self.el_w + (self.n_elem_x - 1) * self.kerf_x
-        total_h = self.n_elem_y * self.el_h + (self.n_elem_y - 1) * self.kerf_y
-        start_x = -total_w / 2 + self.el_w / 2
-        start_y = -total_h / 2 + self.el_h / 2
+        total_w = self.n_elem_x * self.elem_width + (self.n_elem_x - 1) * self.kerf_x
+        total_h = self.n_elem_y * self.elem_height + (self.n_elem_y - 1) * self.kerf_y
+        start_x = -total_w / 2 + self.elem_width / 2
+        start_y = -total_h / 2 + self.elem_height / 2
         centers = []
 
         for iy in range(self.n_elem_y):
-            y = start_y + iy * (self.el_w + self.kerf_y)
+            y = start_y + iy * (self.elem_width + self.kerf_y)
             for ix in range(self.n_elem_x):
-                x = start_x + ix * (self.el_w + self.kerf_x)
+                x = start_x + ix * (self.elem_width + self.kerf_x)
                 z = 0.0
                 centers.append([x, y, z])
 
@@ -81,8 +81,12 @@ class MatrixArrayTransducer:
         self.sub_area = []
         self.sub_el_idx = []
         for idx, center in enumerate(self.element_centers):
-            xs = np.linspace(-self.el_w / 2, self.el_w / 2, self.no_sub_x + 1)
-            ys = np.linspace(-self.el_h / 2, self.el_h / 2, self.no_sub_y + 1)
+            xs = np.linspace(
+                -self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1
+            )
+            ys = np.linspace(
+                -self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1
+            )
             for i in range(self.no_sub_x):
                 for j in range(self.no_sub_y):
                     corners_local = np.array(
@@ -96,7 +100,8 @@ class MatrixArrayTransducer:
                     corners = corners_local + center
                     self.sub_quad_verts.append(corners)
                     self.sub_area.append(
-                        (self.el_w / self.no_sub_x) * (self.el_h / self.no_sub_y)
+                        (self.elem_width / self.no_sub_x)
+                        * (self.elem_height / self.no_sub_y)
                     )
                     self.sub_el_idx.append(idx)
 
@@ -187,8 +192,8 @@ class MatrixArrayTransducer:
                 )
 
             # compute shifts
-            sx = int(np.round(x_foc / self.el_w))
-            sy = int(np.round(y_foc / self.el_h))
+            sx = int(np.round(x_foc / self.elem_width))
+            sy = int(np.round(y_foc / self.elem_height))
             ix = np.arange(Nvx) - (Nvx - 1) // 2 + (N_x // 2) + sx
             iy = np.arange(Nvy) - (Nvy - 1) // 2 + (N_y // 2) + sy
             valid_x = (ix >= 0) & (ix < N_x)
@@ -416,7 +421,7 @@ class MatrixArrayTransducer:
         params = {
             "n_elem_x": self.n_elem_x,
             "n_elem_y": self.n_elem_y,
-            "el_w_mm": self.el_w * 1e3,
+            "elem_width_mm": self.elem_width * 1e3,
             "kerf_x_mm": self.kerf_x * 1e3,
             "kerf_y_mm": self.kerf_y * 1e3,
             "no_sub_x": self.no_sub_x,

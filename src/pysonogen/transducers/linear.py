@@ -16,9 +16,9 @@ class LinearArrayTransducer:
         element_width_mm,
         element_height_mm,
         kerf_mm,
-        elevation_focus_mm,
         no_sub_x,
         no_sub_y,
+        elevation_focus_mm=None,
         frequency_Hz=None,
     ):
         """
@@ -47,10 +47,12 @@ class LinearArrayTransducer:
             element_height_mm * 1e-3,
             element_width_mm * 1e-3,
         )
+        if elevation_focus_mm is None:
+            elevation_focus_mm = 0
         kerf, elevation_focus = kerf_mm * 1e-3, elevation_focus_mm * 1e-3
         self.n_elements = n_elements
-        self.el_w = element_width  # m
-        self.el_h = element_height  # m
+        self.elem_width = element_width  # m
+        self.elem_height = element_height  # m
         self.kerf = kerf  # m
         self.pitch = element_width + kerf  # m
         self.elev_focus = elevation_focus  # m
@@ -103,10 +105,12 @@ class LinearArrayTransducer:
         sub_el_idx : list mapping each patch to its element index
         """
         # Local grid edges in element coordinates
-        xs = np.linspace(-self.el_w / 2, self.el_w / 2, self.no_sub_x + 1)
-        ys = np.linspace(-self.el_h / 2, self.el_h / 2, self.no_sub_y + 1)
+        xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
+        ys = np.linspace(-self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1)
 
-        patch_area = (self.el_w / self.no_sub_x) * (self.el_h / self.no_sub_y)
+        patch_area = (self.elem_width / self.no_sub_x) * (
+            self.elem_height / self.no_sub_y
+        )
 
         quads = []
         el_indices = []
@@ -188,7 +192,7 @@ class LinearArrayTransducer:
             raise ValueError("Wrong focus: z_foc must be positive")
 
         N = self.n_elements
-        pitch = self.el_w + self.kerf  # element pitch in meters
+        pitch = self.elem_width + self.kerf  # element pitch in meters
         total_ap = N * pitch  # total array aperture (m)
 
         if apodization_type is None:
@@ -419,6 +423,7 @@ class LinearArrayTransducer:
         scalars="Apodization",
         notebook=False,
         jupyter_backend=None,
+        colorbar_title=None,
         **kwargs,
     ):
         """
@@ -428,13 +433,16 @@ class LinearArrayTransducer:
         plotter = pv.Plotter(window_size=window_size, notebook=notebook)
 
         if scalars == "Apodization":
-            title = "Apodization"
+            title_name = "Apodization"
             cmap = "cool"
         elif scalars == "Delays":
-            title = "Delays (s)"
+            title_name = "Delays (s)"
             cmap = "rainbow"
         else:
             raise ValueError("Scalars must be 'Apodization' or 'Delays'")
+
+        if colorbar_title is not None:
+            title_name = colorbar_title
 
         default_kwargs = {
             "scalars": scalars,
@@ -442,7 +450,7 @@ class LinearArrayTransducer:
             "clim": [0, 1] if scalars == "Apodization" else None,
             "show_scalar_bar": True,
             "scalar_bar_args": {
-                "title": title,
+                "title": title_name,
                 "vertical": True,
                 "position_x": 0.8,
                 "position_y": 0.1,
@@ -491,8 +499,8 @@ class LinearArrayTransducer:
     def __repr__(self):
         params = {
             "n_elements": self.n_elements,
-            "el_w_mm": self.el_w * 1e3,
-            "el_h_mm": self.el_h * 1e3,
+            "elem_width_mm": self.elem_width * 1e3,
+            "elem_height_mm": self.elem_height * 1e3,
             "kerf_mm": self.kerf * 1e3,
             "elev_focus_mm": self.elev_focus * 1e3 if self.elev_focus else None,
             "no_sub_x": self.no_sub_x,

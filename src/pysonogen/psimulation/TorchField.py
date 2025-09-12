@@ -182,8 +182,12 @@ class TorchField(nn.Module):
         self.fc = transducer.fc
         self.time_sec_to_unit = 1e6  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
-        self.wx = transducer.el_w / transducer.no_sub_x * self.space_m_to_unit  # um
-        self.wy = transducer.el_h / transducer.no_sub_y * self.space_m_to_unit  # um
+        self.wx = (
+            transducer.elem_width / transducer.no_sub_x * self.space_m_to_unit
+        )  # um
+        self.wy = (
+            transducer.elem_height / transducer.no_sub_y * self.space_m_to_unit
+        )  # um
         self.n_elements = transducer.n_elements
         self.no_sub_x = transducer.no_sub_x
         self.no_sub_y = transducer.no_sub_y
