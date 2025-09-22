@@ -90,6 +90,7 @@ class LinearArrayTransducer:
 
         # Build subdivisions boundaries and areas, apply elevation curvature
         self.sub_quad_verts, self.sub_area, self.sub_el_idx = self._build_subdivisions()
+
         end_time = TIME()
         print(
             f"LinearArrayTransducer initialized in {end_time - start_time:.4f} seconds."
@@ -178,7 +179,22 @@ class LinearArrayTransducer:
             )
 
         # Unpack and convert to meters
-        focus = np.array(focus_mm) * 1e-3
+        if isinstance(focus_mm, (tuple, list)):
+            if len(focus_mm) not in (2, 3):
+                raise ValueError(
+                    "Focus must be a sequence of 2 [x,z] or 3 [x,y,z] values."
+                )
+            else:
+                focus = np.array(focus_mm) * 1e-3
+
+        if isinstance(focus_mm, np.ndarray):
+            focus_mm = np.squeeze(focus_mm)
+            if focus_mm.ndim != 1 or focus_mm.shape[0] not in (2, 3):
+                raise ValueError(
+                    "Focus must be a 1D array of 2 [x,z] or 3 [x,y,z] values."
+                )
+            else:
+                focus = focus_mm * 1e-3
 
         if focus.shape == (3,):
             x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
