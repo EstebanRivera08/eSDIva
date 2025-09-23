@@ -248,6 +248,67 @@ def compute_distance_patch_to_point(P, M, pts, center):
     return dist, xp, yp
 
 
+def create_simulation_grid(simulation_struct):
+    """
+    Create a simulation mesh for the ultrasound field.
+
+    Parameters
+    ----------
+    simulation_grid_dict : dict
+        Dictionary containing the simulation parameters:
+        - x_extent : list
+            The extent of the simulation in the x direction (in mm).
+        - y_extent : list
+            The extent of the simulation in the y direction (in mm).
+        - z_extent : list
+            The extent of the simulation in the z direction (in mm).
+        - dx : float
+            The grid spacing in the x direction (in mm).
+        - dy : float
+            The grid spacing in the y direction (in mm).
+        - dz : float
+            The grid spacing in the z direction (in mm).
+
+    Returns
+    -------
+    grid_points : ndarray
+        Array of points in the simulation space.
+    """
+    # Create a grid of points in the simulation space
+    [x0, xf], [y0, yf], [z0, zf] = (
+        simulation_struct["x_extent"],
+        simulation_struct["y_extent"],
+        simulation_struct["z_extent"],
+    )
+    dx, dy, dz = (
+        simulation_struct["dx"],
+        simulation_struct["dy"],
+        simulation_struct["dz"],
+    )
+
+    Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
+    Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
+    Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
+    if Nx % 2 == 0:
+        Nx += 1
+    if Ny % 2 == 0:
+        Ny += 1
+    if Nz % 2 == 0:
+        Nz += 1
+
+    # print(
+    #     f"Creating grid with {Nx} x {Ny} x {Nz} points in x, y, z directions respectively."
+    # )
+    # print(f"Grid extents: x: [{x0}, {xf}], y: [{y0}, {yf}], z: [{z0}, {zf}]")
+    x = np.linspace(x0, xf, Nx)
+    y = np.linspace(y0, yf, Ny)
+    z = np.linspace(z0, zf, Nz)
+    # Create a meshgrid of points
+    grid_points = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+
+    return x, y, z, grid_points
+
+
 class PyField:
     def __init__(self, transducer):
         self.tx = transducer
@@ -255,24 +316,26 @@ class PyField:
         self.fs = 200e6  # Hz
         self.fc = transducer.fc  # Hz
         self.lambda_mm = self.c / self.fc
-        # compute patch centers/apodization/delays once
+        # compute patch centers_sub_elem/apodization/delays once
         elem_height = self.tx.elem_height / self.tx.no_sub_y
         elem_width = self.tx.elem_width / self.tx.no_sub_x
         self.wx = elem_width
         self.wy = elem_height
-        centers, apodization, delays = [], [], []
+        self.delays = self.tx.delays
+        self.apodization = self.tx.apodization
+        centers_sub_elem, apodization_sub_elem, delays_sub_elem = [], [], []
         for elem in range(self.tx.n_elements):
             for sub_elem in range(self.tx.no_sub_x * self.tx.no_sub_y):
                 verts = self.tx.sub_quad_verts[
                     elem * (self.tx.no_sub_x * self.tx.no_sub_y) + sub_elem
                 ]
-                centers.append(verts.mean(axis=0))
-                apodization.append(self.tx.apodization[elem])
-                delays.append(self.tx.delays[elem])
-        self.centers = np.array(centers, dtype=np.float32)
-        self.apodization = np.array(apodization, dtype=np.float32)
-        self.delays = np.array(delays, dtype=np.float32)
-        self.M = len(centers)
+                centers_sub_elem.append(verts.mean(axis=0))
+                apodization_sub_elem.append(self.tx.apodization[elem])
+                delays_sub_elem.append(self.tx.delays[elem])
+        self.centers_sub_elem = np.array(centers_sub_elem, dtype=np.float32)
+        self.apodization_sub_elem = np.array(apodization_sub_elem, dtype=np.float32)
+        self.delays_sub_elem = np.array(delays_sub_elem, dtype=np.float32)
+        self.M = len(centers_sub_elem)
         self.range_k = None
         self.mean_range_k_log = []
         self.T_log = []
@@ -284,15 +347,17 @@ class PyField:
             raise ValueError("method must be None or 'auto', 'naive', or 'sdi'.")
         if method == "naive":
             method = 0
-        elif method == "sdi":
-            method = 1
-        else:
+        elif method == "auto":
             method = None
+        else:
+            method = 1
 
         P, M = points.shape[0], self.M
 
         print(f"Computing SIR for {P} points and {M} patches...")
-        dist, xp, yp = compute_distance_patch_to_point(P, M, points, self.centers)
+        dist, xp, yp = compute_distance_patch_to_point(
+            P, M, points, self.centers_sub_elem
+        )
         time_grid, t0, dt, T = self._compute_time_grid(dist)
 
         startSIR = time.time()
@@ -307,8 +372,8 @@ class PyField:
             yp,
             dist,
             1 / self.c,
-            self.apodization,
-            self.delays,
+            self.apodization_sub_elem,
+            self.delays_sub_elem,
             time_grid,
             self.fs,
             dt,
@@ -366,25 +431,26 @@ class PyField:
         return x, y, z, pressure_field
 
     def _check_points(self, field_points_mm):
-        start = time.time()
-        if isinstance(field_points_mm, list):
-            field_points_mm = np.array(field_points_mm)
-        elif isinstance(field_points_mm, np.ndarray):
-            pass
+        if isinstance(field_points_mm, dict):
+            x, y, z, spatial_grid = create_simulation_grid(field_points_mm)
         else:
-            raise ValueError("field_points_mm must be a list or numpy array")
+            if isinstance(field_points_mm, list):
+                field_points_mm = np.array(field_points_mm)
+            elif isinstance(field_points_mm, np.ndarray):
+                pass
+            else:
+                raise ValueError("field_points_mm must be a list or numpy array")
 
-        pts = np.atleast_2d(field_points_mm).astype(np.float32)
-        # Check
-        x = np.sort(np.unique(pts[:, 0]))
-        y = np.sort(np.unique(pts[:, 1]))
-        z = np.sort(np.unique(pts[:, 2]))
-        spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+            if field_points_mm.ndim != 2 or field_points_mm.shape[1] != 3:
+                raise ValueError("field_points_mm must be of shape (N, 3)")
 
-        print(
-            f"Points checked and spatial grid created in {time.time() - start:.2f} seconds..."
-        )
-        return x, y, z, spatial_grid * 1e-3
+            pts = np.atleast_2d(field_points_mm).astype(np.float32)
+            # Check
+            x = np.sort(np.unique(pts[:, 0]))
+            y = np.sort(np.unique(pts[:, 1]))
+            z = np.sort(np.unique(pts[:, 2]))
+            spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+        return x, y, z, spatial_grid * 1e-3  # convert to meters
 
     def _compute_time_grid(self, dist):
         start = time.time()
