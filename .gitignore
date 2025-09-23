@@ -8,9 +8,10 @@ wheels/
 log/
 *.mp4
 *.pth
-*.npz
+# *.npz
 *.egg-info
 pressure_fields/
+test_models/
 
 # Virtual environments
 .venv
