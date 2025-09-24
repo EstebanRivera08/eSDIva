@@ -1,7 +1,42 @@
 import numpy as np
 import pyvista as pv
 
+
 # -------------------- Plotting Functions --------------------
+def create_vol_mesh(x, y, z, vol_matrix, *, scalars="Values"):
+    """
+    Compute the pressure volume mesh for the given pressure field and coordinates.
+
+    Parameters
+    ----------
+    pressure_field : ndarray
+        Pressure field data.
+    x, y, z : ndarray
+        Coordinate arrays.
+
+    Returns
+    -------
+    pressure_vol : pyvista.UniformGrid
+        The pressure volume mesh.
+    """
+    dx = x[1] - x[0] if len(x) > 1 else 1e-6
+    dy = y[1] - y[0] if len(y) > 1 else 1e-6
+    dz = z[1] - z[0] if len(z) > 1 else 1e-6
+
+    nx, ny, nz = vol_matrix.shape
+
+    # Create the 3D UniformGrid
+    pressure_vol = pv.ImageData(
+        dimensions=(nx, ny, nz),
+        spacing=(dx, dy, dz),
+        origin=(x.min(), y.min(), z.min()),
+    )
+
+    # Attach pressure data to the grid
+    pressure_vol.point_data[scalars] = vol_matrix.ravel(
+        order="F"
+    )  # VERY important: Fortran order
+    return pressure_vol
 
 
 # ------------- Brain Regions Mesh -------------
@@ -67,7 +102,7 @@ def add_regions_mesh(
 
 
 def add_3D_vol(
-    doppler3D_vol,
+    vol_3D,
     *,
     plotter=None,
     notebook=False,
@@ -88,8 +123,10 @@ def add_3D_vol(
             window_size=window_size, notebook=notebook, off_screen=off_screen
         )
 
+    scalars = vol_3D.point_data.keys()[0]  # Get the name of the first scalar
+
     default_kwargs = {
-        "scalars": "doppler",  # Assuming 'doppler' is a scalar field in doppler3D_vol
+        "scalars": scalars,
         "cmap": "hot",
         "opacity": "sigmoid",
         "mapper": "smart",
@@ -104,7 +141,7 @@ def add_3D_vol(
         if key not in kwargs:
             kwargs[key] = value
 
-    vol = plotter.add_volume(doppler3D_vol, **kwargs)
+    vol = plotter.add_volume(vol_3D, **kwargs)
     vol.prop.interpolation_type = "linear"
     plotter.add_axes()
     return plotter
@@ -169,14 +206,24 @@ def add_pressure_vol(
     plotter=None,
     window_size=[800, 800],
     notebook=False,
-    plot_focal_spot=True,
+    plot_focal_spot=False,
     off_screen=False,
+    title=None,
     **kwargs,
 ):
     if plotter is None:
         plotter = pv.Plotter(
             notebook=notebook, window_size=window_size, off_screen=off_screen
         )
+
+    scalars = pressure_vol.point_data.keys()[0]  # Get the name of the first scalar
+    if scalars != "Pressure":
+        print(
+            f"Warning: The scalar field in the pressure volume is named '{scalars}' instead of 'Pressure'. Proceeding with '{scalars}'."
+        )
+
+    if title is None:
+        title = f"{scalars}, (u.a.)"
 
     # 3) Add the pressure volume
     if plot_focal_spot:
@@ -192,35 +239,35 @@ def add_pressure_vol(
                 kwargs[key] = value
 
         # pick a threshold, e.g. halfway to the max
-        threshold = 0.7 * pressure_vol["Pressure"].max()
+        threshold = 0.7 * pressure_vol[scalars].max()
         iso_mesh = pressure_vol.contour(
-            [threshold], scalars="Pressure"
+            [threshold], scalars=scalars
         )  # Create isosurface at threshold# add that instead of (or in addition to) the volume
         plotter.add_mesh(iso_mesh, **kwargs)
 
     else:
         n_contours = 10
         min_val = 0
-        max_val = pressure_vol["Pressure"].max()
+        max_val = pressure_vol[scalars].max()
         levels = np.linspace(min_val, max_val, n_contours)
         iso_mesh = pressure_vol.contour(
-            isosurfaces=levels, scalars="Pressure"
+            isosurfaces=levels, scalars=scalars
         )  # Create isosurface at threshold
         default_kwargs = {
-            "scalars": "Pressure",  # use the scalar to color surfaces
+            "scalars": scalars,  # use the scalar to color surfaces
             "opacity": "linear",
             "cmap": "jet",
             "show_scalar_bar": True,
             "scalar_bar_args": {
-                "title": "Pressure (u.a.)",
+                "title": title,
                 "title_font_size": 16,
                 "label_font_size": 12,
                 "vertical": True,
-                "position_x": 0.85,
+                "position_x": 0.8,
                 "position_y": 0.2,
                 "height": 0.3,
             },
-            "label": "Pressure PII",  # label for the legend
+            "label": title,  # label for the legend
             "color": "r",  # color of the mesh
         }
         for key, value in default_kwargs.items():

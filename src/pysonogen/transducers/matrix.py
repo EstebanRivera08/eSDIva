@@ -264,9 +264,9 @@ class MatrixArrayTransducer:
             vmax=1,
             **kwargs,
         )
-        ax.set_title("Delays")
-        ax.set_xlabel("Element #")
-        ax.set_ylabel("Delay (us)")
+        ax.set_title("Apodization")
+        ax.set_xlabel("Element x #")
+        ax.set_ylabel("Element y #")
         ax.grid(True)
 
         if flag:
