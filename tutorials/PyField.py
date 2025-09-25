@@ -142,8 +142,8 @@ def compute_parallelized_sir_optimized(
                 # SDI: accumulate eight events (floor+ceil weights per time) to d2h[p, ...]
                 evt = 0
                 # t1 (+)
-                k1f = (t1 - t0) * fs
-                k4f = (t4 - t0) * fs
+                k1f = (t1 - t0) * fs + 1
+                k4f = (t4 - t0) * fs + 1
                 if k1f < 0.0 or k1f > T - 1.0 or k4f > T - 1.0:
                     print("Warning: event outside time grid in point ", p)
                     continue
@@ -162,7 +162,7 @@ def compute_parallelized_sir_optimized(
                 evt += 1
 
                 # t2 (-)
-                kf = (t2 - t0) * fs
+                kf = (t2 - t0) * fs + 1
                 kf_floor = int(np.floor(kf))
                 w_ceil = kf - kf_floor
 
@@ -177,7 +177,7 @@ def compute_parallelized_sir_optimized(
                 evt += 1
 
                 # t3 (-)
-                kf = (t3 - t0) * fs
+                kf = (t3 - t0) * fs + 1
                 kf_floor = int(np.floor(kf))
                 w_ceil = kf - kf_floor
 
@@ -343,14 +343,28 @@ class PyField:
         self.sir_running_time_log = []
 
     def compute_sir(self, points, *, method="auto"):
+        if isinstance(points, (np.ndarray, list)):
+            if isinstance(points, list):
+                points = np.array(points, dtype=np.float32)
+            # check shape
+            if points.ndim < 2:
+                if points.shape[0] == 3:
+                    points = points.reshape(1, 3)
+                else:
+                    raise ValueError("points must 1D (3,) or 2D (N,3).")
+            elif points.ndim == 2:
+                pass
+            else:
+                raise ValueError("points must 1D (3,) or 2D (N,3).")
+
         if method not in ["auto", "naive", "sdi", None]:
             raise ValueError("method must be None or 'auto', 'naive', or 'sdi'.")
         if method == "naive":
             method = 0
-        elif method == "auto":
-            method = None
-        else:
+        elif method == "sdi":
             method = 1
+        else:
+            method = None
 
         P, M = points.shape[0], self.M
 
@@ -386,7 +400,7 @@ class PyField:
         self.T_log.append(T)
         self.mean_range_k_log.append(np.mean(self.range_k))
         self.sir_running_time_log.append(runtime_sir)
-        print(f"SIR computed in {runtime_sir:.2f} seconds...")
+        print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")
         return t0, h_sir.T
 
     def from_sir_to_pressure(self, h_sir, x, y, z, batch_size=8192, max_workers=None):

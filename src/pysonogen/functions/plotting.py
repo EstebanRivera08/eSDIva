@@ -13,8 +13,8 @@ def plot_pressure_field(
     z,
     *,
     plotter=None,
-    off_screen=None,
-    window_size=[1280, 720],
+    off_screen=False,
+    window_size=[520, 720],
     notebook=False,
     return_mesh=False,
 ):
@@ -78,9 +78,12 @@ def plot_field_planes(
     *,
     figsize=(10, 5),
     interpolation=None,
-    centered=False,
+    centered_to_max=False,
     save_fig_name=None,
     ratios=None,
+    vmin=None,
+    vmax=None,
+    label="Pressure (a.u.)",
 ):
     """
     Plot the pressure field in 2D slices with a properly placed colorbar.
@@ -92,7 +95,7 @@ def plot_field_planes(
     x, y, z : ndarray
         Coordinate arrays.
     """
-    if centered:
+    if centered_to_max:
         # Look for the y, x, z indices that are closest to the max value
         max_idx = np.unravel_index(np.nanargmax(pressure_field), pressure_field.shape)
         y0, x0, z0 = max_idx[1], max_idx[0], max_idx[2]
@@ -101,13 +104,15 @@ def plot_field_planes(
         y0 = int(np.floor(y.shape[0] / 2))
         x0 = int(np.floor(x.shape[0] / 2))
         z0 = int(np.floor(z.shape[0] / 2))
-    # print(
-    #     f"Taking slice x_ind, y_ind, z_ind = {x0 + 1}/{x.shape[0]}, {y0 + 1}/{y.shape[0]}, {z0 + 1}/{z.shape[0]}"
-    # )
+    print(
+        f"Taking slice ({x[x0]},{y[y0]},{z[z0]}) => x_ind, y_ind, z_ind = {x0 + 1}/{x.shape[0]}, {y0 + 1}/{y.shape[0]}, {z0 + 1}/{z.shape[0]}"
+    )
 
     # Use nanmin and nanmax to ignore NaN values
-    vmin = np.nanmin(pressure_field)
-    vmax = np.nanmax(pressure_field)
+    if vmin is None:
+        vmin = np.nanmin(pressure_field)
+    if vmax is None:
+        vmax = np.nanmax(pressure_field)
 
     XZ_plane = pressure_field[:, y0, :].squeeze()
     XY_plane = pressure_field[:, :, z0].squeeze()
@@ -173,7 +178,8 @@ def plot_field_planes(
     # Add a colorbar to the last column
     cbar_ax = fig.add_subplot(gs[0, 3])
     cbar = fig.colorbar(im2, cax=cbar_ax)
-    cbar.set_label("Pressure (normalized)")
+    cbar.set_label(label)
+    cbar.ax.yaxis.set_label_position("left")
 
     plt.tight_layout()
     if save_fig_name:
