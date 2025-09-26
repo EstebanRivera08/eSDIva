@@ -286,6 +286,9 @@ def create_simulation_grid(simulation_struct):
         simulation_struct["dz"],
     )
 
+    if z0 <= 0.1:
+        z0 = 0.1  # avoid z=0 plane
+
     Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
     Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
     Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
@@ -343,8 +346,8 @@ class PyField:
         self.sir_running_time_log = []
 
     def compute_sir(self, points, *, method="auto"):
-        if isinstance(points, (np.ndarray, list)):
-            if isinstance(points, list):
+        if isinstance(points, (np.ndarray, list, tuple)):
+            if isinstance(points, (list, tuple)):
                 points = np.array(points, dtype=np.float32)
             # check shape
             if points.ndim < 2:

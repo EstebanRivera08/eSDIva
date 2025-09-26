@@ -147,7 +147,7 @@ def plot_field_planes(
     )
     ax0.set_xlabel("X (mm)")
     ax0.set_ylabel("Z (mm)")
-    ax0.set_title("XZ Plane")
+    ax0.set_title("XZ Plane (Y={:.2f} mm)".format(y[y0]))
 
     ax1 = fig.add_subplot(gs[0, 1])
     im1 = ax1.imshow(
@@ -160,7 +160,7 @@ def plot_field_planes(
     )
     ax1.set_xlabel("X (mm)")
     ax1.set_ylabel("Y (mm)")
-    ax1.set_title("XY Plane")
+    ax1.set_title("XY Plane (Z={:.2f} mm)".format(z[z0]))
 
     ax2 = fig.add_subplot(gs[0, 2])
     im2 = ax2.imshow(
@@ -173,7 +173,7 @@ def plot_field_planes(
     )
     ax2.set_xlabel("Y (mm)")
     ax2.set_ylabel("Z (mm)")
-    ax2.set_title("YZ Plane")
+    ax2.set_title("YZ Plane (X={:.2f} mm)".format(x[x0]))
 
     # Add a colorbar to the last column
     cbar_ax = fig.add_subplot(gs[0, 3])

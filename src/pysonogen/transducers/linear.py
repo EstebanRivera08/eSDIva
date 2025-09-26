@@ -265,8 +265,14 @@ class LinearArrayTransducer:
             # now slide this window so its center aligns with x_foc
             # compute how many elements to shift
             shift_elems = int(np.round(x_foc / pitch))
+            # the shift must be between 0 and N-1
+            if shift_elems < -(N - 1) // 2:
+                shift_elems = -(N - 1) // 2
+            if shift_elems > (N - 1) // 2:
+                shift_elems = (N - 1) // 2 + 1
+
             center = (N_ext - 1) // 2 - shift_elems
-            idxs = np.arange(N_ext) - center + N // 2
+            idxs = np.arange(N_ext) - center + N // 2 - 1
 
             # only keep those inside the real array
             valid = (idxs >= 0) & (idxs < N)
