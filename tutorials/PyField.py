@@ -10,7 +10,9 @@ inv_2pi = 1 / (2 * np.pi)
 
 # ---------- small helper (njit) for rectangle SIR parameters ----------
 @njit(inline="always")
-def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
+def compute_rectangle_SIR_params(
+    wx, wy, dx, dy, dist, inv_c, apod, delay, dt, attenuation
+):
     """
     Return t1,t2,t3,t4,h_max (float32).
     dx,dy are direction cosines (xp, yp) used in your original compute.
@@ -35,7 +37,7 @@ def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     t4 = t1 + Dt1 + Dt2
 
     # max height of trapezoid
-    h_max = area * apod / Dt2
+    h_max = attenuation * area * apod / Dt2
 
     return t1, t2, t3, t4, h_max
 
@@ -58,6 +60,7 @@ def compute_parallelized_sir_optimized(
     fs,
     dt,
     method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
+    attenuation,
 ):
     """
     Returns h_out (P, T) and range_k_matrix (P, M)
@@ -67,6 +70,9 @@ def compute_parallelized_sir_optimized(
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
     range_k_matrix = np.zeros((P, M), dtype=np.int32)
     t0 = time_grid[0]
+
+    if attenuation is None:
+        attenuation = np.ones((P, M), dtype=np.float32)
 
     # precompute threshold term for auto decision (8 + 2*T/M)
     threshold_term = 8.0 + 2.0 * (T / M)
@@ -87,6 +93,7 @@ def compute_parallelized_sir_optimized(
                 apodization[m],
                 delays[m],
                 dt,
+                attenuation[p, m],
             )
             if h_max < 1e-6:
                 range_k_matrix[p, m] = np.nan
@@ -313,12 +320,10 @@ def create_simulation_grid(simulation_struct):
 
 
 class PyField:
-    def __init__(self, transducer):
+    def __init__(self, transducer, *, c=1540.0, fs=200e6, alpha0=0, freq_power=1.0):
         self.tx = transducer
-        self.c = 1540.0
-        self.fs = 200e6  # Hz
         self.fc = transducer.fc  # Hz
-        self.lambda_mm = self.c / self.fc
+
         # compute patch centers_sub_elem/apodization/delays once
         elem_height = self.tx.elem_height / self.tx.no_sub_y
         elem_width = self.tx.elem_width / self.tx.no_sub_x
@@ -326,6 +331,21 @@ class PyField:
         self.wy = elem_height
         self.delays = self.tx.delays
         self.apodization = self.tx.apodization
+
+        self.compute_sub_elem_attributes()
+        # Initialize logs
+        self.mean_range_k_log = []
+        self.T_log = []
+        self.P_log = []
+        self.sir_running_time_log = []
+
+        # Field parameters
+        self.c = c  # m/s
+        self.alpha0 = alpha0  # dB/(MHz^y cm)
+        self.freq_power = freq_power  # freq_power law exponent
+        self.fs = fs  # Hz
+
+    def compute_sub_elem_attributes(self):
         centers_sub_elem, apodization_sub_elem, delays_sub_elem = [], [], []
         for elem in range(self.tx.n_elements):
             for sub_elem in range(self.tx.no_sub_x * self.tx.no_sub_y):
@@ -333,17 +353,14 @@ class PyField:
                     elem * (self.tx.no_sub_x * self.tx.no_sub_y) + sub_elem
                 ]
                 centers_sub_elem.append(verts.mean(axis=0))
-                apodization_sub_elem.append(self.tx.apodization[elem])
-                delays_sub_elem.append(self.tx.delays[elem])
-        self.centers_sub_elem = np.array(centers_sub_elem, dtype=np.float32)
+                apodization_sub_elem.append(self.apodization[elem])
+                delays_sub_elem.append(self.delays[elem])
+
+        self.centers_sub_elem = np.array(centers_sub_elem, dtype=np.float32)  # mm
         self.apodization_sub_elem = np.array(apodization_sub_elem, dtype=np.float32)
         self.delays_sub_elem = np.array(delays_sub_elem, dtype=np.float32)
         self.M = len(centers_sub_elem)
         self.range_k = None
-        self.mean_range_k_log = []
-        self.T_log = []
-        self.P_log = []
-        self.sir_running_time_log = []
 
     def compute_sir(self, points, *, method="auto"):
         if isinstance(points, (np.ndarray, list, tuple)):
@@ -363,11 +380,11 @@ class PyField:
         if method not in ["auto", "naive", "sdi", None]:
             raise ValueError("method must be None or 'auto', 'naive', or 'sdi'.")
         if method == "naive":
-            method = 0
+            method_flag = 0
         elif method == "sdi":
-            method = 1
+            method_flag = 1
         else:
-            method = None
+            method_flag = None
 
         P, M = points.shape[0], self.M
 
@@ -378,6 +395,21 @@ class PyField:
         time_grid, t0, dt, T = self._compute_time_grid(dist)
 
         startSIR = time.time()
+
+        # Since we compute the monochromatic pressure field at fc,
+        # we can apply the attenuation in the SIR domain
+        # Pr \propto | TF(h_sir) and Pr_att = Pr * exp(-alpha0 * f^y * d) = Pr * func(f,d))
+        # Since func(f,d) does not depend on time and is always > 0, we can rewrite
+        # the pressure as Pr_att = | TF(h_sir * func(f,d)) | at fc
+        # So we apply the attenuation in the SIR domain
+
+        if self.alpha0 > 0:
+            alpha = (
+                self.alpha0 / 10 * ((self.fc * 1e-6) ** self.freq_power) * 100
+            )  # dB/m
+            attenuation = 10 ** (-alpha * dist)  # linear scale factor
+        else:
+            attenuation = None
 
         h_sir, self.range_k = compute_parallelized_sir_optimized(
             P,
@@ -394,7 +426,8 @@ class PyField:
             time_grid,
             self.fs,
             dt,
-            method_flag=method,  # 0 -> naive, 1 -> sdi, 2 -> auto
+            method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
+            attenuation,
         )
 
         runtime_sir = time.time() - startSIR
@@ -403,6 +436,7 @@ class PyField:
         self.T_log.append(T)
         self.mean_range_k_log.append(np.mean(self.range_k))
         self.sir_running_time_log.append(runtime_sir)
+
         print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")
         return t0, h_sir.T
 
@@ -494,3 +528,33 @@ class PyField:
             f"Computed time grid from {min_time * 1e6:.2f} us to {max_time * 1e6:.2f} us, with {T} samples in {time.time() - start:.2f} seconds."
         )
         return t_grid, min_time, dt, T
+
+    def set_field(self, attribute_name, value):
+        if not hasattr(self, attribute_name):
+            self.__repr__()
+            raise AttributeError(
+                f"{attribute_name} is not a valid attribute of PyField."
+            )
+        setattr(self, attribute_name, value)
+        print(f"Attribute '{attribute_name}' updated.")
+
+    def compute_delays(self, focus_mm):
+        self.delays = self.tx.compute_delays(focus_mm=focus_mm, c=self.c)
+        self.compute_sub_elem_attributes()
+
+    def compute_apodization(self, focus_mm, FoverD=1, apodization_type="rect"):
+        self.apodization = self.tx.compute_apodization(
+            focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
+        )
+        self.compute_sub_elem_attributes()
+
+    def __repr__(self):
+        """
+        String representation of the PyField object.
+
+        Returns
+        -------
+        str
+            A string representation of the PyField object.
+        """
+        return f"PyField(transducer={self.tx}, c={self.c} m/s, fs={self.fs} Hz, fc={self.fc} Hz, alpha0={self.alpha0} dB/(MHz^y cm), freq_power={self.freq_power})"
