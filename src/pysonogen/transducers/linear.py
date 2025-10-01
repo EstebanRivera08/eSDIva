@@ -503,8 +503,11 @@ class LinearArrayTransducer:
             (1.4163759408294876, 0.20198691702220328, -0.9914130664803784),
             (-0.5077013315077692, -0.41679734969120574, 0.7540022064129689),
         ]
-        plotter.show(jupyter_backend=jupyter_backend)
-        plotter.close()
+        if jupyter_backend is not None:
+            plotter.show(jupyter_backend=jupyter_backend)
+        else:
+            plotter.show()
+        # plotter.close()
 
     def clean(self):
         """

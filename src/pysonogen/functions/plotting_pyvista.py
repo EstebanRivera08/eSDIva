@@ -309,7 +309,7 @@ def add_transducer_mesh(
             "title_font_size": 16,
             "label_font_size": 12,
             "vertical": True,
-            "position_x": 0.85,
+            "position_x": 0.8,
             "position_y": 0.6,
             "height": 0.3,
         },
@@ -404,3 +404,22 @@ def add_markers(
             )
 
     return plotter
+
+
+# ------------ helper funcitons --------------
+
+
+def recompute_bounds(plotter):
+    """Recompute the bounds of a PyVista plotter based on its current meshes."""
+    if not plotter.meshes:
+        raise ValueError("The plotter has no meshes to compute bounds from.")
+
+    all_bounds = np.array([mesh.bounds for mesh in plotter.meshes])
+    x_min = all_bounds[:, 0].min()
+    x_max = all_bounds[:, 1].max()
+    y_min = all_bounds[:, 2].min()
+    y_max = all_bounds[:, 3].max()
+    z_min = all_bounds[:, 4].min()
+    z_max = all_bounds[:, 5].max()
+
+    return (x_min, x_max, y_min, y_max, z_min, z_max)

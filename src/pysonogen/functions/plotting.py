@@ -188,7 +188,7 @@ def plot_field_planes(
     plt.close(fig)  # Close the figure to free memory
 
 
-def add_transducer_to_plotter(plotter, TX_mesh):
+def add_transducer_to_plotter(TX_mesh, plotter, **kwargs):
     # Add the transducer to the plotter# 2) Add your TX_mesh with Apodization
     plotter.add_mesh(
         TX_mesh,
