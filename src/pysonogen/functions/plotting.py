@@ -71,10 +71,10 @@ def plot_pressure_field(
 
 
 def plot_field_planes(
-    pressure_field,
     x,
     y,
     z,
+    pressure_field,
     *,
     figsize=(10, 5),
     interpolation=None,

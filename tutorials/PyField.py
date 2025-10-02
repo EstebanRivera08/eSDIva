@@ -404,7 +404,7 @@ class PyField:
         # So we apply the attenuation in the SIR domain
 
         if self.alpha0 > 0:
-            alpha = (
+            alpha = (  # dB/MHz^y /cm * (Hz * 1e-6 MHz/Hz)^y * 100 cm/m
                 self.alpha0 / 10 * ((self.fc * 1e-6) ** self.freq_power) * 100
             )  # dB/m
             attenuation = 10 ** (-alpha * dist)  # linear scale factor
@@ -547,6 +547,25 @@ class PyField:
             focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
         )
         self.compute_sub_elem_attributes()
+
+    def summary(self):
+        """
+        Print a summary of the PyField object.
+        """
+        print("----------PyField Summary:----------")
+        for key, value in self.__dict__.items():
+            if key == "field":
+                if value is not None:
+                    print(f"{key}: pressure field with shape {value.shape}")
+                else:
+                    print(f"{key}: None")
+            elif key in ["x", "y", "z"]:
+                if value is not None:
+                    print(f"{key}: grid with shape {value.shape}")
+                else:
+                    print(f"{key}: None")
+            else:
+                print(f"{key}: {value}")
 
     def __repr__(self):
         """
