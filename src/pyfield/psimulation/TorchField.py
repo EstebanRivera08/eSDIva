@@ -9,7 +9,7 @@ import torch.profiler
 from torch import Tensor
 from tqdm import tqdm
 
-import pysonogen
+from pyfield.utilities.helper_functions_for_classes import check_field_points
 
 
 # --- JIT-compiled core event computation (unchanged, but output in μs) ---
@@ -107,67 +107,6 @@ def accumulate_events_derivative(
     return H
 
 
-def create_simulation_grid_from_dict(simulation_struct):
-    """
-    Create a simulation mesh for the ultrasound field.
-
-    Parameters
-    ----------
-    simulation_grid_dict : dict
-        Dictionary containing the simulation parameters:
-        - x_extent : list
-            The extent of the simulation in the x direction (in mm).
-        - y_extent : list
-            The extent of the simulation in the y direction (in mm).
-        - z_extent : list
-            The extent of the simulation in the z direction (in mm).
-        - dx : float
-            The grid spacing in the x direction (in mm).
-        - dy : float
-            The grid spacing in the y direction (in mm).
-        - dz : float
-            The grid spacing in the z direction (in mm).
-
-    Returns
-    -------
-    grid_points : ndarray
-        Array of points in the simulation space.
-    """
-    # Create a grid of points in the simulation space
-    [x0, xf], [y0, yf], [z0, zf] = (
-        simulation_struct["x_extent"],
-        simulation_struct["y_extent"],
-        simulation_struct["z_extent"],
-    )
-    dx, dy, dz = (
-        simulation_struct["dx"],
-        simulation_struct["dy"],
-        simulation_struct["dz"],
-    )
-
-    Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
-    Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
-    Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
-    if Nx % 2 == 0:
-        Nx += 1
-    if Ny % 2 == 0:
-        Ny += 1
-    if Nz % 2 == 0:
-        Nz += 1
-
-    # print(
-    #     f"Creating grid with {Nx} x {Ny} x {Nz} points in x, y, z directions respectively."
-    # )
-    # print(f"Grid extents: x: [{x0}, {xf}], y: [{y0}, {yf}], z: [{z0}, {zf}]")
-    x = np.linspace(x0, xf, Nx)
-    y = np.linspace(y0, yf, Ny)
-    z = np.linspace(z0, zf, Nz)
-    # Create a meshgrid of points
-    grid_points = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
-
-    return x, y, z, grid_points
-
-
 class TorchField(nn.Module):
     def __init__(self, transducer, *, use_gpu=True, device=None):
         super().__init__()
@@ -176,10 +115,12 @@ class TorchField(nn.Module):
         if device is None:
             device = self._check_cuda_availability(use_gpu)
         self.device = device
+
         self.tx = transducer
         self.c = 1540.0  # Speed of sound in m/s
         self.fs = 200e6  # Sampling frequency in Hz
         self.fc = transducer.fc
+
         self.time_sec_to_unit = 1e6  # Convert seconds to microseconds
         self.space_m_to_unit = 1e6  # Convert meters to micrometers
         self.wx = (
@@ -191,6 +132,7 @@ class TorchField(nn.Module):
         self.n_elements = transducer.n_elements
         self.no_sub_x = transducer.no_sub_x
         self.no_sub_y = transducer.no_sub_y
+
         centers = []
         for elem in range(transducer.n_elements):
             for sub in range(transducer.no_sub_x * transducer.no_sub_y):
@@ -201,7 +143,6 @@ class TorchField(nn.Module):
 
         apodization = transducer.apodization
         delays = transducer.delays
-
         self.centers = torch.tensor(
             np.array(centers) * self.space_m_to_unit,
             dtype=torch.float32,
@@ -209,10 +150,6 @@ class TorchField(nn.Module):
         )  # um (or unit)
 
         self.c_unit = self.c * self.space_m_to_unit / self.time_sec_to_unit  # um/us
-        # self.softplus = nn.Softplus(beta=20, threshold=0.5)
-
-        self.x = self.y = self.z = None
-        self.pr = None
 
         # ------------------ Define parameters -----------------------
         self.apodization = nn.Parameter(
@@ -523,31 +460,6 @@ class TorchField(nn.Module):
                 f"Property '{name_struct_str}' does not exist in the class."
             )
 
-    def get_mesh(self):
-        """
-        Get the mesh of the pressure field.
-
-        Returns
-        -------
-        pv_mesh : pyvista.PolyData
-            The mesh of the pressure field.
-        """
-        if self.pr is None or self.x is None or self.y is None or self.z is None:
-            raise ValueError(
-                "Pressure field has not been saved in the class.\n"
-                " Call compute_pressure_field(inplace=True) first.\n"
-            )
-        return pysonogen.compute_pressure_vol_mesh(self.pr, self.x, self.y, self.z)
-
-    def clean(self):
-        """
-        Clean the stored pressure field and coordinates from the class to free memory.
-        """
-        self.pr = None
-        self.x = None
-        self.y = None
-        self.z = None
-
     # ----------------------------- helper functions --------------------------------------
     def _check_cuda_availability(self, use_gpu=True):
         device_cpu = torch.device("cpu")
@@ -567,28 +479,7 @@ class TorchField(nn.Module):
         return device_cuda if use_gpu else device_cpu
 
     def _check_points(self, field_points_mm):
-        if isinstance(field_points_mm, dict):
-            x, y, z, pts = create_simulation_grid_from_dict(field_points_mm)
-        else:
-            if isinstance(field_points_mm, list):
-                field_points_mm = np.array(field_points_mm)
-            elif isinstance(field_points_mm, np.ndarray):
-                pass
-            else:
-                raise ValueError(
-                    "field_points_mm must be a 2D tensor/np.array of shape [P, 3], or \n"
-                    " a dict with keys 'x_entent', 'y_entent', 'z_entent', 'dx', 'dy', 'dz'."
-                )
-            if field_points_mm.ndim != 2 or field_points_mm.shape[1] != 3:
-                raise ValueError(
-                    "field_points_mm must be a 2D tensor/np.array of shape [P, 3]."
-                )
-            field_points_mm = np.atleast_2d(field_points_mm)
-            # Check
-            x = np.sort(np.unique(field_points_mm[:, 0]))
-            y = np.sort(np.unique(field_points_mm[:, 1]))
-            z = np.sort(np.unique(field_points_mm[:, 2]))
-            pts = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+        x, y, z, pts = check_field_points(field_points_mm)
 
         # Convert to torch tensors
         pts = torch.tensor(pts, dtype=torch.float32, device=self.device)
@@ -597,7 +488,7 @@ class TorchField(nn.Module):
         z = torch.tensor(z, dtype=torch.float32, device=self.device)
 
         # Convert to unit
-        pts = pts * 1e-3 * self.space_m_to_unit  # Convert to um (or unit)
+        pts = pts * self.space_m_to_unit  # Convert to um (or unit)
 
         return x, y, z, pts, pts.shape[0]
 

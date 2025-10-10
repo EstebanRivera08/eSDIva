@@ -3,12 +3,13 @@ import time
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
-import pysonogen
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
-from pysonogen.psimulation import PyField, TorchField
 from scipy.io import savemat
+
+import pyfield
+from pyfield.psimulation import PyField, TorchField
 
 print(torch.__version__)
 torch.cuda.empty_cache()  # Clear CUDA cache if using GPU
@@ -37,7 +38,7 @@ field_matrix_mm = {
 }
 
 apod = 1
-linear_array_tx = pysonogen.transducers.Domino()
+linear_array_tx = pyfield.transducers.Domino()
 linear_array_tx.__setattr__("fc", 10e6)  # 10 MHz
 linear_array_tx.set_apodization(np.ones(linear_array_tx.n_elements) * apod)
 linear_array_tx.plot_apodization()
@@ -46,7 +47,7 @@ linear_array_tx.show()
 
 # ------------------- Create TorchField -------------------
 
-linear_array_torch = PyField(linear_array_tx)
+linear_array_torch = TorchField(linear_array_tx)
 x, y, z, pr = linear_array_torch(field_matrix_mm, normalize=False)
 # linear_array_torch = PyField(linear_array_tx)
 # pr, x, y, z = linear_array_torch(field_matrix_mm, normalize=False)

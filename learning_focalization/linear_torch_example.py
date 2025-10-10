@@ -2,11 +2,11 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-# from TorchField import TorchField
-from TorchFieldv2 import TorchFieldv2 as TorchField
+import pyfield
+import pyfield.transducers as Transducers
 
-import pysonogen
-import pysonogen.transducers as Transducers
+# from TorchField import TorchField
+from pyfield.psimulation import TorchField
 
 # print(torch.__version__)
 # print(torch.version.cuda)
@@ -172,7 +172,7 @@ print("Model state dictionary loaded from: ", state_name)
 
 pr2, x2, y2, z2 = domino_torch.examine_bottleneck(field_info_mm, batch_size=2048)
 
-pysonogen.plot_field_planes(
+pyfield.plot_field_planes(
     pr2.detach().cpu().numpy(),
     x2.detach().cpu().numpy(),
     y2.detach().cpu().numpy(),
@@ -183,7 +183,7 @@ pysonogen.plot_field_planes(
     save_fig_name=figure_name,
 )
 
-# plotter = pysonogen.plot_pressure_field(
+# plotter = pyfield.plot_pressure_field(
 #     pr2.detach().cpu().numpy(),
 #     x2.detach().cpu().numpy(),
 #     y2.detach().cpu().numpy(),
@@ -196,5 +196,5 @@ pysonogen.plot_field_planes(
 
 # # Matrix_field = pyfield.PyField(Zeus_Matrix)
 # # pr1, x1, y1, z1 = Matrix_field.compute_pressure_field(field_info_mm, inplace=False)
-# # pysonogen.plot_field_planes(pr1, x1, y1, z1, interpolation=None)
+# # pyfield.plot_field_planes(pr1, x1, y1, z1, interpolation=None)
 # del plotter

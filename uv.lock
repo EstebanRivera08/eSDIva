@@ -1,4 +1,5 @@
 version = 1
+revision = 1
 requires-python = ">=3.11"
 resolution-markers = [
     "(python_full_version >= '3.13' and platform_machine != 'aarch64') or (python_full_version >= '3.13' and sys_platform != 'linux')",
@@ -3548,6 +3549,67 @@ wheels = [
 ]
 
 [[package]]
+name = "pyfield"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "brainglobe" },
+    { name = "brainglobe-atlasapi" },
+    { name = "brainglobe-space" },
+    { name = "brainglobe-workflows" },
+    { name = "brainrender" },
+    { name = "h5py" },
+    { name = "imageio", extra = ["ffmpeg"] },
+    { name = "ipykernel" },
+    { name = "ipympl" },
+    { name = "ipyvtklink" },
+    { name = "joblib" },
+    { name = "markupsafe" },
+    { name = "matplotlib" },
+    { name = "numpy" },
+    { name = "pip" },
+    { name = "plotly" },
+    { name = "pyqt5-qt5" },
+    { name = "pyside6" },
+    { name = "pyvista", extra = ["jupyter"] },
+    { name = "ruff" },
+    { name = "scikit-image" },
+    { name = "scipy" },
+    { name = "torch" },
+    { name = "torchaudio" },
+    { name = "torchvision" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "brainglobe", specifier = ">=1.3.1" },
+    { name = "brainglobe-atlasapi", specifier = ">=2.2.1" },
+    { name = "brainglobe-space", specifier = ">=1.0.3" },
+    { name = "brainglobe-workflows", specifier = ">=1.4.1" },
+    { name = "brainrender", specifier = ">=2.1.17" },
+    { name = "h5py", specifier = ">=3.13.0" },
+    { name = "imageio", extras = ["ffmpeg"], specifier = ">=2.37.0" },
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "ipympl", specifier = ">=0.9.7" },
+    { name = "ipyvtklink", specifier = ">=0.2.3" },
+    { name = "joblib", specifier = ">=1.4.2" },
+    { name = "markupsafe", specifier = "<3.0.2" },
+    { name = "matplotlib", specifier = ">=3.10.1" },
+    { name = "numpy", specifier = "<=2.1.2" },
+    { name = "pip", specifier = ">=25.0.1" },
+    { name = "plotly", specifier = ">=6.1.2" },
+    { name = "pyqt5-qt5", specifier = "<=5.15.2" },
+    { name = "pyside6", specifier = ">=6.9.0" },
+    { name = "pyvista", extras = ["jupyter"], specifier = ">=0.45.0" },
+    { name = "ruff", specifier = ">=0.12.0" },
+    { name = "scikit-image", specifier = ">=0.25.2" },
+    { name = "scipy", specifier = ">=1.15.2" },
+    { name = "torch", specifier = "==2.6.0" },
+    { name = "torchaudio", specifier = "==2.6.0" },
+    { name = "torchvision", specifier = "==0.21.0" },
+]
+
+[[package]]
 name = "pygments"
 version = "2.19.1"
 source = { registry = "https://pypi.org/simple" }
@@ -3694,67 +3756,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/ff/f1/72e1d400017a658e271594c8bd9c447c623dfd4fb936f4e043a4f9a8c93b/PySide6_Essentials-6.9.0-cp39-abi3-manylinux_2_39_aarch64.whl", hash = "sha256:69aedfad77119c5bec0005ca31d5620e9bac8ba5ae66c7389160530cfd698ed8", size = 92102516 },
     { url = "https://files.pythonhosted.org/packages/96/8a/bc710350c4cf6894968e39970eaa613b85a82eb1f230052de597e44a00ac/PySide6_Essentials-6.9.0-cp39-abi3-win_amd64.whl", hash = "sha256:94a0096d6bb1d3e5cef29ca4a5366d0f229d42480fbb17aa25ad85d72b1b7947", size = 72336994 },
     { url = "https://files.pythonhosted.org/packages/49/a4/703e379a0979985f681cf04b9af4129f5dde20141b3cc64fc2a39d006614/PySide6_Essentials-6.9.0-cp39-abi3-win_arm64.whl", hash = "sha256:d2dc45536f2269ad111991042e81257124f1cd1c9ed5ea778d7224fd65dc9e2b", size = 49449220 },
-]
-
-[[package]]
-name = "pysonogen"
-version = "0.1.0"
-source = { editable = "." }
-dependencies = [
-    { name = "brainglobe" },
-    { name = "brainglobe-atlasapi" },
-    { name = "brainglobe-space" },
-    { name = "brainglobe-workflows" },
-    { name = "brainrender" },
-    { name = "h5py" },
-    { name = "imageio", extra = ["ffmpeg"] },
-    { name = "ipykernel" },
-    { name = "ipympl" },
-    { name = "ipyvtklink" },
-    { name = "joblib" },
-    { name = "markupsafe" },
-    { name = "matplotlib" },
-    { name = "numpy" },
-    { name = "pip" },
-    { name = "plotly" },
-    { name = "pyqt5-qt5" },
-    { name = "pyside6" },
-    { name = "pyvista", extra = ["jupyter"] },
-    { name = "ruff" },
-    { name = "scikit-image" },
-    { name = "scipy" },
-    { name = "torch" },
-    { name = "torchaudio" },
-    { name = "torchvision" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "brainglobe", specifier = ">=1.3.1" },
-    { name = "brainglobe-atlasapi", specifier = ">=2.2.1" },
-    { name = "brainglobe-space", specifier = ">=1.0.3" },
-    { name = "brainglobe-workflows", specifier = ">=1.4.1" },
-    { name = "brainrender", specifier = ">=2.1.17" },
-    { name = "h5py", specifier = ">=3.13.0" },
-    { name = "imageio", extras = ["ffmpeg"], specifier = ">=2.37.0" },
-    { name = "ipykernel", specifier = ">=6.29.5" },
-    { name = "ipympl", specifier = ">=0.9.7" },
-    { name = "ipyvtklink", specifier = ">=0.2.3" },
-    { name = "joblib", specifier = ">=1.4.2" },
-    { name = "markupsafe", specifier = "<3.0.2" },
-    { name = "matplotlib", specifier = ">=3.10.1" },
-    { name = "numpy", specifier = "<=2.1.2" },
-    { name = "pip", specifier = ">=25.0.1" },
-    { name = "plotly", specifier = ">=6.1.2" },
-    { name = "pyqt5-qt5", specifier = "<=5.15.2" },
-    { name = "pyside6", specifier = ">=6.9.0" },
-    { name = "pyvista", extras = ["jupyter"], specifier = ">=0.45.0" },
-    { name = "ruff", specifier = ">=0.12.0" },
-    { name = "scikit-image", specifier = ">=0.25.2" },
-    { name = "scipy", specifier = ">=1.15.2" },
-    { name = "torch", specifier = "==2.6.0" },
-    { name = "torchaudio", specifier = "==2.6.0" },
-    { name = "torchvision", specifier = "==0.21.0" },
 ]
 
 [[package]]

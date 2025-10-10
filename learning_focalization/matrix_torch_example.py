@@ -6,9 +6,11 @@ from helper_function import (
     pattern_from_pr_3Dto2D,
 )
 
-import pysonogen
-import pysonogen.transducers as Transducers
-from pysonogen.psimulation import PyField, TorchField
+import pyfield
+import pyfield.transducers as Transducers
+from pyfield.psimulation import PyField, TorchField
+
+# from PyField import PyField
 
 # print(torch.__version__)
 # print(torch.version.cuda)
@@ -127,36 +129,39 @@ Zeus_Matrix.plot_delays(clim=clim)
 # ----------- Compute and plot the field ---------------
 
 # x2, y2, z2, pr2 = Matrix_torch.examine_bottleneck(field_info_mm, batch_size=2048)
+
+# x2, y2, z2, pr2 = Matrix_torch([0, 0, 8])  # first simulation to prepare parallel cores
 x2, y2, z2, pr2 = Matrix_torch(field_info_mm)
 
-pr2 = pr2.detach().cpu().numpy()
-x2 = x2.detach().cpu().numpy()
-y2 = y2.detach().cpu().numpy()
-z2 = z2.detach().cpu().numpy()
+if isinstance(pr2, torch.Tensor):
+    pr2 = pr2.detach().cpu().numpy()
+    x2 = x2.detach().cpu().numpy()
+    y2 = y2.detach().cpu().numpy()
+    z2 = z2.detach().cpu().numpy()
 
 if not save_figure:
     figure_name = None
 
-pysonogen.plot_field_planes(
-    pr2,
+pyfield.plot_field_planes(
     x2,
     y2,
     z2,
+    pr2,
     interpolation=None,
-    centered=False,
+    centered_to_max=False,
     ratios=[0.2, 1, 0.2],
     save_fig_name=figure_name,
 )
 
-plotter = pysonogen.plot_pressure_field(
-    pr2,
+plotter = pyfield.plot_pressure_field(
     x2,
     y2,
     z2,
+    pr2,
 )
 
 
-plotter = pysonogen.functions.add_transducer_mesh(
+plotter = pyfield.utilities.add_transducer_mesh(
     Zeus_Matrix.get_mesh(), plotter=plotter, lighting=True, ambient=1
 )
 
@@ -167,4 +172,4 @@ del plotter
 
 # Matrix_field = pyfield.PyField(Zeus_Matrix)
 # pr1, x1, y1, z1 = Matrix_field.compute_pressure_field(field_info_mm, inplace=False)
-# pysonogen.plot_field_planes(pr1, x1, y1, z1, interpolation=None)
+# pyfield.plot_field_planes(pr1, x1, y1, z1, interpolation=None)

@@ -1,27 +1,24 @@
 import h5py
 import numpy as np
 
-import pysonogen.transducers as Transducers
-from pysonogen.atlas import BG_Atlas
-from pysonogen.functions import (
+import pyfield.transducers as Transducers
+from pyfield.brain_atlas import BG_Atlas
+from pyfield.dopplerscan import DopplerScan
+from pyfield.psimulation import PyField, TorchField
+from pyfield.utilities import (
     add_2D_image,
     add_3D_vol,
     add_markers,
-    add_pressure_vol,
     add_regions_mesh,
-    add_transducer_mesh,
-    align_transducer_to_probe,
     compute_affine_from_markers,
 )
-from pysonogen.psimulation import PyField, TorchField
-from pysonogen.scans import DopplerScan
 
 # ----------------- Get the scan objects --------------------
 
 # Define the paths to the scan files and BPS file
 # Make sure to change the paths according to your file structure
 
-MAIN_FOLDER_PATH = r".\src\pysonogen\datatype\Felipe"
+MAIN_FOLDER_PATH = r".\src\pyfield\datatype\Felipe"
 
 bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
 file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
@@ -57,7 +54,7 @@ focus_mm = np.array([-1, 0, 4.5])  # mm [x, y, z]
 # Define apodization and delay law
 delays = domino.compute_delays(focus_mm=focus_mm)
 apodization = domino.compute_apodization(
-    focus_mm=focus_mm, F_over_D=1, apodization_type="rect"
+    focus_mm=focus_mm, FoverD=1, apodization_type="rect"
 )
 
 # Get the meshes and get them to the probe coordinate system
@@ -243,7 +240,6 @@ final_plotter.close()  # for plotters
 
 Doppler3D.clean()  # for scans
 Doppler2D.clean()  # for scans
-Domino_field.clean()  # for fields
 domino.clean()  # for transducers
 Brain_Atlas.clean()  # for atlas
 del TX_mesh  # for mesh objects

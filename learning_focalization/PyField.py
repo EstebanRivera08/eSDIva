@@ -222,16 +222,17 @@ def compute_parallelized_sir_optimized(
         # We must integrate d2h -> dh -> h and add to h_out
         # (Even if some patches used naive, we still need to add integrated d2h)
         # First cumulative sum (in-place on a temp)
-        acc = 0.0
-        for k in range(T):
-            acc += d2h[p, k]
-            d2h[p, k] = acc
-            # we dont multiply by dt here, because delta width is 1 sample in discrete sum
-        acc2 = 0.0
-        for k in range(T):
-            acc2 += d2h[p, k]
-            # multiply by dt once to match continuous integral scaling
-            h_out[p, k] += acc2 * dt
+        if method_flag != 0:
+            acc = 0.0
+            for k in range(T):
+                acc += d2h[p, k]
+                d2h[p, k] = acc
+                # we dont multiply by dt here, because delta width is 1 sample in discrete sum
+            acc2 = 0.0
+            for k in range(T):
+                acc2 += d2h[p, k]
+                # multiply by dt to match continuous integral scaling
+                h_out[p, k] += acc2 * dt
 
     return h_out, range_k_matrix
 
@@ -325,12 +326,12 @@ class PyField:
         self.fc = transducer.fc  # Hz
 
         # compute patch centers_sub_elem/apodization/delays once
-        elem_height = self.tx.elem_height / self.tx.no_sub_y
-        elem_width = self.tx.elem_width / self.tx.no_sub_x
+        elem_height = transducer.elem_height / transducer.no_sub_y
+        elem_width = transducer.elem_width / transducer.no_sub_x
         self.wx = elem_width
         self.wy = elem_height
-        self.delays = self.tx.delays
-        self.apodization = self.tx.apodization
+        self.delays = transducer.delays
+        self.apodization = transducer.apodization
 
         self.compute_sub_elem_attributes()
         # Initialize logs
@@ -339,7 +340,7 @@ class PyField:
         self.P_log = []
         self.sir_running_time_log = []
 
-        # Field parameters
+        # Medium parameters
         self.c = c  # m/s
         self.alpha0 = alpha0  # dB/(MHz^y cm)
         self.freq_power = freq_power  # freq_power law exponent
@@ -389,12 +390,11 @@ class PyField:
         P, M = points.shape[0], self.M
 
         print(f"Computing SIR for {P} points and {M} patches...")
+        startSIR = time.time()
         dist, xp, yp = compute_distance_patch_to_point(
             P, M, points, self.centers_sub_elem
         )
         time_grid, t0, dt, T = self._compute_time_grid(dist)
-
-        startSIR = time.time()
 
         # Since we compute the monochromatic pressure field at fc,
         # we can apply the attenuation in the SIR domain

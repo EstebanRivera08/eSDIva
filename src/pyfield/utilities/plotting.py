@@ -1,22 +1,24 @@
 import matplotlib.pyplot as plt
 import numpy as np
-import pyvista as pv
 from matplotlib.gridspec import GridSpec
 
-from .processing import compute_pressure_vol_mesh
+from .plotting_pyvista import add_pressure_vol, create_vol_mesh
 
 
 def plot_pressure_field(
-    pressure_field,
     x,
     y,
     z,
+    pressure_field,
     *,
+    scalars="Pressure (u.a.)",
     plotter=None,
     off_screen=False,
     window_size=[520, 720],
     notebook=False,
     return_mesh=False,
+    plot_focal_spot=False,
+    **kwargs,
 ):
     """
     Plot the pressure field in 3D.
@@ -29,41 +31,20 @@ def plot_pressure_field(
         Coordinate arrays.
     """
     # Create the pressure volume mesh
-    pressure_vol = compute_pressure_vol_mesh(pressure_field, x, y, z)
+    pressure_vol = create_vol_mesh(x, y, z, pressure_field, scalars=scalars)
 
     # Create a PyVista plotter
-    if plotter is None:
-        plotter = pv.Plotter(
-            window_size=window_size, notebook=notebook, off_screen=off_screen
-        )  # ,off_screen=True) # Need to add this parameter to save the screenshot
-
-    n_contours = 10
-    min_val = 0
-    max_val = pressure_field.max()
-    levels = np.linspace(min_val, max_val, n_contours)
-    iso_mesh = pressure_vol.contour(
-        isosurfaces=levels, scalars="Pressure"
-    )  # Create isosurface at threshold
-    plotter.add_mesh(
-        iso_mesh,
-        scalars="Pressure",  # use the scalar to color surfaces
-        cmap="jet",  # color map
-        opacity="linear",  # solid surfaces
-        show_scalar_bar=True,
-        scalar_bar_args={
-            "title": "Pressure",
-            "vertical": True,
-            "title_font_size": 16,
-            "label_font_size": 12,
-            "position_x": 0.85,
-            "position_y": 0.1,
-            "height": 0.3,
-        },
-        label="Pressure PII",
-        color="r",  # color of the mesh
+    plotter = add_pressure_vol(
+        pressure_vol,
+        plotter=plotter,
+        window_size=window_size,
+        notebook=notebook,
+        plot_focal_spot=plot_focal_spot,
+        off_screen=off_screen,
+        title=None,
+        **kwargs,
     )
 
-    plotter.add_axes()  # show XYZ axes
     plotter.show_grid()  # show grid
     if return_mesh:
         return plotter, pressure_vol
@@ -186,70 +167,3 @@ def plot_field_planes(
         plt.savefig(save_fig_name, dpi=300)
     plt.show()
     plt.close(fig)  # Close the figure to free memory
-
-
-def add_transducer_to_plotter(TX_mesh, plotter, **kwargs):
-    # Add the transducer to the plotter# 2) Add your TX_mesh with Apodization
-    plotter.add_mesh(
-        TX_mesh,
-        scalars="Apodization",  # use the attached scalar
-        cmap="cool",  # color map (you can change to "plasma", "coolwarm", etc.)
-        show_scalar_bar=True,
-        scalar_bar_args={
-            "title": "Pressure (u.a.)",
-            "title_font_size": 16,
-            "label_font_size": 12,
-            "vertical": True,
-            "position_x": 0.85,
-            "position_y": 0.2,
-            "height": 0.3,
-        },
-        label="Transducer",  # label for the legend
-        color="purple",  # color of the mesh
-    )
-    return plotter
-
-
-def add_pressure_to_plotter(plotter, pressure_vol, plot_focal_spot=True):
-    # 3) Add the pressure volume
-    if plot_focal_spot:
-        # pick a threshold, e.g. halfway to the max
-        threshold = 0.7 * pressure_vol["Pressure"].max()
-        iso_mesh = pressure_vol.contour(
-            [threshold], scalars="Pressure"
-        )  # Create isosurface at threshold# add that instead of (or in addition to) the volume
-        plotter.add_mesh(
-            iso_mesh,
-            opacity=1.0,
-            name="PressureIso",
-            show_scalar_bar=False,
-            label="Focal Spot",
-            color="r",  # color of the mesh
-        )
-    else:
-        n_contours = 10
-        min_val = 0
-        max_val = pressure_vol["Pressure"].max()
-        levels = np.linspace(min_val, max_val, n_contours)
-        iso_mesh = pressure_vol.contour(
-            isosurfaces=levels, scalars="Pressure"
-        )  # Create isosurface at threshold
-        plotter.add_mesh(
-            iso_mesh,
-            scalars="Pressure",  # use the scalar to color surfaces
-            cmap="jet",  # color map
-            opacity="linear",  # solid surfaces
-            show_scalar_bar=True,
-            scalar_bar_args={
-                "title": "Pressure",
-                "vertical": True,
-                "title_font_size": 16,
-                "label_font_size": 12,
-                "position_x": 0.9,
-                "position_y": 0.2,
-                "height": 0.3,
-            },
-            label="Pressure PII",
-            color="r",  # color of the mesh
-        )
-    return plotter

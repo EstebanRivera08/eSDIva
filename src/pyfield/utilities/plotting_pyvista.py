@@ -406,7 +406,7 @@ def add_markers(
     return plotter
 
 
-# ------------ helper funcitons --------------
+# ------------ helper functions --------------
 
 
 def recompute_bounds(plotter):

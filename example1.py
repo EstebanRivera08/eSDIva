@@ -1,24 +1,25 @@
 import numpy as np
 
-import pysonogen.transducers as Transducers
-from pysonogen.atlas import BG_Atlas
-from pysonogen.functions import (
+import pyfield.transducers as Transducers
+from pyfield.brain_atlas import BG_Atlas
+from pyfield.dopplerscan import DopplerScan
+from pyfield.psimulation import PyField, TorchField
+from pyfield.utilities import (
     add_2D_image,
     add_3D_vol,
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
     align_transducer_to_probe,
+    create_vol_mesh,
 )
-from pysonogen.psimulation import PyField, TorchField
-from pysonogen.scans import DopplerScan
 
 # ----------------- Get the scan objects --------------------
 
 # Define the paths to the scan files and BPS file
 # Make sure to change the paths according to your file structure
 
-MAIN_FOLDER_PATH = r".\src\pysonogen\datatype\Silvia"
+MAIN_FOLDER_PATH = r".\src\pyfield\datatype\Silvia"
 
 bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
 file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
@@ -52,7 +53,7 @@ apodization = domino.compute_apodization(
 
 # ------------------ Compute the pressue field --------------------
 # Use PyField to compute the pressure field
-Domino_field = TorchField(domino)
+Domino_field = PyField(domino)
 field_info_mm = {
     "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
     "y_extent": [-0.5 + focus_mm[1], 0.5 + focus_mm[1]],
@@ -61,12 +62,16 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-x, y, z, pressure_field = Domino_field(field_info_mm, inplace=True)
+x, y, z, pressure_field = Domino_field(field_info_mm)
+# The first time you call the function from one script there is
+# an additional deadtime in the simulation for compiling and organize
+# the parallel computing
+x, y, z, pressure_field = Domino_field(field_info_mm)
 
 # ------------------ Transform the meshes --------------------
 
 # Compute the pressure volume mesh
-pressure_vol_mesh = Domino_field.get_mesh()
+pressure_vol_mesh = create_vol_mesh(x, y, z, pressure_field, scalars="Pressure (PII)")
 
 # Get the meshes and get them to the probe coordinate system
 TX_mesh = domino.get_mesh()

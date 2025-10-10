@@ -1,6 +1,4 @@
 from .plotting import (
-    add_pressure_to_plotter,
-    add_transducer_to_plotter,
     plot_field_planes,
     plot_pressure_field,
 )
@@ -14,10 +12,9 @@ from .plotting_pyvista import (
     create_vol_mesh,
     recompute_bounds,
 )
-from .processing import (
+from .space_transformation_functions import (
     align_transducer_to_probe,
     compute_affine_from_markers,
-    compute_pressure_vol_mesh,
 )
 
 __all__ = [

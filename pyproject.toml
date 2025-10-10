@@ -1,5 +1,5 @@
 [project]
-name = "pysonogen"
+name = "pyfield"
 version = "0.1.0"
 description = "Add your description here"
 readme = "README.md"
@@ -39,7 +39,7 @@ dependencies = [
 line-length = 88
 
 [project.scripts]
-pysonogen = "pysonogen:main"
+pyfield = "pyfield:main"
 
 [build-system]
 requires = ["hatchling"]
