@@ -25,6 +25,9 @@ bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
 file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
 file_scan_2D_PATH = MAIN_FOLDER_PATH + r"\2Dscan.source.scan"
 
+save_fig = True  # Set to True to save the figures
+fig_folder = r"tutorials\Draft/Figures/"  # Folder to save the figures
+
 # Create the scan objects
 Doppler3D = DopplerScan(scan_PATH=file_scan_3D_PATH, bps_PATH=bps_PATH)
 # Doppler3D.show()
@@ -96,11 +99,16 @@ Brain_Atlas.transform(
 )  # Transform the atlas mesh to the probe coordinate system
 
 # ------------------ Code for plotting --------------------
-
+scale = 1
+off_screen = False
+if save_fig:
+    off_screen = True
+    scale = 3
 final_plotter = add_regions_mesh(
     Brain_Atlas.pv_mesh,
     notebook=False,
-    window_size=[1000, 800],
+    window_size=[800 * scale, 600 * scale],
+    off_screen=off_screen,
     kwargs_dict={
         region_names[0]: {"color": "lightgray", "opacity": 0.1},
         region_names[1]: {"color": "permanentgreen", "opacity": 0.2},
@@ -117,10 +125,15 @@ final_plotter = add_3D_vol(
     opacity_unit_distance=1,
     scalar_bar_args={
         "title": "3D Doppler (dB)",
-        "title_font_size": 16,
-        "label_font_size": 12,
+        "title_font_size": 16 * scale,
+        "label_font_size": 12 * scale,
         "color": "white",
+        "vertical": False,
+        "position_x": 0.6,
+        "position_y": 0.1,
+        "width": 0.3,
     },
+    ambient=1,
 )
 
 final_plotter = add_2D_image(
@@ -133,13 +146,13 @@ final_plotter = add_2D_image(
     ambient=1,
     scalar_bar_args={
         "title": "2D Doppler (dB)",
-        "title_font_size": 16,
-        "label_font_size": 12,
-        "vertical": True,
-        "position_x": 0.1,
-        "position_y": 0.2,
-        "height": 0.3,
+        "title_font_size": 16 * scale,
+        "label_font_size": 12 * scale,
         "color": "white",
+        "vertical": False,
+        "position_x": 0.2,
+        "position_y": 0.1,
+        "width": 0.3,
     },
 )
 
@@ -151,10 +164,10 @@ final_plotter = add_transducer_mesh(
     ambient=1,
     scalar_bar_args={
         "title": "Apodization",
-        "title_font_size": 16,
-        "label_font_size": 12,
+        "title_font_size": 16 * scale,
+        "label_font_size": 12 * scale,
         "vertical": True,
-        "position_x": 0.8,
+        "position_x": 0.85,
         "position_y": 0.6,
         "height": 0.3,
         "color": "white",
@@ -167,11 +180,11 @@ final_plotter = add_pressure_vol(
     plot_focal_spot=False,
     lighting=True,
     scalar_bar_args={
-        "title": "Pressure Field (PII)",
-        "title_font_size": 16,
-        "label_font_size": 12,
+        "title": "Pressure",
+        "title_font_size": 16 * scale,
+        "label_font_size": 12 * scale,
         "vertical": True,
-        "position_x": 0.8,
+        "position_x": 0.85,
         "position_y": 0.2,
         "height": 0.3,
         "color": "white",
@@ -180,14 +193,34 @@ final_plotter = add_pressure_vol(
 
 final_plotter.set_background("black")
 final_plotter.show_grid(
-    color="white", font_size=10
+    grid="back",
+    color="white",
+    font_size=12 * scale,
+    location="outer",
+    xtitle="X (mm)",
+    ytitle="Y (mm)",
+    ztitle="Z (mm)",
+    n_xlabels=3,
+    n_ylabels=5,
+    n_zlabels=6,
+    use_3d_text=False,
 )  # Show grid with white color and font size 10
-final_plotter.add_axes(color="white")
-final_plotter.camera_position = "zy"  # Set the camera position
-final_plotter.camera.up = (0, 0, -1)  # Set the camera up direction
-final_plotter.show()  # Show the plotter in Jupyter Notebook
 
-final_plotter.close()  # for plotters
+final_plotter.add_axes(label_size=(0.1, 0.1), color="white")
+final_plotter.camera_position = [
+    (-35.82464339746701, -19.934674593533888, 6.906725165821046),
+    (-2.316449860794587, -1.1753275901078455, 8.498045099318546),
+    (0.03252715920946665, 0.026652630106333085, -0.9991154193696428),
+]  # Set the camera position
+final_plotter.camera.up = (0, 0, -1)  # Set the camera up direction
+
+if save_fig:
+    final_plotter.screenshot(fig_folder + "mouse_brain_doppler_figure.png")
+else:
+    final_plotter.show()  # Show the plotter in Jupyter Notebook
+
+    final_plotter.close()  # for plotters
+print(final_plotter.camera_position)
 
 # ------------------ Clean up --------------------
 

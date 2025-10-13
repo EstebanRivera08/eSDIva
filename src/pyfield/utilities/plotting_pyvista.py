@@ -108,6 +108,7 @@ def add_3D_vol(
     notebook=False,
     window_size=[700, 700],
     off_screen=False,
+    scale=1,
     **kwargs,
 ):
     """
@@ -133,8 +134,12 @@ def add_3D_vol(
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": "Doppler (dB)",
-            "title_font_size": 16,
-            "label_font_size": 12,
+            "title_font_size": 16 * scale,
+            "label_font_size": 12 * scale,
+            "vertical": False,
+            "position_x": 0.1,
+            "position_y": 0.1,
+            "height": 0.3,
         },
     }
     for key, value in default_kwargs.items():
@@ -157,6 +162,7 @@ def add_2D_image(
     notebook=False,
     window_size=[700, 700],
     off_screen=False,
+    scale=1,
     **kwargs,
 ):
     """
@@ -180,8 +186,8 @@ def add_2D_image(
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": "2D Doppler (dB)",
-            "title_font_size": 16,
-            "label_font_size": 12,
+            "title_font_size": 16 * scale,
+            "label_font_size": 12 * scale,
             "vertical": True,
             "position_x": 0.1,
             "position_y": 0.2,
@@ -209,6 +215,7 @@ def add_pressure_vol(
     plot_focal_spot=False,
     off_screen=False,
     title=None,
+    scale=1,
     **kwargs,
 ):
     if plotter is None:
@@ -260,11 +267,11 @@ def add_pressure_vol(
             "show_scalar_bar": True,
             "scalar_bar_args": {
                 "title": title,
-                "title_font_size": 16,
-                "label_font_size": 12,
+                "title_font_size": 16 * scale,
+                "label_font_size": 12 * scale,
                 "vertical": True,
                 "position_x": 0.8,
-                "position_y": 0.2,
+                "position_y": 0.1,
                 "height": 0.3,
             },
             "label": title,  # label for the legend
@@ -290,6 +297,7 @@ def add_transducer_mesh(
     window_size=[800, 800],
     notebook=False,
     off_screen=False,
+    scale=1,
     **kwargs,
 ):
     if plotter is None:
@@ -306,11 +314,11 @@ def add_transducer_mesh(
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": "Apodization",
-            "title_font_size": 16,
-            "label_font_size": 12,
+            "title_font_size": 16 * scale,
+            "label_font_size": 12 * scale,
             "vertical": True,
             "position_x": 0.8,
-            "position_y": 0.6,
+            "position_y": 0.5,
             "height": 0.3,
         },
     }
