@@ -114,7 +114,7 @@ class PyField:
         print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")
         return t0, h_sir.T
 
-    def from_sir_to_pressure(self, h_sir, x, y, z, batch_size=8192, max_workers=None):
+    def from_sir_to_pressure(self, h_sir, x, y, z, batch_size=2048, max_workers=None):
         """
         Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
         """
