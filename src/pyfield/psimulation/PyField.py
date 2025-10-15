@@ -23,7 +23,7 @@ class PyField:
             self.apodization_sub_elem,
             self.delays_sub_elem,
             self.M,
-            self.range_k,
+            self.sub_elem_range_k,
         ) = compute_sub_elem_attributes(transducer)
 
         # compute patch centers_sub_elem/apodization/delays once
@@ -35,7 +35,7 @@ class PyField:
         self.apodization = transducer.apodization
 
         # Initialize logs
-        self.mean_range_k_log = []
+        self.mean_sub_elem_range_k_log = []
         self.T_log = []
         self.P_log = []
         self.sir_running_time_log = []
@@ -87,7 +87,7 @@ class PyField:
             self.delays,
         )
 
-        h_sir, self.range_k = compute_h_sir(
+        h_sir, self.sub_elem_range_k = compute_h_sir(
             P,
             M,
             T,
@@ -108,7 +108,7 @@ class PyField:
         # Store information
         self.P_log.append(P)
         self.T_log.append(T)
-        self.mean_range_k_log.append(np.mean(self.range_k))
+        self.mean_sub_elem_range_k_log.append(np.mean(self.sub_elem_range_k))
         self.sir_running_time_log.append(runtime_sir)
 
         print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")
@@ -146,6 +146,25 @@ class PyField:
         return amp_sir_at_tx_freq
 
     def __call__(self, field_points_mm, *, method="auto", normalize=False):
+        """
+        Compute the pressure field at specified points.
+        Parameters
+        ----------
+        field_points_mm : array-like or dict
+            Points where the pressure field is to be computed. Can be a dict with grid parameters or an array of points.
+        method : str, optional
+            Method for SIR computation. Options are 'auto', 'naive', or 'sdi'. Default is 'auto'.
+        normalize : bool, optional
+            If True, normalize the pressure field to its maximum value. Default is False.
+        sort_meshgrid : bool, optional
+            If True, organize the field points into a sorted meshgrid. Default is True.
+        Returns
+        -------
+        x, y, z : 1D arrays
+            Coordinates of the grid points in mm.
+        pressure_field : 3D array
+            Computed pressure field at the specified points.
+        """
         start = time.time()
         x, y, z, points = check_field_points(field_points_mm)
         t0, h_sir = self.compute_sir(points, method=method)

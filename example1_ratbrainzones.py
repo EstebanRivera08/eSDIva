@@ -14,7 +14,7 @@ from pyfield.utilities import (
 
 print("\n --- Example 1: Rat Brain Zones --- \n")
 
-save_fig = True
+save_fig = False
 fig_folder = r"C:\Users\deyve\Documents\Inkscape\SDI\figure3/"
 
 theme = "dark"

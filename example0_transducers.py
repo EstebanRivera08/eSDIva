@@ -8,7 +8,7 @@ from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_
 
 print("\n --- Example 0: Linear and Matrix Array Transducers --- \n")
 
-save_fig = True
+save_fig = False
 fig_folder = r"C:\Users\deyve\Documents\Inkscape\SDI\figure3/"
 
 scale = 3

@@ -1,3 +1,7 @@
+from .helper_functions_for_classes import (
+    compute_sub_elem_attributes,
+    create_spatial_grid_from_dict,
+)
 from .plotting import (
     plot_field_planes,
     plot_pressure_field,
@@ -33,4 +37,6 @@ __all__ = [
     "add_markers",
     "create_vol_mesh",
     "recompute_bounds",
+    "compute_sub_elem_attributes",
+    "create_spatial_grid_from_dict",
 ]

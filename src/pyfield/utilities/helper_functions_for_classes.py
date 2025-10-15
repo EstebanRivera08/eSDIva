@@ -65,7 +65,7 @@ def compute_sub_elem_attributes(transducer):
 
 
 # Spatial grid
-def create_simulation_grid(simulation_struct):
+def create_spatial_grid_from_dict(simulation_struct):
     """
     Create a simulation mesh for the ultrasound field.
 
@@ -131,7 +131,7 @@ def create_simulation_grid(simulation_struct):
 
 def check_field_points(field_points_mm):
     if isinstance(field_points_mm, dict):
-        x, y, z, spatial_grid = create_simulation_grid(field_points_mm)
+        x, y, z, spatial_grid = create_spatial_grid_from_dict(field_points_mm)
 
     if isinstance(field_points_mm, (np.ndarray, list, tuple)):
         if isinstance(field_points_mm, (list, tuple)):

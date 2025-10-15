@@ -147,7 +147,7 @@ def compute_parallelized_sir_optimized(
                 # t1 (+)
                 k1f = (t1 - t0) * fs + 1
                 k4f = (t4 - t0) * fs + 1
-                if k1f < 0.0 or k1f > T - 1.0 or k4f > T - 1.0:
+                if np.floor(k1f) < 0.0 or k1f > T - 1.0 or np.floor(k4f) > T - 1.0:
                     print("Warning: event outside time grid in point ", p)
                     continue
                 kf = k1f
