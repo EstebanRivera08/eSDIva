@@ -77,7 +77,7 @@ def add_regions_mesh(
                     kwargs = default_kwargs
                 else:
                     kwargs = kwargs_dict[region]
-                kwargs["label"] = region if region != "root" else "Brain"
+                kwargs["label"] = region  # if region != "root" else "Brain"
             elif isinstance(kwargs_dict, dict) and "default" in kwargs_dict.keys():
                 kwargs = default_kwargs
             else:
@@ -214,7 +214,7 @@ def add_pressure_vol(
     notebook=False,
     plot_focal_spot=False,
     off_screen=False,
-    title=None,
+    colorbar_title=None,
     scale=1,
     **kwargs,
 ):
@@ -229,8 +229,8 @@ def add_pressure_vol(
             f"Warning: The scalar field in the pressure volume is named '{scalars}' instead of 'Pressure'. Proceeding with '{scalars}'."
         )
 
-    if title is None:
-        title = f"{scalars}, (u.a.)"
+    if colorbar_title is None:
+        colorbar_title = f"{scalars}, (u.a.)"
 
     # 3) Add the pressure volume
     if plot_focal_spot:
@@ -266,7 +266,7 @@ def add_pressure_vol(
             "cmap": "jet",
             "show_scalar_bar": True,
             "scalar_bar_args": {
-                "title": title,
+                "title": colorbar_title,
                 "title_font_size": 16 * scale,
                 "label_font_size": 12 * scale,
                 "vertical": True,
@@ -274,7 +274,7 @@ def add_pressure_vol(
                 "position_y": 0.1,
                 "height": 0.3,
             },
-            "label": title,  # label for the legend
+            "label": scalars,  # label for the legend
             "color": "r",  # color of the mesh
         }
         for key, value in default_kwargs.items():
@@ -298,22 +298,33 @@ def add_transducer_mesh(
     notebook=False,
     off_screen=False,
     scale=1,
+    scalars="Apodization",
+    colorbar_title=None,
     **kwargs,
 ):
     if plotter is None:
         plotter = pv.Plotter(
             notebook=notebook, window_size=window_size, off_screen=off_screen
         )
+    if scalars == "Apodization":
+        title_name = "Apodization"
+        cmap = "cool"
+    elif scalars == "Delays":
+        title_name = "Delays (s)"
+        cmap = "rainbow"
+    else:
+        raise ValueError("Scalars must be 'Apodization' or 'Delays'")
+
+    if colorbar_title is not None:
+        title_name = colorbar_title
 
     default_kwargs = {
-        "scalars": "Apodization",  # Assuming 'Apodization' is a scalar field in TX_mesh
-        "cmap": "cool",
-        "clim": [0, 1],
-        "opacity": 1.0,
-        "show_edges": True,
+        "scalars": scalars,
+        "cmap": cmap,
+        "clim": [0, 1] if scalars == "Apodization" else None,
         "show_scalar_bar": True,
         "scalar_bar_args": {
-            "title": "Apodization",
+            "title": title_name,
             "title_font_size": 16 * scale,
             "label_font_size": 12 * scale,
             "vertical": True,
@@ -321,6 +332,8 @@ def add_transducer_mesh(
             "position_y": 0.5,
             "height": 0.3,
         },
+        "opacity": 1.0,
+        "show_edges": True,
     }
 
     for key, value in default_kwargs.items():

@@ -1,4 +1,5 @@
 import numpy as np
+import pyvista as pv
 
 import pyfield.transducers as Transducers
 from pyfield.brain_atlas import BG_Atlas
@@ -19,14 +20,17 @@ from pyfield.utilities import (
 # Define the paths to the scan files and BPS file
 # Make sure to change the paths according to your file structure
 
+# pv.global_theme.anti_aliasing = "ssaa"
+
 MAIN_FOLDER_PATH = r".\src\pyfield\datatype\Silvia"
 
 bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
 file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
 file_scan_2D_PATH = MAIN_FOLDER_PATH + r"\2Dscan.source.scan"
 
-save_fig = True  # Set to True to save the figures
+save_fig = False  # Set to True to save the figures
 fig_folder = r"tutorials\Draft/Figures/"  # Folder to save the figures
+version = "v1"  # Version of the figure
 
 # Create the scan objects
 Doppler3D = DopplerScan(scan_PATH=file_scan_3D_PATH, bps_PATH=bps_PATH)
@@ -99,7 +103,7 @@ Brain_Atlas.transform(
 )  # Transform the atlas mesh to the probe coordinate system
 
 # ------------------ Code for plotting --------------------
-scale = 1
+scale = 2
 off_screen = False
 if save_fig:
     off_screen = True
@@ -215,12 +219,12 @@ final_plotter.camera_position = [
 final_plotter.camera.up = (0, 0, -1)  # Set the camera up direction
 
 if save_fig:
-    final_plotter.screenshot(fig_folder + "mouse_brain_doppler_figure.png")
+    final_plotter.screenshot(fig_folder + f"mouse_brain_doppler_figure_{version}.png")
 else:
     final_plotter.show()  # Show the plotter in Jupyter Notebook
 
     final_plotter.close()  # for plotters
-print(final_plotter.camera_position)
+# print(final_plotter.camera_position)
 
 # ------------------ Clean up --------------------
 

@@ -8,22 +8,24 @@ from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_
 
 print("\n --- Example 0: Linear and Matrix Array Transducers --- \n")
 
-save_fig = False
+save_fig = True
 fig_folder = r"C:\Users\deyve\Documents\Inkscape\SDI\figure3/"
 
 scale = 3
-run_linear_array = True
-run_matrix_array = False
+run_linear_array = False
+run_matrix_array = True
 theme = "dark"
 
 
 if theme == "dark":
     pv.set_plot_theme("dark")
+
+    pv.global_theme.anti_aliasing = "ssaa"
     pv.global_theme.background = "black"
     color = "white"
     pv.global_theme.font.color = "white"
-    ambient_tx = 0.5
-    ambient_pr = 0.5
+    ambient_tx = 0.1
+    ambient_pr = 0.55
 else:
     color = "black"
     ambient_tx = 1
@@ -163,7 +165,7 @@ if run_linear_array:
     if save_fig:
         plotter1_linear.screenshot(fig_folder + "linear_array_pressure_field.png")
     else:
-        plotter1_linear.show(jupyter_backend="static")
+        plotter1_linear.show()
 
     plotter1_linear.close()
 
