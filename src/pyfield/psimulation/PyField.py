@@ -23,7 +23,7 @@ class PyField:
             self.apodization_sub_elem,
             self.delays_sub_elem,
             self.M,
-            self.sub_elem_range_k,
+            self.sub_elem_delta_k,
         ) = compute_sub_elem_attributes(transducer)
 
         # compute patch centers_sub_elem/apodization/delays once
@@ -35,7 +35,7 @@ class PyField:
         self.apodization = transducer.apodization
 
         # Initialize logs
-        self.mean_sub_elem_range_k_log = []
+        self.mean_sub_elem_delta_k_log = []
         self.T_log = []
         self.P_log = []
         self.sir_running_time_log = []
@@ -87,7 +87,7 @@ class PyField:
             self.delays,
         )
 
-        h_sir, self.sub_elem_range_k = compute_h_sir(
+        h_sir, self.sub_elem_delta_k = compute_h_sir(
             P,
             M,
             T,
@@ -108,7 +108,7 @@ class PyField:
         # Store information
         self.P_log.append(P)
         self.T_log.append(T)
-        self.mean_sub_elem_range_k_log.append(np.mean(self.sub_elem_range_k))
+        self.mean_sub_elem_delta_k_log.append(np.mean(self.sub_elem_delta_k))
         self.sir_running_time_log.append(runtime_sir)
 
         print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")

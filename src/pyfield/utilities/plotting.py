@@ -167,3 +167,67 @@ def plot_field_planes(
         plt.savefig(save_fig_name, dpi=300)
     plt.show()
     plt.close(fig)  # Close the figure to free memory
+
+
+def deltak_distribution(
+    pyfield, *, per_element=True, cmap="turbo", hist_color="#AB0000E8"
+):
+    sub_elem_delta_k = pyfield.sub_elem_delta_k
+    transducer = pyfield.tx
+
+    M = pyfield.M
+    T = pyfield.T_log[-1]
+    P = pyfield.P_log[-1]
+
+    condition = 8 + 2 * T / M
+    mean_k = np.mean(sub_elem_delta_k)
+    print(f"last simulation characteristics: M = {M}, P = {P}, T = {T}")
+    print(f"mean_delta_k : {mean_k}, and 8+2T/M : {condition}")
+
+    # If transducer is given we'll mean the values patch per element
+    # and show results per element
+    xlabel = "Patch index"
+    if per_element is False:
+        range_k = sub_elem_delta_k
+    else:
+        n_elements = transducer.n_elements
+        no_sub_x = transducer.no_sub_x
+        no_sub_y = transducer.no_sub_y
+        xlabel = "Element index"
+
+        range_k = np.zeros((P, n_elements), dtype=np.float32)
+        for i in range(n_elements):
+            range_k[:, i] = sub_elem_delta_k[
+                :, i * no_sub_x * no_sub_y : (i + 1) * no_sub_x * no_sub_y
+            ].mean(axis=1)
+
+    # Create figure and choose 2D or 3D axes for the left subplot depending on transducer
+    fig = plt.figure(figsize=(10, 4))
+    gs = GridSpec(1, 2, width_ratios=[1, 0.5])
+    ax0 = fig.add_subplot(gs[0])
+    ax1 = fig.add_subplot(gs[1])
+
+    im = ax0.imshow(range_k, aspect="auto", cmap=cmap)
+    ax0.set_title("a)")
+    ax0.set_xlabel(xlabel)
+    ax0.set_ylabel("Point index")
+    fig.colorbar(im, ax=ax0, label="$\Delta k$ ")
+
+    # plot Histogram of the krange
+    ax1.hist(
+        sub_elem_delta_k.flatten(),
+        bins=10,
+        color=hist_color,
+        edgecolor="black",
+        alpha=0.85,
+    )
+    ax1.set_xlabel(r"$\Delta k$")
+    ax1.set_ylabel("Frequency")
+    ax1.set_title(r"b)")
+    ax1.grid(axis="y", color="gray", linestyle="--", alpha=0.6)
+    ax1.spines["right"].set_visible(False)
+    ax1.spines["top"].set_visible(False)
+    ax1.set_facecolor("#FFFFFFC5")
+    plt.tight_layout()
+
+    return fig
