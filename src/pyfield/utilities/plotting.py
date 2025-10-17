@@ -170,7 +170,14 @@ def plot_field_planes(
 
 
 def deltak_distribution(
-    pyfield, *, per_element=True, cmap="turbo", hist_color="#AB0000E8"
+    pyfield,
+    *,
+    figsize=(11, 4),
+    per_element=True,
+    cmap="turbo",
+    hist_color="#AB0000E8",
+    xlim=None,
+    ylim=None,
 ):
     sub_elem_delta_k = pyfield.sub_elem_delta_k
     transducer = pyfield.tx
@@ -202,16 +209,20 @@ def deltak_distribution(
             ].mean(axis=1)
 
     # Create figure and choose 2D or 3D axes for the left subplot depending on transducer
-    fig = plt.figure(figsize=(10, 4))
-    gs = GridSpec(1, 2, width_ratios=[1, 0.5])
+    fig = plt.figure(figsize=figsize)
+    gs = GridSpec(1, 2, width_ratios=[1, 0.6])
     ax0 = fig.add_subplot(gs[0])
     ax1 = fig.add_subplot(gs[1])
 
     im = ax0.imshow(range_k, aspect="auto", cmap=cmap)
-    ax0.set_title("a)")
+    # ax0.set_title("a)")
     ax0.set_xlabel(xlabel)
     ax0.set_ylabel("Point index")
-    fig.colorbar(im, ax=ax0, label="$\Delta k$ ")
+    if xlim is not None:
+        ax0.set_xlim(xlim)
+    if ylim is not None:
+        ax0.set_ylim(ylim)
+    fig.colorbar(im, ax=ax0, label="$\Delta k_{m,p}$ ")
 
     # plot Histogram of the krange
     ax1.hist(
@@ -223,7 +234,7 @@ def deltak_distribution(
     )
     ax1.set_xlabel(r"$\Delta k$")
     ax1.set_ylabel("Frequency")
-    ax1.set_title(r"b)")
+    # ax1.set_title(r"b)")
     ax1.grid(axis="y", color="gray", linestyle="--", alpha=0.6)
     ax1.spines["right"].set_visible(False)
     ax1.spines["top"].set_visible(False)
