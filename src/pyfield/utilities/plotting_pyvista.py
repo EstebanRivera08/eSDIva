@@ -224,6 +224,7 @@ def add_pressure_vol(
         )
 
     scalars = pressure_vol.point_data.keys()[0]  # Get the name of the first scalar
+    print(scalars)
     if scalars != "Pressure":
         print(
             f"Warning: The scalar field in the pressure volume is named '{scalars}' instead of 'Pressure'. Proceeding with '{scalars}'."

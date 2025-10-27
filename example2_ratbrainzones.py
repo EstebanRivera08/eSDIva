@@ -35,6 +35,8 @@ else:
 
 # ----------------- Get the atlas object --------------------
 
+print("\n --- Import Brain Atlas --- \n")
+
 atlas_name = "whs_sd_rat_39um"
 
 region_names = ("root", "M1", "S1-hl")
@@ -49,6 +51,8 @@ Brain_Atlas = BG_Atlas(atlas_name, region_names=region_names)
 
 
 # ------------------- Get the transducer object --------------------
+
+print("\n --- Import transducer --- \n")
 domino = Transducers.Domino()
 
 # Focalization spot
@@ -65,7 +69,8 @@ TX_mesh = domino.get_mesh()
 
 # ------------------ Compute the pressue field --------------------
 # Use PyField to compute the pressure field
-Domino_field = TorchField(domino)
+print("\n --- Compute Pressure Field --- \n")
+Domino_field = PyField(domino)
 field_info_mm = {
     "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
     "y_extent": [-0.5 + focus_mm[1], 0.5 + focus_mm[1]],
@@ -74,7 +79,7 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-x, y, z, pr = Domino_field(field_info_mm, inplace=True)
+x, y, z, pr = Domino_field(field_info_mm)
 
 # Compute the pressure volume mesh
 pressure_vol_mesh = create_vol_mesh(x, y, z, pr / pr.max(), scalars="Pressure")
@@ -140,7 +145,7 @@ if save_fig:
 else:
     plotter = pv.Plotter(window_size=(800, 600), notebook=False)
 
-final_plotter = add_regions_mesh(
+plotter = add_regions_mesh(
     Brain_Atlas.pv_mesh,
     plotter=plotter,
     kwargs_dict={
@@ -214,11 +219,20 @@ if save_fig:
     plotter.screenshot(fig_folder + "rat_brain_zones.png")
 else:
     plotter.show()
-plotter.close()  # for plotters
 
-print(plotter.camera_position)
+# Print camera position while the plotter is still valid
+# print(plotter.camera_position)
+
+# Close the plotter and ensure PyVista releases resources before interpreter exit.
+plotter.close()
+try:
+    pv.close_all()
+except Exception:
+    pass
 
 # ------------------ Clean up --------------------
 
 
-del TX_mesh, Brain_Atlas, plotter, pressure_vol_mesh, domino
+del TX_mesh, Brain_Atlas, pressure_vol_mesh, domino
+# remove the last reference to the plotter so destructors run while pyvista is available
+del plotter

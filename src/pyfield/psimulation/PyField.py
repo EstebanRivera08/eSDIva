@@ -4,7 +4,7 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from pyfield.h_sir.farfield_rect_patch import compute_h_sir
-from pyfield.utilities.helper_functions_for_classes import (
+from pyfield.utilities.helper_functions import (
     check_field_points,
     compute_sub_elem_attributes,
     compute_time_grid,
@@ -72,7 +72,7 @@ class PyField:
 
         P, M = points.shape[0], self.M
 
-        print(f"Computing SIR for {P} points and {M} patches...")
+        print(f"\n Computing SIR for {P} points and {M} patches...")
         startSIR = time.time()
 
         time_grid, t0, dt, T = compute_time_grid(
@@ -111,7 +111,7 @@ class PyField:
         self.mean_sub_elem_delta_k_log.append(np.mean(self.sub_elem_delta_k))
         self.sir_running_time_log.append(runtime_sir)
 
-        print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")
+        print(f"Transducer SIR computed in {runtime_sir:.3f} seconds...")
         return t0, h_sir.T
 
     def from_sir_to_pressure(self, h_sir, x, y, z, batch_size=2048, max_workers=None):
@@ -169,7 +169,7 @@ class PyField:
         x, y, z, points = check_field_points(field_points_mm)
         t0, h_sir = self.compute_sir(points, method=method)
         pressure_field = self.from_sir_to_pressure(h_sir, x, y, z)
-        print(f"Pressure field computed in {time.time() - start:.2f} seconds...")
+        print(f"Pressure field computed in {time.time() - start:.2f} seconds... \n")
 
         if normalize:
             pressure_field = pressure_field / pressure_field.max()

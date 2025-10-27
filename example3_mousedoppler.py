@@ -16,6 +16,7 @@ from pyfield.utilities import (
 )
 
 # ----------------- Get the scan objects --------------------
+print("\n --- Example 4: Mouse Brain Atlas + Doppler + Pressure Field --- \n")
 
 # Define the paths to the scan files and BPS file
 # Make sure to change the paths according to your file structure
@@ -40,6 +41,10 @@ Doppler2D = DopplerScan(scan_PATH=file_scan_2D_PATH)
 # Doppler2D.show(interpolation = 'bilinear')
 
 # ----------------- Get the atlas object --------------------
+
+
+print("\n --- Import Brain Atlas --- \n")
+
 atlas_name = "allen_mouse_25um"
 
 region_names = "root"
@@ -47,6 +52,7 @@ region_names = "root"
 Brain_Atlas = BG_Atlas(atlas_name, region_names=region_names)
 
 # ------------------- Get the transducer object --------------------
+print("\n --- Import transducer --- \n")
 domino = Transducers.Domino()
 
 # Focalization spot
@@ -60,6 +66,7 @@ apodization = domino.compute_apodization(
 
 # ------------------ Compute the pressue field --------------------
 # Use PyField to compute the pressure field
+print("\n --- Compute Pressure Field --- \n")
 Domino_field = PyField(domino)
 field_info_mm = {
     "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
@@ -103,7 +110,8 @@ Brain_Atlas.transform(
 )  # Transform the atlas mesh to the probe coordinate system
 
 # ------------------ Code for plotting --------------------
-scale = 2
+
+scale = 1
 off_screen = False
 if save_fig:
     off_screen = True

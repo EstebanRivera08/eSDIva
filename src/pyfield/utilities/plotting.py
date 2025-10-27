@@ -41,7 +41,6 @@ def plot_pressure_field(
         notebook=notebook,
         plot_focal_spot=plot_focal_spot,
         off_screen=off_screen,
-        title=None,
         **kwargs,
     )
 
@@ -222,7 +221,7 @@ def deltak_distribution(
         ax0.set_xlim(xlim)
     if ylim is not None:
         ax0.set_ylim(ylim)
-    fig.colorbar(im, ax=ax0, label="$\Delta k_{m,p}$ ")
+    fig.colorbar(im, ax=ax0, label=r"$\Delta k_{m,p}$ ")
 
     # plot Histogram of the krange
     ax1.hist(

@@ -2,7 +2,7 @@ import time
 
 import numpy as np
 
-from pyfield.utilities.helper_functions_for_classes import (
+from pyfield.utilities.helper_functions import (
     check_field_points,
     compute_sub_elem_attributes,
     compute_time_grid,

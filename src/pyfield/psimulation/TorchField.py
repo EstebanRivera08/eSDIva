@@ -9,7 +9,7 @@ import torch.profiler
 from torch import Tensor
 from tqdm import tqdm
 
-from pyfield.utilities.helper_functions_for_classes import check_field_points
+from pyfield.utilities.helper_functions import check_field_points
 
 
 # --- JIT-compiled core event computation (unchanged, but output in μs) ---

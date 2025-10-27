@@ -1,4 +1,4 @@
-from .helper_functions_for_classes import (
+from .helper_functions import (
     compute_sub_elem_attributes,
     create_spatial_grid_from_dict,
 )
@@ -13,7 +13,7 @@ from .plotting_pyvista import (
     create_vol_mesh,
     recompute_bounds,
 )
-from .space_transformation_functions import (
+from .transformation_functions import (
     align_transducer_to_probe,
     compute_affine_from_markers,
 )
