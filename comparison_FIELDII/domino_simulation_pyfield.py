@@ -13,13 +13,13 @@ def main():
     c = 1540.0  # m/s
 
     # ------- focus and simulation window (input parameters) -------
-    x_extent_mm = [-5, 5]
-    y_extent_mm = [-5, 5]
-    z_extent_mm = [1, 16]
+    x_extent_mm = [-2, 2]
+    y_extent_mm = [-2, 2]
+    z_extent_mm = [3, 13]
     dxyz = 0.5  # mm
     dx_mm = dxyz
-    dy_mm = dxyz
-    dz_mm = dxyz
+    dy_mm = dxyz * np.diff(y_extent_mm) / np.diff(x_extent_mm)
+    dz_mm = dxyz * np.diff(z_extent_mm) / np.diff(x_extent_mm)
     focus_mm = [0.0, 0.0, 8]
     sampling_frequency_MHz = 100.0
 
@@ -32,7 +32,7 @@ def main():
     tx_elevationFocus_mm = 8.0
     tx_frequency_Hz = frequency_MHz * 1e6
     no_sub_x = 1
-    no_sub_y = 10
+    no_sub_y = 5
 
     # Create transducer (Linear array equivalent)
     tx = transducers.LinearArrayTransducer(

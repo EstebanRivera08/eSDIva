@@ -1,6 +1,7 @@
 from .helper_functions import (
     compute_sub_elem_attributes,
     create_spatial_grid_from_dict,
+    to_dB,
 )
 from .plotting import deltak_distribution, plot_field_planes, plot_pressure_field
 from .plotting_pyvista import (
@@ -37,4 +38,5 @@ __all__ = [
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",
     "deltak_distribution",
+    "to_dB",
 ]

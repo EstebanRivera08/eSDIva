@@ -5,6 +5,7 @@ from pyfield.psimulation import PyField, TorchField
 from pyfield.utilities import (
     plot_field_planes,
     plot_pressure_field,
+    to_dB,
 )
 
 __all__ = [
@@ -15,6 +16,7 @@ __all__ = [
     "utilities",
     "plot_field_planes",
     "plot_pressure_field",
+    "to_dB",
 ]
 
 __version__ = "0.1.0"

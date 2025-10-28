@@ -93,7 +93,7 @@ class LinearArrayTransducer:
 
         end_time = TIME()
         print(
-            f"LinearArrayTransducer initialized in {end_time - start_time:.4f} seconds."
+            f"\nLinearArrayTransducer initialized in {end_time - start_time:.4f} seconds."
         )
 
     def _build_subdivisions(self):

@@ -34,17 +34,21 @@ class PyField:
         self.delays = transducer.delays
         self.apodization = transducer.apodization
 
-        # Initialize logs
-        self.mean_sub_elem_delta_k_log = []
-        self.T_log = []
-        self.P_log = []
-        self.sir_running_time_log = []
-
         # Medium parameters
         self.c = c  # m/s
         self.alpha0 = alpha0  # dB/(MHz^y cm)
         self.freq_power = freq_power  # freq_power law exponent
         self.fs = fs  # Hz
+        lambda_m = c / self.fc  # m
+        print(
+            f"Min distance must be >> w^2/(4*lambda): {max(self.wx, self.wy) ** 2 / 4 / lambda_m * 1e3:.4f} mm"
+        )
+
+        # Initialize logs
+        self.mean_sub_elem_delta_k_log = []
+        self.T_log = []
+        self.P_log = []
+        self.sir_running_time_log = []
 
     def compute_sir(self, points, *, method="auto"):
         if isinstance(points, (np.ndarray, list, tuple)):
@@ -72,7 +76,7 @@ class PyField:
 
         P, M = points.shape[0], self.M
 
-        print(f"\n Computing SIR for {P} points and {M} patches...")
+        print(f"\nComputing SIR for {P} points and {M} patches...")
         startSIR = time.time()
 
         time_grid, t0, dt, T = compute_time_grid(

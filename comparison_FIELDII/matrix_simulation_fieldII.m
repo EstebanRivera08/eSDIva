@@ -12,18 +12,17 @@ disp('Defining transducer...')
 
 % ------------------ Saving and plotting options -----------------------
 version= '_v1' ;
-data_folder = '\' ;
-figure_folder = '\' ;
 
 %  -------------- emission ----------------
 frequency = 12.5 ; %MHz
+f_sampling = 300 ; %MHz
 data.c = 1540; % Speed of sound [m/s]
 
 % ------- focus and simulation window (input parameters) -------
 x_extent = [-2, 2]; % mm
 y_extent = [-2, 2]; % mm
 z_extent = [3, 13]; % mm
-dxyz = 0.5 ; %mm
+dxyz = 0.05 ; %mm
 dx = dxyz ; % mm
 dy = dxyz*diff(y_extent)/diff(x_extent) ; % mm
 dz = dxyz*diff(z_extent)/diff(x_extent) ; % mm
@@ -32,7 +31,7 @@ y_focus = 0 ; % mm
 z_focus = 8 ; % mm
 
 % Set the sampling frequency
-data.sampling_frequency = 300e6 ; 
+data.sampling_frequency = f_sampling*1e6 ; 
 set_sampling(data.sampling_frequency);
 
 
@@ -190,6 +189,18 @@ data.x = x_vec ;
 data.y = y_vec ;
 data.z = z_vec ;
 data.pr = Pressure_field_monofreq;
+
+%% Save results
+
+filename = ['Linear', ...
+             '_nsubx',num2str(data.no_sub_x),'_nsuby',num2str(data.no_sub_y),...
+             '_fs', num2str(f_sampling), '_nxyz', num2str(nx),...
+             '_P', num2str(data.P),...
+             '_M', num2str(data.M),...
+             '_T', num2str(data.T)  ] ;
+disp(['File: ', filename])
+
+save(filename, 'data')
 
 %% Plot plane
 

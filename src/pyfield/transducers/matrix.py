@@ -109,7 +109,7 @@ class MatrixArrayTransducer:
             f"MatrixArrayTransducer initialized with {self.n_elements} elements and {len(self.sub_quad_verts)} patches."
         )
         end_time = TIME()
-        print(f"Transducer initialized in {end_time - start_time:.4f} seconds.")
+        print(f"\nTransducer initialized in {end_time - start_time:.4f} seconds.")
 
     def compute_apodization(
         self,

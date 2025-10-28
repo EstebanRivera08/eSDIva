@@ -216,6 +216,8 @@ def add_pressure_vol(
     off_screen=False,
     colorbar_title=None,
     scale=1,
+    vmin=None,
+    vmax=None,
     **kwargs,
 ):
     if plotter is None:
@@ -224,14 +226,14 @@ def add_pressure_vol(
         )
 
     scalars = pressure_vol.point_data.keys()[0]  # Get the name of the first scalar
-    print(scalars)
+
     if scalars != "Pressure":
         print(
             f"Warning: The scalar field in the pressure volume is named '{scalars}' instead of 'Pressure'. Proceeding with '{scalars}'."
         )
 
     if colorbar_title is None:
-        colorbar_title = f"{scalars}, (u.a.)"
+        colorbar_title = f"{scalars}"
 
     # 3) Add the pressure volume
     if plot_focal_spot:
@@ -255,8 +257,14 @@ def add_pressure_vol(
 
     else:
         n_contours = 10
-        min_val = 0
-        max_val = pressure_vol[scalars].max()
+        if vmin is not None:
+            min_val = vmin
+        else:
+            min_val = pressure_vol[scalars].min()
+        if vmax is not None:
+            max_val = vmax
+        else:
+            max_val = pressure_vol[scalars].max()
         levels = np.linspace(min_val, max_val, n_contours)
         iso_mesh = pressure_vol.contour(
             isosurfaces=levels, scalars=scalars

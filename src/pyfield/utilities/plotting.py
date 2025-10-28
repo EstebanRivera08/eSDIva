@@ -11,7 +11,7 @@ def plot_pressure_field(
     z,
     pressure_field,
     *,
-    scalars="Pressure (u.a.)",
+    scalars="Pressure",
     plotter=None,
     off_screen=False,
     window_size=[520, 720],
@@ -44,6 +44,7 @@ def plot_pressure_field(
         **kwargs,
     )
 
+    plotter.camera.up = (0, 0, -1)
     plotter.show_grid()  # show grid
     if return_mesh:
         return plotter, pressure_vol
@@ -57,6 +58,7 @@ def plot_field_planes(
     pressure_field,
     *,
     figsize=(10, 5),
+    title=None,
     interpolation=None,
     centered_to_max=False,
     save_fig_name=None,
@@ -161,6 +163,8 @@ def plot_field_planes(
     cbar.set_label(label)
     cbar.ax.yaxis.set_label_position("left")
 
+    if title is not None:
+        fig.suptitle(title, fontsize=16)
     plt.tight_layout()
     if save_fig_name:
         plt.savefig(save_fig_name, dpi=300)

@@ -48,8 +48,8 @@ data.tx_pitch_mm = 0.11 ; % Kerf [mm]
 data.tx_kerf_mm = data.tx_pitch_mm - data.tx_width_mm ; % Kerf [mm]
 data.tx_elevationFocus_mm = 8 ; % Elevation focus [m]
 data.tx_frequency = data.f0 ; % Transducer center frequency [Hz]
-data.no_sub_x = 2  ;% Number of sub-divisions in x-direction of mathematical elements
-data.no_sub_y = 20 ;% Number of sub-divisions in y-direction of mathematical elements
+data.no_sub_x = 1  ;% Number of sub-divisions in x-direction of mathematical elements
+data.no_sub_y = 10 ;% Number of sub-divisions in y-direction of mathematical elements
 
 
 % -------- The size of sub-division is correct? -----------

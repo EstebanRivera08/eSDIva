@@ -172,11 +172,10 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays):
 
     max_dist, min_dist = compute_minmax_distance_patch_to_point(P, M, points, centers)
     print(
-        f"Max distance: {max_dist * 1e3:.2f} mm, Min distance: {min_dist * 1e3:.2f} mm"
+        f"Min distance: {min_dist * 1e3:.2f} mm, Max distance: {max_dist * 1e3:.2f} mm"
     )
     max_delay = delays.max()
     size_patch = wx + wy
-
     # Compute min and max time
     # t1 = min_l/c - 0.5*(max_Dt1 + max_Dt2) + min_delay
     # t4 = t1 + Dt1 + Dt2 = min_/c + 0.5*(max_Dt1 + max_Dt2) + max_delay
@@ -195,3 +194,25 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays):
         f"Computed time grid from {min_time * 1e6:.2f} us to {max_time * 1e6:.2f} us, with {T} samples in {time.time() - start:.2f} seconds."
     )
     return t_grid, min_time, dt, T
+
+
+def to_dB(matrix):
+    """Convert a matrix to decibel (dB) scale."""
+
+    mat = np.asarray(matrix, dtype=float)
+    mag = np.abs(mat)
+
+    # handle empty input
+    if mag.size == 0:
+        return np.array([])
+
+    # normalize safely
+    maxv = mag.max()
+    if maxv == 0:
+        maxv = 1.0
+    mag = mag / maxv
+
+    # avoid log(0) without in-place assignment
+    mag = np.where(mag == 0, 1e-20, mag)
+
+    return 20 * np.log10(mag)
