@@ -3,7 +3,7 @@ clear
 
 addpath("C:\Users\INSERM\Documents\Esteban\Simulation\Field II\Field_II_ver_3_30_windows")
 addpath("C:\Users\INSERM\Documents\Esteban\Simulation\neurosonogene_acousticsimulations\WorkInProgress\Functions")
-
+ 
 
 %% DEFINE PULSE AND TRANSDUCER PROPERTIES
 field_init(0)
@@ -11,11 +11,11 @@ field_init(0)
 disp('Defining transducer...')
 
 % ------------------ Saving and plotting options -----------------------
-version= '_v1' ;
+folder = 'data\Matrix\' ;
 
 %  -------------- emission ----------------
-frequency = 12.5 ; %MHz
-f_sampling = 300 ; %MHz
+frequency = 10 ; %MHz
+f_sampling = 100 ; %MHz
 data.c = 1540; % Speed of sound [m/s]
 
 % ------- focus and simulation window (input parameters) -------
@@ -34,38 +34,48 @@ z_focus = 8 ; % mm
 data.sampling_frequency = f_sampling*1e6 ; 
 set_sampling(data.sampling_frequency);
 
-
 %  ------------------- transducer characteristics --------------------
 data.f0 = frequency*1e6 ; % [Hz]
 data.lambda = data.c/data.f0; % Wave length [m]
 data.focus_mm = [x_focus y_focus z_focus]; % Fixed focal point [mm]
 
-data.tx_N_elements = 128 ; % Number of elements in the transducer
-data.tx_element_height_mm = 1.5 ;% Height of element [mm] (Elevation aperture ?)
-data.tx_width_mm = 0.108 ; % Width of element 
-data.tx_pitch_mm = 0.11 ; % Kerf [mm]
-data.tx_kerf_mm = data.tx_pitch_mm - data.tx_width_mm ; % Kerf [mm]
-data.tx_elevationFocus_mm = 8 ; % Elevation focus [m]
-data.tx_frequency = data.f0 ; % Transducer center frequency [Hz]
-data.no_sub_x = 2  ;% Number of sub-divisions in x-direction of mathematical elements
-data.no_sub_y = 20 ;% Number of sub-divisions in y-direction of mathematical elements
+%  ------- transducer characteristics -------
+data.tx_N_element_x = 55 ; % Number of elements in the transducer
+data.tx_N_element_y = 55 ; % Number of elements in the transducer
 
+data.tx_pitch_mm = 0.3 ; % Pitch [mm]
+
+data.tx_element_width_mm = 0.29 ; % Width in x-direction of element.
+data.tx_element_height_mm = 0.29 ;% Height of element rows int eh y-direction [mm]
+                                % (Vector with N_elem_y values)
+data.tx_kerf_x_mm = data.tx_pitch_mm - data.tx_element_width_mm ; % Kerf [mm]
+data.tx_kerf_y_mm = data.tx_pitch_mm - data.tx_element_height_mm ; % Kerf [mm]
+
+data.tx_frequency = data.f0 ; % Transducer center frequency [Hz]
+
+% ---------- mathematical elements ----------
+data.sampling_frequency = f_sampling*1e6 ;  % Sampling frequency of Veramachine [Hz]
+data.no_sub_x = 1 ;% Number of sub-divisions in x-direction of mathematical elements
+data.no_sub_y = 1 ;% Number of sub-divisions in y-direction of mathematical elements
 
 % -------- The size of sub-division is correct? -----------
 min_distance = z_extent(1)  ; % Min distance from a transducer to the point [m]
 max_subdiv_size = max(data.tx_element_height_mm/data.no_sub_y,...
-                    data.tx_width_mm/data.no_sub_x) ; %[m]
+                    data.tx_element_width_mm/data.no_sub_x) ; %[m]
 dist_min_lim = max_subdiv_size^2/(4*data.lambda*1e3) ;
 disp(['l_min ~ ',num2str(dist_min_lim)])
 disp(['l: ', num2str(min_distance)])
 
 % -------- create mathematical transducer --------- 
-transducer = xdc_focused_array( ...
-data.tx_N_elements, ...       % Number of elements
-data.tx_width_mm/1000, ...            % Width of elements [m]
-data.tx_element_height_mm/1000, ...   % Height of elements [m]
-data.tx_kerf_mm/1000, ...             % Kerf [m]
-data.tx_elevationFocus_mm/1000, ...   % Elevation focus [m]
+data.focus_mm = [x_focus y_focus z_focus]; % Fixed focal point [mm]
+
+transducer = xdc_linear_multirow( ...
+data.tx_N_element_x, ...       % Number of elements
+data.tx_element_width_mm/1000, ...            % Width of elements [m]
+data.tx_N_element_y, ...
+data.tx_element_height_mm*ones(1,data.tx_N_element_y)/1000, ...   % Height of elements [m]
+data.tx_kerf_x_mm/1000, ...             % Kerf [m]
+data.tx_kerf_y_mm/1000, ...             % Kerf [m]
 data.no_sub_x, ...            % Subdivisions in x-direction
 data.no_sub_y, ...            % Subdivisions in y-direction
 data.focus_mm/1000 );    % Focus
@@ -114,7 +124,6 @@ disp(['y extent: ', num2str(y_extent)]);
 disp(['z extent: ', num2str(z_extent)]);
 disp(['nx,ny,nz: ', num2str([nx,ny,nz])]); 
 
-
 % whole X Z plane measurement
 x_vec = linspace(x_extent(1), x_extent(2), nx);
 y_vec = linspace(y_extent(1), y_extent(2), ny);
@@ -123,7 +132,7 @@ z_vec = linspace(z_extent(1), z_extent(2), nz);
 [x_grid, y_grid, z_grid] = meshgrid(x_vec, y_vec, z_vec);
 data.points = [x_grid(:) y_grid(:) z_grid(:)]*1e-3;
 
-data.M = data.tx_N_elements*data.no_sub_x*data.no_sub_y ;
+data.M = data.tx_N_element_x*data.tx_N_element_y*data.no_sub_x*data.no_sub_y ;
 data.P = nx*ny*nz ;
 disp(['Number of total points: ', num2str(data.P)]);
 disp(['Number of transducers patches: ', num2str(data.M)])
@@ -138,7 +147,7 @@ pause(10)
 %Purpose: Procedure for calculating the spatial impulse response for an aperture.
 %Calling: 
 
-repetitions = 1 ;
+repetitions = 5 ;
 h_calc_time = zeros(1,repetitions) ;    
 
 for rep = 1:repetitions
@@ -192,7 +201,7 @@ data.pr = Pressure_field_monofreq;
 
 %% Save results
 
-filename = ['Linear', ...
+filename = ['Matrix', ...
              '_nsubx',num2str(data.no_sub_x),'_nsuby',num2str(data.no_sub_y),...
              '_fs', num2str(f_sampling), '_nxyz', num2str(nx),...
              '_P', num2str(data.P),...
@@ -200,7 +209,7 @@ filename = ['Linear', ...
              '_T', num2str(data.T)  ] ;
 disp(['File: ', filename])
 
-save(filename, 'data')
+save([folder filename], 'data')
 
 %% Plot plane
 

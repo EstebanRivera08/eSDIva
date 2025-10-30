@@ -11,18 +11,18 @@ field_init(0)
 disp('Defining transducer...')
 
 % ------------------ Saving and plotting options -----------------------
-version= '_v1' ;
+folder = 'data\Linear\' ;
 
 %  -------------- emission ----------------
 frequency = 12.5 ; %MHz
-f_sampling = 300 ; %MHz
+f_sampling = 200 ; %MHz
 data.c = 1540; % Speed of sound [m/s]
 
 % ------- focus and simulation window (input parameters) -------
 x_extent = [-2, 2]; % mm
 y_extent = [-2, 2]; % mm
 z_extent = [3, 13]; % mm
-dxyz = 0.5 ; %mm
+dxyz = 0.1 ; %mm
 dx = dxyz ; % mm
 dy = dxyz*diff(y_extent)/diff(x_extent) ; % mm
 dz = dxyz*diff(z_extent)/diff(x_extent) ; % mm
@@ -138,7 +138,7 @@ pause(10)
 %Purpose: Procedure for calculating the spatial impulse response for an aperture.
 %Calling: 
 
-repetitions = 1 ;
+repetitions = 5 ;
 h_calc_time = zeros(1,repetitions) ;    
 
 for rep = 1:repetitions
@@ -200,7 +200,7 @@ filename = ['Linear', ...
              '_T', num2str(data.T)  ] ;
 disp(['File: ', filename])
 
-save(name_
+save([folder, filename], 'data')
 
 %% Plot plane
 

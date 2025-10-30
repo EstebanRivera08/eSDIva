@@ -1,0 +1,173 @@
+import re
+from pathlib import Path
+
+import numpy as np
+from scipy import io as sio
+
+import pyfield
+import pyfield.transducers as transducers
+from pyfield.psimulation import PyField
+
+# ------------------ Find .mat files -----------------------
+BASE = Path(r"c:\Users\INSERM\Documents\Esteban\PyField\comparison_FIELDII\data\Linear")
+
+# find .mat file(s)
+pattern = re.compile(
+    r"nsubx(?P<nsubx>\d+)_nsuby(?P<nsuby>\d+)_fs(?P<fs>\d+)_nxyz(?P<nxyz>\d+)",
+    re.IGNORECASE,
+)
+
+mats = list(BASE.glob("*.mat"))
+print(f"Found {len(mats)}.mat files. \n ")
+repetition = 5
+
+# mats = [mats[0]]  # for testing pick the first one only
+
+# --------------- Permanent variables ----------------------
+
+# ------------------ Saving / options -----------------------
+frequency_MHz = 12.5
+c = 1540.0  # m/s
+
+# ------- focus and simulation window (input parameters) -------
+x_extent_mm = [-2, 2]
+y_extent_mm = [-2, 2]
+z_extent_mm = [3, 13]
+focus_mm = [0.0, 0.0, 8]
+
+#  ------------------- transducer characteristics --------------------
+tx_N_elements = 128
+tx_element_height_mm = 1.5
+tx_width_mm = 0.108
+tx_pitch_mm = 0.11
+tx_kerf_mm = tx_pitch_mm - tx_width_mm
+tx_elevationFocus_mm = 8.0
+tx_frequency_Hz = frequency_MHz * 1e6
+
+# ------------------ Loop over .mat files -----------------------
+for i, mat in enumerate(mats):
+    print("--------------------------------------------------")
+    print(f"idx {i + 1}/{len(mats)}: {mat.name}")
+    dict_w_vars = pattern.search(mat.name).groupdict()
+
+    # ------ P (points) dependent variables from .mat file -------
+    nxyz = int(dict_w_vars["nxyz"])
+    dx_mm = np.diff(x_extent_mm) / (nxyz - 1)  # mm
+    dy_mm = dx_mm * np.diff(y_extent_mm) / np.diff(x_extent_mm)
+    dz_mm = dx_mm * np.diff(z_extent_mm) / np.diff(x_extent_mm)
+
+    # ------- T (time) dependent variables from .mat file -------
+    sampling_frequency_MHz = int(dict_w_vars["fs"])
+
+    # ------- M (patches) dependent variables from .mat file --------
+    no_sub_x = int(dict_w_vars["nsubx"])
+    no_sub_y = int(dict_w_vars["nsuby"])
+
+    # ------- Create transducer (Linear array equivalent) -------
+    tx = transducers.LinearArrayTransducer(
+        n_elements=tx_N_elements,
+        element_width_mm=tx_width_mm,
+        element_height_mm=tx_element_height_mm,
+        elevation_focus_mm=tx_elevationFocus_mm,
+        kerf_mm=tx_kerf_mm,
+        no_sub_x=no_sub_x,
+        no_sub_y=no_sub_y,
+        frequency_Hz=tx_frequency_Hz,
+    )
+
+    # Optional: compute/aply delays / apodization
+    tx.compute_delays(focus_mm=focus_mm)
+
+    # -------- DEFINE GRID (keep odd-number-of-points logic) --------
+
+    # Use PyField API which accepts extents + spacing (same style as notebook)
+    field_info_mm = {
+        "x_extent": x_extent_mm,
+        "y_extent": y_extent_mm,
+        "z_extent": z_extent_mm,
+        "dx": dx_mm,
+        "dy": dy_mm,
+        "dz": dz_mm,
+    }
+
+    # ------------------ Compute the field --------------------
+    field_solver = PyField(tx, fs=sampling_frequency_MHz * 1e6, c=c)
+
+    # first computation includes setup time for compiling and
+    # optimizing kernels. Subsequent it wont be counted.
+    if i == 0:
+        x, y, z, pr_naive = field_solver(field_info_mm, method="naive")
+        # returns grids and field (pressure)
+        x, y, z, pr_sdi = field_solver(field_info_mm, method="sdi")
+
+        x, y, z, pr_auto = field_solver(field_info_mm, method="auto")
+
+    for rep in range(repetition):
+        x, y, z, pr_naive = field_solver(field_info_mm, method="naive")
+
+    for rep in range(repetition):
+        x, y, z, pr_sdi = field_solver(field_info_mm, method="sdi")
+
+    for rep in range(repetition):
+        x, y, z, pr_auto = field_solver(field_info_mm, method="auto")
+
+    # From the timing logs compute average times and std deviations
+    timelogs = field_solver.sir_running_time_log
+
+    start = 3
+    time_naive = np.mean(timelogs[start : start + repetition])
+    time_sdi = np.mean(timelogs[start + repetition : start + 2 * repetition])
+    time_auto = np.mean(timelogs[start + 2 * repetition : start + 3 * repetition])
+    std_naive = np.std(timelogs[start : start + repetition])
+    std_sdi = np.std(timelogs[start + repetition : start + 2 * repetition])
+    std_auto = np.std(timelogs[start + 2 * repetition : start + 3 * repetition])
+
+    print(
+        f"Average computation times over {repetition} repetitions:\n"
+        f" Naive: {time_naive:.4f} s (std: {std_naive:.4f} s)\n"
+        f" SDI:   {time_sdi:.4f} s (std: {std_sdi:.4f} s)\n"
+        f" Auto:  {time_auto:.4f} s (std: {std_auto:.4f} s)\n"
+    )
+
+    data = {
+        "c": c,
+        "sampling_frequency": sampling_frequency_MHz * 1e6,
+        "f0": tx_frequency_Hz,
+        "lamda": c / tx_frequency_Hz,
+        "focus_mm": focus_mm,
+        "tx_N_elements": tx_N_elements,
+        "tx_element_height_mm": tx_element_height_mm,
+        "tx_width_mm": tx_width_mm,
+        "tx_pitch_mm": tx_pitch_mm,
+        "tx_kerf_mm": tx_kerf_mm,
+        "tx_elevationFocus_mm": tx_elevationFocus_mm,
+        "tx_frequency_Hz": tx_frequency_Hz,
+        "no_sub_x": no_sub_x,
+        "no_sub_y": no_sub_y,
+        "M": field_solver.M,
+        "P": field_solver.P_log[-1],
+        "T": field_solver.T_log[-1],
+        "deltak": field_solver.mean_sub_elem_delta_k_log[-1],
+        "h_calc_time": timelogs[start:],
+        "time_naive": time_naive,
+        "time_sdi": time_sdi,
+        "time_auto": time_auto,
+        "std_naive": std_naive,
+        "std_sdi": std_sdi,
+        "std_auto": std_auto,
+        "x": x,
+        "y": y,
+        "z": z,
+        "pr_naive": pr_naive,
+        "pr_sdi": pr_sdi,
+        "pr_auto": pr_auto,
+    }
+
+    # print
+    print(f"Saving {mat.stem}_pyfield.npz with keys: {list(data.keys())}")
+    # save data with numpy
+    save_name = mat.stem + "_pyfield.npz"
+    np.savez_compressed(BASE / save_name, **data)
+
+    # Optional: visualize (requires interactive backend)
+    pyfield.plot_field_planes(x, y, z, pr_naive)
