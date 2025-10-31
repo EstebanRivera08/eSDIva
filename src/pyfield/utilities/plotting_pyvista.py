@@ -134,8 +134,8 @@ def add_3D_vol(
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": "Doppler (dB)",
-            "title_font_size": 16 * scale,
-            "label_font_size": 12 * scale,
+            "title_font_size": int(16 * scale),
+            "label_font_size": int(12 * scale),
             "vertical": False,
             "position_x": 0.1,
             "position_y": 0.1,
@@ -186,8 +186,8 @@ def add_2D_image(
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": "2D Doppler (dB)",
-            "title_font_size": 16 * scale,
-            "label_font_size": 12 * scale,
+            "title_font_size": int(16 * scale),
+            "label_font_size": int(12 * scale),
             "vertical": True,
             "position_x": 0.1,
             "position_y": 0.2,
@@ -276,8 +276,8 @@ def add_pressure_vol(
             "show_scalar_bar": True,
             "scalar_bar_args": {
                 "title": colorbar_title,
-                "title_font_size": 16 * scale,
-                "label_font_size": 12 * scale,
+                "title_font_size": int(16 * scale),
+                "label_font_size": int(12 * scale),
                 "vertical": True,
                 "position_x": 0.8,
                 "position_y": 0.1,
@@ -334,8 +334,8 @@ def add_transducer_mesh(
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": title_name,
-            "title_font_size": 16 * scale,
-            "label_font_size": 12 * scale,
+            "title_font_size": int(16 * scale),
+            "label_font_size": int(12 * scale),
             "vertical": True,
             "position_x": 0.8,
             "position_y": 0.5,

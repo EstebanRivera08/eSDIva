@@ -19,7 +19,7 @@ pattern = re.compile(
 
 mats = list(BASE.glob("*.mat"))
 print(f"Found {len(mats)}.mat files. \n ")
-repetition = 5
+repetition = 7
 
 # mats = [mats[0]]  # for testing pick the first one only
 
@@ -43,6 +43,7 @@ tx_pitch_mm = 0.11
 tx_kerf_mm = tx_pitch_mm - tx_width_mm
 tx_elevationFocus_mm = 8.0
 tx_frequency_Hz = frequency_MHz * 1e6
+
 
 # ------------------ Loop over .mat files -----------------------
 for i, mat in enumerate(mats):
@@ -95,7 +96,9 @@ for i, mat in enumerate(mats):
 
     # first computation includes setup time for compiling and
     # optimizing kernels. Subsequent it wont be counted.
+    start = 0
     if i == 0:
+        start = 3
         x, y, z, pr_naive = field_solver(field_info_mm, method="naive")
         # returns grids and field (pressure)
         x, y, z, pr_sdi = field_solver(field_info_mm, method="sdi")
@@ -113,14 +116,20 @@ for i, mat in enumerate(mats):
 
     # From the timing logs compute average times and std deviations
     timelogs = field_solver.sir_running_time_log
+    print(f"t_log ({len(timelogs[start:])}) : {timelogs[start:]}")
 
-    start = 3
-    time_naive = np.mean(timelogs[start : start + repetition])
-    time_sdi = np.mean(timelogs[start + repetition : start + 2 * repetition])
-    time_auto = np.mean(timelogs[start + 2 * repetition : start + 3 * repetition])
-    std_naive = np.std(timelogs[start : start + repetition])
-    std_sdi = np.std(timelogs[start + repetition : start + 2 * repetition])
-    std_auto = np.std(timelogs[start + 2 * repetition : start + 3 * repetition])
+    # sometimes some seconds are added due to OS processes
+    # to avoid biasing the mean, we will perform 7 repetitions and takeout
+    # min and max values and average the 5 middle values.
+    times_naive = np.sort(timelogs[start : start + repetition])
+    times_sdi = np.sort(timelogs[start + repetition : start + 2 * repetition])
+    times_auto = np.sort(timelogs[start + 2 * repetition : start + 3 * repetition])
+    time_naive = np.mean(times_naive[1:-1])
+    time_sdi = np.mean(times_sdi[1:-1])
+    time_auto = np.mean(times_auto[1:-1])
+    std_naive = np.std(times_naive[1:-1])
+    std_sdi = np.std(times_sdi[1:-1])
+    std_auto = np.std(times_auto[1:-1])
 
     print(
         f"Average computation times over {repetition} repetitions:\n"
@@ -170,4 +179,4 @@ for i, mat in enumerate(mats):
     np.savez_compressed(BASE / save_name, **data)
 
     # Optional: visualize (requires interactive backend)
-    pyfield.plot_field_planes(x, y, z, pr_naive)
+    # pyfield.plot_field_planes(x, y, z, pr_naive)

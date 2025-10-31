@@ -76,7 +76,7 @@ class PyField:
 
         P, M = points.shape[0], self.M
 
-        print(f"\nComputing SIR for {P} points and {M} patches...")
+        print(f"\nComputing SIR for {P} points and {M} patches with method {method}...")
         startSIR = time.time()
 
         time_grid, t0, dt, T = compute_time_grid(

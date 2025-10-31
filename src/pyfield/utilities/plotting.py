@@ -1,8 +1,37 @@
 import matplotlib.pyplot as plt
 import numpy as np
+import pyvista as pv
 from matplotlib.gridspec import GridSpec
 
 from .plotting_pyvista import add_pressure_vol, create_vol_mesh
+
+
+def _set_custom_style(plotter, *, scale=1.0):
+    cube_actor = plotter.show_bounds(
+        grid="back",
+        color="black",
+        font_size=int(12 * scale),
+        location="outer",
+        xtitle="X (mm)",
+        ytitle="Y (mm)",
+        ztitle="Z (mm)",
+    )
+    # turn on outer gridlines and inner gridlines if you want them
+    cube_actor.DrawXGridlinesOn()
+    cube_actor.DrawYGridlinesOn()
+    cube_actor.DrawZGridlinesOn()
+
+    # set gridline colors to white (RGB in 0..1)
+    cube_actor.GetXAxesGridlinesProperty().SetColor(1.0, 1.0, 1.0)
+    cube_actor.GetYAxesGridlinesProperty().SetColor(1.0, 1.0, 1.0)
+    cube_actor.GetZAxesGridlinesProperty().SetColor(1.0, 1.0, 1.0)
+
+    # (optional) tweak gridline width
+    cube_actor.GetXAxesGridlinesProperty().SetLineWidth(2.0)
+    cube_actor.GetYAxesGridlinesProperty().SetLineWidth(2.0)
+    cube_actor.GetZAxesGridlinesProperty().SetLineWidth(2.0)
+
+    plotter.camera.up = (0, 0, -1)
 
 
 def plot_pressure_field(
@@ -18,6 +47,11 @@ def plot_pressure_field(
     notebook=False,
     return_mesh=False,
     plot_focal_spot=False,
+    scale=1.0,
+    anti_aliasing="ssaa",
+    colorbar_title="Pressure",
+    box_color="#b0b0b0",
+    box_opacity=0.2,
     **kwargs,
 ):
     """
@@ -30,22 +64,27 @@ def plot_pressure_field(
     x, y, z : ndarray
         Coordinate arrays.
     """
+    pv.global_theme.anti_aliasing = anti_aliasing
     # Create the pressure volume mesh
     pressure_vol = create_vol_mesh(x, y, z, pressure_field, scalars=scalars)
+    box = pressure_vol.bounding_box()
 
     # Create a PyVista plotter
     plotter = add_pressure_vol(
         pressure_vol,
         plotter=plotter,
-        window_size=window_size,
+        window_size=np.array(window_size) * scale,
         notebook=notebook,
         plot_focal_spot=plot_focal_spot,
         off_screen=off_screen,
+        scale=scale,
+        colorbar_title=colorbar_title,
         **kwargs,
     )
 
-    plotter.camera.up = (0, 0, -1)
-    plotter.show_grid()  # show grid
+    _ = plotter.add_mesh(box, opacity=box_opacity, color=box_color)
+
+    _set_custom_style(plotter, scale=scale)
     if return_mesh:
         return plotter, pressure_vol
     return plotter

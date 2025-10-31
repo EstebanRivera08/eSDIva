@@ -19,7 +19,7 @@ pattern = re.compile(
 
 mats = list(BASE.glob("*.mat"))
 print(f"Found {len(mats)}.mat files. \n ")
-repetition = 5
+repetition = 7
 
 # mats = [mats[0]]  # for testing pick the first one only
 
@@ -98,7 +98,9 @@ for i, mat in enumerate(mats):
 
     # first computation includes setup time for compiling and
     # optimizing kernels. Subsequent it wont be counted.
+    start = 0
     if i == 0:
+        start = 3
         x, y, z, pr_naive = field_solver(field_info_mm, method="naive")
         # returns grids and field (pressure)
         x, y, z, pr_sdi = field_solver(field_info_mm, method="sdi")
@@ -116,14 +118,21 @@ for i, mat in enumerate(mats):
 
     # From the timing logs compute average times and std deviations
     timelogs = field_solver.sir_running_time_log
+    print(f"t_log ({len(timelogs[start:])}) : {timelogs[start:]}")
+    times_naive = np.sort(timelogs[start : start + repetition])
+    times_sdi = np.sort(timelogs[start + repetition : start + 2 * repetition])
+    times_auto = np.sort(timelogs[start + 2 * repetition : start + 3 * repetition])
 
-    start = 3
-    time_naive = np.mean(timelogs[start : start + repetition])
-    time_sdi = np.mean(timelogs[start + repetition : start + 2 * repetition])
-    time_auto = np.mean(timelogs[start + 2 * repetition : start + 3 * repetition])
-    std_naive = np.std(timelogs[start : start + repetition])
-    std_sdi = np.std(timelogs[start + repetition : start + 2 * repetition])
-    std_auto = np.std(timelogs[start + 2 * repetition : start + 3 * repetition])
+    # sometimes some seconds are added due to OS processes
+    # to avoid biasing the mean, we will perform 7 repetitions and takeout
+    # and average the 5 middle values
+
+    time_naive = np.mean(times_naive[1:-1])
+    time_sdi = np.mean(times_sdi[1:-1])
+    time_auto = np.mean(times_auto[1:-1])
+    std_naive = np.std(times_naive[1:-1])
+    std_sdi = np.std(times_sdi[1:-1])
+    std_auto = np.std(times_auto[1:-1])
 
     print(
         f"Average computation times over {repetition} repetitions:\n"
