@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 
-from pysonogen.functions.plotting_pyvista import add_markers
+from pyfield.utilities.plotting_pyvista import add_markers
 
 # Parameters
 save_3D = False

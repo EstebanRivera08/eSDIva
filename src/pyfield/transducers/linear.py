@@ -43,12 +43,28 @@ class LinearArrayTransducer:
         start_time = TIME()
         self.type = "linear"
         self.name = "LinearArrayTransducer"
+
+        if kerf_mm < 0:
+            raise ValueError("Kerf must be non-negative.")
+        if no_sub_x <= 0 or no_sub_y <= 0:
+            raise ValueError("Number of subdivisions must be positive.")
+        # no_sub must be positive integers
+        if not isinstance(no_sub_x, int) or not isinstance(no_sub_y, int):
+            raise ValueError("Number of subdivisions must be positive integers.")
+        if element_height_mm <= 0 or element_width_mm <= 0:
+            raise ValueError("Element dimensions must be positive.")
+
+        if elevation_focus_mm is None:
+            elevation_focus_mm = 0
+
+        if elevation_focus_mm < 0:
+            raise ValueError("Elevation focus must be non-negative or None.")
+
         element_height, element_width = (
             element_height_mm * 1e-3,
             element_width_mm * 1e-3,
         )
-        if elevation_focus_mm is None:
-            elevation_focus_mm = 0
+
         kerf, elevation_focus = kerf_mm * 1e-3, elevation_focus_mm * 1e-3
         self.n_elements = n_elements
         self.elem_width = element_width  # m

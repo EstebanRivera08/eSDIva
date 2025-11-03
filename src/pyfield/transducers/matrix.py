@@ -44,8 +44,20 @@ class MatrixArrayTransducer:
         self.n_elem_x = N_elem_x
         self.n_elem_y = N_elem_y
         self.n_elements = N_elem_x * N_elem_y
+
+        if kerf_x_mm < 0 or kerf_y_mm < 0:
+            raise ValueError("Kerf must be non-negative.")
+        if no_sub_x <= 0 or no_sub_y <= 0:
+            raise ValueError("Number of subdivisions must be positive.")
+        # no_sub must be positive integers
+        if not isinstance(no_sub_x, int) or not isinstance(no_sub_y, int):
+            raise ValueError("Number of subdivisions must be positive integers.")
+        if elem_height_mm <= 0 or elem_width_mm <= 0:
+            raise ValueError("Element dimensions must be positive.")
+
         self.elem_width = elem_width_mm * 1e-3
         self.elem_height = elem_height_mm * 1e-3
+
         self.kerf_x = kerf_x_mm * 1e-3
         self.kerf_y = kerf_y_mm * 1e-3
         self.pitch_x = self.elem_width + self.kerf_x

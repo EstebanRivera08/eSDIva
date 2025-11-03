@@ -3,7 +3,7 @@ from .helper_functions import (
     create_spatial_grid_from_dict,
     to_dB,
 )
-from .plotting import deltak_distribution, plot_field_planes, plot_pressure_field
+from .plotting import plot_deltak_distribution, plot_field_planes, plot_pressure_field
 from .plotting_pyvista import (
     add_2D_image,
     add_3D_vol,
@@ -37,6 +37,6 @@ __all__ = [
     "recompute_bounds",
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",
-    "deltak_distribution",
+    "plot_deltak_distribution",
     "to_dB",
 ]

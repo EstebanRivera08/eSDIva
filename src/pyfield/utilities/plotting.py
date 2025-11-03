@@ -211,7 +211,7 @@ def plot_field_planes(
     plt.close(fig)  # Close the figure to free memory
 
 
-def deltak_distribution(
+def plot_deltak_distribution(
     pyfield,
     *,
     figsize=(11, 4),
@@ -275,7 +275,7 @@ def deltak_distribution(
         alpha=0.85,
     )
     ax1.set_xlabel(r"$\Delta k$")
-    ax1.set_ylabel("Frequency")
+    ax1.set_ylabel("Count")
     # ax1.set_title(r"b)")
     ax1.grid(axis="y", color="gray", linestyle="--", alpha=0.6)
     ax1.spines["right"].set_visible(False)

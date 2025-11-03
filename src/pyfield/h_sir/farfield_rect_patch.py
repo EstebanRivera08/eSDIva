@@ -5,7 +5,7 @@ inv_2pi = 1 / (2 * np.pi)
 
 
 # ---------- small helper (njit) for rectangle SIR parameters ----------
-alpha = 4
+alpha = 1
 
 
 @njit(inline="always")

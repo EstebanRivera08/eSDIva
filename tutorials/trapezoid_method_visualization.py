@@ -117,7 +117,7 @@ def plot_trapezoid_methods(
         label=r"$\partial^2 h / \partial t^2$",
     )
     (line_h_derivative,) = ax.plot(
-        t_derivative, h_derivative, "s", label=r"$h_{derivative}$", color="b"
+        t_derivative, h_derivative, "s", label=r"$h_{SDI}$", color="b"
     )
     (line_dh,) = ax.plot(
         t_derivative, dh, "y--s", label=r"$\partial h / \partial t$", ms=4, zorder=5
