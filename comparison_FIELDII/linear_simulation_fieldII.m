@@ -11,18 +11,20 @@ field_init(0)
 disp('Defining transducer...')
 
 % ------------------ Saving and plotting options -----------------------
-folder = 'data\Linear\' ;
+folder = 'data\' ;
+version = '_focal' ;
 
 %  -------------- emission ----------------
 frequency = 12.5 ; %MHz
 f_sampling = 200 ; %MHz
 data.c = 1540; % Speed of sound [m/s]
+repetitions = 1 ;
 
 % ------- focus and simulation window (input parameters) -------
-x_extent = [-2, 2]; % mm
-y_extent = [-2, 2]; % mm
-z_extent = [3, 13]; % mm
-dxyz = 0.1 ; %mm
+x_extent = [-0.5, 0.5]; % [-2, 2]; % mm
+y_extent = [-0.5, 0.5]; % [-2, 2]; % mm
+z_extent = [7, 9]; % [3, 13]; % mm
+dxyz = 0.01 ; %mm
 dx = dxyz ; % mm
 dy = dxyz*diff(y_extent)/diff(x_extent) ; % mm
 dz = dxyz*diff(z_extent)/diff(x_extent) ; % mm
@@ -47,8 +49,8 @@ data.tx_pitch_mm = 0.11 ; % Kerf [mm]
 data.tx_kerf_mm = data.tx_pitch_mm - data.tx_width_mm ; % Kerf [mm]
 data.tx_elevationFocus_mm = 8 ; % Elevation focus [m]
 data.tx_frequency = data.f0 ; % Transducer center frequency [Hz]
-data.no_sub_x = 2  ;% Number of sub-divisions in x-direction of mathematical elements
-data.no_sub_y = 20 ;% Number of sub-divisions in y-direction of mathematical elements
+data.no_sub_x = 1  ;% Number of sub-divisions in x-direction of mathematical elements
+data.no_sub_y = 10 ;% Number of sub-divisions in y-direction of mathematical elements
 
 
 % -------- The size of sub-division is correct? -----------
@@ -138,7 +140,6 @@ pause(10)
 %Purpose: Procedure for calculating the spatial impulse response for an aperture.
 %Calling: 
 
-repetitions = 5 ;
 h_calc_time = zeros(1,repetitions) ;    
 
 for rep = 1:repetitions
@@ -197,7 +198,7 @@ filename = ['Linear', ...
              '_fs', num2str(f_sampling), '_nxyz', num2str(nx),...
              '_P', num2str(data.P),...
              '_M', num2str(data.M),...
-             '_T', num2str(data.T)  ] ;
+             '_T', num2str(data.T),version ] ;
 disp(['File: ', filename])
 
 save([folder, filename], 'data')

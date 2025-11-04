@@ -6,6 +6,18 @@ from matplotlib.gridspec import GridSpec
 from .plotting_pyvista import add_pressure_vol, create_vol_mesh
 
 
+def _normalize_window_size(window_size, scale=1.0):
+    """
+    Ensure window_size is a tuple of two positive integers suitable for pv.Plotter.
+    """
+    ws = np.array(window_size, dtype=float) * float(scale)
+    if ws.ndim == 0:
+        ws = np.array([ws, ws])
+    # round and ensure at least 1 pixel
+    ws = np.maximum(np.round(ws).astype(int), 1)
+    return (int(ws[0]), int(ws[1]))
+
+
 def _set_custom_style(plotter, *, scale=1.0):
     cube_actor = plotter.show_bounds(
         grid="back",
@@ -49,7 +61,7 @@ def plot_pressure_field(
     plot_focal_spot=False,
     scale=1.0,
     anti_aliasing="ssaa",
-    colorbar_title="Pressure",
+    colorbar_title=None,
     box_color="#b0b0b0",
     box_opacity=0.2,
     **kwargs,
@@ -73,7 +85,7 @@ def plot_pressure_field(
     plotter = add_pressure_vol(
         pressure_vol,
         plotter=plotter,
-        window_size=np.array(window_size) * scale,
+        window_size=_normalize_window_size(window_size, scale=scale),
         notebook=notebook,
         plot_focal_spot=plot_focal_spot,
         off_screen=off_screen,
@@ -267,17 +279,28 @@ def plot_deltak_distribution(
     fig.colorbar(im, ax=ax0, label=r"$\Delta k_{m,p}$ ")
 
     # plot Histogram of the krange
-    ax1.hist(
+
+    counts, bins, _ = ax1.hist(
         sub_elem_delta_k.flatten(),
         bins=10,
         color=hist_color,
         edgecolor="black",
         alpha=0.85,
     )
+    max_count = counts.max()
+    ax1.axvline(mean_k, color="black", linestyle="dashed", linewidth=2)
+    ax1.text(
+        mean_k,
+        max_count * 1.05,
+        r"$\Delta  \overline{k}$" + f": {mean_k:.2f}",
+        color="black",
+        ha="center",
+    )
     ax1.set_xlabel(r"$\Delta k$")
-    ax1.set_ylabel("Count")
+    ax1.set_ylabel("Counts")
     # ax1.set_title(r"b)")
     ax1.grid(axis="y", color="gray", linestyle="--", alpha=0.6)
+
     ax1.spines["right"].set_visible(False)
     ax1.spines["top"].set_visible(False)
     ax1.set_facecolor("#FFFFFFC5")

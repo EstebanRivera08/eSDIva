@@ -132,6 +132,7 @@ def add_3D_vol(
         "opacity": "sigmoid",
         "mapper": "smart",
         "show_scalar_bar": True,
+        "ambient": 0.3,
         "scalar_bar_args": {
             "title": "Doppler (dB)",
             "title_font_size": int(16 * scale),
@@ -239,10 +240,11 @@ def add_pressure_vol(
     if plot_focal_spot:
         default_kwargs = {
             "opacity": 1,
-            "name": "PressureIso",
+            "name": colorbar_title,
             "show_scalar_bar": False,
             "label": "Focal Spot",  # label for the legend
             "color": "r",  # color of the mesh
+            "ambient": 0.3,
         }
         for key, value in default_kwargs.items():
             if key not in kwargs:
@@ -256,13 +258,15 @@ def add_pressure_vol(
         plotter.add_mesh(iso_mesh, **kwargs)
 
     else:
-        n_contours = 10
+        n_contours = 11
         if vmin is not None:
             min_val = vmin
+            # print(f"Using provided vmin: {vmin}")
         else:
             min_val = pressure_vol[scalars].min()
         if vmax is not None:
             max_val = vmax
+            # print(f"Using provided vmax: {vmax}")
         else:
             max_val = pressure_vol[scalars].max()
         levels = np.linspace(min_val, max_val, n_contours)
@@ -284,7 +288,8 @@ def add_pressure_vol(
                 "height": 0.3,
             },
             "label": scalars,  # label for the legend
-            "color": "r",  # color of the mesh
+            "color": "r",  # color of the mesh,
+            "ambient": 0.3,
         }
         for key, value in default_kwargs.items():
             if key not in kwargs:

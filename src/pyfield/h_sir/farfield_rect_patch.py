@@ -5,7 +5,6 @@ inv_2pi = 1 / (2 * np.pi)
 
 
 # ---------- small helper (njit) for rectangle SIR parameters ----------
-alpha = 1
 
 
 @njit(inline="always")
@@ -21,10 +20,10 @@ def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     # enforce minimum to avoid zero width
     Dt1 = min(xp_abs, yp_abs)
     Dt2 = max(xp_abs, yp_abs)
-    if Dt1 < alpha * dt:
-        Dt1 = alpha * dt
-    if Dt2 < alpha * dt:
-        Dt2 = alpha * dt
+    if Dt1 < dt:
+        Dt1 = dt
+    if Dt2 < dt:
+        Dt2 = dt
 
     area = (wx * wy * inv_2pi) / dist
     # time-of-flight
