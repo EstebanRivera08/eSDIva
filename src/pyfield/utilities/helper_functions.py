@@ -162,9 +162,14 @@ def reshape_to_mapped_points(x, y, z, flattened_volume):
     elif isinstance(flattened_volume, np.ndarray):
         pass
     else:
-        raise ValueError("flattened_volume must be a list or numpy array")
+        raise ValueError("input must be a list or numpy array")
 
-    return flattened_volume.reshape(len(z), len(x), len(y)).transpose(1, 2, 0)
+    if flattened_volume.ndim == 1:
+        flattened_volume = flattened_volume.reshape(1, -1)
+
+    return flattened_volume.reshape(
+        flattened_volume.shape[0], len(z), len(x), len(y)
+    ).transpose(0, 2, 3, 1)
 
 
 def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays):
@@ -174,6 +179,7 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays):
     print(
         f"Min distance: {min_dist * 1e3:.2f} mm, Max distance: {max_dist * 1e3:.2f} mm"
     )
+
     max_delay = delays.max()
     size_patch = wx + wy
     # Compute min and max time

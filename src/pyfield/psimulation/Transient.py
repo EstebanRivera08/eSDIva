@@ -14,7 +14,7 @@ from pyfield.utilities.helper_functions import (
 inv_2pi = 1 / (2 * np.pi)
 
 
-class PyField:
+class Transient:
     def __init__(self, transducer, *, c=1540.0, fs=200e6, alpha0=0, freq_power=1.0):
         self.tx = transducer
         self.fc = transducer.fc  # Hz
@@ -51,7 +51,19 @@ class PyField:
         self.sir_running_time_log = []
 
     def compute_sir(self, points, *, method="auto"):
-        x, y, z, points = check_field_points(points)
+        if isinstance(points, (np.ndarray, list, tuple)):
+            if isinstance(points, (list, tuple)):
+                points = np.array(points, dtype=np.float32)
+            # check shape
+            if points.ndim < 2:
+                if points.shape[0] == 3:
+                    points = points.reshape(1, 3)
+                else:
+                    raise ValueError("points must 1D (3,) or 2D (N,3).")
+            elif points.ndim == 2:
+                pass
+            else:
+                raise ValueError("points must 1D (3,) or 2D (N,3).")
 
         if method not in ["auto", "naive", "sdi", None]:
             raise ValueError("method must be None or 'auto', 'naive', or 'sdi'.")
@@ -72,8 +84,8 @@ class PyField:
             M,
             points,
             self.centers_sub_elem,
-            self.wx / self.tx.no_sub_x,
-            self.wy / self.tx.no_sub_y,
+            self.wx,
+            self.wy,
             self.c,
             self.fs,
             self.delays,
@@ -104,38 +116,7 @@ class PyField:
         self.sir_running_time_log.append(runtime_sir)
 
         print(f"Transducer SIR computed in {runtime_sir:.3f} seconds...")
-        return h_sir.T, t0, x, y, z
-
-    def from_sir_to_pressure(self, h_sir, x, y, z, batch_size=2048, max_workers=None):
-        """
-        Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
-        """
-        start_time = time.time()
-        n_points = h_sir.shape[1]
-        # Frequency vector
-        freq_vect = np.linspace(0, self.fs, h_sir.shape[0])
-        idx = np.argmin((freq_vect - self.fc) ** 2)
-
-        fft_results = np.zeros(n_points, dtype=np.float32)
-
-        def process_batch(start):
-            end = min(start + batch_size, n_points)
-            fft_batch = np.fft.fft(h_sir[:, start:end], axis=0)
-            return start, end, np.abs(fft_batch[idx, :])
-
-        # Parallel loop
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for start, end, vals in executor.map(
-                process_batch, range(0, n_points, batch_size)
-            ):
-                fft_results[start:end] = vals
-
-        # Reshape back to 3D grid
-        amp_sir_at_tx_freq = reshape_to_mapped_points(x, y, z, fft_results)
-        print(
-            f"Pressure computed from SIR in {time.time() - start_time:.2f} seconds..."
-        )
-        return amp_sir_at_tx_freq[0, :, :, :]
+        return t0, h_sir.T
 
     def __call__(self, field_points_mm, *, method="auto", normalize=False):
         """
@@ -158,14 +139,10 @@ class PyField:
             Computed pressure field at the specified points.
         """
         start = time.time()
-        h_sir, t0, x, y, z = self.compute_sir(field_points_mm, method=method)
-        pressure_field = self.from_sir_to_pressure(h_sir, x, y, z)
+        x, y, z, points = check_field_points(field_points_mm)
+        t0, h_sir = self.compute_sir(points, method=method)
+        # pressure_field = self.from_sir_to_pressure(h_sir, x, y, z)
         print(f"Pressure field computed in {time.time() - start:.2f} seconds... \n")
-
-        if normalize:
-            pressure_field = pressure_field / pressure_field.max()
-
-        return x, y, z, pressure_field
 
     def set_field(self, attribute_name, value):
         if not hasattr(self, attribute_name):
