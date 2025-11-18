@@ -1,5 +1,4 @@
 import time
-from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
@@ -8,14 +7,27 @@ from pyfield.utilities.helper_functions import (
     check_field_points,
     compute_sub_elem_attributes,
     compute_time_grid,
-    reshape_to_mapped_points,
+)
+
+from .sir_to_pressure import (
+    from_sir_to_monochromatic_pressure,
+    from_sir_to_pressure,
 )
 
 inv_2pi = 1 / (2 * np.pi)
 
 
 class PyField:
-    def __init__(self, transducer, *, c=1540.0, fs=200e6, alpha0=0, freq_power=1.0):
+    def __init__(
+        self,
+        transducer,
+        *,
+        rho=1.0,
+        c=1540.0,
+        fs=200e6,
+        alpha0=0,
+        freq_power=1.0,
+    ):
         self.tx = transducer
         self.fc = transducer.fc  # Hz
         (
@@ -35,6 +47,7 @@ class PyField:
         self.apodization = transducer.apodization
 
         # Medium parameters
+        self.rho = rho  # kg/m^3
         self.c = c  # m/s
         self.alpha0 = alpha0  # dB/(MHz^y cm)
         self.freq_power = freq_power  # freq_power law exponent
@@ -95,8 +108,29 @@ class PyField:
             self.delays_sub_elem,
             method_flag,
         )
+        # h_sir shape (P, T)
 
         runtime_sir = time.time() - startSIR
+
+        # The t0 is understimated due to the way time_grid is computed
+        # If we want to reduce time_grid size and adjust t0
+        # to where h_sir entries are not zero, we can compute it as follows:
+        try:
+            s = h_sir.sum(axis=0)  # shape (T,)
+            diff = np.diff(s)  # shape (T-1,)
+            nz = np.nonzero(diff > 0)[0]
+            idx = int(nz[0]) if nz.size else None
+            tbefore = t0
+            t0 = tbefore + idx * dt
+            if idx / T > 0.5:
+                print(
+                    f"Warning: Adjusted t0 from {tbefore:.2e} s to {t0:.2e} s. corresponding to {idx}/{T}={idx / T * 100:.4f}% idx of time grid."
+                )
+            h_sir = h_sir[:, idx:]
+            T = h_sir.shape[1]
+        except Exception as e:
+            print(f"Could not adjust t0 due to error: {e}")
+
         # Store information
         self.P_log.append(P)
         self.T_log.append(T)
@@ -106,38 +140,15 @@ class PyField:
         print(f"Transducer SIR computed in {runtime_sir:.3f} seconds...")
         return h_sir.T, t0, x, y, z
 
-    def from_sir_to_pressure(self, h_sir, x, y, z, batch_size=2048, max_workers=None):
-        """
-        Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
-        """
-        start_time = time.time()
-        n_points = h_sir.shape[1]
-        # Frequency vector
-        freq_vect = np.linspace(0, self.fs, h_sir.shape[0])
-        idx = np.argmin((freq_vect - self.fc) ** 2)
-
-        fft_results = np.zeros(n_points, dtype=np.float32)
-
-        def process_batch(start):
-            end = min(start + batch_size, n_points)
-            fft_batch = np.fft.fft(h_sir[:, start:end], axis=0)
-            return start, end, np.abs(fft_batch[idx, :])
-
-        # Parallel loop
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for start, end, vals in executor.map(
-                process_batch, range(0, n_points, batch_size)
-            ):
-                fft_results[start:end] = vals
-
-        # Reshape back to 3D grid
-        amp_sir_at_tx_freq = reshape_to_mapped_points(x, y, z, fft_results)
-        print(
-            f"Pressure computed from SIR in {time.time() - start_time:.2f} seconds..."
-        )
-        return amp_sir_at_tx_freq[0, :, :, :]
-
-    def __call__(self, field_points_mm, *, method="auto", normalize=False):
+    def __call__(
+        self,
+        field_points_mm,
+        *,
+        method="auto",
+        normalize=False,
+        monochromatic=True,
+        excitation=None,
+    ):
         """
         Compute the pressure field at specified points.
         Parameters
@@ -157,9 +168,19 @@ class PyField:
         pressure_field : 3D array
             Computed pressure field at the specified points.
         """
+        if excitation is not None:
+            monochromatic = False
+
         start = time.time()
         h_sir, t0, x, y, z = self.compute_sir(field_points_mm, method=method)
-        pressure_field = self.from_sir_to_pressure(h_sir, x, y, z)
+        if monochromatic:
+            pressure_field = from_sir_to_monochromatic_pressure(
+                h_sir, x, y, z, self.fc, self.fs
+            )
+        else:
+            pressure_field = from_sir_to_pressure(
+                h_sir, x, y, z, self.fs, rho=self.rho, excitation=excitation
+            )
         print(f"Pressure field computed in {time.time() - start:.2f} seconds... \n")
 
         if normalize:

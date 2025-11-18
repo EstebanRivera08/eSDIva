@@ -138,7 +138,7 @@ def plot_field_planes(
         x0 = int(np.floor(x.shape[0] / 2))
         z0 = int(np.floor(z.shape[0] / 2))
     print(
-        f"Taking slice ({x[x0]},{y[y0]},{z[z0]}) => x_ind, y_ind, z_ind = {x0 + 1}/{x.shape[0]}, {y0 + 1}/{y.shape[0]}, {z0 + 1}/{z.shape[0]}"
+        f"Taking slice ({x[x0]:.1e},{y[y0]:.1e},{z[z0]:.1e}) mm => x_ind, y_ind, z_ind = {x0 + 1}/{x.shape[0]}, {y0 + 1}/{y.shape[0]}, {z0 + 1}/{z.shape[0]}"
     )
 
     # Use nanmin and nanmax to ignore NaN values
