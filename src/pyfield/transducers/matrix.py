@@ -325,13 +325,17 @@ class MatrixArrayTransducer:
     def set_apodization(self, weights):
         weights = np.asarray(weights, dtype=float)
         if weights.size != self.n_elem_x * self.n_elem_y:
-            raise ValueError("Apodization must match total elements")
+            raise ValueError(
+                f"Apodization must match total elements. Input size: {weights.size}, expected: {self.n_elem_x * self.n_elem_y}"
+            )
         self.apodization = weights
 
     def set_delays(self, delays):
         delays = np.asarray(delays, dtype=float)
         if delays.size != self.n_elem_x * self.n_elem_y:
-            raise ValueError("Delays must match total elements")
+            raise ValueError(
+                f"Delays must match total elements. Input size: {delays.size}, expected: {self.n_elem_x * self.n_elem_y}"
+            )
         self.delays = delays
 
     def get_mesh(self):

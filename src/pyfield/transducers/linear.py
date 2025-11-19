@@ -418,14 +418,18 @@ class LinearArrayTransducer:
         """Set per-element apodization weights (length = n_elements)."""
         weights = np.asarray(weights, dtype=float)
         if weights.shape[0] != self.n_elements:
-            raise ValueError("Apodization array must match number of elements.")
+            raise ValueError(
+                f"Apodization array must match number of elements. Input size: {weights.size}, expected: {self.n_elements}"
+            )
         self.apodization = weights
 
     def set_delays(self, delays):
         """Set per-element delays in seconds (length = n_elements)."""
         delays = np.asarray(delays, dtype=float)
         if delays.shape[0] != self.n_elements:
-            raise ValueError("Delay array must match number of elements.")
+            raise ValueError(
+                f"Delay array must match number of elements. Input size: {delays.size}, expected: {self.n_elements}"
+            )
         self.delays = delays
 
     def get_mesh(self):

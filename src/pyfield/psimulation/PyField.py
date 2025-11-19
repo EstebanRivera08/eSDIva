@@ -172,7 +172,7 @@ class PyField:
             monochromatic = False
 
         start = time.time()
-        h_sir, t0, x, y, z = self.compute_sir(field_points_mm, method=method)
+        h_sir, self.t0, x, y, z = self.compute_sir(field_points_mm, method=method)
         if monochromatic:
             pressure_field = from_sir_to_monochromatic_pressure(
                 h_sir, x, y, z, self.fc, self.fs
