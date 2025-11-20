@@ -15,8 +15,8 @@ from .plotting_pyvista import (
     recompute_bounds,
 )
 from .transformation_functions import (
-    align_transducer_to_probe,
     compute_affine_from_markers,
+    get_LabToTransducer,
 )
 
 __all__ = [
@@ -25,7 +25,7 @@ __all__ = [
     "add_transducer_to_plotter",
     "add_pressure_to_plotter",
     "compute_pressure_vol_mesh",
-    "align_transducer_to_probe",
+    "get_LabToTransducer",
     "add_transducer_mesh",
     "add_pressure_vol",
     "add_regions_mesh",

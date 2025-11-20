@@ -3,8 +3,8 @@ import numpy as np
 
 import pyfield.transducers as Transducers
 from pyfield.brain_atlas import BG_Atlas
-from pyfield.dopplerscan import DopplerScan
 from pyfield.psimulation import PyField, TorchField
+from pyfield.scans import DopplerScan
 from pyfield.utilities import (
     add_2D_image,
     add_3D_vol,
@@ -85,18 +85,14 @@ center_plane, R = compute_affine_from_markers(
 
 center_2Ddoppler = np.array(Doppler2D.pv_mesh.center)
 
-center_2Ddoppler[0] = (
-    0  # Set the z coordinate to 0 because we just want translation in the xy plane
-)
-center_2Ddoppler[2] = (
-    0  # Set the z coordinate to 0 because we just want translation in the xy plane
-)
+# NOTE: this data is from the special motor of Felipe, which does not have a translation
+# along the x-axis. Thus the alingment is not guaranteed, and the translation should be just along y-axis.
+# center_2Ddoppler[0] = 0
+center_2Ddoppler[2] = 0
 
 # assemble 4×4
 t = center_plane - center_2Ddoppler  # Translation vector to the marker plane
 
-# NOTE: this data is from the special motor of Felipe, which does not have a translation
-# along the x-axis, so alingment is not guaranteed.
 
 T = np.eye(4)
 T[:3, :3] = R

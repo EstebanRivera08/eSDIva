@@ -8,7 +8,7 @@ from brainglobe_atlasapi import show_atlases as bg_show_atlases
 class BG_Atlas:
     def __init__(
         self,
-        atlas_name,
+        atlas_name=None,
         region_names=None,
         *,
         whs_voxels=None,
@@ -240,8 +240,8 @@ class BG_Atlas:
                 "No transformation matrix provided. No transformation applied to the mesh."
             )
             trans_pv_mesh = pv_mesh
-
-        return pv_mesh
+        if not inplace:
+            return pv_mesh
 
     def reset_mesh(self):
         """

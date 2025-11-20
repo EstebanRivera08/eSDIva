@@ -3,16 +3,16 @@ import pyvista as pv
 
 import pyfield.transducers as Transducers
 from pyfield.brain_atlas import BG_Atlas
-from pyfield.dopplerscan import DopplerScan
 from pyfield.psimulation import PyField, TorchField
+from pyfield.scans import DopplerScan
 from pyfield.utilities import (
     add_2D_image,
     add_3D_vol,
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
-    align_transducer_to_probe,
     create_vol_mesh,
+    get_LabToTransducer,
 )
 
 # ----------------- Get the scan objects --------------------
@@ -82,10 +82,10 @@ x, y, z, pressure_field = Domino_field(field_info_mm)
 # the parallel computing
 x, y, z, pressure_field = Domino_field(field_info_mm)
 
-# ------------------ Transform the meshes --------------------
-
 # Compute the pressure volume mesh
 pressure_vol_mesh = create_vol_mesh(x, y, z, pressure_field, scalars="Pressure (PII)")
+
+# ------------------ Transform the meshes --------------------
 
 # Get the meshes and get them to the probe coordinate system
 TX_mesh = domino.get_mesh()
@@ -96,18 +96,20 @@ Brain_Atlas.reset_mesh()  # Reset the Brain Atlas mesh to the original mesh
 Brain_Atlas.transform(T_matrix=invertz @ Doppler3D.BrainToLab, inplace=True)
 
 # Transform from the lab to the probe coordinate system
-LabToProbe = align_transducer_to_probe(
+LabToTransducer = get_LabToTransducer(
     TX_mesh, Doppler2D
 )  # Get the transformation matrix from the lab to the probe coordinate system
+
 Doppler3D.transform(
-    T_matrix=LabToProbe, inplace=True
+    T_matrix=LabToTransducer, inplace=True
 )  # Transform the scan mesh to the probe coordinate system
 Doppler2D.transform(
-    T_matrix=LabToProbe, inplace=True
+    T_matrix=LabToTransducer, inplace=True
 )  # Transform the scan mesh to the probe coordinate system
 Brain_Atlas.transform(
-    T_matrix=LabToProbe, inplace=True
+    T_matrix=LabToTransducer, inplace=True
 )  # Transform the atlas mesh to the probe coordinate system
+
 
 # ------------------ Code for plotting --------------------
 
@@ -231,7 +233,8 @@ if save_fig:
 else:
     final_plotter.show()  # Show the plotter in Jupyter Notebook
 
-    final_plotter.close()  # for plotters
+
+final_plotter.close()  # for plotters
 # print(final_plotter.camera_position)
 
 # ------------------ Clean up --------------------
@@ -240,6 +243,6 @@ Doppler3D.clean()  # for scans
 Doppler2D.clean()  # for scans
 domino.clean()  # for transducers
 Brain_Atlas.clean()  # for atlas
-# Domino_field.clean()  # for fields
+
 del TX_mesh, pressure_vol_mesh  # for mesh objects
 del final_plotter  # for plotters

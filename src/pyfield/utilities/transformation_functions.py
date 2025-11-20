@@ -1,7 +1,7 @@
 import numpy as np
 
 
-def align_transducer_to_probe(TX_mesh, Doppler2D):
+def get_LabToTransducer(TX_mesh, Doppler2D):
     """
     Align the transducer mesh to the probe mesh.
     Args:
@@ -13,14 +13,30 @@ def align_transducer_to_probe(TX_mesh, Doppler2D):
     # Invert the
     invertz = np.diag([1, 1, -1, 1])  # Invert
     # Set the TX mesh origin
-    x_min, x_max, y_min, y_max, z_min, z_max = TX_mesh.bounds
-    TX_origin = np.array([x_min, y_min])
-    Probe_origin = Doppler2D.voxelsToProbe[:2, 3]  # Set the origin to the mesh bounds
+
+    Transducer_center = np.array(TX_mesh.center)
+
+    # Get the Doppler2D center in the probe coordinate system
+
+    pv_mesh = Doppler2D.transform(
+        T_matrix=np.linalg.inv(Doppler2D.probeToLab) @ invertz, inplace=False
+    )
+    Doppler2D_inProbeSpace_center = np.array(pv_mesh.center)
+
+    # print("Transducer center (m): ", Transducer_center)
+    # print("2D Doppler center (m): ", Doppler2D_inProbeSpace_center)
+
+    # Translation just along x and y axis
+    Trans_vector_ProbeToTransducer = (
+        Transducer_center[:2] - Doppler2D_inProbeSpace_center[:2]
+    )
+    # print(
+    #     "Translation vector from `Probe` to `Transducer` (m): ",
+    #     Trans_vector_ProbeToTransducer,
+    # )
 
     set_TX_origin = np.eye(4)  # Create a 4x4 identity matrix for translation
-    set_TX_origin[:2, 3] = (
-        Probe_origin - TX_origin * 1e-3
-    )  # Compute the translation vector to the transducer origin
+    set_TX_origin[:2, 3] = Trans_vector_ProbeToTransducer
 
     # rescale units from m to mm
     rescale_mToMm = np.diag(
@@ -45,7 +61,7 @@ def compute_affine_from_markers(
     up_axis=np.array([0, 0, -1]),
 ):
     """
-    Returns a 4×4 rigid‐body transform T that maps:
+    Returns a 4 x 4 rigid - body transform T that maps:
       - source_origin → p1
       - source_normal     → target plane normal
     where the target plane is defined by points p1, p2, and the up_axis.

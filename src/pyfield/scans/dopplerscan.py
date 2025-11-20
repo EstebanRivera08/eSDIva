@@ -373,7 +373,7 @@ class DopplerScan:
 
         return mesh
 
-    def transform(self, pv_mesh=None, T_matrix=None, *, inplace=False):
+    def transform(self, T_matrix=None, pv_mesh=None, *, inplace=False):
         """
         Transform the scan data using a transformation matrix.
         Args:
@@ -396,7 +396,9 @@ class DopplerScan:
             print(
                 "No transformation matrix provided. No transformation applied to the mesh."
             )
-        return pv_mesh
+
+        if not inplace:
+            return pv_mesh
 
     def dB(self, data=None, *, inplace=False):
         """
