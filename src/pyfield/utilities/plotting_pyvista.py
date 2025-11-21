@@ -372,62 +372,70 @@ def add_markers(
     notebook=False,
     window_size=(700, 700),
     off_screen=False,
-    glyph="sphere",
-    glyph_scale=1.0,
-    color="red",
+    point_size=1,
     labels=None,
     label_offset=(0, 0, 0),
     label_font_size=12,
     **kwargs,
 ):
     """
-    Add 3D point markers (and optional labels) to a PyVista scene.
-    Args:
-        points (array-like of shape (N,3)): XYZ coords.
-        plotter (pv.Plotter, optional): existing plotter.
-        notebook, window_size, off_screen: passed to Plotter if created.
-        glyph (str or pv.PolyData): 'sphere', 'cone', 'cube', or your own mesh.
-        glyph_scale (float): uniform scale of each glyph.
-        color: marker color.
-        labels (list of str, optional): one label per point.
-        label_offset (tuple): xyz offset added to each label position.
-        label_font_size (int): label font size.
-        **kwargs: passed to plotter.add_mesh().
-    Returns:
-        pv.Plotter
+    Add marker points (and optional labels) to a pyvista Plotter.
+
+    - Consumes 'color' and 'glyph_scale' explicitly.
+    - Does not forward arbitrary kwargs that pyvista.Property will treat as color.
     """
+    import pyvista as pv
+
+    # prepare plotter
     if plotter is None:
         plotter = pv.Plotter(
             window_size=window_size, notebook=notebook, off_screen=off_screen
         )
+
     pts = pv.PolyData(np.asarray(points))
 
-    # build glyph source
-    if isinstance(glyph, str):
-        name = glyph.lower()
-        if name == "sphere":
-            source = pv.Sphere(radius=1.0)
-        elif name == "cone":
-            source = pv.Cone(radius=0.5, height=2.0)
-        elif name == "cube":
-            source = pv.Cube()
-        else:
-            raise ValueError(
-                f"Unsupported glyph '{glyph}'. Use 'sphere','cone','cube', or pass your own mesh."
-            )
-    else:
-        source = glyph  # assume it's a pv.PolyData or mesh
+    # extract and remove plotting-specific keys from kwargs
+    color = kwargs.pop("color", "red")
 
-    glyphs = pts.glyph(scale=False, geom=source, factor=glyph_scale)
-    plotter.add_mesh(glyphs, color=color, **kwargs)
+    # prepare mesh kwargs (do not forward color as ambiguous tuple/name)
+    mesh_kwargs = dict(kwargs)
+    # ensure we don't accidentally pass other high-level plotting dicts as color
+    mesh_kwargs.pop("scalar_bar_args", None)
 
-    # add optional labels
+    # add points as spheres (render_points_as_spheres) with a size derived from glyph_scale
+    # compute a sensible point_size (integer)
+
+    plotter.add_mesh(
+        pts,
+        color=color,
+        render_points_as_spheres=True,
+        point_size=point_size,
+        **mesh_kwargs,
+    )
+
+    # add optional labels (filter kwargs forwarded to add_point_labels)
     if labels is not None:
         labels = list(labels)
         if len(labels) != pts.n_points:
             raise ValueError(
                 f"labels length {len(labels)} != number of points {pts.n_points}"
             )
+        # allowed keys for add_point_labels (keep conservative)
+        allowed_label_keys = {
+            "always_visible",
+            "background_color",
+            "use_2d",
+            "point_size",
+            "fill_shape",
+            "show_points",
+            "name",
+            "opacity",
+            "fmt",
+            "italic",
+            "bold",
+            "shadow",
+        }
+        label_kwargs = {k: v for k, v in kwargs.items() if k in allowed_label_keys}
         for idx, txt in enumerate(labels):
             pos = np.array(points[idx]) + np.array(label_offset)
             plotter.add_point_labels(
@@ -435,10 +443,13 @@ def add_markers(
                 [txt],
                 font_size=label_font_size,
                 text_color=color,
-                **kwargs,
+                **label_kwargs,
             )
 
     return plotter
+
+
+# ...existing code...
 
 
 # ------------ helper functions --------------
