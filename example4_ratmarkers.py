@@ -68,7 +68,7 @@ Doppler2D.transform(
 
 # -------- Translate the 2D Dopler scan to the marker plane coordinate system --------
 
-print("\n --- Import and Transform with brain markers --- \n")
+# print("\n --- Import and Transform with brain markers --- \n")
 
 # Load the markers file
 file_scan = h5py.File(markers_PATH, "r")
@@ -145,8 +145,8 @@ plotter = add_regions_mesh(
     window_size=[1000, 800],
     kwargs_dict={
         region_names[0]: {"color": "lightgray", "opacity": 0.4},
-        region_names[1]: {"color": "permanentgreen", "opacity": 0.3},
-        region_names[2]: {"color": "blue", "opacity": 0.3},
+        region_names[1]: {"color": "vandykebrown", "opacity": 0.3},
+        region_names[2]: {"color": "lawngreen", "opacity": 0.3},
     },
     label="Brain Atlas",
 )
@@ -168,7 +168,7 @@ plotter = add_3D_vol(
 plotter = add_2D_image(
     Doppler2D.pv_mesh,
     plotter=plotter,
-    cmap="gray",
+    cmap="inferno",
     opacity=1.0,
     show_scalar_bar=True,
     lighting=True,
@@ -188,12 +188,12 @@ plotter = add_2D_image(
 plotter = add_markers(
     [point1, point2],
     plotter=plotter,
-    glyph="sphere",
-    glyph_scale=0.05,
-    color="red",
+    point_size=20,
+    color="white",
     labels=["P1", "P2"],
     label_offset=(0, 0, 0.2),
     label_font_size=14,
+    ambient=1,
 )
 
 if plot_tx_pr:
@@ -248,7 +248,9 @@ plotter.close()  # for plotters
 
 Doppler3D.clean()  # for scans
 Doppler2D.clean()  # for scans
-domino.clean()  # for transducers
 Brain_Atlas.clean()  # for atlas
-del TX_mesh  # for mesh objects
+
 del plotter  # for plotters
+
+if plot_tx_pr:
+    del TX_mesh, pressure_vol_mesh  # for mesh objects
