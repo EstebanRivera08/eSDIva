@@ -4,9 +4,10 @@ import numpy as np
 
 from pyfield.h_sir.farfield_rect_patch import compute_h_sir
 from pyfield.utilities.helper_functions import (
-    check_field_points,
+    check_valid_field_points,
     compute_sub_elem_attributes,
     compute_time_grid,
+    create_3D_spatial_grid_from_points,
 )
 
 from .sir_to_pressure import (
@@ -27,6 +28,7 @@ class PyField:
         fs=200e6,
         alpha0=0,
         freq_power=1.0,
+        verbose=True,
     ):
         self.tx = transducer
         self.fc = transducer.fc  # Hz
@@ -62,22 +64,30 @@ class PyField:
         self.T_log = []
         self.P_log = []
         self.sir_running_time_log = []
+        self.verbose = verbose
 
-    def compute_sir(self, points, *, method="auto"):
-        x, y, z, points = check_field_points(points)
+    def compute_sir(self, points, *, method="auto", adjust_t0=True, verbose=None):
+        if verbose is None:
+            verbose = self.verbose
 
-        if method not in ["auto", "naive", "sdi", None]:
+        points = check_valid_field_points(points)
+
+        if method not in ["auto", "naive", "sdi", "SDI", None]:
             raise ValueError("method must be None or 'auto', 'naive', or 'sdi'.")
         if method == "naive":
             method_flag = 0
-        elif method == "sdi":
+        elif method == "sdi" or method == "SDI":
             method_flag = 1
         else:
             method_flag = None
 
         P, M = points.shape[0], self.M
 
-        print(f"\nComputing SIR for {P} points and {M} patches with method {method}...")
+        if verbose:
+            print(
+                f"\nComputing SIR for {P} points and {M} patches with method {method}..."
+            )
+
         startSIR = time.time()
 
         time_grid, t0, dt, T = compute_time_grid(
@@ -90,6 +100,7 @@ class PyField:
             self.c,
             self.fs,
             self.delays,
+            verbose=verbose,
         )
 
         h_sir, self.sub_elem_delta_k = compute_h_sir(
@@ -115,21 +126,27 @@ class PyField:
         # The t0 is understimated due to the way time_grid is computed
         # If we want to reduce time_grid size and adjust t0
         # to where h_sir entries are not zero, we can compute it as follows:
-        try:
-            s = h_sir.sum(axis=0)  # shape (T,)
-            diff = np.diff(s)  # shape (T-1,)
-            nz = np.nonzero(diff > 0)[0]
-            idx = int(nz[0]) if nz.size else None
-            tbefore = t0
-            t0 = tbefore + idx * dt
-            if idx / T > 0.5:
-                print(
-                    f"Warning: Adjusted t0 from {tbefore:.2e} s to {t0:.2e} s. corresponding to {idx}/{T}={idx / T * 100:.4f}% idx of time grid."
-                )
-            h_sir = h_sir[:, idx:]
-            T = h_sir.shape[1]
-        except Exception as e:
-            print(f"Could not adjust t0 due to error: {e}")
+        if adjust_t0:
+            try:
+                T_before = T
+                s = h_sir.sum(axis=0)  # shape (T,)
+                diff = np.diff(s)  # shape (T-1,)
+                nz = np.nonzero(diff > 0)[0]
+                idx = int(nz[0]) if nz.size else None
+                tbefore = t0
+                t0 = tbefore + idx * dt
+                if idx / T > 0.5:
+                    print(
+                        f"Warning: Adjusted t0 from {tbefore:.2e} s to {t0:.2e} s. corresponding to {idx}/{T}={idx / T * 100:.4f}% idx of time grid."
+                    )
+                h_sir = h_sir[:, idx:]
+                T = h_sir.shape[1]
+                if verbose:
+                    print(
+                        f"Adjusted t0 from {tbefore * 1e6:.2e} us to {t0 * 1e6:.2e} us, reducing time grid from {T_before} to {T} samples."
+                    )
+            except Exception as e:
+                print(f"Could not adjust t0 due to error: {e}")
 
         # Store information
         self.P_log.append(P)
@@ -137,8 +154,9 @@ class PyField:
         self.mean_sub_elem_delta_k_log.append(np.mean(self.sub_elem_delta_k))
         self.sir_running_time_log.append(runtime_sir)
 
-        print(f"Transducer SIR computed in {runtime_sir:.3f} seconds...")
-        return h_sir.T, t0, x, y, z
+        if verbose:
+            print(f"Transducer SIR computed in {runtime_sir:.3f} seconds...")
+        return h_sir.T, t0
 
     def __call__(
         self,
@@ -148,6 +166,7 @@ class PyField:
         normalize=False,
         monochromatic=True,
         excitation=None,
+        create_meshgrid=False,
     ):
         """
         Compute the pressure field at specified points.
@@ -171,8 +190,14 @@ class PyField:
         if excitation is not None:
             monochromatic = False
 
+        x, y, z, field_points_mm = create_3D_spatial_grid_from_points(
+            field_points_mm, create_meshgrid=create_meshgrid
+        )
+
         start = time.time()
-        h_sir, self.t0, x, y, z = self.compute_sir(field_points_mm, method=method)
+        h_sir, self.t0 = self.compute_sir(
+            field_points_mm, method=method, verbose=self.verbose
+        )
         if monochromatic:
             pressure_field = from_sir_to_monochromatic_pressure(
                 h_sir, x, y, z, self.fc, self.fs

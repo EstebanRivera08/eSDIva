@@ -102,13 +102,22 @@ def compute_parallelized_sir_optimized(
             k_start = int(np.floor((t1 - t0) * fs))
             k_end = int(np.ceil((t4 - t0) * fs) + 1)
 
-            # clamp to valid range
+            # If out of time range skip point
             if k_end < 0 or k_start >= T:
+                print("Warning: event outside time grid in point ", p)
+                print(
+                    "t1 (us):",
+                    t1 * 1e6,
+                    "t4 (us):",
+                    t4 * 1e6,
+                    "k_start:",
+                    k_start,
+                    "k_end:",
+                    k_end,
+                    "T:",
+                    T,
+                )
                 continue
-            if k_start < 0:
-                k_start = 0
-            if k_end > T:
-                k_end = T
 
             range_k = k_end - k_start
             range_k_matrix[p, m] = range_k
@@ -149,9 +158,7 @@ def compute_parallelized_sir_optimized(
                 # t1 (+)
                 k1f = (t1 - t0) * fs + 1
                 k4f = (t4 - t0) * fs + 1
-                if np.floor(k1f) < 0.0 or k1f > T - 1.0 or np.floor(k4f) > T - 1.0:
-                    print("Warning: event outside time grid in point ", p)
-                    continue
+
                 kf = k1f
                 kf_floor = int(np.floor(kf))
                 w_ceil = kf - kf_floor

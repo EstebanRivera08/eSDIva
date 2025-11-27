@@ -129,11 +129,47 @@ def create_spatial_grid_from_dict(simulation_struct):
     return x, y, z, grid_points
 
 
-def check_field_points(field_points_mm):
+def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
+    field_points_mm = check_valid_field_points(field_points_mm)
+
     if isinstance(field_points_mm, dict):
         x, y, z, spatial_grid = create_spatial_grid_from_dict(field_points_mm)
+    else:
+        x = np.sort(np.unique(field_points_mm[:, 0]))
+        y = np.sort(np.unique(field_points_mm[:, 1]))
+        z = np.sort(np.unique(field_points_mm[:, 2]))
 
-    if isinstance(field_points_mm, (np.ndarray, list, tuple)):
+        if len(x) * len(y) * len(z) != field_points_mm.shape[0]:
+            print(
+                f"Warning: unique(x)*unique(y)*unique(z) = {len(x)}x{len(y)}x{len(z)} is different from the number of points provided (points.shape[0]={field_points_mm.shape[0]}). \n"
+                "If you intended to provide a grid, please check the points or set `create_meshgrid=True` to automatically recompute the grid."
+            )
+
+        if create_meshgrid:
+            spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+        else:
+            spatial_grid = field_points_mm
+
+    return x, y, z, spatial_grid * 1e-3  # convert to meters
+
+
+def check_valid_field_points(field_points_mm):
+    if isinstance(field_points_mm, dict):
+        try:
+            [x0, xf], [y0, yf], [z0, zf] = (
+                field_points_mm["x_extent"],
+                field_points_mm["y_extent"],
+                field_points_mm["z_extent"],
+            )
+            dx, dy, dz = (
+                field_points_mm["dx"],
+                field_points_mm["dy"],
+                field_points_mm["dz"],
+            )
+        except Exception as e:
+            print(f"Could not retrieve grid parameters in dict due to error: {e}")
+
+    elif isinstance(field_points_mm, (np.ndarray, list, tuple)):
         if isinstance(field_points_mm, (list, tuple)):
             field_points_mm = np.array(field_points_mm, dtype=np.float32)
         # check shape
@@ -147,12 +183,10 @@ def check_field_points(field_points_mm):
         else:
             raise ValueError("points must 1D (3,) or 2D (N,3).")
 
-        # Check
-        x = np.sort(np.unique(field_points_mm[:, 0]))
-        y = np.sort(np.unique(field_points_mm[:, 1]))
-        z = np.sort(np.unique(field_points_mm[:, 2]))
-        spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
-    return x, y, z, spatial_grid * 1e-3  # convert to meters
+    else:
+        raise ValueError("field_points_mm must be a dict or a numpy/list/tuple array.")
+
+    return field_points_mm
 
 
 # Reshape flattened volume to mapped points
@@ -172,13 +206,14 @@ def reshape_to_mapped_points(x, y, z, flattened_volume):
     ).transpose(0, 2, 3, 1)
 
 
-def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays):
+def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True):
     start = time.time()
 
     max_dist, min_dist = compute_minmax_distance_patch_to_point(P, M, points, centers)
-    print(
-        f"Min distance: {min_dist * 1e3:.2f} mm, Max distance: {max_dist * 1e3:.2f} mm"
-    )
+    if verbose:
+        print(
+            f"Min distance: {min_dist * 1e3:.2f} mm, Max distance: {max_dist * 1e3:.2f} mm"
+        )
 
     max_delay = delays.max()
     size_patch = wx + wy
@@ -190,15 +225,16 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays):
     min_time = (min_dist - 0.5 * size_patch) / c  # us (or unit)
     min_time = max(min_time, 0.0)
 
-    max_time = (max_dist + 0.5 * size_patch) / c + max_delay  # us (or unit)
+    max_time = (max_dist + size_patch) / c + max_delay  # us (or unit)
 
     dt = 1.0 / fs
     T = int(np.ceil((max_time - min_time) * fs))
     # next power of two
     t_grid = min_time + np.arange(T, dtype=np.float32) * dt
-    print(
-        f"Computed time grid from {min_time * 1e6:.2f} us to {max_time * 1e6:.2f} us, with {T} samples in {time.time() - start:.2f} seconds."
-    )
+    if verbose:
+        print(
+            f"Computed time grid from {min_time * 1e6:.2f} us to {max_time * 1e6:.2f} us, with {T} samples in {time.time() - start:.2f} seconds."
+        )
     return t_grid, min_time, dt, T
 
 

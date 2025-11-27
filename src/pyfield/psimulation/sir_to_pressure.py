@@ -14,7 +14,7 @@ def _next_pow2(n):
 
 
 def from_sir_to_monochromatic_pressure(
-    h_sir, x, y, z, fc, fs, *, batch_size=2048, max_workers=None
+    h_sir, x, y, z, fc, fs, *, batch_size=2048, max_workers=None, verbose=True
 ):
     """
     Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
@@ -40,14 +40,25 @@ def from_sir_to_monochromatic_pressure(
 
     # Reshape back to 3D grid
     Pressure_at_fc = reshape_to_mapped_points(x, y, z, Hsir)
-    print(
-        f"Monochromatic pressure computed from SIR in {time.time() - start_time:.2f} seconds..."
-    )
+    if verbose:
+        print(
+            f"Monochromatic pressure computed from SIR in {time.time() - start_time:.2f} seconds..."
+        )
     return Pressure_at_fc[0, :, :, :]
 
 
 def from_sir_to_pressure(
-    h_sir, x, y, z, fs, *, rho=1, excitation=None, batch_size=2048, max_workers=None
+    h_sir,
+    x,
+    y,
+    z,
+    fs,
+    *,
+    rho=1,
+    excitation=None,
+    batch_size=2048,
+    max_workers=None,
+    verbose=True,
 ):
     """
     Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
@@ -119,9 +130,10 @@ def from_sir_to_pressure(
         pressure_field = reshape_to_mapped_points(x, y, z, Pressure_flat) * rho
     except Exception as e:
         raise ValueError(f"Error reshaping pressure field: {e}")
-    print(
-        f"Pressure with shape {pressure_field.shape} computed from SIR in {time.time() - start_time:.2f} seconds..."
-    )
+    if verbose:
+        print(
+            f"Pressure with shape {pressure_field.shape} computed from SIR in {time.time() - start_time:.2f} seconds..."
+        )
     return pressure_field
 
 

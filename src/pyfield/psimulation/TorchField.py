@@ -9,7 +9,7 @@ import torch.profiler
 from torch import Tensor
 from tqdm import tqdm
 
-from pyfield.utilities.helper_functions import check_field_points
+from pyfield.utilities.helper_functions import create_3D_spatial_grid_from_points
 
 
 # --- JIT-compiled core event computation (unchanged, but output in μs) ---
@@ -479,7 +479,7 @@ class TorchField(nn.Module):
         return device_cuda if use_gpu else device_cpu
 
     def _check_points(self, field_points_mm):
-        x, y, z, pts = check_field_points(field_points_mm)
+        x, y, z, pts = create_3D_spatial_grid_from_points(field_points_mm)
 
         # Convert to torch tensors
         pts = torch.tensor(pts, dtype=torch.float32, device=self.device)

@@ -216,6 +216,7 @@ def add_pressure_vol(
     plot_focal_spot=False,
     off_screen=False,
     colorbar_title=None,
+    contour_levels=11,
     scale=1,
     vmin=None,
     vmax=None,
@@ -258,7 +259,7 @@ def add_pressure_vol(
         plotter.add_mesh(iso_mesh, **kwargs)
 
     else:
-        n_contours = 11
+        n_contours = contour_levels
         if vmin is not None:
             min_val = vmin
             # print(f"Using provided vmin: {vmin}")

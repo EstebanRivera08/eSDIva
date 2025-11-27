@@ -64,6 +64,7 @@ def plot_pressure_field(
     colorbar_title=None,
     box_color="#b0b0b0",
     box_opacity=0.2,
+    contour_levels=11,
     **kwargs,
 ):
     """
@@ -91,6 +92,7 @@ def plot_pressure_field(
         off_screen=off_screen,
         scale=scale,
         colorbar_title=colorbar_title,
+        contour_levels=contour_levels,
         **kwargs,
     )
 
@@ -288,14 +290,24 @@ def plot_deltak_distribution(
         alpha=0.85,
     )
     max_count = counts.max()
-    ax1.axvline(mean_k, color="black", linestyle="dashed", linewidth=2)
+    ax1.axvline(mean_k, color="blue", linestyle="dashed", linewidth=2)
     ax1.text(
         mean_k,
         max_count * 1.05,
         r"$\Delta  \overline{k}$" + f": {mean_k:.2f}",
+        color="blue",
+        ha="center",
+    )
+
+    ax1.axvline(condition, color="black", linestyle="dotted", linewidth=2)
+    ax1.text(
+        condition,
+        max_count * 1.15,
+        r"$8+2T/M$" + f": {condition:.2f}",
         color="black",
         ha="center",
     )
+
     ax1.set_xlabel(r"$\Delta k$")
     ax1.set_ylabel("Counts")
     # ax1.set_title(r"b)")
