@@ -64,6 +64,8 @@ def compute_parallelized_sir_optimized(
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
     range_k_matrix = np.zeros((P, M), dtype=np.int32)
     t0 = time_grid[0]
+    min_time = 1000
+    max_time = -1000
 
     # precompute threshold term for auto decision (8 + 2*T/M)
     threshold_term = 8.0 + 2.0 * (T / M)
@@ -93,6 +95,9 @@ def compute_parallelized_sir_optimized(
                 delays[m],
                 dt,
             )
+            # skip if h_max negligible
+            min_time = min(min_time, t1)
+            max_time = max(max_time, t4)
             if h_max < 1e-6:
                 range_k_matrix[p, m] = np.nan
                 continue
@@ -239,7 +244,7 @@ def compute_parallelized_sir_optimized(
                 # multiply by dt to match continuous integral scaling
                 h_out[p, k] += acc2 * dt
 
-    return h_out, range_k_matrix
+    return h_out, range_k_matrix, min_time, max_time
 
 
 # ---------- computes h_sir ----------
@@ -259,7 +264,7 @@ def compute_h_sir(
     delays_sub_elem,
     method_flag=1,
 ):
-    return compute_parallelized_sir_optimized(
+    h_out, range_k_matrix, min_time, max_time = compute_parallelized_sir_optimized(
         P,
         M,
         T,
@@ -275,3 +280,10 @@ def compute_h_sir(
         dt,
         method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
     )
+
+    info_data = {
+        "min_time": min_time,
+        "max_time": max_time,
+        "range_k_matrix": range_k_matrix,
+    }
+    return h_out, info_data

@@ -77,7 +77,7 @@ class h_sir:
             self.delays,
         )
 
-        h_sir, self.range_k = compute_h_sir(
+        h_sir, info_struct = compute_h_sir(
             P,
             M,
             T,
@@ -93,6 +93,8 @@ class h_sir:
             self.delays_sub_elem,
             method_flag,
         )
+
+        self.range_k = info_struct["range_k_matrix"]
 
         runtime_sir = time.time() - startSIR
         # Store information

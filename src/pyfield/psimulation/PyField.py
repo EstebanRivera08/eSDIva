@@ -29,6 +29,7 @@ class PyField:
         alpha0=0,
         freq_power=1.0,
         verbose=True,
+        monochromatic=True,
     ):
         self.tx = transducer
         self.fc = transducer.fc  # Hz
@@ -64,7 +65,9 @@ class PyField:
         self.T_log = []
         self.P_log = []
         self.sir_running_time_log = []
+        self.pressure_calculation_time_log = []
         self.verbose = verbose
+        self.monochromatic = monochromatic
 
     def compute_sir(self, points, *, method="auto", adjust_t0=True, verbose=None):
         if verbose is None:
@@ -103,7 +106,7 @@ class PyField:
             verbose=verbose,
         )
 
-        h_sir, self.sub_elem_delta_k = compute_h_sir(
+        h_sir, info_struct = compute_h_sir(
             P,
             M,
             T,
@@ -120,6 +123,7 @@ class PyField:
             method_flag,
         )
         # h_sir shape (P, T)
+        self.sub_elem_delta_k = info_struct["range_k_matrix"]
 
         runtime_sir = time.time() - startSIR
 
@@ -128,22 +132,29 @@ class PyField:
         # to where h_sir entries are not zero, we can compute it as follows:
         if adjust_t0:
             try:
-                T_before = T
-                s = h_sir.sum(axis=0)  # shape (T,)
-                diff = np.diff(s)  # shape (T-1,)
-                nz = np.nonzero(diff > 0)[0]
-                idx = int(nz[0]) if nz.size else None
-                tbefore = t0
-                t0 = tbefore + idx * dt
-                if idx / T > 0.5:
-                    print(
-                        f"Warning: Adjusted t0 from {tbefore:.2e} s to {t0:.2e} s. corresponding to {idx}/{T}={idx / T * 100:.4f}% idx of time grid."
-                    )
-                h_sir = h_sir[:, idx:]
-                T = h_sir.shape[1]
+                t_start = info_struct["min_time"]
+                t_end = info_struct["max_time"]
+                idx_start = max(0, int(np.floor((t_start - t0) / dt)))
+                idx_end = min(
+                    T, int(np.ceil((t_end - t0) / dt)) + 1
+                )  # +1 to include last index
+                h_sir = h_sir[:, idx_start:idx_end]
+                # T_before = T
+                # s = h_sir.sum(axis=0)  # shape (T,)
+                # diff = np.diff(s)  # shape (T-1,)
+                # nz = np.nonzero(diff > 0)[0]
+                # idx = int(nz[0]) if nz.size else None
+                # tbefore = t0
+                # t0 = tbefore + idx * dt
+                # if idx / T > 0.5:
+                #     print(
+                #         f"Warning: Adjusted t0 from {tbefore:.2e} s to {t0:.2e} s. corresponding to {idx}/{T}={idx / T * 100:.4f}% idx of time grid."
+                #     )
+                # h_sir = h_sir[:, idx:]
+                # T = h_sir.shape[1]
                 if verbose:
                     print(
-                        f"Adjusted t0 from {tbefore * 1e6:.2e} us to {t0 * 1e6:.2e} us, reducing time grid from {T_before} to {T} samples."
+                        f"Adjusted t0 : {t0: .2e}->{t0 + idx_start * dt:.2e} s, and tN : {time_grid[-1]:.2e} -> {t0 + (idx_end - 1) * dt:.2e} s, \n h_sir size: {P} x {h_sir.shape[1]} (was {P} x {T})"
                     )
             except Exception as e:
                 print(f"Could not adjust t0 due to error: {e}")
@@ -164,7 +175,7 @@ class PyField:
         *,
         method="auto",
         normalize=False,
-        monochromatic=True,
+        monochromatic=None,
         excitation=None,
         create_meshgrid=False,
     ):
@@ -187,6 +198,8 @@ class PyField:
         pressure_field : 3D array
             Computed pressure field at the specified points.
         """
+        if monochromatic is None:
+            monochromatic = self.monochromatic
         if excitation is not None:
             monochromatic = False
 
@@ -206,7 +219,11 @@ class PyField:
             pressure_field = from_sir_to_pressure(
                 h_sir, x, y, z, self.fs, rho=self.rho, excitation=excitation
             )
-        print(f"Pressure field computed in {time.time() - start:.2f} seconds... \n")
+
+        self.pressure_calculation_time_log.append(time.time() - start)
+        print(
+            f"Pressure field computed in {self.pressure_calculation_time_log[-1]:.2f} seconds... \n"
+        )
 
         if normalize:
             pressure_field = pressure_field / pressure_field.max()

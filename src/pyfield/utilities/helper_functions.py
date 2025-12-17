@@ -223,7 +223,7 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
     # Dt1 and Dt2 max are wx/c and wy/c respectively
     # So:
     min_time = (min_dist - 0.5 * size_patch) / c  # us (or unit)
-    min_time = max(min_time, 0.0)
+    # min_time = max(min_time, 0.0)
 
     max_time = (max_dist + size_patch) / c + max_delay  # us (or unit)
 
