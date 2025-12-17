@@ -69,6 +69,7 @@ def from_sir_to_pressure(
     producing linear convolution results. Results mimic fftconvolve(..., mode='full')[:T].
     """
     # allow excitation to be None (no excitation -> identity)
+
     if excitation is None:
         excitation = None
     else:
@@ -82,10 +83,7 @@ def from_sir_to_pressure(
         T, n_points = h_sir.shape
 
         if excitation is None:
-            fft_dExcitation = None
-            nfft = _next_pow2(
-                T
-            )  # at least T, will use rfft/irfft, linear conv degenerates to circular of length nfft
+            Pressure_flat = h_sir
         else:
             # derivative of excitation with respect to time: d/dt = fs * diff(samples)
             derivative_excitation = np.diff(excitation) * fs
@@ -95,32 +93,29 @@ def from_sir_to_pressure(
             # compute frequency representation of excitation derivative (rfft)
             fft_dExcitation = np.fft.rfft(derivative_excitation, n=nfft)[:, np.newaxis]
 
-        Pressure_flat = np.zeros((T, n_points), dtype=np.float32)
+            Pressure_flat = np.zeros((T, n_points), dtype=np.float32)
 
-        def process_batch(start):
-            end = min(start + batch_size, n_points)
-            cols = end - start
-            # pad h_sir columns to nfft
-            h_pad = np.zeros((nfft, cols), dtype=np.float64)
-            h_pad[:T, :] = h_sir[:, start:end].astype(np.float64, copy=False)
-            # rfft, multiply, irfft
-            H_batch = np.fft.rfft(h_pad, axis=0)
-            if fft_dExcitation is None:
-                fft_Pressure = H_batch
-            else:
+            def process_batch(start):
+                end = min(start + batch_size, n_points)
+                cols = end - start
+                # pad h_sir columns to nfft
+                h_pad = np.zeros((nfft, cols), dtype=np.float64)
+                h_pad[:T, :] = h_sir[:, start:end].astype(np.float64, copy=False)
+                # rfft, multiply, irfft
+                H_batch = np.fft.rfft(h_pad, axis=0)
                 # broadcast multiply: (nfreqs, cols) * (nfreqs,1)
                 fft_Pressure = H_batch * fft_dExcitation
-            outputfft = np.fft.irfft(fft_Pressure, n=nfft, axis=0)
-            # replicate previous behaviour: take first T samples (causal alignment)
-            Pressure_flat = np.abs(outputfft[:T, :])
-            return start, end, Pressure_flat
+                outputfft = np.fft.irfft(fft_Pressure, n=nfft, axis=0)
+                # replicate previous behaviour: take first T samples (causal alignment)
+                Pressure_flat = np.abs(outputfft[:T, :])
+                return start, end, Pressure_flat
 
-        # Parallel loop: collect blocks and write to Pressure_flat
-        with ThreadPoolExecutor(max_workers=max_workers) as executor:
-            for start, end, out in executor.map(
-                process_batch, range(0, n_points, batch_size)
-            ):
-                Pressure_flat[:, start:end] = out.astype(np.float32, copy=False)
+            # Parallel loop: collect blocks and write to Pressure_flat
+            with ThreadPoolExecutor(max_workers=max_workers) as executor:
+                for start, end, out in executor.map(
+                    process_batch, range(0, n_points, batch_size)
+                ):
+                    Pressure_flat[:, start:end] = out.astype(np.float32, copy=False)
 
     except Exception as e:
         raise ValueError(f"Error FFT processing: {e}")

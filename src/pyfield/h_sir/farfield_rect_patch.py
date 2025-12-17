@@ -17,9 +17,10 @@ def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     """
     xp_abs = abs(dx) * wx * inv_c
     yp_abs = abs(dy) * wy * inv_c
-    # enforce minimum to avoid zero width
     Dt1 = min(xp_abs, yp_abs)
     Dt2 = max(xp_abs, yp_abs)
+
+    # enforce minimum to avoid zero width
     if Dt1 < dt:
         Dt1 = dt
     if Dt2 < dt:

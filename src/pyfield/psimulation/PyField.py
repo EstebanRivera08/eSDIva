@@ -225,6 +225,10 @@ class PyField:
             f"Pressure field computed in {self.pressure_calculation_time_log[-1]:.2f} seconds... \n"
         )
 
+        # Clean numerical errors
+        # pr_max = np.max(np.abs(pressure_field))
+        # pressure_field = np.clip(pressure_field, a_min=pr_max * 0.0001, a_max=None)
+
         if normalize:
             pressure_field = pressure_field / pressure_field.max()
 
