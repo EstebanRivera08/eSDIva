@@ -1,7 +1,6 @@
 import numpy as np
 import pyvista as pv
 
-import pyfield
 from pyfield.psimulation import PyField
 from pyfield.transducers import Domino, Zeus_Matrix
 from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
@@ -9,11 +8,11 @@ from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_
 print("\n --- Example 0: Linear and Matrix Array Transducers --- \n")
 
 save_fig = False
-fig_folder = r"C:\Users\deyve\Documents\Inkscape\SDI\figure3/"
+fig_folder = r""
 
 scale = 3
-run_linear_array = False
-run_matrix_array = True
+run_linear_array = True
+run_matrix_array = False
 theme = "dark"
 
 
@@ -27,6 +26,7 @@ if theme == "dark":
     ambient_tx = 0.1
     ambient_pr = 0.55
 else:
+    pv.global_theme.anti_aliasing = "ssaa"
     color = "black"
     ambient_tx = 1
     ambient_pr = 0.5
@@ -96,7 +96,7 @@ if run_linear_array:
         )
     else:
         plotter_linear = pv.Plotter(window_size=(500, 600))
-
+        scale = 1
     plotter_linear = add_pressure_vol(
         pressure_mesh, plotter=plotter_linear, ambient=ambient_pr, scale=scale
     )
@@ -138,6 +138,7 @@ if run_linear_array:
         )
     else:
         plotter1_linear = pv.Plotter(window_size=(400, 600), notebook=False)
+        scale = 1
 
     plotter1_linear = add_pressure_vol(
         pressure_mesh, plotter=plotter1_linear, ambient=ambient_pr, scale=scale
