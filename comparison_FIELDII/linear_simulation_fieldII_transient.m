@@ -13,18 +13,19 @@ disp('Defining transducer...')
 % ------------------ Saving and plotting options -----------------------
 folder = 'data\' ;
 version = '_pulsed' ;
+SAVE_DATA = 1 ;
 
 %  -------------- emission ----------------
 frequency = 12.5 ; %MHz
 f_sampling = 200 ; %MHz
 data.c = 1540; % Speed of sound [m/s]
-repetitions = 1 ;
+repetitions = 5 ;
 
 % ------- focus and simulation window (input parameters) -------pr_au
 x_extent = [-8, 8]; % [-2, 2]; % mm
 y_extent = [0, 0]; % [-2, 2]; % mm
 z_extent = [1, 15]; % [3, 13]; % mm
-dxyz = 0.05 ; %mm
+dxyz = 0.025 ; %mm
 dx = dxyz ; % mmdxy
 dy = dxyz*0 ; % mm
 dz = dxyz ; % mm
@@ -188,8 +189,9 @@ filename = ['Linear', ...
              '_T', num2str(data.T),version ] ;
 disp(['File: ', filename])
 
-save([folder, filename], 'data')
-
+if SAVE_DATA 
+save([folder, filename], 'data', '-v7.3')
+end
 %% Plot plane
 
 disp(size(reshaped_pressure))
