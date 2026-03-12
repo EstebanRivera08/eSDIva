@@ -5,14 +5,14 @@ import pyvista as pv
 # -------------------- Plotting Functions --------------------
 def create_vol_mesh(x, y, z, vol_matrix, *, scalars="Values"):
     """
-    Compute the pressure volume mesh for the given pressure field and coordinates.
+    Compute the volume mesh for the given vol_matrix and coordinates.
 
     Parameters
     ----------
-    pressure_field : ndarray
-        Pressure field data.
     x, y, z : ndarray
         Coordinate arrays.
+    vol_matrix : ndarray
+        Volume data (dim = 3).
 
     Returns
     -------
@@ -51,14 +51,17 @@ def add_regions_mesh(
     **kwargs,
 ):
     """
-    Plot the PyVista mesh of a specified structure.
-    Args:
+    Plot the PyVista mesh of a specified BrainAtlas structure.
+
+    Parameters:
+    -----------
         pv_regions_dict (dict): A dictionary of PyVista meshes for different brain regions.
         window_size (list, optional): Size of the plot window. Default is [800, 800].
         notebook (bool, optional): Whether to use notebook mode for the plotter. Default is True.
         off_screen (bool, optional): Whether to render the plot off-screen. Default is False.
         kwargs_dict (dict, optional): Additional keyword arguments for the mesh rendering.
     Returns:
+    --------
         pv.Plotter: The PyVista plotter with the mesh added.
     """
     if plotter is None:
@@ -112,12 +115,21 @@ def add_3D_vol(
     **kwargs,
 ):
     """
-    Plot the ultrasound volume using PyVista.
+    Add PyVista objects to a plotter for visualizing.
     Args:
-        doppler3D_vol (pv.ImageData): The ultrasound volume data.
-        cmap (str): Colormap to use for the volume rendering.
-        opacity (str or tuple): Opacity function for the volume rendering.
-        clim (list): Color limits for the scalars.
+        vol_3D (pv.ImageData): The volumen data (e.g. 3D ultrasound scan).
+        plotter (pv.Plotter, optional): An existing PyVista plotter to add the
+            volume to. If None, a new plotter will be created. Default is None.
+        notebook (bool, optional): Whether to use notebook mode for the plotter. Default
+        is True.
+        window_size (list, optional): Size of the plot window. Default is [700, 700].
+        off_screen (bool, optional): Whether to render the plot off-screen. Default is False
+            scale (float, optional): Scaling factor for font sizes in the scalar bar.
+            Default is 1.
+        kwargs: Additional keyword arguments to pass to the add_volume method of the
+        plotter.
+    Returns:
+        pv.Plotter: The PyVista plotter with the volume added.
     """
     if plotter is None:
         plotter = pv.Plotter(
@@ -167,12 +179,30 @@ def add_2D_image(
     **kwargs,
 ):
     """
-    Plot the ultrasound volume using PyVista.
-    Args:
-        doppler3D_vol (pv.ImageData): The ultrasound volume data.
-        cmap (str): Colormap to use for the volume rendering.
-        opacity (str or tuple): Opacity function for the volume rendering.
-        clim (list): Color limits for the scalars.
+    Add a 2D image as a mesh to a PyVista plotter.
+
+    Parameters
+    ----------
+    image_grid : pv.ImageData
+        The 2D image data to be added as a mesh (e.g. 2D ultrasound image).
+    plotter : pv.Plotter, optional
+        An existing PyVista plotter to which the image will be added. If None, a new
+        plotter will be created. Default is None.
+    notebook : bool, optional
+        Whether to use notebook mode for the plotter. Default is False.
+    window_size : list, optional
+        Size of the plot window. Default is [700, 700].
+    off_screen : bool, optional
+        Whether to render the plot off-screen. Default is False.
+    scale : float, optional
+        Scaling factor for font sizes in the scalar bar. Default is 1.
+    kwargs: Additional keyword arguments to pass to the add_mesh method of the plotter.
+
+    Returns
+    -------
+    pv.Plotter
+        The PyVista plotter with the 2D image mesh added.
+
     """
     if plotter is None:
         plotter = pv.Plotter(
@@ -222,6 +252,47 @@ def add_pressure_vol(
     vmax=None,
     **kwargs,
 ):
+    """
+    Add a pressure volume mesh to a PyVista plotter.
+
+    Parameters
+    ----------
+    pressure_vol : pv.ImageData
+        The pressure volume data to be added as a mesh.
+    plotter : pv.Plotter, optional
+        An existing PyVista plotter to which the pressure volume will be added. If None,
+        a new plotter will be created. Default is None.
+    notebook : bool, optional
+        Whether to use notebook mode for the plotter. Default is False.
+    window_size : list, optional
+        Size of the plot window. Default is [800, 800].
+    plot_focal_spot : bool, optional
+        Whether to plot the focal spot as an isosurface. Default is False.
+    off_screen : bool, optional
+        Whether to render the plot off-screen. Default is False.
+    colorbar_title : str, optional
+        Title for the colorbar. If None, it will use the name of the scalar field in
+        pressure_vol. Default is None.
+    contour_levels : int, optional
+        Number of contour levels to use when plotting the pressure volume. Default is
+        11.
+    scale : float, optional
+        Scaling factor for font sizes in the scalar bar. Default is 1.
+    vmin : float, optional
+        Minimum value for the contour levels. If None, it will use the minimum value in
+        the pressure volume. Default is None.
+    vmax : float, optional
+        Maximum value for the contour levels. If None, it will use the maximum value in
+        the pressure volume. Default is None.
+    kwargs: Additional keyword arguments to pass to the add_mesh method of the plotter.
+
+    Returns
+    -------
+    pv.Plotter
+        The PyVista plotter with the pressure volume mesh added.
+
+    """
+
     if plotter is None:
         plotter = pv.Plotter(
             notebook=notebook, window_size=window_size, off_screen=off_screen
@@ -317,6 +388,39 @@ def add_transducer_mesh(
     colorbar_title=None,
     **kwargs,
 ):
+    """
+    Add a transducer mesh to a PyVista plotter, colored by either apodization or delays.
+
+    Parameters
+    ----------
+    TX_mesh : pv.PolyData
+        The mesh representing the transducer, with point data for apodization and delays.
+    plotter : pv.Plotter, optional
+        An existing PyVista plotter to which the transducer mesh will be added. If None
+        a new plotter will be created. Default is None.
+    window_size : list, optional
+        Size of the plot window. Default is [800, 800].
+    notebook : bool, optional
+        Whether to use notebook mode for the plotter. Default is False.
+    off_screen : bool, optional
+        Whether to render the plot off-screen. Default is False.
+    scale : float, optional
+        Scaling factor for font sizes in the scalar bar. Default is 1.
+    scalars : str, optional
+        Which scalar field to use for coloring the transducer mesh. Must be either
+        "Apodization" or "Delays". Default is "Apodization".
+    colorbar_title : str, optional
+        Title for the colorbar. If None, it will use "Apodization" or "Delays" based on
+        the scalars parameter. Default is None.
+    kwargs: Additional keyword arguments to pass to the add_mesh method of the plotter.
+
+    Returns
+    -------
+    pv.Plotter
+        The PyVista plotter with the transducer mesh added and colored by the specified
+        scalar field.
+    """
+
     if plotter is None:
         plotter = pv.Plotter(
             notebook=notebook, window_size=window_size, off_screen=off_screen

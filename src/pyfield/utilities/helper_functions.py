@@ -73,17 +73,17 @@ def create_spatial_grid_from_dict(simulation_struct):
     ----------
     simulation_grid_dict : dict
         Dictionary containing the simulation parameters:
-        - x_extent : list
+        - x_extent (or x_extent_mm) : list
             The extent of the simulation in the x direction (in mm).
-        - y_extent : list
+        - y_extent (or y_extent_mm) : list
             The extent of the simulation in the y direction (in mm).
-        - z_extent : list
+        - z_extent (or z_extent_mm) : list
             The extent of the simulation in the z direction (in mm).
-        - dx : float
+        - dx (or dx_mm) : float
             The grid spacing in the x direction (in mm).
-        - dy : float
+        - dy (or dy_mm) : float
             The grid spacing in the y direction (in mm).
-        - dz : float
+        - dz (or dz_mm) : float
             The grid spacing in the z direction (in mm).
 
     Returns
@@ -155,19 +155,43 @@ def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
 
 def check_valid_field_points(field_points_mm):
     if isinstance(field_points_mm, dict):
+        # Detect which key convention is used
+        if "x_extent" in field_points_mm:
+            suffix = ""
+        elif "x_extent_mm" in field_points_mm:
+            suffix = "_mm"
+        else:
+            raise ValueError(
+                "Dict must contain 'x_extent'/'y_extent'/'z_extent'/'dx'/'dy'/'dz' "
+                "or their '_mm'-suffixed equivalents."
+            )
+
         try:
             [x0, xf], [y0, yf], [z0, zf] = (
-                field_points_mm["x_extent"],
-                field_points_mm["y_extent"],
-                field_points_mm["z_extent"],
+                field_points_mm[f"x_extent{suffix}"],
+                field_points_mm[f"y_extent{suffix}"],
+                field_points_mm[f"z_extent{suffix}"],
             )
             dx, dy, dz = (
-                field_points_mm["dx"],
-                field_points_mm["dy"],
-                field_points_mm["dz"],
+                field_points_mm[f"dx{suffix}"],
+                field_points_mm[f"dy{suffix}"],
+                field_points_mm[f"dz{suffix}"],
             )
         except Exception as e:
-            print(f"Could not retrieve grid parameters in dict due to error: {e}")
+            raise ValueError(
+                f"Could not retrieve grid parameters from dict (suffix='{suffix}'): {e}"
+            ) from e
+
+        # Normalize to standard keys (no suffix) so downstream functions always work
+        if suffix == "_mm":
+            field_points_mm = {
+                "x_extent": [x0, xf],
+                "y_extent": [y0, yf],
+                "z_extent": [z0, zf],
+                "dx": dx,
+                "dy": dy,
+                "dz": dz,
+            }
 
     elif isinstance(field_points_mm, (np.ndarray, list, tuple)):
         if isinstance(field_points_mm, (list, tuple)):

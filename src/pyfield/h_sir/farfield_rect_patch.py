@@ -10,8 +10,10 @@ inv_2pi = 1 / (2 * np.pi)
 @njit(inline="always")
 def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     """
+    Computes the parameters of the trapezoidal SIR for a rectangular patch aperture.
+
     Return t1,t2,t3,t4,h_max (float32).
-    dx,dy are direction cosines (xp, yp) used in your original compute.
+    dx,dy are direction componenets (xp, yp) used in your original compute.
     dist is distance from patch center to field point (float).
     inv_c is 1/c (float).
     """
@@ -265,6 +267,35 @@ def compute_h_sir(
     delays_sub_elem,
     method_flag=1,
 ):
+    """
+    Compute the SIR-based impulse response h_out for a set of field points and
+    transducer elements.
+    Args:
+        P (int): Number of field points.
+        M (int): Number of transducer elements.
+        T (int): Number of time samples.
+        dt (float): Time step size.
+        time_grid (np.ndarray): Array of time samples.
+        points (np.ndarray): Array of shape (P, 3) containing the coordinates of field
+        points.
+        centers (np.ndarray): Array of shape (M, 3) containing the coordinates of
+        transducer element patches centers.
+        wx (float): Width of the rectangular patch in the x-direction.
+        wy (float): Width of the rectangular patch in the y-direction.
+        inv_c (float): Inverse of the speed of sound (1/c).
+        fs (float): Sampling frequency.
+        apodization_sub_elem (np.ndarray): Array of shape (M,) containing the
+        apodization values for each transducer element.
+        delays_sub_elem (np.ndarray): Array of shape (M,) containing the delay
+        values for each transducer element.
+        method_flag (int): Flag to choose computation method (0 -> naive, 1 -> SDI,
+        2 -> auto).
+    Returns:
+        h_out (np.ndarray): Array of shape (P, T) containing the computed impulse
+        response for each field point and time sample.
+           'min_time', 'max_time', and 'range_k_matrix'.tion such as
+        'min_time', 'max_time', and 'range_k_matrix'.
+    """
     h_out, range_k_matrix, min_time, max_time = compute_parallelized_sir_optimized(
         P,
         M,
