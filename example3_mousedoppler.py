@@ -3,7 +3,7 @@ import pyvista as pv
 
 import pyfield.transducers as Transducers
 from pyfield.brain_atlas import BG_Atlas
-from pyfield.psimulation import PyField, TorchField
+from pyfield.psimulation import PyField
 from pyfield.scans import DopplerScan
 from pyfield.utilities import (
     add_2D_image,

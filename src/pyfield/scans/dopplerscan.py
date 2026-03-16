@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import h5py
 import matplotlib.pyplot as plt
 import numpy as np
@@ -15,7 +17,7 @@ def read_scan(path_scan, verbose=False):
     Returns:
         tuple: A tuple containing the data and metadata from the scan.
     """
-
+    path_scan = Path(path_scan) if path_scan is not None else None
     file_scan = h5py.File(path_scan, "r")
     data = file_scan["Data"][()]
     metadata = file_scan["acqMetaData"]
@@ -43,7 +45,7 @@ def read_bps(path_bps, verbose=False):
     Returns:
         tuple: A tuple containing the BrainToLab affine matrix.
     """
-
+    path_bps = Path(path_bps) if path_bps is not None else None
     metadata_bps = h5py.File(path_bps, "r")
     # metadata_bps = {key: raw_metadata_bps[key][()] for key in raw_metadata_bps.keys()}
 
@@ -222,12 +224,12 @@ class DopplerScan:
         mean_frames=True,
         verbose=False,
     ):
-        self.scan_PATH = scan_PATH
-        self.bps_PATH = bps_PATH
+        self.scan_PATH = Path(scan_PATH) if scan_PATH is not None else None
+        self.bps_PATH = Path(bps_PATH) if bps_PATH is not None else None
         self.probe_type = probe_type
         self.mean_frames = mean_frames
         self.verbose = verbose
-        self.load_scan(scan_PATH, bps_PATH=bps_PATH)
+        self.load_scan(self.scan_PATH, bps_PATH=self.bps_PATH)
         self.reset_mesh()  # Initialize the PyVista mesh attribute
 
     def load_scan(self, scan_PATH, bps_PATH=None):

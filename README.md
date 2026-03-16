@@ -1,56 +1,40 @@
 
 
->[!WARNING]
-> PyField is currently under active development. The API is subject
-> to change, and features may be incomplete or unstable.
+> [!WARNING]  
+> PyField is currently under development. The API is subject to change, and some features may be incomplete or unstable.
 
+PyField is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
+PyField implements both the naïve and Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
 
-PyField is an open-source Spatial Impulse Response (SIR) and Pressure Field simulation
-program that supports arbitrary transducer geometries made up from small rectangular
-partches with apodization and delays.
+> [!NOTE]  
+> PyField is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.  
+> Utilities such as the integration with the GlobeBrain atlas may still evolve to improve robustness.
 
-PyField supports the Naive and Sparse Delta Integration (SDI) method for calculation of
-SIR following the Tuphome-Stepanishen develpment.
+### Main Features
 
->[!NOTE]
-> Because PyField is designed as complementary material of what is presented in [],
-> PyField aims to provide the fundamental building blocks for researchers to inspect,
-> reuse, contribute or adapt the code and leaves room for community-driven extension
-> that may integrate naturally with the broader scientific python ecosystem.
-> Utilities such us the integration with the GlobeBrain-atlas might experience
-> modifications to make it more robust. 
+- **Transducer objects** — Tools to create and assemble common linear and matrix array probe types. These utilities compute geometric focal laws, generate apodization windows for specified F/D ratios, and more.
 
-- **Transducer objects** : Routines to create and construct common linear and matrix
-  arrays probe types. These routines provide utilities to compute geometric focal laws,
-  to generate apodization windows for specified F/D ratios and to accept.
-- **SIR simulation** : The H_sir module computes discrete spatial impuse responses
-  $h(r,t)$ produced by an aperture discretized into rectangular patches. Within the
-  methods to compute the response, this module counts with the naive, SDI and auto
-  methods supported in numba-accelerated kernels for field-point-parallel execution.
-- **Pressure simulation** : This module converts time-domain SIRs into acoustic pressure
-  fields. The pressure field can be monochromatic (solely depending in space) or
-  broadband transient simulations with defined excitation pulses (giving spatio-temporal
-  pressure matrices as result).
-- **Brain Atlas Integraion** : Map pressure simulations to standard brain atlases for
-  neuro-ultrasound technologies. 
-- **Visualization** : Rich plotting utilities using PyVista for visualization of
-  transducers, pressure fields and brain atlases.
+- **SIR simulation** — The `H_sir` module computes discrete spatial impulse responses \( h(r, t) \) produced by apertures discretized into rectangular patches. It includes naïve, SDI, and automatic methods implemented with Numba‑accelerated kernels for field‑point‑parallel execution.
+
+- **Pressure simulation** — Converts time‑domain SIRs into acoustic pressure fields. Supports monochromatic fields (spatial‑only) and broadband transient simulations with defined excitation pulses (producing spatio‑temporal pressure matrices).
+
+- **Brain Atlas Integration** — Maps pressure simulations onto standard brain atlases for neuro‑ultrasound research.
+
+- **Visualization** — Rich plotting utilities using PyVista for visualizing transducers, pressure fields, and brain atlases.
+
+---
 
 ## Installation
 
-### 1. Setup a virtual environment
+### 1. Set up a virtual environment
 
-
-We recommend to install pyfield in a virtual environment to avoid dependecy conflicts
-wiht other Python packages. Using
-[uv](https://docs.astral.sh/uv/guides/install-python/),
-you may create a new project folder with a virtual environmen as follows:
+We recommend installing PyField in a virtual environment to avoid dependency conflicts with other Python packages. Using [uv](https://docs.astral.sh/uv/guides/install-python/), you can create a new project folder with a virtual environment as follows:
 
 ```bash
 uv init new_project
 ```
 
-If you already have a project folder, you may create a virtual environment as follows:
+If you already have a project folder, create a virtual environment with:
 
 ```bash
 uv venv
@@ -58,12 +42,25 @@ uv venv
 
 ### 2. Install PyField
 
-To install the lates devepment version from GitHub :
+To install the latest development version from GitHub:
 
 ```bash
 uv add git+https://github.com/EstebanRivera08/PyField.git
 ```
-Soon it will be present in PyPi...
+
+PyField will soon be available on PyPI.
+
+---
+
+If you want, I can also help you:
+
+- refine the tone (more formal, more friendly, more concise)  
+- reorganize the README for clarity  
+- add badges, examples, or a quickstart section  
+- write API documentation or docstrings  
+
+Just tell me the style you’re aiming for.
+
 
 ### 3. Check installation
 
@@ -77,6 +74,14 @@ import pyfield
 If no error is raised, you have installed pyfield correctly.
 
 ## Quick Start
+
+From `pyfield` folder, you can run the examples with a single command:
+
+```bash
+uv run example2_ratbrainzones.py
+```
+
+You can also use this script as a reference for building your own ultrasound simulations.
 
 ```python
 import numpy as np
