@@ -130,6 +130,3 @@ def from_sir_to_pressure(
             f"Pressure with shape {pressure_field.shape} computed from SIR in {time.time() - start_time:.2f} seconds..."
         )
     return pressure_field
-
-
-# ...existing code...

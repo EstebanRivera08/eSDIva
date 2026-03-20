@@ -262,7 +262,7 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
     return t_grid, min_time, dt, T
 
 
-def to_dB(matrix):
+def to_dB(matrix, *, vmin=None, vmax=None):
     """Convert a matrix to decibel (dB) scale."""
 
     mat = np.asarray(matrix, dtype=float)
@@ -273,11 +273,14 @@ def to_dB(matrix):
         return np.array([])
 
     # normalize safely
-    maxv = mag.max()
-    if maxv == 0:
-        maxv = 1.0
-    mag = mag / maxv
+    if vmax is None:
+        vmax = mag.max()
+        if vmax == 0:
+            vmax = 1.0
+    mag = mag / vmax
 
+    if vmin is None:
+        vmin = 1e-20  # default minimum magnitude to avoid log(0)
     # avoid log(0) without in-place assignment
     mag = np.where(mag == 0, 1e-20, mag)
 

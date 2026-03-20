@@ -3,6 +3,7 @@ import time
 import matplotlib.gridspec as gridspec
 import matplotlib.pyplot as plt
 import numpy as np
+import pysonogen
 
 # from torch_test import TorchField, create_simulation_grid
 import torch
@@ -13,8 +14,6 @@ from helper_function import (
     stack_2D_to_3D,
 )
 from TorchFieldv2 import TorchFieldv2 as TorchField
-
-import pysonogen
 
 print(torch.__version__)
 
@@ -120,9 +119,9 @@ delays = np.zeros(
 linear_array_tx.set_delays(delays)
 linear_array_tx.set_apodization(apodization)
 
-# ------------------- Create Torch Field object -------------------
-
 del linear_array_torch, x, y, z  # Clear previous instance if any
+
+# ------------------- Create Torch Field object -------------------
 torch.cuda.empty_cache()  # Clear CUDA cache if using GPU
 linear_array_torch = TorchField(linear_array_tx, device=device)
 

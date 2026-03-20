@@ -3,7 +3,11 @@ from .helper_functions import (
     create_spatial_grid_from_dict,
     to_dB,
 )
-from .plotting import plot_deltak_distribution, plot_field_planes, plot_pressure_field
+from .plotting import (
+    plot_deltak_distribution,
+    plot_pressure_field,
+    plot_pressure_planes,
+)
 from .plotting_pyvista import (
     add_2D_image,
     add_3D_vol,
@@ -21,7 +25,7 @@ from .transformation_functions import (
 
 __all__ = [
     "plot_pressure_field",
-    "plot_field_planes",
+    "plot_pressure_planes",
     "add_transducer_to_plotter",
     "add_pressure_to_plotter",
     "compute_pressure_vol_mesh",

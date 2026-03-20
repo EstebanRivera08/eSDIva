@@ -162,7 +162,7 @@ class MatrixArrayTransducer:
             raise ValueError("Focus must be a 3D coordinate (x, y, z)")
 
         if z_foc <= 0:
-            raise ValueError("Wrong focus: z_foc must be positive")
+            print("z_foc is negative. Setting Diverging waves...")
 
         if apodization_type is None:
             pass
@@ -177,7 +177,7 @@ class MatrixArrayTransducer:
                 print("Warning: F/D ratio not set. Using default value of 1.0.")
                 self.FoverD = 1.0
 
-            d_tx = 2 * z_foc * np.tan(np.radians(self.dir_angle_deg)) / self.FoverD
+            d_tx = 2 * abs(z_foc) * np.tan(np.radians(self.dir_angle_deg)) / self.FoverD
             Nvx = round(d_tx / (self.pitch_x))
             Nvy = round(d_tx / (self.pitch_y))
             if Nvx % 2 == 0:
@@ -250,7 +250,10 @@ class MatrixArrayTransducer:
         delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
 
         # Compute delays based on the speed of sound in soft tissue
-        delays = delays.max() - delays  # time delays for focusing (in microseconds)
+        if focus[2] <= 0:
+            delays = delays - np.min(delays)  # time delays for diverging waves
+        else:
+            delays = delays.max() - delays  # time delays for focusing (in microseconds)
 
         if inline:
             self.delays = delays
@@ -282,6 +285,7 @@ class MatrixArrayTransducer:
         ax.grid(True)
 
         if flag:
+            plt.tight_layout()
             plt.show()
             plt.close()
         else:
@@ -306,16 +310,17 @@ class MatrixArrayTransducer:
         ax.grid(True)
 
         if flag:
+            plt.tight_layout()
             plt.show()
             plt.close()
         else:
             return ax
 
-    def plot_delays_apodization(self):
+    def plot_delays_apodization(self, figsize=(8, 4)):
         """
         Plot the current delays and apodization side by side.
         """
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(8, 4))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         self.plot_delays(ax=ax1)
         self.plot_apodization(ax=ax2)
         plt.tight_layout()
@@ -336,7 +341,7 @@ class MatrixArrayTransducer:
             raise ValueError(
                 f"Delays must match total elements. Input size: {delays.size}, expected: {self.n_elem_x * self.n_elem_y}"
             )
-        self.delays = delays
+        self.delays = delays - np.min(delays)  # Normalize to min delay
 
     def get_mesh(self):
         verts = []

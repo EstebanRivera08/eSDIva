@@ -221,7 +221,7 @@ class LinearArrayTransducer:
             # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
 
         if z_foc <= 0:
-            raise ValueError("Wrong focus: z_foc must be positive")
+            print("z_foc is negative. Diverging wave apodization will be computed.")
 
         N = self.n_elements
         pitch = self.elem_width + self.kerf  # element pitch in meters
@@ -244,7 +244,7 @@ class LinearArrayTransducer:
                 self.FoverD = 1.0
 
             # physical extent (in meters) of active aperture for given F/D
-            D = z_foc / self.FoverD
+            D = abs(z_foc) / self.FoverD
             # how many elements that corresponds to (must be even)
             if self.n_elements % 2 == 1:
                 N_virt = int(round((D / total_ap) * N / 2) * 2 + 1)
@@ -330,6 +330,7 @@ class LinearArrayTransducer:
         ax.grid(True)
 
         if flag:
+            plt.tight_layout()
             plt.show()
             plt.close()
         else:
@@ -341,7 +342,7 @@ class LinearArrayTransducer:
 
         Parameters
         ----------
-        focus_mm : sequence of two floats (x, z)
+        focus_mm : sequence of three floats (x, y, z)
             Lateral (x) and axial (z) coordinates of the focus, in millimeters
             relative to the array center.
 
@@ -362,7 +363,10 @@ class LinearArrayTransducer:
         delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
 
         # Compute delays based on the speed of sound in soft tissue
-        delays = -delays + delays.max()  # time delays for focusing
+        if focus[2] <= 0:  # z is negative, then diverging wave
+            delays = delays - delays.min()  # time delays for diverging wave
+        else:
+            delays = -delays + delays.max()  # time delays for focusing
         # delays = -delays + delays.min()  # time delays for focusing
 
         # optionally plot
@@ -398,16 +402,17 @@ class LinearArrayTransducer:
         ax.grid(True)
 
         if flag:
+            plt.tight_layout()
             plt.show()
             plt.close()
         else:
             return ax
 
-    def plot_delays_apodization(self):
+    def plot_delays_apodization(self, figsize=(10, 4)):
         """
         Plot the current delays and apodization side by side.
         """
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(10, 4))
+        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         self.plot_delays(ax=ax1)
         self.plot_apodization(ax=ax2)
         plt.tight_layout()
@@ -430,7 +435,7 @@ class LinearArrayTransducer:
             raise ValueError(
                 f"Delay array must match number of elements. Input size: {delays.size}, expected: {self.n_elements}"
             )
-        self.delays = delays
+        self.delays = delays - np.min(delays)  # normalize so min delay is zero
 
     def get_mesh(self):
         """
