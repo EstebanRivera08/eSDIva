@@ -9,7 +9,11 @@ from .plotting_pyvista import add_pressure_vol, create_vol_mesh
 
 def _normalize_window_size(window_size, scale=1.0):
     """
-    Ensure window_size is a tuple of two positive integers suitable for pv.Plotter.
+    Return ``window_size`` scaled and rounded to a valid ``(width, height)`` tuple.
+
+    PyVista requires integer pixel dimensions ≥ 1.  Applying a ``scale`` factor
+    (> 1 for high-res screenshots, < 1 for thumbnails) before rounding keeps the
+    aspect ratio exact.
     """
     ws = np.array(window_size, dtype=float) * float(scale)
     if ws.ndim == 0:
@@ -20,6 +24,13 @@ def _normalize_window_size(window_size, scale=1.0):
 
 
 def _set_custom_style(plotter, *, scale=1.0):
+    """
+    Apply a consistent axis-label and gridline style to a PyVista plotter.
+
+    Draws labelled outer bounding-box axes (X/Y/Z in mm) with white gridlines,
+    and sets the camera "up" direction to ``(0, 0, -1)`` so that z points down
+    (matching the acoustic convention where depth increases along z).
+    """
     cube_actor = plotter.show_bounds(
         grid="back",
         color="black",
@@ -82,6 +93,8 @@ def plot_pressure_field(
     # Create the pressure volume mesh
     pressure_vol = create_vol_mesh(x, y, z, pressure_field, scalars=scalars)
     box = pressure_vol.bounding_box()
+
+    kwargs.pop("ambient", 0.7)  # set default
 
     # Create a PyVista plotter
     plotter = add_pressure_vol(
@@ -183,25 +196,50 @@ def plot_pressure_planes(
     save_dir=None,
     ratios=None,
     label=None,
-    fps=30,
-    video_duration=5,
     p_max=None,
     **kwargs,
 ):
     """
-    Plot the pressure field in 2D slices
+    Plot orthogonal 2D slices of a monochromatic (3-D) pressure field.
+
+    If the field has exactly one singleton dimension it is treated as a
+    single plane and plotted as one image.  Otherwise three orthogonal
+    planes (XZ at y0, XY at z0, YZ at x0) are shown side-by-side.
+
+    For transient (4-D) data use :func:`plot_slices_2d` instead.
 
     Parameters
     ----------
     x, y, z : ndarray
-        Coordinate arrays.
-
-    pressure_field : ndarray
-        Pressure field datas.
+        Coordinate arrays in mm.
+    pressure_field : ndarray, shape (Nx, Ny, Nz)
+        Monochromatic pressure values.
+    db_scale : bool, optional
+        Convert to dB before plotting.  Default False.
+    figsize : tuple, optional
+        Matplotlib figure size ``(width, height)``.
+    title : str, optional
+        Figure suptitle.
+    centered_to_max : bool, optional
+        If True the slice planes pass through the pressure maximum.
+        Default False (geometric centre).
+    save_fig_name : str, optional
+        Output file name.  Saved inside ``save_dir`` if provided.
+    save_dir : str or Path, optional
+        Directory for output file.
+    ratios : array-like of length 3, optional
+        Manual column width ratios ``[XZ, XY, YZ]``.  Auto-computed from
+        physical extents when None.
+    label : str, optional
+        Colorbar label.
+    p_max : float, optional
+        Reference maximum for normalization. Default is None.
+    **kwargs
+        Passed through to :func:`plot_pressure_2D` (e.g. ``vmin``, ``vmax``,
+        ``interpolation``).
     """
     import pathlib
 
-    # Setup save directory if specified
     if save_dir is not None:
         save_path = pathlib.Path(save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
@@ -209,14 +247,13 @@ def plot_pressure_planes(
     else:
         save_path = None
 
-    if pressure_field.ndim == 4:
-        is_transient = True
-        nt, nx, ny, nz = pressure_field.shape
-    elif pressure_field.ndim == 3:
-        is_transient = False
-        nx, ny, nz = pressure_field.shape
-    else:
-        raise ValueError("pressure_field must be either 3D or 4D array.")
+    if pressure_field.ndim != 3:
+        raise ValueError(
+            "plot_pressure_planes expects a 3-D array (Nx, Ny, Nz). "
+            "For transient (4-D) data use plot_slices_2d."
+        )
+    nx, ny, nz = pressure_field.shape
+    print(f"Pressure field shape: [{nx}, {ny}, {nz}]")
 
     if nx == 1:
         plane_axis = "x"
@@ -240,6 +277,9 @@ def plot_pressure_planes(
         vmin = kwargs.pop("vmin", -40)
         vmax = kwargs.pop("vmax", 0)
     else:
+        if p_max is None:
+            p_max = 1
+        pressure_field = pressure_field / p_max
         cb_label = label if label else "Pressure (a.u.)"
         vmin = kwargs.pop("vmin", np.nanmin(pressure_field))
         vmax = kwargs.pop("vmax", np.nanmax(pressure_field))
@@ -290,57 +330,54 @@ def plot_pressure_planes(
             ratios = [Dx / Dz, Dx / Dy, Dy / Dz]
             ratios = ratios / np.sum(ratios)
 
-        # Create a GridSpec layout
+        # GridSpec: three data columns with aspect ratios matching field extents,
+        # plus a narrow fourth column for the shared colorbar.
         fig = plt.figure(figsize=figsize)
         gs = GridSpec(
             1, 4, width_ratios=[ratios[0], ratios[1], ratios[2], 0.05 * ratios.max()]
-        )  # Last column for the colorbar
+        )
 
-        if not is_transient:
-            ax0 = fig.add_subplot(gs[0, 0])
-            ax0 = plot_pressure_2D(
-                x,
-                z,
-                pressure_field[:, y0, :].squeeze(),
-                figsize=figsize,
-                title="XZ Plane (Y={:.2f} mm)".format(y[y0]),
-                plane_axis="y",
-                ax=ax0,
-                vmin=vmin,
-                vmax=vmax,
-                **kwargs,
-            )
-            ax1 = fig.add_subplot(gs[0, 1])
-            ax1 = plot_pressure_2D(
-                x,
-                y,
-                pressure_field[:, :, z0].squeeze(),
-                figsize=figsize,
-                title="XY Plane (Z={:.2f} mm)".format(z[z0]),
-                plane_axis="z",
-                ax=ax1,
-                vmin=vmin,
-                vmax=vmax,
-                **kwargs,
-            )
-            ax2 = fig.add_subplot(gs[0, 2])
-            ax2 = plot_pressure_2D(
-                y,
-                z,
-                pressure_field[x0, :, :].squeeze(),
-                figsize=figsize,
-                title="YZ Plane (X={:.2f} mm)".format(x[x0]),
-                plane_axis="x",
-                ax=ax2,
-                vmin=vmin,
-                vmax=vmax,
-                **kwargs,
-            )
+        ax0 = fig.add_subplot(gs[0, 0])
+        ax0 = plot_pressure_2D(
+            x,
+            z,
+            pressure_field[:, y0, :].squeeze(),
+            title="XZ Plane (Y={:.2f} mm)".format(y[y0]),
+            plane_axis="y",
+            ax=ax0,
+            vmin=vmin,
+            vmax=vmax,
+            **kwargs,
+        )
+        ax1 = fig.add_subplot(gs[0, 1])
+        ax1 = plot_pressure_2D(
+            x,
+            y,
+            pressure_field[:, :, z0].squeeze(),
+            title="XY Plane (Z={:.2f} mm)".format(z[z0]),
+            plane_axis="z",
+            ax=ax1,
+            vmin=vmin,
+            vmax=vmax,
+            **kwargs,
+        )
+        ax2 = fig.add_subplot(gs[0, 2])
+        ax2 = plot_pressure_2D(
+            y,
+            z,
+            pressure_field[x0, :, :].squeeze(),
+            title="YZ Plane (X={:.2f} mm)".format(x[x0]),
+            plane_axis="x",
+            ax=ax2,
+            vmin=vmin,
+            vmax=vmax,
+            **kwargs,
+        )
 
-            cbar_ax = fig.add_subplot(gs[0, 3])
-            cbar = fig.colorbar(ax2._image, cax=cbar_ax)
-            cbar.set_label(label)
-            cbar.ax.yaxis.set_label_position("left")
+        cbar_ax = fig.add_subplot(gs[0, 3])
+        cbar = fig.colorbar(ax2._image, cax=cbar_ax)
+        cbar.set_label(label)
+        cbar.ax.yaxis.set_label_position("left")
 
     if title is not None:
         fig.suptitle(title)
@@ -359,10 +396,11 @@ def plot_slices_2d(
     *,
     time_array=None,
     db_scale=True,
-    figsize=(10, 5),
+    figsize=None,
     save_dir=None,
     save_format="png",
-    save_fps=10,
+    video_duration_s=5,
+    fps=30,
     vmin=None,
     vmax=None,
     centered_to_max=False,
@@ -370,119 +408,78 @@ def plot_slices_2d(
     title=None,
     label=None,
     interpolation=None,
-    **kwargs,
 ):
     """
-    Plot 2D slices of pressure field for both 3D (monochromatic) and 4D (transient) data.
+    Plot orthogonal 2D slices of a pressure field.
 
-    This function automatically detects whether the input is monochromatic (3D) or
-    transient (4D) data and handles visualization accordingly:
-    - **3D data**: Creates a single static figure with three orthogonal slices (XZ, XY, YZ)
-    - **4D data**: Creates frame-by-frame visualization, optionally saving as image sequence or video
+    Handles both monochromatic (3D) and transient (4D) data. For 3D data a
+    single static figure is produced; for 4D data frames are displayed
+    sequentially and optionally saved to disk.
 
     Parameters
     ----------
-    x : ndarray
-        X coordinate array (mm).
-    y : ndarray
-        Y coordinate array (mm).
-    z : ndarray
-        Z coordinate array (mm).
+    x, y, z : ndarray
+        Coordinate arrays in mm.
     pressure_field : ndarray
-        Pressure field data. Can be:
-        - 3D array (Nx, Ny, Nz): Monochromatic field
-        - 4D array (Nx, Ny, Nz, Nt): Transient field with time steps
+        Pressure field data:
+        - 3D array ``(Nx, Ny, Nz)``: monochromatic field.
+        - 4D array ``(Nt, Nx, Ny, Nz)``: transient field (time along axis 0).
     time_array : ndarray, optional
-        Time values for each time step (only used for 4D data).
-        If None, time step indices are used. Shape: (Nt,)
+        Physical time values for each frame (seconds).  If None, frame indices
+        are used as labels.  Only used for 4D data.
     db_scale : bool, optional
-        If True, convert pressure values to dB scale. Default is True.
+        Convert pressures to dB before plotting.  Default True.
     figsize : tuple, optional
-        Figure size (width, height) in inches. Default is (10, 5).
+        Figure size ``(width, height)`` in inches.  Default ``(10, 5)``.
     save_dir : str or Path, optional
-        Directory to save output. If None, no files are saved.
-        - For 3D data: Saves single PNG/PDF file
-        - For 4D data: Saves frame sequence or video (if ffmpeg available)
-        Default is None.
+        Directory for output files.  None means no saving.
+        - 3D: saves one image named ``pressure_field.<fmt>``.
+        - 4D: saves one image per frame (``frame_NNNNN.<fmt>``) and attempts
+          to assemble an mp4 video via imageio (skipped if not installed).
     save_format : str, optional
-        Output format for 3D plots or frame images. Options: "png", "pdf", "jpg", "svg".
-        Default is "png".
-    save_fps : int, optional
-        Frames per second for video output (4D data). Default is 10.
-    vmin : float, optional
-        Minimum value for colorbar. If None, computed from data. Default is None.
-    vmax : float, optional
-        Maximum value for colorbar. If None, computed from data. Default is None.
+        Image format for saved frames.  Default ``"png"``.
+    video_duration_s : float, optional
+        Total display and save duration in seconds (4D only).  All ``nt``
+        frames are spread evenly over this duration.  Default 5 seconds.
+    fps : int, optional
+        Reserved parameter (kept for API compatibility).  The actual display
+        and save frame rate is computed as ``nt / video_duration_s`` so that
+        all frames are visible within the requested duration.
+    vmin, vmax : float, optional
+        Colorbar limits.  If None, computed globally from all frames so the
+        colorbar is consistent across the animation.
     centered_to_max : bool, optional
-        If True, center slice positions on the maximum pressure value.
-        If False, use the geometric center of the field. Default is False.
+        If True the three slice planes pass through the pressure maximum;
+        otherwise they pass through the geometric centre.  Default False.
     cmap : str, optional
-        Colormap name. Default is "inferno".
+        Matplotlib colormap name.  Default ``"jet"``.
     title : str, optional
-        Title for the plot. If None, auto-generated. Default is None.
+        Figure suptitle.  For 4D data the time stamp is appended unless a
+        custom title is provided.
     label : str, optional
-        Colorbar label. If None, automatically set based on db_scale parameter.
-        Default is None (auto-generated).
+        Colorbar label.  Auto-set from ``db_scale`` when None.
     interpolation : str, optional
-        Interpolation method for imshow. Options: None, "nearest", "bilinear", etc.
-        Default is None.
-    **kwargs :
-        Additional keyword arguments (reserved for future extensions).
+        ``imshow`` interpolation method (e.g. ``"bilinear"``).  Default None.
 
     Returns
     -------
     None
-        Displays plot(s) and optionally saves to disk.
-
-    Notes
-    -----
-    - For 4D transient data, displays frames sequentially with a brief pause between them.
-    - Time values are converted to microseconds (µs) for display.
-    - Uses `to_dB()` function for dB conversion if db_scale=True.
-
-    Examples
-    --------
-    **Monochromatic (3D) visualization:**
-
-    >>> x, y, z, p_mono = simulator(plane_config)
-    >>> plot_slices_2d(x, y, z, p_mono, db_scale=True, save_dir="./results")
-
-    **Transient (4D) visualization with video:**
-
-    >>> x, y, z, p_transient = simulator(plane_config, excitation=excitation)
-    >>> plot_slices_2d(
-    ...     x, y, z, p_transient,
-    ...     time_array=time_array,
-    ...     db_scale=True,
-    ...     save_dir="./results",
-    ...     save_fps=15,
-    ... )
-
-    **Custom visualization:**
-
-    >>> plot_slices_2d(
-    ...     x, y, z, p_field,
-    ...     figsize=(12, 6),
-    ...     cmap="jet",
-    ...     centered_to_max=True,
-    ...     vmin=-60,
-    ...     vmax=0,
-    ... )
     """
     import pathlib
 
-    # Set default label based on db_scale if not provided
     if label is None:
         label = "Pressure (dB)" if db_scale else "Pressure (a.u.)"
 
-    # Auto-detect monochromatic (3D) vs transient (4D)
-    is_transient = pressure_field.ndim == 4
-    num_time_steps = pressure_field.shape[0] if is_transient else 1
+    # ── dimensionality check ────────────────────────────────────────────────
+    if pressure_field.ndim == 3:
+        is_transient = False
+    elif pressure_field.ndim == 4:
+        is_transient = True
+        nt, nx, ny, nz = pressure_field.shape
+    else:
+        raise ValueError("pressure_field must be 3D (Nx,Ny,Nz) or 4D (Nt,Nx,Ny,Nz).")
 
-    if is_transient and time_array is None:
-        time_array = np.arange(num_time_steps)
-
-    # Setup save directory if specified
+    # ── save directory ──────────────────────────────────────────────────────
     if save_dir is not None:
         save_path = pathlib.Path(save_dir)
         save_path.mkdir(parents=True, exist_ok=True)
@@ -490,240 +487,237 @@ def plot_slices_2d(
     else:
         save_path = None
 
-    # ========================================================================
-    # HANDLE MONOCHROMATIC (3D) CASE
-    # ========================================================================
+    # ════════════════════════════════════════════════════════════════════════
+    # MONOCHROMATIC (3D) — delegate to plot_pressure_planes
+    # ════════════════════════════════════════════════════════════════════════
     if not is_transient:
-        # Check if is a plane
-        nx, ny, nz = pressure_field.shape
-        if nx == 1:
-            plane_axis = "x"
-        elif ny == 1:
-            plane_axis = "y"
-        elif nz == 1:
-            plane_axis = "z"
-        else:
-            plane_axis = None
-        pressure_field = pressure_field.squeeze()
-
-        print(f"Field shape: {pressure_field.shape}")
-
-        # Convert to dB if requested
-        if db_scale:
-            pressure_plot = to_dB(pressure_field)
-            cb_label = label if label else "Pressure (dB)"
-        else:
-            pressure_plot = pressure_field
-            cb_label = label if label else "Pressure (a.u.)"
-
-        # Use existing plot_field_planes function for consistent styling
-        auto_title = title if title else "Monochromatic Pressure Field"
-
-        if plane_axis is not None:
-            print(
-                f"Note: Detected plane along {plane_axis}-axis. Plotting 2D slice instead of 3D planes."
-            )
-
-        if save_path:
-            save_file = save_path / f"pressure_field.{save_format}"
-            plot_field_planes(
-                x,
-                y,
-                z,
-                pressure_plot,
-                figsize=figsize,
-                title=auto_title,
-                interpolation=interpolation,
-                centered_to_max=centered_to_max,
-                vmin=vmin,
-                vmax=vmax,
-                label=cb_label,
-                save_fig_name=str(save_file),
-            )
-        else:
-            plot_field_planes(
-                x,
-                y,
-                z,
-                pressure_plot,
-                figsize=figsize,
-                title=auto_title,
-                interpolation=interpolation,
-                centered_to_max=centered_to_max,
-                vmin=vmin,
-                vmax=vmax,
-                label=cb_label,
-            )
-
+        pressure_plot = to_dB(pressure_field) if db_scale else pressure_field.copy()
+        auto_title = title or "Monochromatic Pressure Field"
+        save_file = (
+            str(save_path / f"pressure_field.{save_format}") if save_path else None
+        )
+        plot_pressure_planes(
+            x,
+            y,
+            z,
+            pressure_plot,
+            figsize=figsize,
+            title=auto_title,
+            interpolation=interpolation,
+            centered_to_max=centered_to_max,
+            vmin=vmin,
+            vmax=vmax,
+            label=label,
+            save_fig_name=save_file,
+        )
         return
 
-    # ========================================================================
-    # HANDLE TRANSIENT (4D) CASE
-    # ========================================================================
-    print(f"\n Plotting 4D (transient) pressure field")
-    print(f"  Field shape: {pressure_field.shape}")
-    print(f"  Time steps: {num_time_steps}")
-    print(f"  Close figure window to complete visualization")
+    # ════════════════════════════════════════════════════════════════════════
+    # TRANSIENT (4D) — frame-by-frame animation
+    # ════════════════════════════════════════════════════════════════════════
+    print(
+        f"Plotting transient pressure field: shape={pressure_field.shape}, frames={nt}"
+    )
 
-    # Normalize time array if provided (assume it's in seconds, convert to µs)
-    if time_array is not None and time_array[0] < 1e-3:
-        time_display = time_array * 1e6  # Convert seconds to microseconds
+    # Default time labels
+    if time_array is None:
+        time_display = np.arange(nt).astype(float)
+        time_unit = "frame"
+    elif time_array[0] < 1e-3:
+        time_display = time_array * 1e6  # seconds → µs
         time_unit = "µs"
     else:
-        time_display = time_array
-        time_unit = "s" if time_array is not None else ""
+        time_display = np.asarray(time_array, dtype=float)
+        time_unit = "s"
 
-    # Compute global vmin/vmax across all time steps if not provided
-    if vmin is None or vmax is None:
-        if db_scale:
-            all_data_db = to_dB(pressure_field.reshape(-1, num_time_steps))
-            if vmin is None:
-                vmin = np.nanmin(all_data_db)
-            if vmax is None:
-                vmax = np.nanmax(all_data_db)
+    from matplotlib.animation import FuncAnimation
+
+    # Subsample first: only process the frames that will actually be displayed.
+    # step = nt / (duration * fps)  →  n_display ≈ duration * fps frames
+    step = max(1.0, nt / (video_duration_s * fps))
+    frame_indices = np.unique(np.arange(0, nt, step).astype(int))
+    n_display = len(frame_indices)
+    interval_ms = 1000.0 / fps
+
+    # Convert only the display subset — avoids processing the full nt-frame array
+    display_frames = pressure_field[frame_indices]  # (n_display, Nx, Ny, Nz)
+    if db_scale:
+        display_frames = to_dB(display_frames)
+
+    # Global vmin/vmax from the display subset (consistent colorbar)
+    if vmin is None:
+        vmin = float(np.nanmin(display_frames))
+    if vmax is None:
+        vmax = float(np.nanmax(display_frames))
+
+    # Detect planar fields: if one spatial dimension is 1, show a single panel
+    is_plane_xz = ny == 1  # most common: single XZ plane
+    is_plane_xy = nz == 1
+    is_plane_yz = nx == 1
+    is_plane = is_plane_xz or is_plane_xy or is_plane_yz
+
+    # Fixed slice indices (centred or max of first display frame)
+    if centered_to_max:
+        xi, yi, zi = np.unravel_index(
+            np.nanargmax(np.abs(display_frames[0])), display_frames[0].shape
+        )
+    else:
+        xi, yi, zi = len(x) // 2, len(y) // 2, len(z) // 2
+
+    imshow_kw = dict(
+        vmin=vmin, vmax=vmax, cmap=cmap, interpolation=interpolation, aspect="auto"
+    )
+
+    # ── Build figure (single panel for planar fields, three panels for volumes)
+    if is_plane:
+        fig, ax_main = plt.subplots(1, 1, figsize=figsize)
+
+        if is_plane_xz:
+            init_data = display_frames[0][:, 0, :].T
+            extent = [x.min(), x.max(), z.max(), z.min()]
+            xlabel, ylabel = "X (mm)", "Z (mm)"
+        elif is_plane_xy:
+            init_data = display_frames[0][:, :, 0].T
+            extent = [x.min(), x.max(), y.max(), y.min()]
+            xlabel, ylabel = "X (mm)", "Y (mm)"
         else:
-            if vmin is None:
-                vmin = np.nanmin(pressure_field)
-            if vmax is None:
-                vmax = np.nanmax(pressure_field)
+            init_data = display_frames[0][0, :, :].T
+            extent = [y.min(), y.max(), z.max(), z.min()]
+            xlabel, ylabel = "Y (mm)", "Z (mm)"
 
-    fig = plt.figure(figsize=figsize)
+        im_main = ax_main.imshow(init_data, origin="upper", extent=extent, **imshow_kw)
+        ax_main.set_xlabel(xlabel)
+        ax_main.set_ylabel(ylabel)
+        fig.colorbar(im_main, ax=ax_main, label=label)
+        plt.tight_layout()
+        # Axes-level text inside the axes so tight_layout cannot clip it
+        time_text = ax_main.text(
+            0.5,
+            0.97,
+            "t = 0",
+            transform=ax_main.transAxes,
+            ha="center",
+            va="top",
+            fontsize=11,
+            color="white",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="black", alpha=0.5),
+        )
 
-    for time_idx in range(num_time_steps):
-        fig.clear()
+        def _update(i):
+            p = display_frames[i]
+            if is_plane_xz:
+                im_main.set_data(p[:, 0, :].T)
+            elif is_plane_xy:
+                im_main.set_data(p[:, :, 0].T)
+            else:
+                im_main.set_data(p[0, :, :].T)
+            t_val = time_display[frame_indices[i]]
+            time_text.set_text(
+                title
+                if title
+                else f"t = {t_val:.3f} {time_unit}  ({frame_indices[i] + 1}/{nt})"
+            )
+            return [im_main, time_text]
 
-        # Extract pressure field at this time step (squeeze to 3D)
-        pressure_at_t = pressure_field[:, :, :, time_idx].squeeze()
+    else:
+        # Three-panel layout for full 3D volume fields
+        Dx = x.max() - x.min() or 1.0
+        Dy = y.max() - y.min() or 1.0
+        Dz = z.max() - z.min() or 1.0
+        ratios = np.array([Dx / Dz, Dx / Dy, Dy / Dz])
+        ratios /= ratios.sum()
 
-        # Convert to dB if requested
-        if db_scale:
-            pressure_plot = to_dB(pressure_at_t)
-            cb_label = label if label else "Pressure (dB)"
-        else:
-            pressure_plot = pressure_at_t
-            cb_label = label if label else "Pressure (a.u.)"
-
-        # Determine slice positions
-        if centered_to_max:
-            max_idx = np.unravel_index(np.nanargmax(pressure_plot), pressure_plot.shape)
-            x_slice_idx = max_idx[0]
-            y_slice_idx = max_idx[1]
-            z_slice_idx = max_idx[2]
-        else:
-            x_slice_idx = int(np.floor(len(x) / 2))
-            y_slice_idx = int(np.floor(len(y) / 2))
-            z_slice_idx = int(np.floor(len(z) / 2))
-
-        # Extract the three orthogonal slices
-        xz_plane = pressure_plot[:, y_slice_idx, :].T
-        xy_plane = pressure_plot[:, :, z_slice_idx].T
-        yz_plane = pressure_plot[x_slice_idx, :, :].T
-
-        # Create gridspec layout with proper aspect ratios
-        Dx = x.max() - x.min()
-        Dy = y.max() - y.min()
-        Dz = z.max() - z.min()
-        ratios = [Dx / Dz, Dx / Dy, Dy / Dz]
-        ratios = np.array(ratios) / np.sum(ratios)
-
+        fig = plt.figure(figsize=figsize)
         gs = GridSpec(1, 4, width_ratios=[ratios[0], ratios[1], ratios[2], 0.05])
 
-        # Plot XZ plane
         ax0 = fig.add_subplot(gs[0, 0])
-        im0 = ax0.imshow(
-            xz_plane,
-            cmap=cmap,
-            extent=[x.min(), x.max(), z.max(), z.min()],
-            vmin=vmin,
-            vmax=vmax,
-            interpolation=interpolation,
-            aspect="auto",
-        )
         ax0.set_xlabel("X (mm)")
         ax0.set_ylabel("Z (mm)")
-        ax0.set_title(f"XZ Plane (Y={y[y_slice_idx]:.2f} mm)")
-
-        # Plot XY plane
         ax1 = fig.add_subplot(gs[0, 1])
-        im1 = ax1.imshow(
-            xy_plane,
-            cmap=cmap,
-            extent=[x.min(), x.max(), y.max(), y.min()],
-            vmin=vmin,
-            vmax=vmax,
-            interpolation=interpolation,
-            aspect="auto",
-        )
         ax1.set_xlabel("X (mm)")
         ax1.set_ylabel("Y (mm)")
-        ax1.set_title(f"XY Plane (Z={z[z_slice_idx]:.2f} mm)")
-
-        # Plot YZ plane
         ax2 = fig.add_subplot(gs[0, 2])
-        im2 = ax2.imshow(
-            yz_plane,
-            cmap=cmap,
-            extent=[y.min(), y.max(), z.max(), z.min()],
-            vmin=vmin,
-            vmax=vmax,
-            interpolation=interpolation,
-            aspect="auto",
-        )
         ax2.set_xlabel("Y (mm)")
         ax2.set_ylabel("Z (mm)")
-        ax2.set_title(f"YZ Plane (X={x[x_slice_idx]:.2f} mm)")
 
-        # Add colorbar
-        cbar_ax = fig.add_subplot(gs[0, 3])
-        cbar = fig.colorbar(im2, cax=cbar_ax)
-        cbar.set_label(cb_label)
-
-        # Add title with time information
-        time_val = time_display[time_idx]
-        auto_title = (
-            title
-            if title
-            else f"Transient Pressure Field - t={time_val:.3f} {time_unit} (frame {time_idx + 1}/{num_time_steps})"
+        f0 = display_frames[0]
+        im0 = ax0.imshow(
+            f0[:, yi, :].T,
+            origin="upper",
+            extent=[x.min(), x.max(), z.max(), z.min()],
+            **imshow_kw,
         )
-        fig.suptitle(auto_title, fontsize=14, fontweight="bold")
+        im1 = ax1.imshow(
+            f0[:, :, zi].T,
+            origin="upper",
+            extent=[x.min(), x.max(), y.max(), y.min()],
+            **imshow_kw,
+        )
+        im2 = ax2.imshow(
+            f0[xi, :, :].T,
+            origin="upper",
+            extent=[y.min(), y.max(), z.max(), z.min()],
+            **imshow_kw,
+        )
 
+        ax0.set_title(f"XZ  (Y={y[yi]:.2f} mm)")
+        ax1.set_title(f"XY  (Z={z[zi]:.2f} mm)")
+        ax2.set_title(f"YZ  (X={x[xi]:.2f} mm)")
+
+        cbar_ax = fig.add_subplot(gs[0, 3])
+        fig.colorbar(im2, cax=cbar_ax, label=label)
         plt.tight_layout()
+        # Axes-level text inside centre panel so tight_layout cannot clip it
+        time_text = ax1.text(
+            0.5,
+            0.97,
+            "t = 0",
+            transform=ax1.transAxes,
+            ha="center",
+            va="top",
+            fontsize=11,
+            color="white",
+            bbox=dict(boxstyle="round,pad=0.2", facecolor="black", alpha=0.5),
+        )
 
-        # Save frame if requested
-        if save_path:
-            frame_file = save_path / f"frame_{time_idx:05d}.{save_format}"
-            plt.savefig(frame_file, dpi=150, bbox_inches="tight")
-            if (
-                time_idx % max(1, num_time_steps // 5) == 0
-                or time_idx == num_time_steps - 1
-            ):
-                print(f"  Saved frame {time_idx + 1}/{num_time_steps}")
-
-        # Display frame
-        plt.pause(0.05)
-
-    plt.close(fig)
-    print(f" Transient visualization complete ({num_time_steps} frames)")
-
-    # Attempt to create video from frames if save_dir was specified
-    if save_path:
-        try:
-            import imageio
-
-            print(f"✓ Creating video from frames...")
-            frame_files = sorted(save_path.glob(f"frame_*.{save_format}"))
-            if frame_files:
-                video_path = save_path / f"pressure_field_video.mp4"
-                reader = imageio.get_reader("pillow")
-                frames = [imageio.imread(str(f)) for f in frame_files]
-                imageio.mimsave(str(video_path), frames, fps=save_fps)
-                print(f"✓ Video saved: {video_path.resolve()}")
-        except ImportError:
-            print(
-                f"⚠ imageio not installed. Frame images saved but video creation skipped."
+        def _update(i):
+            p = display_frames[i]
+            im0.set_data(p[:, yi, :].T)
+            im1.set_data(p[:, :, zi].T)
+            im2.set_data(p[xi, :, :].T)
+            t_val = time_display[frame_indices[i]]
+            time_text.set_text(
+                title
+                if title
+                else f"t = {t_val:.3f} {time_unit}  ({frame_indices[i] + 1}/{nt})"
             )
+            return [im0, im1, im2, time_text]
+
+    ani = FuncAnimation(
+        fig, _update, frames=n_display, interval=interval_ms, blit=True, repeat=False
+    )
+
+    if save_path:
+        # n_display frames at fps gives exactly video_duration_s seconds
+        save_fps = fps
+        video_path = save_path / "pressure_field_video.mp4"
+        try:
+            ani.save(str(video_path), writer="ffmpeg", fps=save_fps, dpi=150)
+            print(f"Video saved: {video_path.resolve()}")
         except Exception as e:
-            print(f"⚠ Video creation failed: {e}")
+            # ffmpeg not available — fall back to pillow gif
+            gif_path = save_path / "pressure_field_video.gif"
+            try:
+                ani.save(str(gif_path), writer="pillow", fps=save_fps)
+                print(f"GIF saved (ffmpeg unavailable): {gif_path.resolve()}")
+            except Exception as e2:
+                print(f"Video/GIF export failed: {e} | {e2}")
+
+    plt.show()
+    plt.close(fig)
+    print(
+        f"Done — {n_display}/{nt} frames displayed at {fps} fps ({video_duration_s:.1f} s)."
+    )
 
 
 def plot_deltak_distribution(

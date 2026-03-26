@@ -1,3 +1,14 @@
+"""
+Example 5: Linear Array — Plane Waves
+
+Demonstrates plane-wave transmission with a linear array transducer.
+Simulates focused fields for multiple steering angles and saves each frame,
+showing how coherent compounding can be used for imaging.
+
+Run with:
+    uv run example5_linear_planewaves.py
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -5,8 +16,8 @@ import pyfield
 import pyfield.transducers as transducers
 from pyfield.psimulation import PyField
 from pyfield.utilities import to_dB, plot_pressure_planes
-%load_ext autoreload
-%autoreload 2
+
+print("\n --- Example 5: Linear Array — Plane Waves --- \n")
 
 # ============================================================================
 # CONFIGURATION PARAMETERS

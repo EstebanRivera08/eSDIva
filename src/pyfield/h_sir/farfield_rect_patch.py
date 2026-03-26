@@ -67,8 +67,10 @@ def compute_parallelized_sir_optimized(
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
     range_k_matrix = np.zeros((P, M), dtype=np.int32)
     t0 = time_grid[0]
-    min_time = 1000
-    max_time = -1000
+
+    # Per-point min/max to avoid race conditions in prange
+    local_min_time = np.empty(P, dtype=np.float32)
+    local_max_time = np.empty(P, dtype=np.float32)
 
     # precompute threshold term for auto decision (8 + 2*T/M)
     threshold_term = 8.0 + 2.0 * (T / M)
@@ -77,6 +79,9 @@ def compute_parallelized_sir_optimized(
         # per-point local event buffers for SDI (max 8*M entries)
         idxs = np.empty(8 * M, dtype=np.int32)
         vals = np.empty(8 * M, dtype=np.float32)
+
+        p_min_time = np.float32(1e30)
+        p_max_time = np.float32(-1e30)
 
         for m in range(M):
             dx = points[p, 0] - center[m, 0]
@@ -88,8 +93,8 @@ def compute_parallelized_sir_optimized(
             yp = dy / distance
 
             t1, t2, t3, t4, h_max = compute_rectangle_SIR_params(
-                wx,
-                wy,
+                wx[m],
+                wy[m],
                 xp,
                 yp,
                 distance,
@@ -99,10 +104,12 @@ def compute_parallelized_sir_optimized(
                 dt,
             )
             # skip if h_max negligible
-            min_time = min(min_time, t1)
-            max_time = max(max_time, t4)
+            if t1 < p_min_time:
+                p_min_time = t1
+            if t4 > p_max_time:
+                p_max_time = t4
             if h_max < 1e-6:
-                range_k_matrix[p, m] = np.nan
+                range_k_matrix[p, m] = 0
                 continue
 
             # compute discrete indices (floats)
@@ -247,6 +254,18 @@ def compute_parallelized_sir_optimized(
                 # multiply by dt to match continuous integral scaling
                 h_out[p, k] += acc2 * dt
 
+        local_min_time[p] = p_min_time
+        local_max_time[p] = p_max_time
+
+    # Serial reduction over P to get global min/max (race-safe)
+    min_time = local_min_time[0]
+    max_time = local_max_time[0]
+    for p in range(1, P):
+        if local_min_time[p] < min_time:
+            min_time = local_min_time[p]
+        if local_max_time[p] > max_time:
+            max_time = local_max_time[p]
+
     return h_out, range_k_matrix, min_time, max_time
 
 
@@ -280,8 +299,8 @@ def compute_h_sir(
         points.
         centers (np.ndarray): Array of shape (M, 3) containing the coordinates of
         transducer element patches centers.
-        wx (float): Width of the rectangular patch in the x-direction.
-        wy (float): Width of the rectangular patch in the y-direction.
+        wx (float32 array, shape (M,)): Per-patch width in the x-direction.
+        wy (float32 array, shape (M,)): Per-patch width in the y-direction.
         inv_c (float): Inverse of the speed of sound (1/c).
         fs (float): Sampling frequency.
         apodization_sub_elem (np.ndarray): Array of shape (M,) containing the

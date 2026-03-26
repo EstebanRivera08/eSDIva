@@ -1,276 +1,307 @@
-import warnings
+"""
+2-D matrix array transducer.
+
+A matrix array is a rectangular grid of N_x × N_y elements.  All elements
+are square-ish rectangular patches arranged in a 2-D plane.  Electronic
+focusing and steering in both lateral directions are controlled by
+``compute_delays`` / ``compute_apodization``.
+"""
+
 from time import time as TIME
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pyvista as pv
 from scipy.signal import windows
 
-warnings.filterwarnings("ignore", category=UserWarning)
+from . import validators
+from .base import TransducerBase
 
 
-def create_ellipse_mask(nx, ny):
-    """Generate a 2D elliptical mask (similar to MATLAB's createEllipseMask)."""
-    y, x = np.ogrid[-1 : 1 : complex(0, ny), -1 : 1 : complex(0, nx)]
-    mask = x**2 + y**2 <= 1
-
-    return mask.astype(float)
-
-
-class MatrixArrayTransducer:
+class MatrixArrayTransducer(TransducerBase):
     """
-    Defines a 2D matrix (multi-row) array transducer similar to FieldII's xdc_linear_multirow.
+    2-D matrix (multi-row) array transducer.
+
+    Parameters
+    ----------
+    n_elements_x : int
+        Number of elements in the x-direction (lateral).
+    n_elements_y : int
+        Number of elements in the y-direction (elevation).
+    element_width_mm : float or array-like of length n_elements_x
+        Element width(s) in x, in mm.  A scalar applies the same width to
+        every column; an array allows per-column width variation.
+    element_height_mm : float or array-like of length n_elements_y
+        Element height(s) in y, in mm.  Scalar or per-row array.
+    kerf_x_mm : float
+        Inter-element gap in x, in mm (≥ 0).
+    kerf_y_mm : float
+        Inter-element gap in y, in mm (≥ 0).
+    no_sub_x : int
+        Subdivisions per element in x (≥ 1).
+    no_sub_y : int
+        Subdivisions per element in y (≥ 1).
+    frequency_Hz : float, optional
+        Centre frequency in Hz.
+    dir_angle_deg : float, optional
+        Half-angle directivity cone used when computing the active aperture
+        for a given F/D.  Default is 30°.
     """
 
     def __init__(
         self,
         *,
-        N_elem_x,
-        N_elem_y,
-        elem_width_mm,
-        elem_height_mm,
-        kerf_x_mm,
-        kerf_y_mm,
-        no_sub_x,
-        no_sub_y,
-        frequency_Hz=None,
-        dir_angle_deg=30,
-    ):
-        start_time = TIME()
-        # Convert mm to meters
+        n_elements_x: int,
+        n_elements_y: int,
+        element_width_mm,
+        element_height_mm,
+        kerf_x_mm: float,
+        kerf_y_mm: float,
+        no_sub_x: int,
+        no_sub_y: int,
+        frequency_Hz: Optional[float] = None,
+        dir_angle_deg: float = 30.0,
+    ) -> None:
+        super().__init__()
+        t0 = TIME()
 
         self.type = "matrix"
         self.name = "MatrixArrayTransducer"
-        self.n_elem_x = N_elem_x
-        self.n_elem_y = N_elem_y
-        self.n_elements = N_elem_x * N_elem_y
 
-        if kerf_x_mm < 0 or kerf_y_mm < 0:
-            raise ValueError("Kerf must be non-negative.")
-        if no_sub_x <= 0 or no_sub_y <= 0:
-            raise ValueError("Number of subdivisions must be positive.")
-        # no_sub must be positive integers
-        if not isinstance(no_sub_x, int) or not isinstance(no_sub_y, int):
-            raise ValueError("Number of subdivisions must be positive integers.")
-        if elem_height_mm <= 0 or elem_width_mm <= 0:
-            raise ValueError("Element dimensions must be positive.")
+        # --- expand scalar/array element sizes ---
+        widths_mm = np.atleast_1d(np.asarray(element_width_mm, dtype=float))
+        heights_mm = np.atleast_1d(np.asarray(element_height_mm, dtype=float))
+        if widths_mm.size == 1:
+            widths_mm = np.full(n_elements_x, widths_mm[0])
+        if heights_mm.size == 1:
+            heights_mm = np.full(n_elements_y, heights_mm[0])
+        if len(widths_mm) != n_elements_x:
+            raise ValueError(
+                f"element_width_mm has {len(widths_mm)} values but n_elements_x={n_elements_x}."
+            )
+        if len(heights_mm) != n_elements_y:
+            raise ValueError(
+                f"element_height_mm has {len(heights_mm)} values but n_elements_y={n_elements_y}."
+            )
 
-        self.elem_width = elem_width_mm * 1e-3
-        self.elem_height = elem_height_mm * 1e-3
+        validators.validate_kerf(kerf_x_mm, widths_mm.min(), name="kerf_x_mm")
+        validators.validate_kerf(kerf_y_mm, heights_mm.min(), name="kerf_y_mm")
+        no_sub_x, no_sub_y = validators.validate_subdivisions(no_sub_x, no_sub_y)
+
+        self.n_elem_x = n_elements_x
+        self.n_elem_y = n_elements_y
+        self.n_elements = n_elements_x * n_elements_y
+
+        # Per-element size arrays (metres)
+        self._widths_m = widths_mm * 1e-3  # shape (n_elements_x,)
+        self._heights_m = heights_mm * 1e-3  # shape (n_elements_y,)
+
+        # Representative scalars for PyField compatibility
+        self.elem_width = float(self._widths_m.mean())
+        self.elem_height = float(self._heights_m.mean())
 
         self.kerf_x = kerf_x_mm * 1e-3
         self.kerf_y = kerf_y_mm * 1e-3
-        self.pitch_x = self.elem_width + self.kerf_x
-        self.pitch_y = self.elem_width + self.kerf_x
+        self.pitch_x = self.elem_width + self.kerf_x  # representative pitch
+        self.pitch_y = self.elem_height + self.kerf_y
         self.no_sub_x = no_sub_x
         self.no_sub_y = no_sub_y
-        self.fc = frequency_Hz or 1.0
         self.dir_angle_deg = dir_angle_deg
 
-        # Per-element apodization weights and delay placeholders
-        self.apodization_type = None
-        self.FoverD = None
-        self.apodization = np.ones(self.n_elements, dtype=float)
-        self.delays = np.zeros(self.n_elements, dtype=float)
+        self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
 
-        # compute element centers in x and y
-        total_w = self.n_elem_x * self.elem_width + (self.n_elem_x - 1) * self.kerf_x
-        total_h = self.n_elem_y * self.elem_height + (self.n_elem_y - 1) * self.kerf_y
-        start_x = -total_w / 2 + self.elem_width / 2
-        start_y = -total_h / 2 + self.elem_height / 2
+        n_patches = self.n_elements * no_sub_x * no_sub_y
+        print(
+            f"MatrixArrayTransducer initialised in {TIME() - t0:.4f} s  "
+            f"({self.n_elements} elements, {n_patches} patches)."
+        )
+
+    # ------------------------------------------------------------------
+    # Abstract method implementations
+    # ------------------------------------------------------------------
+
+    def _compute_element_centers(self) -> np.ndarray:
+        """Rectangular grid of element centres in the z=0 plane.
+
+        Handles non-uniform element sizes by accumulating widths/heights.
+        """
+        # x positions: cumulative sum of widths + kerfs, centred at 0
+        total_w = self._widths_m.sum() + (self.n_elem_x - 1) * self.kerf_x
+        x_edges = np.concatenate([[0.0], np.cumsum(self._widths_m[:-1] + self.kerf_x)])
+        x_centers = x_edges + self._widths_m / 2 - total_w / 2
+
+        # y positions
+        total_h = self._heights_m.sum() + (self.n_elem_y - 1) * self.kerf_y
+        y_edges = np.concatenate([[0.0], np.cumsum(self._heights_m[:-1] + self.kerf_y)])
+        y_centers = y_edges + self._heights_m / 2 - total_h / 2
+
         centers = []
+        for y in y_centers:
+            for x in x_centers:
+                centers.append([x, y, 0.0])
+        return np.array(centers)
+
+    def _build_subdivisions(
+        self,
+    ) -> Tuple[List[np.ndarray], float, List[int]]:
+        """Flat rectangular patches tiling every element.
+
+        Each element uses its own width/height so variable-size arrays are
+        supported.  The representative patch area returned is the mean area.
+        """
+        quads, el_indices = [], []
+        total_area = 0.0
 
         for iy in range(self.n_elem_y):
-            y = start_y + iy * (self.elem_width + self.kerf_y)
+            h = self._heights_m[iy]
+            ys_local = np.linspace(-h / 2, h / 2, self.no_sub_y + 1)
             for ix in range(self.n_elem_x):
-                x = start_x + ix * (self.elem_width + self.kerf_x)
-                z = 0.0
-                centers.append([x, y, z])
+                w = self._widths_m[ix]
+                xs_local = np.linspace(-w / 2, w / 2, self.no_sub_x + 1)
+                patch_area = (w / self.no_sub_x) * (h / self.no_sub_y)
+                total_area += patch_area * self.no_sub_x * self.no_sub_y
 
-        self.element_centers = np.array(centers)
-        # subdivisions
-        self.sub_quad_verts = []
-        self.sub_area = []
-        self.sub_el_idx = []
-        for idx, center in enumerate(self.element_centers):
-            xs = np.linspace(
-                -self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1
-            )
-            ys = np.linspace(
-                -self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1
-            )
-            for i in range(self.no_sub_x):
-                for j in range(self.no_sub_y):
-                    corners_local = np.array(
-                        [
-                            [xs[i], ys[j], 0.0],
-                            [xs[i + 1], ys[j], 0.0],
-                            [xs[i + 1], ys[j + 1], 0.0],
-                            [xs[i], ys[j + 1], 0.0],
-                        ]
-                    )
-                    corners = corners_local + center
-                    self.sub_quad_verts.append(corners)
-                    self.sub_area.append(
-                        (self.elem_width / self.no_sub_x)
-                        * (self.elem_height / self.no_sub_y)
-                    )
-                    self.sub_el_idx.append(idx)
+                idx = iy * self.n_elem_x + ix
+                center = self.element_centers[idx]
+                for i in range(self.no_sub_x):
+                    for j in range(self.no_sub_y):
+                        corners = (
+                            np.array(
+                                [
+                                    [xs_local[i], ys_local[j], 0.0],
+                                    [xs_local[i + 1], ys_local[j], 0.0],
+                                    [xs_local[i + 1], ys_local[j + 1], 0.0],
+                                    [xs_local[i], ys_local[j + 1], 0.0],
+                                ]
+                            )
+                            + center
+                        )
+                        quads.append(corners)
+                        el_indices.append(idx)
 
-        print(
-            f"MatrixArrayTransducer initialized with {self.n_elements} elements and {len(self.sub_quad_verts)} patches."
-        )
-        end_time = TIME()
-        print(f"\nTransducer initialized in {end_time - start_time:.4f} seconds.")
+        mean_area = total_area / len(quads) if quads else 0.0
+        return quads, mean_area, el_indices
+
+    # ------------------------------------------------------------------
+    # 2-D apodization — override with windowed aperture selection
+    # ------------------------------------------------------------------
 
     def compute_apodization(
         self,
         focus_mm,
         *,
-        FoverD=None,
-        apodization_type="circular",
-        plot=False,
-        inline=True,
-    ):
+        FoverD: Optional[float] = None,
+        apodization_type: str = "circular",
+        plot: bool = False,
+        inline: bool = True,
+    ) -> np.ndarray:
         """
-        Compute per‑element apodization for focusing at a given spot.
+        Compute per-element 2-D apodization for focusing at ``focus_mm``.
+
+        The active aperture diameter is computed from the directivity angle and
+        F/D ratio.  Supported window shapes are circular (elliptical mask),
+        rectangular, Hanning, and Hamming.
 
         Parameters
         ----------
-        focus_mm : sequence of three floats (x, y, z)
-            Lateral (x) and axial (z) coordinates of the focus, in millimeters
-            relative to the array center.
+        focus_mm : array-like, shape (3,)
+            Focal point ``[x, y, z]`` in mm.  Must be 3-D.
+        FoverD : float, optional
+            F-number.
         apodization_type : {'none', 'rect', 'circular', 'hanning', 'hamming'}
-            Type of window to apply.
+            Window shape.  Default is ``'circular'``.
         plot : bool
-            If True, show a quick plot of the resulting apodization.
+            Display the 2-D apodization map after computation.
+        inline : bool
+            Store result in ``self.apodization`` (default True).
 
         Returns
         -------
-        apod : ndarray, shape (N_elements,)
-            Normalized apodization weights.
+        apod : ndarray, shape (n_elements,)
+            Flattened in row-major order (y-first).
         """
-        # Unpack and convert to meters
-        focus = np.array(focus_mm) * 1e-3
-        N_x = self.n_elem_x
-        N_y = self.n_elem_y
+        allowed = {"none", "rect", "circular", "hanning", "hamming"}
+        if apodization_type not in allowed:
+            raise ValueError(f"apodization_type must be one of {allowed}.")
 
-        if focus.shape == (3,):
-            x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
-        else:
-            raise ValueError("Focus must be a 3D coordinate (x, y, z)")
+        focus_m = np.array(focus_mm, dtype=float) * 1e-3
+        if focus_m.shape != (3,):
+            raise ValueError("focus_mm must be a 3-D coordinate [x, y, z].")
+
+        x_foc, y_foc, z_foc = focus_m
+        N_x, N_y = self.n_elem_x, self.n_elem_y
 
         if z_foc <= 0:
-            print("z_foc is negative. Setting Diverging waves...")
+            print("z_foc ≤ 0: computing diverging-wave apodization.")
 
-        if apodization_type is None:
-            pass
-        elif apodization_type == "none":
-            apod = np.ones((N_x, N_y))
+        if apodization_type == "none":
+            apod_2d = np.ones((N_x, N_y))
         else:
-            # require ratio_F_over_D property
             if FoverD is not None:
-                self.FoverD = FoverD
-
+                self.FoverD = float(FoverD)
             if self.FoverD is None:
-                print("Warning: F/D ratio not set. Using default value of 1.0.")
+                print("F/D not set — defaulting to 1.0.")
                 self.FoverD = 1.0
 
+            # Active aperture diameter from directivity + F/D
             d_tx = 2 * abs(z_foc) * np.tan(np.radians(self.dir_angle_deg)) / self.FoverD
-            Nvx = round(d_tx / (self.pitch_x))
-            Nvy = round(d_tx / (self.pitch_y))
-            if Nvx % 2 == 0:
-                Nvx += 1
-            if Nvy % 2 == 0:
-                Nvy += 1
+            Nvx = int(round(d_tx / self.pitch_x)) | 1  # force odd
+            Nvy = int(round(d_tx / self.pitch_y)) | 1
 
             if apodization_type == "rect":
                 profile = np.ones((Nvx, Nvy))
             elif apodization_type == "circular":
-                # ellipse mask
                 Y, X = np.ogrid[:Nvx, :Nvy]
                 cx, cy = (Nvx - 1) / 2, (Nvy - 1) / 2
-                a, b = Nvx / 2, Nvy / 2
-                mask = ((X - cx) ** 2 / a**2 + (Y - cy) ** 2 / b**2) <= 1
-                profile = mask
+                profile = (
+                    (X - cx) ** 2 / (Nvx / 2) ** 2 + (Y - cy) ** 2 / (Nvy / 2) ** 2
+                ) <= 1
+                profile = profile.astype(float)
             elif apodization_type == "hanning":
                 profile = np.outer(windows.hann(Nvx), windows.hann(Nvy))
-            elif apodization_type == "hamming":
+            else:  # hamming
                 profile = np.outer(windows.hamming(Nvx), windows.hamming(Nvy))
-            else:
-                raise ValueError(
-                    "Invalid apodization type. Must be one of: 'none', 'rect', 'circular', 'hanning', 'hamming'."
-                )
 
-            # compute shifts
             sx = int(np.round(x_foc / self.elem_width))
             sy = int(np.round(y_foc / self.elem_height))
-            ix = np.arange(Nvx) - (Nvx - 1) // 2 + (N_x // 2) + sx
-            iy = np.arange(Nvy) - (Nvy - 1) // 2 + (N_y // 2) + sy
+            ix = np.arange(Nvx) - (Nvx - 1) // 2 + N_x // 2 + sx
+            iy = np.arange(Nvy) - (Nvy - 1) // 2 + N_y // 2 + sy
             valid_x = (ix >= 0) & (ix < N_x)
             valid_y = (iy >= 0) & (iy < N_y)
-            apod = np.zeros((N_x, N_y))
-            apod[np.ix_(ix[valid_x], iy[valid_y])] = profile[np.ix_(valid_x, valid_y)]
 
-        if plot:
-            self.plot_apodization(apod.T.flatten())
+            apod_2d = np.zeros((N_x, N_y))
+            apod_2d[np.ix_(ix[valid_x], iy[valid_y])] = profile[
+                np.ix_(valid_x, valid_y)
+            ]
+
+        # Flatten in y-first (row-major) order to match element_centers ordering
+        apod = apod_2d.T.flatten()
+
         if inline:
-            self.apodization = apod.T.flatten()
+            self.apodization = apod
             self.apodization_type = apodization_type
-        return apod.T.flatten()
-
-    def compute_delays(self, *, focus_mm, c=None, plot=False, inline=True):
-        """
-        Compute per-element delays for focusing at a given spot.
-
-        Parameters
-        ----------
-        focus_mm : sequence of two floats (x,y, z)
-            Lateral (x) and axial (z) coordinates of the focus, in millimeters
-            relative to the array center.
-
-        Returns
-        -------
-        delays : ndarray, shape (N_elements,)
-            Delays in seconds.
-        """
-
-        if c is None:
-            c = 1540.0
-            print("Warning: No speed of sound provided. Defaulting to 1540 m/s.")
-
-        # Unpack and convert to meters
-        focus = np.array(focus_mm) * 1e-3
-
-        if focus.shape != (3,):
-            raise ValueError("Focus must be a 3D coordinate (x, y, z)")
-
-        # Compute distances from each element to the focus point
-        delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
-
-        # Compute delays based on the speed of sound in soft tissue
-        if focus[2] <= 0:
-            delays = delays - np.min(delays)  # time delays for diverging waves
-        else:
-            delays = delays.max() - delays  # time delays for focusing (in microseconds)
-
-        if inline:
-            self.delays = delays
-        # optionally plot
         if plot:
-            self.plot_delays(delays)
+            self.plot_apodization(apod)
+        return apod
 
-        return delays
+    # ------------------------------------------------------------------
+    # 2-D plot overrides
+    # ------------------------------------------------------------------
 
-    def plot_apodization(self, apodization=None, *, figsize=(6, 5), ax=None, **kwargs):
-        flag = False
+    def plot_apodization(
+        self,
+        apodization: Optional[np.ndarray] = None,
+        *,
+        figsize: Tuple = (6, 5),
+        ax=None,
+        **kwargs,
+    ):
+        """Display the 2-D apodization map as an image."""
+        standalone = ax is None
         if apodization is None:
             apodization = self.apodization
-
-        if ax is None:
-            flag = True
-            fig, ax = plt.subplots(figsize=figsize)
+        if standalone:
+            _, ax = plt.subplots(figsize=figsize)
 
         ax.imshow(
             apodization.reshape((self.n_elem_x, self.n_elem_y)),
@@ -279,175 +310,55 @@ class MatrixArrayTransducer:
             vmax=1,
             **kwargs,
         )
-        ax.set_title("Apodization")
+        ax.set_title(f"Apodization: {self.apodization_type}")
         ax.set_xlabel("Element x #")
         ax.set_ylabel("Element y #")
-        ax.grid(True)
 
-        if flag:
+        if standalone:
             plt.tight_layout()
             plt.show()
             plt.close()
         else:
             return ax
 
-    def plot_delays(self, delays=None, *, figsize=(6, 5), ax=None, **kwargs):
-        flag = False
-
-        if delays is None:
-            delays = self.delays
-
-        if ax is None:
-            flag = True
-            fig, ax = plt.subplots(figsize=figsize)
-
-        ax.imshow(
-            delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6, cmap="jet", **kwargs
-        )
-        ax.set_title("Delays")
-        ax.set_xlabel("Element #")
-        ax.set_ylabel("Delay (us)")
-        ax.grid(True)
-
-        if flag:
-            plt.tight_layout()
-            plt.show()
-            plt.close()
-        else:
-            return ax
-
-    def plot_delays_apodization(self, figsize=(8, 4)):
-        """
-        Plot the current delays and apodization side by side.
-        """
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-        self.plot_delays(ax=ax1)
-        self.plot_apodization(ax=ax2)
-        plt.tight_layout()
-        plt.show()
-        plt.close()
-
-    def set_apodization(self, weights):
-        weights = np.asarray(weights, dtype=float)
-        if weights.size != self.n_elem_x * self.n_elem_y:
-            raise ValueError(
-                f"Apodization must match total elements. Input size: {weights.size}, expected: {self.n_elem_x * self.n_elem_y}"
-            )
-        self.apodization = weights
-
-    def set_delays(self, delays):
-        delays = np.asarray(delays, dtype=float)
-        if delays.size != self.n_elem_x * self.n_elem_y:
-            raise ValueError(
-                f"Delays must match total elements. Input size: {delays.size}, expected: {self.n_elem_x * self.n_elem_y}"
-            )
-        self.delays = delays - np.min(delays)  # Normalize to min delay
-
-    def get_mesh(self):
-        verts = []
-        faces = []
-        scalars = []
-        scalars2 = []  # delays
-        pt_index = 0
-        for quad, el_idx in zip(self.sub_quad_verts, self.sub_el_idx):
-            verts.extend(quad.tolist())
-            faces.append([4, pt_index, pt_index + 1, pt_index + 2, pt_index + 3])
-            scalars.append(self.apodization[el_idx])
-            scalars2.append(self.delays[el_idx])
-            pt_index += 4
-        verts = np.array(verts) * 1e3
-        mesh = pv.PolyData(verts, np.hstack(faces))
-        mesh.cell_data["Apodization"] = np.array(scalars)
-        mesh.cell_data["Delays"] = np.array(scalars2) * 1e-6  # in seconds
-        return mesh
-
-    def show(
+    def plot_delays(
         self,
+        delays: Optional[np.ndarray] = None,
         *,
-        window_size=[800, 600],
-        scalars="Apodization",
-        notebook=False,
-        jupyter_backend=None,
+        figsize: Tuple = (6, 5),
+        ax=None,
         **kwargs,
     ):
-        """
-        Visualize the transducer surface mesh and apodization with PyVista.
-        """
-        mesh = self.get_mesh()
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        """Display the 2-D delay map as an image."""
+        standalone = ax is None
+        if delays is None:
+            delays = self.delays
+        if standalone:
+            _, ax = plt.subplots(figsize=figsize)
 
-        if scalars == "Apodization":
-            title = "Apodization"
-            cmap = "cool"
-        elif scalars == "Delays":
-            title = "Delays (s)"
-            cmap = "rainbow"
-        else:
-            raise ValueError("Scalars must be 'Apodization' or 'Delays'")
-
-        default_kwargs = {
-            "scalars": scalars,
-            "cmap": cmap,
-            "clim": [0, 1] if scalars == "Apodization" else None,
-            "show_scalar_bar": True,
-            "scalar_bar_args": {
-                "title": title,
-                "vertical": True,
-                "position_x": 0.8,
-                "position_y": 0.1,
-            },
-            "opacity": 1.0,
-            "show_edges": True,
-        }
-
-        for key, value in default_kwargs.items():
-            if key not in kwargs:
-                kwargs[key] = value
-
-        mesh = self.get_mesh()
-        plotter = pv.Plotter(notebook=notebook)
-        plotter.add_mesh(
-            mesh,  # Convert to mm for visualization
+        ax.imshow(
+            delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6,
+            cmap="jet",
             **kwargs,
         )
-        plotter.add_axes()
-        plotter.show_grid(
-            font_size=10,
-            xtitle="X (mm)",
-            ytitle="Y (mm)",
-            ztitle="Z (mm)",
-            show_zlabels=False,
+        ax.set_title("Delays (µs)")
+        ax.set_xlabel("Element x #")
+        ax.set_ylabel("Element y #")
+
+        if standalone:
+            plt.tight_layout()
+            plt.show()
+            plt.close()
+        else:
+            return ax
+
+    def __repr__(self) -> str:
+        return (
+            f"MatrixArrayTransducer("
+            f"n_elem=({self.n_elem_x},{self.n_elem_y}), "
+            f"elem_width={self.elem_width * 1e3:.3f} mm, "
+            f"elem_height={self.elem_height * 1e3:.3f} mm, "
+            f"kerf=({self.kerf_x * 1e3:.3f},{self.kerf_y * 1e3:.3f}) mm, "
+            f"no_sub=({self.no_sub_x},{self.no_sub_y}), "
+            f"fc={self.fc / 1e6:.2f} MHz)"
         )
-        plotter.camera_position = [
-            (16.72465241530815, 20.611591228182785, 26.54115950699113),
-            (1.31674789370372, 1.5498150789167457, -1.4859004666360698),
-            (-0.568581023901881, -0.5004125236360828, 0.6529187740039761),
-        ]
-        plotter.show(jupyter_backend=jupyter_backend)
-        plotter.close()
-
-    def clean(self):
-        """
-        Clean up the transducer object by removing large arrays.
-        """
-        self.apodization = None
-        self.delays = None
-        self.element_centers = None
-        self.sub_quad_verts = None
-        self.sub_area = None
-        self.sub_el_idx = None
-        print("Transducer cleaned up.")
-
-    def __repr__(self):
-        params = {
-            "n_elem_x": self.n_elem_x,
-            "n_elem_y": self.n_elem_y,
-            "elem_width_mm": self.elem_width * 1e3,
-            "kerf_x_mm": self.kerf_x * 1e3,
-            "kerf_y_mm": self.kerf_y * 1e3,
-            "no_sub_x": self.no_sub_x,
-            "no_sub_y": self.no_sub_y,
-            "fc_Hz": self.fc,
-        }
-        parts = [f"{k}={v}" for k, v in params.items()]
-        return f"{self.__class__.__name__}({', '.join(parts)})"

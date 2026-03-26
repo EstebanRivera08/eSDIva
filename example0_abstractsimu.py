@@ -2,9 +2,8 @@ import numpy as np
 import pyvista as pv
 
 # Import pyfield modules
-
 from pyfield.psimulation import PyField
-from pyfield.transducers import Domino, Zeus_Matrix, MatrixArrayTransducer
+from pyfield.transducers import Domino, MatrixArrayTransducer, Zeus_Matrix
 from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
 
 print("\n --- Example 0: Abstract simulation --- \n")
@@ -68,28 +67,26 @@ print(
 # Define transducer
 
 matrix_array_probe = MatrixArrayTransducer(
-        N_elem_x = 17,
-        N_elem_y = 17,
-        elem_width_mm = 0.2,
-        elem_height_mm = 0.2,
-        kerf_x_mm = 0.05,
-        kerf_y_mm = 0.05,
-        no_sub_x = 2,
-        no_sub_y = 2,
-        frequency_Hz = 10e6,
-        )
-# matrix_array_probe = Zeus_Matrix() 
+    n_elements_x=17,
+    n_elements_y=17,
+    elem_width_mm=0.2,
+    elem_height_mm=0.2,
+    kerf_x_mm=0.05,
+    kerf_y_mm=0.05,
+    no_sub_x=2,
+    no_sub_y=2,
+    frequency_Hz=10e6,
+)
+# matrix_array_probe = Zeus_Matrix()
 ## ---------------- Matrix Transducer ------------------------
 
 print("\n--- Matrix Array Transducer ---\n")
 # Prepare transducer for simulation
 
 delays = matrix_array_probe.compute_delays(focus_mm=focus_mm)
-apodization = matrix_array_probe.compute_apodization(
-    focus_mm=focus_mm, FoverD=FoverD
-)
-matrix_array_probe.plot_delays_apodization()
-matrix_array_probe.show(notebook=True, jupyter_backend="static", scalars="Delays")
+apodization = matrix_array_probe.compute_apodization(focus_mm=focus_mm, FoverD=FoverD)
+_ = matrix_array_probe.plot_delays_apodization()
+matrix_array_probe.show(scalars="Delays")
 
 # Perform simulation
 
@@ -112,11 +109,18 @@ else:
     plotter_matrix = pv.Plotter(window_size=(600, 600), notebook=False)
     scale = 1
 plotter_matrix = add_pressure_vol(
-    pressure2_mesh, plotter=plotter_matrix, ambient=ambient_pr, scale=scale,
- show_scalar_bar=show_scalar_bar)
+    pressure2_mesh,
+    plotter=plotter_matrix,
+    ambient=ambient_pr,
+    scale=scale,
+    show_scalar_bar=show_scalar_bar,
+)
 plotter_matrix = add_transducer_mesh(
-    transducer2_mesh, plotter=plotter_matrix, ambient=ambient_tx, scale=scale,
- show_scalar_bar=show_scalar_bar)
+    transducer2_mesh,
+    plotter=plotter_matrix,
+    ambient=ambient_tx,
+    scale=scale,
+    show_scalar_bar=show_scalar_bar,
 )
 plotter_matrix.add_axes(label_size=(0.1, 0.1))
 # plotter_matrix.show_grid(
@@ -133,14 +137,16 @@ plotter_matrix.add_axes(label_size=(0.1, 0.1))
 #     use_3d_text=False,
 # )
 plotter_matrix.camera.up = (0, 0, -1)
-plotter_matrix.camera_position =[(8.337575802510562, 8.068681968876689, 9.846013835561196),
- (0.9644865337340529, -0.6479536811605671, 1.0768292142004936),
- (0.007140178925858137, 0.7062024310127115, -0.7079739714683323)]        
+plotter_matrix.camera_position = [
+    (8.337575802510562, 8.068681968876689, 9.846013835561196),
+    (0.9644865337340529, -0.6479536811605671, 1.0768292142004936),
+    (0.007140178925858137, 0.7062024310127115, -0.7079739714683323),
+]
 
 
 if save_fig:
     plotter_matrix.screenshot(fig_folder + "matrix_array_field.png")
 else:
-    plotter_matrix.show(jupyter_backend="static")
-plotter_matrix.close()
+    plotter_matrix.show()
 
+del plotter_matrix, pressure2_mesh, transducer2_mesh

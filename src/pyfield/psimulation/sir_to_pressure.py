@@ -14,7 +14,7 @@ def _next_pow2(n):
 
 
 def from_sir_to_monochromatic_pressure(
-    h_sir, x, y, z, fc, fs, *, batch_size=2048, max_workers=None, verbose=True
+    h_sir, x, y, z, fc, fs, *, batch_size=2048, max_workers=None, verbose=False
 ):
     """
     Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
@@ -22,7 +22,7 @@ def from_sir_to_monochromatic_pressure(
     start_time = time.time()
     n_points = h_sir.shape[1]
     # Frequency vector
-    freq_vect = np.linspace(0, fs, h_sir.shape[0])
+    freq_vect = np.linspace(0, fs, h_sir.shape[0], endpoint=False)
     idx = np.argmin((freq_vect - fc) ** 2)
     Hsir = np.zeros(n_points, dtype=np.float32)  # FFT(h_sir) at fc
 
@@ -42,7 +42,7 @@ def from_sir_to_monochromatic_pressure(
     Pressure_at_fc = reshape_to_mapped_points(x, y, z, Hsir)
     if verbose:
         print(
-            f"Monochromatic pressure computed from SIR in {time.time() - start_time:.2f} seconds..."
+            f"Monochromatic pressure with shape {Pressure_at_fc.shape} computed from SIR in {time.time() - start_time:.2f} seconds..."
         )
     return Pressure_at_fc[0, :, :, :]
 
@@ -58,7 +58,7 @@ def from_sir_to_pressure(
     excitation=None,
     batch_size=2048,
     max_workers=None,
-    verbose=True,
+    verbose=False,
 ):
     """
     Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.

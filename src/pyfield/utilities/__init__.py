@@ -3,10 +3,12 @@ from .helper_functions import (
     create_spatial_grid_from_dict,
     to_dB,
 )
+from .surface_subdivision import subdivide_parametric_surface
 from .plotting import (
     plot_deltak_distribution,
     plot_pressure_field,
     plot_pressure_planes,
+    plot_slices_2d,
 )
 from .plotting_pyvista import (
     add_2D_image,
@@ -24,23 +26,26 @@ from .transformation_functions import (
 )
 
 __all__ = [
+    # Matplotlib plotting
     "plot_pressure_field",
     "plot_pressure_planes",
-    "add_transducer_to_plotter",
-    "add_pressure_to_plotter",
-    "compute_pressure_vol_mesh",
-    "get_LabToTransducer",
+    "plot_slices_2d",
+    "plot_deltak_distribution",
+    # PyVista plotting
     "add_transducer_mesh",
     "add_pressure_vol",
     "add_regions_mesh",
     "add_3D_vol",
     "add_2D_image",
-    "compute_affine_from_markers",
     "add_markers",
     "create_vol_mesh",
     "recompute_bounds",
+    # Helpers
+    "to_dB",
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",
-    "plot_deltak_distribution",
-    "to_dB",
+    "subdivide_parametric_surface",
+    # Transforms
+    "get_LabToTransducer",
+    "compute_affine_from_markers",
 ]

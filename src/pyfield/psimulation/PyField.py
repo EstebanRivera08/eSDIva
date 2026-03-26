@@ -101,13 +101,13 @@ class PyField:
             self.delays_sub_elem,
             self.M,
             self.sub_elem_delta_k,
+            self.wx_arr,
+            self.wy_arr,
         ) = compute_sub_elem_attributes(transducer)
 
-        # compute patch centers_sub_elem/apodization/delays once
-        elem_height = transducer.elem_height / transducer.no_sub_y
-        elem_width = transducer.elem_width / transducer.no_sub_x
-        self.wx = elem_width
-        self.wy = elem_height
+        # Scalar max patch size — used for time-grid bounds (conservative)
+        self.wx = float(self.wx_arr.max())
+        self.wy = float(self.wy_arr.max())
         self.delays = transducer.delays
         self.apodization = transducer.apodization
 
@@ -131,7 +131,7 @@ class PyField:
         self.verbose = verbose
         self.monochromatic = monochromatic
 
-    def compute_sir(self, points, *, method="auto", adjust_t0=True, verbose=None):
+    def compute_sir(self, points, *, method="auto", adjust_t0=True, verbose=False):
         """
         Compute the Spatial Impulse Response (SIR) for the given field points.
 
@@ -200,10 +200,7 @@ class PyField:
 
         P, M = points.shape[0], self.M
 
-        if verbose:
-            print(
-                f"\nComputing SIR for {P} points and {M} patches with method {method}..."
-            )
+        print(f"\nComputing SIR for {P} points and {M} patches with method {method}...")
 
         startSIR = time.time()
 
@@ -212,8 +209,8 @@ class PyField:
             M,
             points,
             self.centers_sub_elem,
-            self.wx / self.tx.no_sub_x,
-            self.wy / self.tx.no_sub_y,
+            self.wx,
+            self.wy,
             self.c,
             self.fs,
             self.delays,
@@ -228,8 +225,8 @@ class PyField:
             time_grid,
             points,
             self.centers_sub_elem,
-            self.wx,
-            self.wy,
+            self.wx_arr,
+            self.wy_arr,
             1 / self.c,
             self.fs,
             self.apodization_sub_elem,
@@ -255,7 +252,7 @@ class PyField:
                 h_sir = h_sir[:, idx_start:idx_end]
                 if verbose:
                     print(
-                        f"Adjusted t0 : {t0: .2e}->{t0 + idx_start * dt:.2e} s, and tN : {time_grid[-1]:.2e} -> {t0 + (idx_end - 1) * dt:.2e} s, \n h_sir size: {P} x {h_sir.shape[1]} (was {P} x {T})"
+                        f"Adjusted t0 : {t0: .2e} -> {t0 + idx_start * dt:.2e} s, and tN : {time_grid[-1]:.2e} -> {t0 + (idx_end - 1) * dt:.2e} s, \n h_sir size: {P} x {h_sir.shape[1]} (was {P} x {T})"
                     )
             except Exception as e:
                 print(f"Could not adjust t0 due to error: {e}")
@@ -405,13 +402,33 @@ class PyField:
 
     def compute_delays(self, focus_mm):
         self.delays = self.tx.compute_delays(focus_mm=focus_mm, c=self.c)
-        self.compute_sub_elem_attributes()
+        (
+            self.centers_sub_elem,
+            self.apodization_sub_elem,
+            self.delays_sub_elem,
+            self.M,
+            self.sub_elem_delta_k,
+            self.wx_arr,
+            self.wy_arr,
+        ) = compute_sub_elem_attributes(self.tx)
+        self.wx = float(self.wx_arr.max())
+        self.wy = float(self.wy_arr.max())
 
     def compute_apodization(self, focus_mm, FoverD=1, apodization_type="rect"):
         self.apodization = self.tx.compute_apodization(
             focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
         )
-        self.compute_sub_elem_attributes()
+        (
+            self.centers_sub_elem,
+            self.apodization_sub_elem,
+            self.delays_sub_elem,
+            self.M,
+            self.sub_elem_delta_k,
+            self.wx_arr,
+            self.wy_arr,
+        ) = compute_sub_elem_attributes(self.tx)
+        self.wx = float(self.wx_arr.max())
+        self.wy = float(self.wy_arr.max())
 
     def summary(self):
         """

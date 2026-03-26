@@ -54,10 +54,10 @@ def Zeus_Matrix():
     directivity = 30
 
     return MatrixArrayTransducer(
-        N_elem_x=tx_N_elem_x,
-        N_elem_y=tx_N_elem_y,
-        elem_width_mm=tx_elem_width_mm,
-        elem_height_mm=tx_elem_height_mm,
+        n_elements_x=tx_N_elem_x,
+        n_elements_y=tx_N_elem_y,
+        element_width_mm=tx_elem_width_mm,
+        element_height_mm=tx_elem_height_mm,
         kerf_x_mm=tx_kerf_x_mm,
         kerf_y_mm=tx_kerf_y_mm,
         no_sub_x=2,

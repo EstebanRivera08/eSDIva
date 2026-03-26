@@ -1,10 +1,10 @@
 """
-Example 5: Pulsed (Transient) Pressure Field Simulation
+Example 4: Linear Array — Diverging Waves
 
-This example demonstrates transient ultrasound pressure field simulation using a steered
-transducer with a pulsed excitation signal. It shows:
-  1. Transducer steering via delayed element excitation
-  2. Pulsed excitation signal definition (multi-cycle pulse)
+This example demonstrates diverging-wave transmission with a linear array transducer.
+It shows:
+  1. Transducer setup and element steering for diverging waves
+  2. Pulsed excitation signal definition
   3. Transient (4D spatio-temporal) pressure field computation
   4. Frame-by-frame visualization of the pressure propagation
 
@@ -17,8 +17,8 @@ import pyfield
 import pyfield.transducers as transducers
 from pyfield.psimulation import PyField
 from pyfield.utilities import to_dB
-%load_ext autoreload
-%autoreload 2 
+
+print("\n --- Example 4: Linear Array — Diverging Waves --- \n")
 
 # ============================================================================
 # CONFIGURATION PARAMETERS
@@ -26,12 +26,12 @@ from pyfield.utilities import to_dB
 
 # Transducer Selection
 
-SIMU_TYPE = "transient"  # Options: "monochromatic", "transient"
+SIMU_TYPE = "monochromatic"  # Options: "monochromatic", "transient"
 TRANSDUCER_TYPE = "Domino"  # Options: "Domino", "Zeus_Matrix"
 # MyTransducer = transducers.Zeus_Matrix()  # Alternative option
 
 # Steering Configuration
-VIRTUAL_FOCUS_MM = [0, 0 ,-1]
+VIRTUAL_FOCUS_MM = [0, 0, -1]
 SPEED_OF_SOUND_MPS = 1540  # Speed of sound in medium (m/s)
 
 # Excitation Signal Definition
@@ -54,8 +54,8 @@ CMAP_NAME = "jet"
 
 # Create transducer instance
 MyTransducer = transducers.Domino()
-MyTransducer.compute_delays(focus_mm = VIRTUAL_FOCUS_MM)
-MyTransducer.compute_apodization(focus_mm = VIRTUAL_FOCUS_MM, FoverD = 1)
+MyTransducer.compute_delays(focus_mm=VIRTUAL_FOCUS_MM)
+MyTransducer.compute_apodization(focus_mm=VIRTUAL_FOCUS_MM, FoverD=1)
 MyTransducer.plot_delays_apodization()
 
 
@@ -122,77 +122,25 @@ else:
 # Shape: (Nx, Ny, Nz, Nt) - 4D spatio-temporal field
 
 # ============================================================================
-# STEP 6: VISUALIZE TRANSIENT PRESSURE FIELD OVER TIME
+# STEP 6: VISUALIZE PRESSURE FIELD
 # ============================================================================
 
-# Create an animated visualization showing pressure field evolution
-# Each frame shows a 2D slice (XZ plane) at a specific time step
-if SIMU_TYPE == "monochromatic":
-    from pyfield.utilities import plot_pressure_planes
+from pyfield.utilities import plot_slices_2d
 
-    plot_pressure_planes(
-        x, y, z, p_field_mono, db_scale=True, figsize=FIGURE_SIZE, vmin=-30
-    )
+if SIMU_TYPE == "monochromatic":
+    # Monochromatic: single static figure
+    plot_slices_2d(x, y, z, p_field_mono, db_scale=True, figsize=FIGURE_SIZE, vmin=-30)
 
 else:
-    fig = plt.figure(figsize=FIGURE_SIZE)
-    video_duration_s = 5
-    fps = 30
-    initial_time_idx = 0
-    num_time_steps = p_field_transient.shape[0]
-    total_time_s = np.linspace(
-        0, num_time_steps / sampling_frequency_hz, num_time_steps
+    # Transient: FuncAnimation — much faster than a manual plt.pause loop.
+    # The field is a single XZ plane (Ny=1) so a single-panel animation is shown.
+    n_frames = p_field_transient.shape[0]
+    time_array_s = np.linspace(0, n_frames / sampling_frequency_hz, n_frames)
+    plot_slices_2d(
+        x, y, z, p_field_transient,
+        time_array=time_array_s,
+        db_scale=True,
+        figsize=FIGURE_SIZE,
+        cmap=CMAP_NAME,
+        vmin=-40, vmax=0,
     )
-    step = max(1, num_time_steps // (video_duration_s * fps))
-
-    # p_field_norm = p_field_transient / p_field_transient.max()  # Normalize to max pressure
-    p_field_norm = p_field_transient  # Keep raw pressure for dB conversion
-    p_max = p_field_transient.max()  # Store max pressure for dB conversion
-
-    # vmin = 0
-    # vmax = 1
-    vmin = -40  # dB scale minimum for visualization
-    vmax = 0  # dB scale maximum (normalized to max pressure)
-
-    plt.xlabel("Lateral Position (mm)")
-    plt.ylabel("Depth (mm)")
-
-    for time_idx in range(initial_time_idx, num_time_steps, step):
-        # If the fig has been closed, break the loop
-        if not plt.fignum_exists(fig.number):
-            print("Visualization stopped by user.")
-            break
-        # Clear previous frame
-        plt.clf()
-
-        # Extract pressure at this time step (XZ plane at y=0)
-        # pressure_at_t = p_field_norm[time_idx,:, :, :].squeeze()
-        pressure_at_t = to_dB(p_field_norm[time_idx, :, :, :].squeeze(), vmax=p_max)
-
-        # Create the 2D image with proper spatial extent
-        im = plt.imshow(
-            pressure_at_t.T,
-            extent=(
-                PLANE_X_EXTENT_MM[0],
-                PLANE_X_EXTENT_MM[1],
-                PLANE_Z_EXTENT_MM[1],
-                PLANE_Z_EXTENT_MM[0],
-            ),
-            aspect="auto",
-            cmap=CMAP_NAME,
-            origin="upper",
-            vmin=vmin,  # Dynamic range for visualization
-            vmax=vmax,
-        )
-
-        # Add colorbar and labels if figure does not have one
-        if im.colorbar is None:
-            cbar = plt.colorbar(im, label="Pressure (dB re. max)")
-            plt.clim(vmin, vmax)
-        current_time_us = total_time_s[time_idx] * 1e6
-
-        plt.title(
-            f"Transient Pressure Field - Time = {current_time_us:.3f} µs (frame {time_idx + 1}/{num_time_steps})"
-        )
-        # Pause to create animation effect
-        plt.pause(0.1)

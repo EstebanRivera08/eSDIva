@@ -1,141 +1,146 @@
+"""
+Linear and convex array transducers.
+
+LinearArrayTransducer
+    N rectangular elements in a flat row along x.  Optional elevation
+    (y-axis) lens via cylindrical curvature.
+
+ConvexArrayTransducer
+    N rectangular elements arranged on a convex cylindrical arc in the
+    XZ plane — the standard geometry for abdominal / obstetric probes.
+    The centre of curvature is behind the probe face (at z = -R), so the
+    outer elements are angled outward producing a widening field of view.
+"""
+
 import warnings
 from time import time as TIME
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import pyvista as pv
 
-# LinearArrayTransducer class
+from . import geometry_utils, validators
+from .base import TransducerBase
 
 
-class LinearArrayTransducer:
+class LinearArrayTransducer(TransducerBase):
+    """
+    1-D linear array transducer.
+
+    Elements are laid out along x.  Electronic beam steering and focusing are
+    controlled via ``compute_delays`` / ``compute_apodization``.  Elevation
+    focusing (y-direction) is achieved by curving the element surface into a
+    cylindrical arc.
+
+    Parameters
+    ----------
+    n_elements : int
+        Number of active elements.
+    element_width_mm : float
+        Element dimension along the steering axis (x), in mm.
+    element_height_mm : float
+        Element dimension in the elevation axis (y), in mm.
+    kerf_mm : float
+        Gap between adjacent elements in mm (≥ 0).
+    no_sub_x : int
+        Subdivisions per element in x (lateral, ≥ 1).
+    no_sub_y : int
+        Subdivisions per element in y (elevation, ≥ 1).
+        Must be ≥ 2 when ``elevation_focus_mm`` is set.
+    elevation_focus_mm : float, optional
+        Radius of curvature for the cylindrical lens in mm.
+        ``None`` (default) means a flat aperture.
+    frequency_Hz : float, optional
+        Centre frequency in Hz.  Defaults to 1 MHz with a warning.
+    """
+
     def __init__(
         self,
         *,
-        n_elements,
-        element_width_mm,
-        element_height_mm,
-        kerf_mm,
-        no_sub_x,
-        no_sub_y,
-        elevation_focus_mm=None,
-        frequency_Hz=None,
-    ):
-        """
-        Defines a linear array transducer geometry with optional elevation focusing.
+        n_elements: int,
+        element_width_mm: float,
+        element_height_mm: float,
+        kerf_mm: float,
+        no_sub_x: int,
+        no_sub_y: int,
+        elevation_focus_mm: Optional[float] = None,
+        frequency_Hz: Optional[float] = None,
+    ) -> None:
+        super().__init__()
+        t0 = TIME()
 
-        Parameters
-        ----------
-        n_elements : int
-            Number of elements in the array.
-        element_width : float
-            Width of each element (m).
-        element_height : float
-            Height of each element (m).
-        kerf : float
-            Gap between elements (m).
-        elevation_focus : float or None
-            Elevation focus distance (m). If None, elements are flat.
-        no_sub_x, no_sub_y : int
-            Number of subdivisions (patches) in x (element width) and y (element height).
-
-        """
-        start_time = TIME()
         self.type = "linear"
         self.name = "LinearArrayTransducer"
 
-        if kerf_mm < 0:
-            raise ValueError("Kerf must be non-negative.")
-        if no_sub_x <= 0 or no_sub_y <= 0:
-            raise ValueError("Number of subdivisions must be positive.")
-        # no_sub must be positive integers
-        if not isinstance(no_sub_x, int) or not isinstance(no_sub_y, int):
-            raise ValueError("Number of subdivisions must be positive integers.")
-        if element_height_mm <= 0 or element_width_mm <= 0:
-            raise ValueError("Element dimensions must be positive.")
-
-        if elevation_focus_mm is None:
-            elevation_focus_mm = 0
-
-        if elevation_focus_mm < 0:
-            raise ValueError("Elevation focus must be non-negative or None.")
-
-        element_height, element_width = (
-            element_height_mm * 1e-3,
-            element_width_mm * 1e-3,
+        # --- validate inputs ---
+        validators.validate_kerf(kerf_mm, element_width_mm)
+        no_sub_x, no_sub_y = validators.validate_subdivisions(no_sub_x, no_sub_y)
+        validators.validate_positive(element_width_mm, "element_width_mm", strict=True)
+        validators.validate_positive(
+            element_height_mm, "element_height_mm", strict=True
         )
 
-        kerf, elevation_focus = kerf_mm * 1e-3, elevation_focus_mm * 1e-3
+        if elevation_focus_mm is not None:
+            validators.validate_positive(elevation_focus_mm, "elevation_focus_mm")
+            if elevation_focus_mm > 0 and no_sub_y < 2:
+                raise ValueError(
+                    "elevation_focus_mm requires no_sub_y ≥ 2 to model the curved surface."
+                )
+
+        # --- store parameters in SI units ---
         self.n_elements = n_elements
-        self.elem_width = element_width  # m
-        self.elem_height = element_height  # m
-        self.kerf = kerf  # m
-        self.pitch = element_width + kerf  # m
-        self.elev_focus = elevation_focus  # m
+        self.elem_width = element_width_mm * 1e-3
+        self.elem_height = element_height_mm * 1e-3
+        self.kerf = kerf_mm * 1e-3
+        self.pitch = self.elem_width + self.kerf
+        self.elev_focus = (elevation_focus_mm * 1e-3) if elevation_focus_mm else 0.0
         self.no_sub_x = no_sub_x
         self.no_sub_y = no_sub_y
 
-        if elevation_focus is not None and elevation_focus > 0 and no_sub_y < 2:
-            raise ValueError(
-                "Elevation focus requires at least 2 subdivisions in y-dir to model elevation focusing."
-            )
-
         if frequency_Hz is not None:
-            self.fc = frequency_Hz
+            self.fc = float(frequency_Hz)
         else:
-            self.fs = 1e6
-            print("Warning: No central frequency provided. Defaulting to 1 MHz.")
+            self.fc = 1e6
+            print("Warning: No frequency provided. Defaulting to 1 MHz.")
 
-        # Per-element apodization weights and delay placeholders
-
-        self.apodization = np.ones(n_elements, dtype=float)
-        self.delays = np.zeros(n_elements, dtype=float)
-        self.tx_N_active = int(np.sum(self.apodization > 0))
-        self.apodization_type = None
-        self.FoverD = None
-
-        # Compute element centers along x-axis
-        total_width = n_elements * element_width + (n_elements - 1) * kerf
-        start_x = -total_width / 2 + element_width / 2
-        self.element_centers = np.array(
-            [
-                [start_x + i * (element_width + kerf), 0.0, 0.0]
-                for i in range(n_elements)
-            ]
-        )
-
-        # Build subdivisions boundaries and areas, apply elevation curvature
-        self.sub_quad_verts, self.sub_area, self.sub_el_idx = self._build_subdivisions()
-
-        end_time = TIME()
         print(
-            f"\nLinearArrayTransducer initialized in {end_time - start_time:.4f} seconds."
+            f"LinearArrayTransducer initialised in {TIME() - t0:.4f} s  "
+            f"({n_elements} elements, {n_elements * no_sub_x * no_sub_y} patches)."
         )
 
-    def _build_subdivisions(self):
+    # ------------------------------------------------------------------
+    # Abstract method implementations
+    # ------------------------------------------------------------------
+
+    def _compute_element_centers(self) -> np.ndarray:
+        """Evenly spaced element centres along x at z=0."""
+        total_w = self.n_elements * self.elem_width + (self.n_elements - 1) * self.kerf
+        start_x = -total_w / 2 + self.elem_width / 2
+        return np.array(
+            [[start_x + i * self.pitch, 0.0, 0.0] for i in range(self.n_elements)]
+        )
+
+    def _build_subdivisions(
+        self,
+    ) -> Tuple[List[np.ndarray], float, List[int]]:
         """
-        Generate vertices for each subdivision quad of each element, applying elevation focus curvature if set.
-        Returns
-        -------
-        sub_quad_verts : list of arrays (4x3) for each patch quad vertices
-        sub_area : float, area of each patch
-        sub_el_idx : list mapping each patch to its element index
+        Build rectangular patches for every element.
+
+        Each element is subdivided into ``no_sub_x × no_sub_y`` patches.
+        When ``elev_focus > 0`` the y-edges of each patch are lifted onto a
+        cylindrical arc so that all patches lie on the curved lens surface.
         """
-        # Local grid edges in element coordinates
         xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
         ys = np.linspace(-self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1)
-
         patch_area = (self.elem_width / self.no_sub_x) * (
             self.elem_height / self.no_sub_y
         )
 
-        quads = []
-        el_indices = []
+        quads, el_indices = [], []
         for idx, center in enumerate(self.element_centers):
             for i in range(self.no_sub_x):
                 for j in range(self.no_sub_y):
-                    # four corners of the patch in local coords
-                    corners_local = np.array(
+                    corners = np.array(
                         [
                             [xs[i], ys[j], 0.0],
                             [xs[i + 1], ys[j], 0.0],
@@ -143,422 +148,407 @@ class LinearArrayTransducer:
                             [xs[i], ys[j + 1], 0.0],
                         ]
                     )
-                    # translate to global x,y
-                    corners = corners_local.copy()
                     corners[:, 0] += center[0]
                     corners[:, 1] += center[1]
-                    # apply elevation curvature in z
-                    if self.elev_focus is not None and self.elev_focus > 0:
+
+                    if self.elev_focus > 0:
+                        # Cylindrical curvature: z offset along y
                         y_vals = corners[:, 1]
-                        z_offset = self.elev_focus - np.sqrt(
+                        corners[:, 2] += self.elev_focus - np.sqrt(
                             np.clip(self.elev_focus**2 - y_vals**2, 0, None)
                         )
-                        corners[:, 2] += z_offset
                     else:
                         corners[:, 2] += center[2]
+
                     quads.append(corners)
                     el_indices.append(idx)
+
         return quads, patch_area, el_indices
+
+    # ------------------------------------------------------------------
+    # Apodization — override with windowed aperture selection
+    # ------------------------------------------------------------------
 
     def compute_apodization(
         self,
         focus_mm,
         *,
-        FoverD=None,
-        apodization_type=None,
-        plot=False,
-        equiv_energy=False,
-    ):
+        FoverD: Optional[float] = None,
+        apodization_type: Optional[str] = None,
+        plot: bool = False,
+        equiv_energy: bool = False,
+        inline: bool = True,
+    ) -> np.ndarray:
         """
-        Compute per‑element apodization for focusing at a given spot.
+        Compute per-element apodization for focusing at ``focus_mm``.
+
+        The active sub-aperture is sized by the F/D ratio: only elements
+        within ``D = |z_focus| / FoverD`` of the focus lateral position are
+        assigned non-zero weights.
 
         Parameters
         ----------
-        focus_mm : sequence of three floats (x, y, z)
-            Lateral (x) and axial (z) coordinates of the focus, in millimeters
-            relative to the array center.
-        apodization_type : {'none', 'rect', 'hanning', 'hamming'}
-            Type of window to apply.
+        focus_mm : array-like, shape (2,) or (3,)
+            Focus in mm. 2-D ``[x, z]`` is accepted (y=0 assumed).
+        FoverD : float, optional
+            F-number.  Ignored when ``apodization_type='none'``.
+        apodization_type : {'none', 'rect', 'hanning', 'hamming'}, optional
+            Window shape. ``None`` defaults to ``'rect'`` with a warning.
         plot : bool
-            If True, show a quick plot of the resulting apodization.
+            Display the result after computation.
+        equiv_energy : bool
+            Scale Hanning/Hamming windows to maintain the same total energy
+            as a rectangular window of the same F/D.
+        inline : bool
+            Store result in ``self.apodization`` (default True).
 
         Returns
         -------
-        apod : ndarray, shape (N_elements,)
-            Normalized apodization weights.
+        apod : ndarray, shape (n_elements,)
         """
-        defined_types = {None, "none", "rect", "hanning", "hamming"}
-        if apodization_type not in defined_types:
+        allowed = {None, "none", "rect", "hanning", "hamming"}
+        if apodization_type not in allowed:
             raise ValueError(
-                f"Unknown apodization_type '{apodization_type}' \n \
-                             Must be one of {defined_types}"
+                f"apodization_type must be one of {allowed}, got '{apodization_type}'."
             )
 
-        # Unpack and convert to meters
-        if isinstance(focus_mm, (tuple, list)):
-            if len(focus_mm) not in (2, 3):
-                raise ValueError(
-                    "Focus must be a sequence of 2 [x,z] or 3 [x,y,z] values."
-                )
-            else:
-                focus = np.array(focus_mm) * 1e-3
-
-        if isinstance(focus_mm, np.ndarray):
-            focus_mm = np.squeeze(focus_mm)
-            if focus_mm.ndim != 1 or focus_mm.shape[0] not in (2, 3):
-                raise ValueError(
-                    "Focus must be a 1D array of 2 [x,z] or 3 [x,y,z] values."
-                )
-            else:
-                focus = focus_mm * 1e-3
-
-        if focus.shape == (3,):
-            x_foc, y_foc, z_foc = focus[0], focus[1], focus[2]
-            # print(f"Focus: {focus_mm[0]:.3f} mm, {focus_mm[1]:.3f} mm, {focus_mm[2]:.3f} mm")
-        elif focus.shape == (2,):
-            x_foc, z_foc = focus[0], focus[1]
-            y_foc = 0
-            # print(f"Focus: {focus_mm[0]:.3f} mm, 0.000 mm, {focus_mm[1]:.3f} mm")
+        focus_m = validators.validate_focus_coordinates(focus_mm)
+        x_foc, z_foc = focus_m[0], focus_m[2]
 
         if z_foc <= 0:
-            print("z_foc is negative. Diverging wave apodization will be computed.")
+            print("z_foc ≤ 0: computing diverging-wave apodization.")
 
         N = self.n_elements
-        pitch = self.elem_width + self.kerf  # element pitch in meters
-        total_ap = N * pitch  # total array aperture (m)
 
         if apodization_type is None:
-            print("Warning: No apodization type provided. Using 'rect'.")
+            print("No apodization_type given — defaulting to 'rect'.")
             apodization_type = "rect"
 
         if apodization_type == "none":
             apod = np.ones(N, dtype=float)
-
         else:
-            # require ratio_F_over_D property
             if FoverD is not None:
-                self.FoverD = FoverD
-
+                self.FoverD = float(FoverD)
             if self.FoverD is None:
-                print("Warning: F/D ratio not set. Using default value of 1.0.")
+                print("F/D not set — defaulting to 1.0.")
                 self.FoverD = 1.0
 
-            # physical extent (in meters) of active aperture for given F/D
             D = abs(z_foc) / self.FoverD
-            # how many elements that corresponds to (must be even)
-            if self.n_elements % 2 == 1:
-                N_virt = int(round((D / total_ap) * N / 2) * 2 + 1)
-            else:
-                N_virt = int(round((D / total_ap) * N / 2) * 2)
+            # Number of elements spanning aperture D (must match parity of N)
+            N_virt = int(round((D / (N * self.pitch)) * N / 2) * 2 + (N % 2))
+            N_virt = max(1, N_virt)
 
-            # window factor for equivalent energy in Hanning/Hamming
+            factor = 1.0
             if equiv_energy:
-                # If we want to keep the same energy as a rectangular window
-                # we need to scale the Hanning/Hamming window by a factor to use more elements
                 factor = {"rect": 1.0, "hanning": 0.5, "hamming": 0.54}[
                     apodization_type
                 ]
-            else:
-                factor = 1
 
             N_ext = int(np.round(N_virt / factor))
-
-            # clamp and warn if outside
             if N_ext > N:
-                warnings.warn("Focus outside imaging window: using full aperture")
+                warnings.warn("Focus outside imaging window: using full aperture.")
                 N_ext = N
 
-            # build window
             if apodization_type == "rect":
                 wins = np.ones(N_ext)
             elif apodization_type == "hanning":
                 wins = np.hanning(N_ext)
-            elif apodization_type == "hamming":
-                wins = np.hamming(N_ext)
             else:
-                raise ValueError(f"Unknown apodization_type '{apodization_type}'")
+                wins = np.hamming(N_ext)
 
-            # now slide this window so its center aligns with x_foc
-            # compute how many elements to shift
-            shift_elems = int(np.round(x_foc / pitch)) - 1
-            # the shift must be between 0 and N-1
-            if shift_elems < -(N - 1) // 2:
-                shift_elems = -(N - 1) // 2
-            if shift_elems > (N - 1) // 2:
-                shift_elems = (N - 1) // 2 + 1
+            # Slide window so its centre aligns with x_foc
+            shift_elems = int(np.round(x_foc / self.pitch)) - 1
+            shift_elems = np.clip(shift_elems, -(N - 1) // 2, (N - 1) // 2 + 1)
 
-            center = (N_ext - 1) // 2 - shift_elems
-            idxs = np.arange(N_ext) - center + N // 2
-
-            # only keep those inside the real array
+            center_idx = (N_ext - 1) // 2 - shift_elems
+            idxs = np.arange(N_ext) - center_idx + N // 2
             valid = (idxs >= 0) & (idxs < N)
             apod = np.zeros(N)
             apod[idxs[valid]] = wins[valid]
 
-        # optionally plot
-        if plot:
-            self.plot_apodization()
+        if inline:
+            self.apodization = apod
+            self.apodization_type = apodization_type
 
-        # save into object for later reference
-        self.apodization = apod
-        self.apodization_type = apodization_type
-        self.tx_N_active = int(np.sum(apod > 0))
+        if plot:
+            self.plot_apodization(apod)
+
         return apod
 
-    def plot_apodization(self, apodization=None, *, figsize=(6, 5), ax=None):
-        """
-        Plot the current apodization weights.
-        """
-        flag = False
-        if apodization is None:
-            apodization = self.apodization
+    # ------------------------------------------------------------------
+    # 2-D plot override for delays (keeps 1-D line chart, consistent with base)
+    # ------------------------------------------------------------------
 
-        if ax is None:
-            flag = True
-            fig, ax = plt.subplots(figsize=figsize)
-
-        ax.plot(
-            np.arange(self.n_elements),
-            apodization,
-            "k-",
-            marker="o",
-            markerfacecolor="r",
+    def __repr__(self) -> str:
+        return (
+            f"LinearArrayTransducer("
+            f"n_elements={self.n_elements}, "
+            f"elem_width={self.elem_width * 1e3:.3f} mm, "
+            f"elem_height={self.elem_height * 1e3:.3f} mm, "
+            f"kerf={self.kerf * 1e3:.3f} mm, "
+            f"elev_focus={self.elev_focus * 1e3:.1f} mm, "
+            f"no_sub=({self.no_sub_x},{self.no_sub_y}), "
+            f"fc={self.fc / 1e6:.2f} MHz)"
         )
-        ax.set_title(f"Apodization: {self.apodization_type}")
-        ax.set_xlabel("Element #")
-        ax.set_ylabel("Weight")
-        ax.grid(True)
 
-        if flag:
-            plt.tight_layout()
-            plt.show()
-            plt.close()
-        else:
-            return ax
 
-    def compute_delays(self, focus_mm, *, c=None, inline=True, plot=False):
-        """
-        Compute per-element delays for focusing at a given spot.
+# ============================================================================
+# Convex (curvilinear) linear array
+# ============================================================================
 
-        Parameters
-        ----------
-        focus_mm : sequence of three floats (x, y, z)
-            Lateral (x) and axial (z) coordinates of the focus, in millimeters
-            relative to the array center.
 
-        Returns
-        -------
-        delays : ndarray, shape (N_elements,)
-            Delays in seconds.
-        """
+class ConvexArrayTransducer(TransducerBase):
+    """
+    Convex (curvilinear) linear array transducer.
 
-        if c is None:
-            c = 1540.0
-            print("Warning: No speed of sound provided. Defaulting to 1540 m/s.")
+    Elements are arranged on a convex cylindrical arc in the XZ plane — the
+    standard geometry for abdominal, cardiac, and obstetric probes.  The
+    centre of curvature sits *behind* the probe face at ``z = -R``, so outer
+    elements are tilted outward and the field of view widens with depth.
 
-        # Unpack and convert to meters
-        focus = np.array(focus_mm) * 1e-3
+    The centre element is positioned at the origin with its normal pointing
+    in ``+z`` (depth direction).  Electronic beam steering and focusing are
+    controlled by ``compute_delays`` / ``compute_apodization``.
 
-        # Compute distances from each element to the focus point
-        delays = np.linalg.norm(self.element_centers - focus, axis=1) / c
+    Parameters
+    ----------
+    n_elements : int
+        Number of active elements.
+    element_width_mm : float
+        Arc-length dimension of each element (azimuth), in mm.
+    element_height_mm : float
+        Element dimension in the elevation axis (y), in mm.
+    kerf_mm : float
+        Arc-length gap between adjacent elements, in mm (≥ 0).
+    radius_of_curvature_mm : float
+        Radius of the convex arc in mm.  Larger values give a flatter probe.
+        Typical clinical values: 40 – 80 mm.
+    no_sub_x : int
+        Patch subdivisions per element along the arc (azimuth, ≥ 1).
+    no_sub_y : int
+        Patch subdivisions per element in elevation (y, ≥ 1).
+        Must be ≥ 2 when ``elevation_focus_mm`` is set.
+    elevation_focus_mm : float, optional
+        Cylindrical elevation-lens focus depth in mm.  When provided, each
+        element surface is curved in the y-direction so that
+        ``z(y) = R_elev − √(R_elev² − y²)``, producing a geometric line
+        focus at ``elevation_focus_mm`` depth in elevation.  Equivalent to
+        the acoustic lens of a focused convex probe (FIELD II
+        ``xdc_focused_convex``).  Must be ≥ ``element_height_mm / 2``.
+    frequency_Hz : float, optional
+        Centre frequency in Hz.  Defaults to 1 MHz with a warning.
+    """
 
-        # Compute delays based on the speed of sound in soft tissue
-        if focus[2] <= 0:  # z is negative, then diverging wave
-            delays = delays - delays.min()  # time delays for diverging wave
-        else:
-            delays = -delays + delays.max()  # time delays for focusing
-        # delays = -delays + delays.min()  # time delays for focusing
-
-        # optionally plot
-        if inline:
-            self.delays = delays
-        if plot:
-            self.plot_delays()
-
-        return delays
-
-    def plot_delays(self, delays=None, *, figsize=(6, 5), ax=None):
-        """
-        Plot the current delays.
-        """
-        flag = False
-        if delays is None:
-            delays = self.delays
-
-        if ax is None:
-            flag = True
-            fig, ax = plt.subplots(figsize=figsize)
-
-        ax.plot(
-            np.arange(self.n_elements),
-            delays * 1e6,
-            "k-",
-            marker="o",
-            markerfacecolor="r",
-        )
-        ax.set_title("Delays")
-        ax.set_xlabel("Element #")
-        ax.set_ylabel("Delay (us)")
-        ax.grid(True)
-
-        if flag:
-            plt.tight_layout()
-            plt.show()
-            plt.close()
-        else:
-            return ax
-
-    def plot_delays_apodization(self, figsize=(10, 4)):
-        """
-        Plot the current delays and apodization side by side.
-        """
-        fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
-        self.plot_delays(ax=ax1)
-        self.plot_apodization(ax=ax2)
-        plt.tight_layout()
-        plt.show()
-        plt.close()
-
-    def set_apodization(self, weights):
-        """Set per-element apodization weights (length = n_elements)."""
-        weights = np.asarray(weights, dtype=float)
-        if weights.shape[0] != self.n_elements:
-            raise ValueError(
-                f"Apodization array must match number of elements. Input size: {weights.size}, expected: {self.n_elements}"
-            )
-        self.apodization = weights
-
-    def set_delays(self, delays):
-        """Set per-element delays in seconds (length = n_elements)."""
-        delays = np.asarray(delays, dtype=float)
-        if delays.shape[0] != self.n_elements:
-            raise ValueError(
-                f"Delay array must match number of elements. Input size: {delays.size}, expected: {self.n_elements}"
-            )
-        self.delays = delays - np.min(delays)  # normalize so min delay is zero
-
-    def get_mesh(self):
-        """
-        Returns a PyVista PolyData mesh of all subdivided quads, with per-cell apodization scalars.
-        """
-        # Aggregate all points and faces
-        verts = []
-        faces = []
-        scalars = []
-        scalars2 = []  # delays
-        pt_index = 0
-        for quad, el_idx in zip(self.sub_quad_verts, self.sub_el_idx):
-            # quad is 4x3 array, create face [4, p0, p1, p2, p3]
-            verts.extend(quad.tolist())
-            face = [4, pt_index, pt_index + 1, pt_index + 2, pt_index + 3]
-            faces.append(face)
-            scalars.append(self.apodization[el_idx])
-            scalars2.append(self.delays[el_idx])
-            pt_index += 4
-        # Flatten verts and faces
-        verts = np.array(verts) * 1e3  # Convert to mm for visualization
-        faces_flat = np.hstack(faces)
-        mesh = pv.PolyData(verts, faces_flat)
-        mesh.cell_data["Apodization"] = np.array(scalars)
-        mesh.cell_data["Delays"] = np.array(scalars2)
-        return mesh
-
-    def show(
+    def __init__(
         self,
         *,
-        window_size=[800, 600],
-        scalars="Apodization",
-        notebook=False,
-        jupyter_backend=None,
-        colorbar_title=None,
-        **kwargs,
-    ):
-        """
-        Visualize the transducer surface mesh and apodization with PyVista.
-        """
-        mesh = self.get_mesh()
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        n_elements: int,
+        element_width_mm: float,
+        element_height_mm: float,
+        kerf_mm: float,
+        radius_of_curvature_mm: float,
+        no_sub_x: int,
+        no_sub_y: int,
+        elevation_focus_mm: Optional[float] = None,
+        frequency_Hz: Optional[float] = None,
+    ) -> None:
+        super().__init__()
+        t0 = TIME()
 
-        if scalars == "Apodization":
-            title_name = "Apodization"
-            cmap = "cool"
-        elif scalars == "Delays":
-            title_name = "Delays (s)"
-            cmap = "rainbow"
-        else:
-            raise ValueError("Scalars must be 'Apodization' or 'Delays'")
+        self.type = "convex"
+        self.name = "ConvexArrayTransducer"
 
-        if colorbar_title is not None:
-            title_name = colorbar_title
+        validators.validate_kerf(kerf_mm, element_width_mm)
+        validators.validate_positive(element_width_mm, "element_width_mm", strict=True)
+        validators.validate_positive(
+            element_height_mm, "element_height_mm", strict=True
+        )
+        validators.validate_positive(
+            radius_of_curvature_mm, "radius_of_curvature_mm", strict=True
+        )
+        no_sub_x, no_sub_y = validators.validate_subdivisions(no_sub_x, no_sub_y)
 
-        default_kwargs = {
-            "scalars": scalars,
-            "cmap": cmap,
-            "clim": [0, 1] if scalars == "Apodization" else None,
-            "show_scalar_bar": True,
-            "scalar_bar_args": {
-                "title": title_name,
-                "vertical": True,
-                "position_x": 0.8,
-                "position_y": 0.1,
-            },
-            "opacity": 1.0,
-            "show_edges": True,
-        }
+        if elevation_focus_mm is not None:
+            validators.validate_positive(
+                elevation_focus_mm, "elevation_focus_mm", strict=True
+            )
+            if elevation_focus_mm < element_height_mm / 2:
+                raise ValueError(
+                    f"elevation_focus_mm ({elevation_focus_mm:.2f}) must be ≥ "
+                    f"element_height_mm/2 ({element_height_mm / 2:.2f} mm)."
+                )
+            if no_sub_y < 2:
+                raise ValueError("no_sub_y must be ≥ 2 when elevation_focus_mm is set.")
 
-        for key, value in default_kwargs.items():
-            if key not in kwargs:
-                kwargs[key] = value
-
-        plotter.add_mesh(
-            mesh,
-            **kwargs,
+        self.n_elements = n_elements
+        self.elem_width = element_width_mm * 1e-3
+        self.elem_height = element_height_mm * 1e-3
+        self.kerf = kerf_mm * 1e-3
+        self.pitch = self.elem_width + self.kerf
+        self.R = radius_of_curvature_mm * 1e-3  # radius of curvature (metres)
+        self.no_sub_x = no_sub_x
+        self.no_sub_y = no_sub_y
+        self._elev_R = (
+            float(elevation_focus_mm) * 1e-3 if elevation_focus_mm is not None else None
         )
 
-        plotter.add_axes()
-        plotter.show_grid(
-            font_size=10,
-            xtitle="X (mm)",
-            ytitle="Y (mm)",
-            ztitle="Z (mm)",
-            show_zlabels=False,
+        self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
+        if frequency_Hz is None:
+            print("Warning: No frequency provided. Defaulting to 1 MHz.")
+
+        # Pre-compute per-element angles
+        # Arc angle between adjacent element centres
+        d_theta = self.pitch / self.R
+        self._thetas = (np.arange(n_elements) - (n_elements - 1) / 2) * d_theta
+
+        elev_str = (
+            f", elev_focus={elevation_focus_mm:.1f} mm"
+            if elevation_focus_mm is not None
+            else ""
         )
-        plotter.camera_position = [
-            (12.520367408261166, 13.689471886505752, 13.940982550648721),
-            (1.4163759408294876, 0.20198691702220328, -0.9914130664803784),
-            (-0.5077013315077692, -0.41679734969120574, 0.7540022064129689),
-        ]
-        if jupyter_backend is not None:
-            plotter.show(jupyter_backend=jupyter_backend)
+        print(
+            f"ConvexArrayTransducer initialised in {TIME() - t0:.4f} s  "
+            f"({n_elements} elements, R={radius_of_curvature_mm:.1f} mm, "
+            f"arc span={np.degrees(self._thetas[-1] - self._thetas[0]):.1f}°"
+            f"{elev_str})."
+        )
+
+    # ------------------------------------------------------------------
+    # Abstract method implementations
+    # ------------------------------------------------------------------
+
+    def _compute_element_centers(self) -> np.ndarray:
+        """
+        Element centres on the convex arc.
+
+        The arc is defined with the centre of curvature at (0, 0, -R).
+        Element i at angle θ_i is at (R·sin θ_i, 0, R·(cos θ_i − 1)).
+        """
+        x = self.R * np.sin(self._thetas)
+        y = np.zeros(self.n_elements)
+        z = self.R * (np.cos(self._thetas) - 1.0)
+        return np.column_stack([x, y, z])
+
+    def _build_subdivisions(self) -> Tuple[List[np.ndarray], float, List[int]]:
+        """
+        Build rectangular patches for every element, each rotated to sit
+        tangent to the arc.
+
+        The local patch grid is flat and centred at the origin; it is rotated
+        around the y-axis by θ_i to match the element tilt, then translated
+        to the element centre position.
+        """
+        # Local (un-rotated) patch grid: flat rectangle at origin
+        xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
+        ys = np.linspace(-self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1)
+        patch_area = (self.elem_width / self.no_sub_x) * (
+            self.elem_height / self.no_sub_y
+        )
+
+        quads, el_indices = [], []
+
+        for idx, (theta, center) in enumerate(zip(self._thetas, self.element_centers)):
+            # Rotation matrix around y-axis by theta (aligns local +z with element normal)
+            c, s = np.cos(theta), np.sin(theta)
+            Ry = np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
+
+            for i in range(self.no_sub_x):
+                for j in range(self.no_sub_y):
+                    corners = np.array(
+                        [
+                            [xs[i], ys[j], 0.0],
+                            [xs[i + 1], ys[j], 0.0],
+                            [xs[i + 1], ys[j + 1], 0.0],
+                            [xs[i], ys[j + 1], 0.0],
+                        ]
+                    )
+                    # Apply elevation curvature in local frame (before arc rotation)
+                    if self._elev_R is not None:
+                        y_vals = corners[:, 1]
+                        corners[:, 2] += self._elev_R - np.sqrt(
+                            np.clip(self._elev_R**2 - y_vals**2, 0, None)
+                        )
+                    # Rotate to element tilt, then translate to arc position
+                    corners = corners @ Ry.T + center
+                    quads.append(corners)
+                    el_indices.append(idx)
+
+        return quads, patch_area, el_indices
+
+    # ------------------------------------------------------------------
+    # Apodization — same windowed aperture logic as LinearArrayTransducer
+    # ------------------------------------------------------------------
+
+    def compute_apodization(
+        self,
+        focus_mm,
+        *,
+        FoverD: Optional[float] = None,
+        apodization_type: Optional[str] = None,
+        plot: bool = False,
+        inline: bool = True,
+    ) -> np.ndarray:
+        """
+        Compute per-element apodization.  Delegates to
+        :class:`LinearArrayTransducer` logic (F/D aperture + window).
+        """
+        # Reuse linear apodization — the arc curvature only matters for delays
+        focus_m = validators.validate_focus_coordinates(focus_mm)
+        x_foc, z_foc = focus_m[0], focus_m[2]
+
+        if apodization_type is None:
+            apodization_type = "rect"
+
+        N = self.n_elements
+        if apodization_type == "none":
+            apod = np.ones(N, dtype=float)
         else:
-            plotter.show()
-        # plotter.close()
+            if FoverD is not None:
+                self.FoverD = float(FoverD)
+            if self.FoverD is None:
+                self.FoverD = 1.0
+            D = abs(z_foc) / self.FoverD
+            N_virt = int(round((D / (N * self.pitch)) * N / 2) * 2 + (N % 2))
+            N_virt = max(1, N_virt)
 
-    def clean(self):
-        """
-        Clean up the transducer object by removing large arrays.
-        """
-        self.sub_quad_verts = None
-        self.sub_area = None
-        self.sub_el_idx = None
-        self.element_centers = None
-        self.apodization = None
-        self.delays = None
-        print("Transducer cleaned up.")
+            if apodization_type == "rect":
+                wins = np.ones(N_virt)
+            elif apodization_type == "hanning":
+                wins = np.hanning(N_virt)
+            else:
+                wins = np.hamming(N_virt)
 
-    def __repr__(self):
-        params = {
-            "n_elements": self.n_elements,
-            "elem_width_mm": self.elem_width * 1e3,
-            "elem_height_mm": self.elem_height * 1e3,
-            "kerf_mm": self.kerf * 1e3,
-            "elev_focus_mm": self.elev_focus * 1e3 if self.elev_focus else None,
-            "no_sub_x": self.no_sub_x,
-            "no_sub_y": self.no_sub_y,
-            "fc_Hz": self.fc,
-            "Apod type": self.apodization_type,
-            "tx_N_active": self.tx_N_active,
-            "FoverD": self.FoverD,
-        }
-        parts = [f"{k}={v}" for k, v in params.items()]
-        return f"{self.__class__.__name__}({', '.join(parts)})"
+            if N_virt > N:
+                N_virt = N
+                wins = wins[:N]
+
+            shift_elems = int(np.round(x_foc / self.pitch))
+            center_idx = (N_virt - 1) // 2 - shift_elems
+            idxs = np.arange(N_virt) - center_idx + N // 2
+            valid = (idxs >= 0) & (idxs < N)
+            apod = np.zeros(N)
+            apod[idxs[valid]] = wins[valid]
+
+        if inline:
+            self.apodization = apod
+            self.apodization_type = apodization_type
+        if plot:
+            self.plot_apodization(apod)
+        return apod
+
+    def __repr__(self) -> str:
+        elev_str = (
+            f", elev_focus={self._elev_R * 1e3:.1f} mm"
+            if self._elev_R is not None
+            else ""
+        )
+        return (
+            f"ConvexArrayTransducer("
+            f"n_elements={self.n_elements}, "
+            f"elem_width={self.elem_width * 1e3:.3f} mm, "
+            f"R={self.R * 1e3:.1f} mm, "
+            f"arc={np.degrees(self._thetas[-1] - self._thetas[0]):.1f}°"
+            f"{elev_str}, "
+            f"no_sub=({self.no_sub_x},{self.no_sub_y}), "
+            f"fc={self.fc / 1e6:.2f} MHz)"
+        )

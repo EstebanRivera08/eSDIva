@@ -1,7 +1,7 @@
 import pyfield.psimulation as psimulation
 import pyfield.transducers as transducers
 import pyfield.utilities as utilities
-from pyfield.psimulation import PyField, TorchField
+from pyfield.psimulation import PyField
 from pyfield.utilities import (
     plot_pressure_field,
     plot_pressure_planes,
@@ -10,7 +10,6 @@ from pyfield.utilities import (
 
 __all__ = [
     "PyField",
-    "TorchField",
     "psimulation",
     "transducers",
     "utilities",

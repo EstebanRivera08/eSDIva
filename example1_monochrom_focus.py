@@ -5,14 +5,14 @@ from pyfield.psimulation import PyField
 from pyfield.transducers import Domino, Zeus_Matrix
 from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
 
-print("\n --- Example 0: Linear and Matrix Array Transducers --- \n")
+print("\n --- Example 1: Monochromatic Focused Pressure Field --- \n")
 
 save_fig = False
 fig_folder = r""
 
 scale = 3
 run_linear_array = True
-run_matrix_array = False
+run_matrix_array = True
 theme = "dark"
 
 
@@ -126,7 +126,7 @@ if run_linear_array:
     if save_fig:
         plotter_linear.screenshot(fig_folder + "linear_array_field.png")
     else:
-        plotter_linear.show(jupyter_backend="static")
+        plotter_linear.show()
 
     plotter_linear.close()
 
@@ -190,13 +190,10 @@ if run_matrix_array:
         focus_mm=focus_mm, FoverD=FoverD
     )
     matrix_array_probe.plot_delays_apodization()
-    matrix_array_probe.show(notebook=True, jupyter_backend="static", scalars="Delays")
-
+    # matrix_array_probe.show()
     # Perform simulation
-
     matrix_field = PyField(matrix_array_probe)
     x2, y2, z2, p_matrixfield2 = matrix_field(field_point_mm, method="auto")
-
     # Visualize the results
 
     # TX + Pressure
@@ -242,7 +239,7 @@ if run_matrix_array:
     if save_fig:
         plotter_matrix.screenshot(fig_folder + "matrix_array_field.png")
     else:
-        plotter_matrix.show(jupyter_backend="static")
+        plotter_matrix.show()
     plotter_matrix.close()
 
     #  Pressure
@@ -279,7 +276,7 @@ if run_matrix_array:
     if save_fig:
         plotter2_matrix.screenshot(fig_folder + "matrix_array_pressure_field.png")
     else:
-        plotter2_matrix.show(jupyter_backend="static")
+        plotter2_matrix.show()
 
     plotter2_matrix.close()
 

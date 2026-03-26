@@ -4,6 +4,30 @@ import pyvista as pv
 from brainglobe_atlasapi import BrainGlobeAtlas
 from brainglobe_atlasapi import show_atlases as bg_show_atlases
 
+# ---------------------------------------------------------------------------
+# Known atlas landmark data
+# ---------------------------------------------------------------------------
+# Each entry maps an atlas name (as returned by bg_atlas.metadata["name"])
+# to a dict with either a ``whs_voxels`` key (origin/bregma/lambda in voxels)
+# or a ``manual_fit`` key (origin voxel + bregma-lambda distance in µm).
+#
+# Add new atlases here to register them without touching the class logic.
+_ATLAS_LANDMARKS: dict = {
+    "whs_sd_rat": {
+        "whs_voxels": {
+            "origin": np.array([244, 623, 248]),
+            "bregma": np.array([246, 653, 440]),
+            "lambda": np.array([244, 442, 434]),
+        }
+    },
+    "allen_mouse": {
+        "manual_fit": {
+            "origin": np.array([228, 330, 118]),
+            "bregma_lambda_um": 2300,  # distance between bregma and lambda in µm
+        }
+    },
+}
+
 
 class BG_Atlas:
     def __init__(
@@ -84,51 +108,56 @@ class BG_Atlas:
         self, bg_atlas, *, whs_voxels=None, manual_fit=None, verbose=False
     ):
         """
-        Compute the transformation matrix from BrainGlobe Atlas to Brain-space (BPS Atlas).
-        Args:
-            bg_atlas (BrainGlobeAtlas): The BrainGlobe Atlas object.
-            brain_mesh_dict (dict, optional): A dictionary of PyVista meshes for different brain regions.
-            whs_voxels (dict, optional): A dictionary containing the WHS origin, bregma, and lambda voxels.
-        Returns:
-            np.ndarray: The transformation matrix from BrainGlobe Atlas to Brain-space (BPS Atlas).
-            transformed_brain_mesh_dict (dict, optional): A dictionary of transformed PyVista meshes for different brain regions, if provided.
+        Compute the 4×4 affine matrix from BrainGlobe Atlas voxel space to
+        normalised Brain-space (BPS).
+
+        The function first checks the module-level ``_ATLAS_LANDMARKS`` registry
+        for pre-calibrated landmark data.  User-supplied ``whs_voxels`` or
+        ``manual_fit`` take precedence over the registry (allowing per-subject
+        overrides).  If neither is available the atlas is returned in its raw
+        voxel space with a warning.
+
+        Parameters
+        ----------
+        bg_atlas : BrainGlobeAtlas
+            The loaded BrainGlobe atlas object.
+        whs_voxels : dict, optional
+            Landmark voxel coordinates with keys ``"origin"``, ``"bregma"``,
+            ``"lambda"`` (each a length-3 ndarray).
+        manual_fit : dict, optional
+            Coarser alignment via keys ``"origin"`` (voxel, length-3 ndarray)
+            and ``"bregma_lambda_um"`` (scalar distance in µm).
+        verbose : bool, optional
+            Print intermediate matrices for debugging.  Default False.
+
+        Returns
+        -------
+        bgatlasToBrain : ndarray, shape (4, 4)
+            Homogeneous transform from atlas voxel indices to normalised
+            brain coordinates.
         """
         name = bg_atlas.metadata["name"]
-        # Get the information to compute transformation matrix
         resolution = np.array(bg_atlas.metadata["resolution"])
 
-        if name == "whs_sd_rat":
-            # We need to apply a specific transformation to align the BrainGlobe atlas
-            # with the WHS atlas space.
-            print(f"WHS origin, bregma, and lambda coordinates available for `{name}`.")
-            whs_voxels = {
-                "origin": np.array([244, 623, 248]),
-                "bregma": np.array([246, 653, 440]),
-                "lambda": np.array([244, 442, 434]),
-            }
-        elif name == "allen_mouse":
-            # We need to apply a specific transformation to align the BrainGlobe atlas
-            # with the WHS atlas space.
-            print(f"WHS origin, bregma, and lambda coordinates available for `{name}`.")
-            manual_fit = {
-                "origin": np.array([228, 330, 118]),
-                "bregma_lambda_um": 2300,  # Distance between bregma and lambda in micrometers (4mm)
-            }
+        # Check registry for pre-calibrated landmarks (user args take priority)
+        if whs_voxels is None and manual_fit is None:
+            known = _ATLAS_LANDMARKS.get(name)
+            if known is not None:
+                whs_voxels = known.get("whs_voxels")
+                manual_fit = known.get("manual_fit")
+                method = "whs_voxels" if whs_voxels is not None else "manual_fit"
+                print(f"Using pre-calibrated landmarks for '{name}' ({method}).")
+            else:
+                print(
+                    f"WARNING: No landmark data for atlas '{name}'.\n"
+                    "Provide whs_voxels or manual_fit, or add the atlas to "
+                    "_ATLAS_LANDMARKS.\nNo normalisation will be applied — "
+                    "coordinates returned in raw voxel space."
+                )
         elif whs_voxels is not None:
-            # If whs_voxels is provided, we use it to align the atlas
             print("Using provided WHS voxels for alignment.")
-            pass
-        elif manual_fit is not None:
-            # If manual_fit is provided, we use it to align the atlas
-            print("Using provided manual fit for alignment.")
-            pass
         else:
-            print(
-                "WARNING: No available information for this atlas. \n"
-                "To compute BrainGlobe to Brain-space, the WHS origin, bregma, and lambda voxels must be provided, \n"
-                "or a manual fit could be done by setting the `manual_fit` dict with bregma_sigma_um and origin_voxel keys.\n"
-                "No subject normalization will be applied, and the atlas will be returned in its voxel space."
-            )
+            print("Using provided manual fit for alignment.")
 
         if whs_voxels is not None:
             bregma2lambda = np.linalg.norm(
@@ -241,7 +270,7 @@ class BG_Atlas:
             )
             trans_pv_mesh = pv_mesh
         if not inplace:
-            return pv_mesh
+            return trans_pv_mesh
 
     def reset_mesh(self):
         """

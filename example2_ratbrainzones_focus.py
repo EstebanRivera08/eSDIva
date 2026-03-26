@@ -1,3 +1,18 @@
+"""
+Example 2: Rat Brain Zone Focusing
+
+Demonstrates focused ultrasound simulation targeting specific anatomical
+zones of a rat brain using a BrainGlobe atlas for anatomy and a linear
+array transducer.  Shows:
+  1. Atlas loading and brain region mesh extraction
+  2. Focus computation toward a specific brain target
+  3. Monochromatic pressure field simulation
+  4. Joint visualisation of anatomy + pressure field
+
+Run with:
+    uv run example2_ratbrainzones_focus.py
+"""
+
 import numpy as np
 import pyvista as pv
 
@@ -12,7 +27,7 @@ from pyfield.utilities import (
     create_vol_mesh,
 )
 
-print("\n --- Example 1: Rat Brain Zones --- \n")
+print("\n --- Example 2: Rat Brain Zone Focusing --- \n")
 
 save_fig = False
 fig_folder = r"./others/figures//"

@@ -3,7 +3,7 @@ import time
 import numpy as np
 
 from pyfield.utilities.helper_functions import (
-    check_field_points,
+    check_valid_field_points as check_field_points,
     compute_sub_elem_attributes,
     compute_time_grid,
 )
@@ -21,13 +21,12 @@ class h_sir:
             self.delays_sub_elem,
             self.M,
             self.range_k,
+            self.wx_arr,
+            self.wy_arr,
         ) = compute_sub_elem_attributes(transducer)
 
-        # compute patch centers_sub_elem/apodization/delays once
-        elem_height = transducer.elem_height / transducer.no_sub_y
-        elem_width = transducer.elem_width / transducer.no_sub_x
-        self.wx = elem_width
-        self.wy = elem_height
+        self.wx = float(self.wx_arr.max())
+        self.wy = float(self.wy_arr.max())
         self.delays = transducer.delays
         self.apodization = transducer.apodization
 
@@ -85,8 +84,8 @@ class h_sir:
             time_grid,
             points,
             self.centers_sub_elem,
-            self.wx,
-            self.wy,
+            self.wx_arr,
+            self.wy_arr,
             1 / self.c,
             self.fs,
             self.apodization_sub_elem,
@@ -117,13 +116,21 @@ class h_sir:
 
     def compute_delays(self, focus_mm):
         self.delays = self.tx.compute_delays(focus_mm=focus_mm, c=self.c)
-        self.compute_sub_elem_attributes()
+        (self.centers_sub_elem, self.apodization_sub_elem,
+         self.delays_sub_elem, self.M, self.range_k,
+         self.wx_arr, self.wy_arr) = compute_sub_elem_attributes(self.tx)
+        self.wx = float(self.wx_arr.max())
+        self.wy = float(self.wy_arr.max())
 
     def compute_apodization(self, focus_mm, FoverD=1, apodization_type="rect"):
         self.apodization = self.tx.compute_apodization(
             focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
         )
-        self.compute_sub_elem_attributes()
+        (self.centers_sub_elem, self.apodization_sub_elem,
+         self.delays_sub_elem, self.M, self.range_k,
+         self.wx_arr, self.wy_arr) = compute_sub_elem_attributes(self.tx)
+        self.wx = float(self.wx_arr.max())
+        self.wy = float(self.wy_arr.max())
 
     def summary(self):
         """

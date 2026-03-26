@@ -1,0 +1,1127 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+        <meta name="description" content="Acoustic field simulator for ultrasound transducers.">
+      
+      
+        <meta name="author" content="deyve">
+      
+      
+      
+        <link rel="prev" href="../transducers/">
+      
+      
+      
+        
+      
+      
+      <link rel="icon" href="../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.28">
+    
+    
+      
+        <title>Visualization - PyField</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../assets/stylesheets/modern/main.6f2fbb28.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../assets/stylesheets/modern/palette.dfe2e883.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("..",location),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,a=__md_scope)=>JSON.parse(t.getItem(a.pathname+"."+e)),__md_set=(e,t,a=localStorage,_=__md_scope)=>{try{a.setItem(_.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#visualization" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="./.." title="PyField" class="md-header__button md-logo" aria-label="PyField" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            PyField
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Visualization
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-sun" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-moon" viewBox="0 0 24 24"><path d="M20.985 12.486a9 9 0 1 1-9.473-9.472c.405-.022.617.46.402.803a6 6 0 0 0 8.268 8.268c.344-.215.825-.004.803.401"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+    </div>
+  </nav>
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+          
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+
+<nav class="md-nav md-nav--primary" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="./.." title="PyField" class="md-nav__button md-logo" aria-label="PyField" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 7v14M3 18a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1h5a4 4 0 0 1 4 4 4 4 0 0 1 4-4h5a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1h-6a3 3 0 0 0-3 3 3 3 0 0 0-3-3z"/></svg>
+
+    </a>
+    PyField
+  </label>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    PyField Documentation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../brain_atlas/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Brain Atlas
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../simulation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Simulation
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../transducers/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Transducers
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+    Visualization
+  
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#matplotlib-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Matplotlib functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Matplotlib functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plot_pressure_planes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_pressure_planes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_slices_2d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_slices_2d
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_pressure_field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_pressure_field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_deltak_distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_deltak_distribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyvista-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyVista functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PyVista functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_vol_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create_vol_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_pressure_field_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_pressure_field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_pressure_vol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_pressure_vol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_transducer_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_transducer_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_3d_vol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_3D_vol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_2d_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_2D_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_regions_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_regions_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_markers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_markers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recompute_bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recompute_bounds
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brain-atlas-scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brain atlas scenes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#composing-scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composing scenes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#matplotlib-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Matplotlib functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Matplotlib functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#plot_pressure_planes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_pressure_planes
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_slices_2d" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_slices_2d
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_pressure_field" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_pressure_field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_deltak_distribution" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_deltak_distribution
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#pyvista-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        PyVista functions
+      
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="PyVista functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#create_vol_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        create_vol_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#plot_pressure_field_1" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        plot_pressure_field
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_pressure_vol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_pressure_vol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_transducer_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_transducer_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_3d_vol" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_3D_vol
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_2d_image" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_2D_image
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_regions_mesh" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_regions_mesh
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_markers" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        add_markers
+      
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#recompute_bounds" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        recompute_bounds
+      
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#brain-atlas-scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Brain atlas scenes
+      
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#composing-scenes" class="md-nav__link">
+    <span class="md-ellipsis">
+      
+        Composing scenes
+      
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+                
+
+
+
+  
+
+
+              
+              <article class="md-content__inner md-typeset">
+                
+                  
+
+<h1 id="visualization">Visualization<a class="headerlink" href="#visualization" title="Permanent link">&para;</a></h1>
+<p>PyField provides two sets of plotting helpers:</p>
+<ul>
+<li><strong>Matplotlib</strong> (<code>pyfield.utilities</code>) — 2-D static figures, fast and
+  notebook-friendly.</li>
+<li><strong>PyVista</strong> (<code>pyfield.utilities</code>) — interactive 3-D rendering.</li>
+</ul>
+<hr />
+<h2 id="matplotlib-functions">Matplotlib functions<a class="headerlink" href="#matplotlib-functions" title="Permanent link">&para;</a></h2>
+<h3 id="plot_pressure_planes"><code>plot_pressure_planes</code><a class="headerlink" href="#plot_pressure_planes" title="Permanent link">&para;</a></h3>
+<p>Three orthogonal slices through a pressure volume (XZ, XY, YZ).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-0-1"><a id="__codelineno-0-1" name="__codelineno-0-1" href="#__codelineno-0-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_pressure_planes</span>
+</span><span id="__span-0-2"><a id="__codelineno-0-2" name="__codelineno-0-2" href="#__codelineno-0-2"></a>
+</span><span id="__span-0-3"><a id="__codelineno-0-3" name="__codelineno-0-3" href="#__codelineno-0-3"></a><span class="n">plot_pressure_planes</span><span class="p">(</span>
+</span><span id="__span-0-4"><a id="__codelineno-0-4" name="__codelineno-0-4" href="#__codelineno-0-4"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">pressure_field</span><span class="p">,</span>
+</span><span id="__span-0-5"><a id="__codelineno-0-5" name="__codelineno-0-5" href="#__codelineno-0-5"></a>    <span class="n">db_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-6"><a id="__codelineno-0-6" name="__codelineno-0-6" href="#__codelineno-0-6"></a>    <span class="n">centered_to_max</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-0-7"><a id="__codelineno-0-7" name="__codelineno-0-7" href="#__codelineno-0-7"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="mi">40</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-0-8"><a id="__codelineno-0-8" name="__codelineno-0-8" href="#__codelineno-0-8"></a>    <span class="n">label</span><span class="o">=</span><span class="s2">&quot;Pressure (dB)&quot;</span><span class="p">,</span>
+</span><span id="__span-0-9"><a id="__codelineno-0-9" name="__codelineno-0-9" href="#__codelineno-0-9"></a>    <span class="n">save_fig_name</span><span class="o">=</span><span class="s2">&quot;field.png&quot;</span><span class="p">,</span>
+</span><span id="__span-0-10"><a id="__codelineno-0-10" name="__codelineno-0-10" href="#__codelineno-0-10"></a><span class="p">)</span>
+</span></code></pre></div>
+<p>Works with both 3-D (monochromatic) and a single-plane 2-D slice
+(one dimension equal to 1).</p>
+<h3 id="plot_slices_2d"><code>plot_slices_2d</code><a class="headerlink" href="#plot_slices_2d" title="Permanent link">&para;</a></h3>
+<p>Unified interface for monochromatic (3-D) and transient (4-D) data.</p>
+<p>For 3-D data a static figure is produced via <code>plot_pressure_planes</code>.
+For 4-D data a <code>FuncAnimation</code> is displayed: all <code>Nt</code> frames are spread
+evenly over <code>video_duration_s</code> seconds, so the animation always finishes
+in the requested duration regardless of frame count.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-1-1"><a id="__codelineno-1-1" name="__codelineno-1-1" href="#__codelineno-1-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_slices_2d</span>
+</span><span id="__span-1-2"><a id="__codelineno-1-2" name="__codelineno-1-2" href="#__codelineno-1-2"></a>
+</span><span id="__span-1-3"><a id="__codelineno-1-3" name="__codelineno-1-3" href="#__codelineno-1-3"></a><span class="c1"># Monochromatic (3-D)</span>
+</span><span id="__span-1-4"><a id="__codelineno-1-4" name="__codelineno-1-4" href="#__codelineno-1-4"></a><span class="n">plot_slices_2d</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">p_mono</span><span class="p">,</span> <span class="n">db_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span> <span class="n">vmin</span><span class="o">=-</span><span class="mi">30</span><span class="p">)</span>
+</span><span id="__span-1-5"><a id="__codelineno-1-5" name="__codelineno-1-5" href="#__codelineno-1-5"></a>
+</span><span id="__span-1-6"><a id="__codelineno-1-6" name="__codelineno-1-6" href="#__codelineno-1-6"></a><span class="c1"># Transient (4-D) — 5-second animation, saves mp4 if save_dir given</span>
+</span><span id="__span-1-7"><a id="__codelineno-1-7" name="__codelineno-1-7" href="#__codelineno-1-7"></a><span class="n">plot_slices_2d</span><span class="p">(</span>
+</span><span id="__span-1-8"><a id="__codelineno-1-8" name="__codelineno-1-8" href="#__codelineno-1-8"></a>    <span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">p_transient</span><span class="p">,</span>
+</span><span id="__span-1-9"><a id="__codelineno-1-9" name="__codelineno-1-9" href="#__codelineno-1-9"></a>    <span class="n">time_array</span><span class="o">=</span><span class="n">time_s</span><span class="p">,</span>           <span class="c1"># physical time axis (seconds)</span>
+</span><span id="__span-1-10"><a id="__codelineno-1-10" name="__codelineno-1-10" href="#__codelineno-1-10"></a>    <span class="n">db_scale</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
+</span><span id="__span-1-11"><a id="__codelineno-1-11" name="__codelineno-1-11" href="#__codelineno-1-11"></a>    <span class="n">video_duration_s</span><span class="o">=</span><span class="mi">5</span><span class="p">,</span>          <span class="c1"># all frames shown in 5 s</span>
+</span><span id="__span-1-12"><a id="__codelineno-1-12" name="__codelineno-1-12" href="#__codelineno-1-12"></a>    <span class="n">save_dir</span><span class="o">=</span><span class="s2">&quot;./frames&quot;</span><span class="p">,</span>         <span class="c1"># optional: save mp4 to this directory</span>
+</span><span id="__span-1-13"><a id="__codelineno-1-13" name="__codelineno-1-13" href="#__codelineno-1-13"></a>    <span class="n">vmin</span><span class="o">=-</span><span class="mi">40</span><span class="p">,</span> <span class="n">vmax</span><span class="o">=</span><span class="mi">0</span><span class="p">,</span>
+</span><span id="__span-1-14"><a id="__codelineno-1-14" name="__codelineno-1-14" href="#__codelineno-1-14"></a>    <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;jet&quot;</span><span class="p">,</span>
+</span><span id="__span-1-15"><a id="__codelineno-1-15" name="__codelineno-1-15" href="#__codelineno-1-15"></a><span class="p">)</span>
+</span></code></pre></div>
+<p><code>pressure_field</code> conventions:
+- 3-D <code>(Nx, Ny, Nz)</code> — monochromatic
+- 4-D <code>(Nt, Nx, Ny, Nz)</code> — transient (time along axis 0)</p>
+<p>Planar fields (one spatial dimension = 1) are detected automatically and
+displayed as a single panel instead of three orthogonal views.</p>
+<p>Key parameters:</p>
+<table>
+<thead>
+<tr>
+<th>Parameter</th>
+<th>Default</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>video_duration_s</code></td>
+<td><code>5</code></td>
+<td>Total animation length in seconds.  Display interval = <code>video_duration_s / Nt</code> per frame.</td>
+</tr>
+<tr>
+<td><code>fps</code></td>
+<td><code>30</code></td>
+<td>Reserved for API compatibility.  Save fps is derived from <code>Nt / video_duration_s</code>.</td>
+</tr>
+<tr>
+<td><code>save_dir</code></td>
+<td><code>None</code></td>
+<td>Directory for output.  Saves <code>pressure_field_video.mp4</code> (ffmpeg) or <code>.gif</code> (pillow fallback).</td>
+</tr>
+<tr>
+<td><code>vmin</code>, <code>vmax</code></td>
+<td>auto</td>
+<td>Colorbar limits (applied consistently across all frames).</td>
+</tr>
+<tr>
+<td><code>centered_to_max</code></td>
+<td><code>False</code></td>
+<td>Slice planes through pressure maximum (True) or geometric centre (False).</td>
+</tr>
+</tbody>
+</table>
+<h3 id="plot_pressure_field"><code>plot_pressure_field</code><a class="headerlink" href="#plot_pressure_field" title="Permanent link">&para;</a></h3>
+<p>High-level wrapper for 3-D interactive/off-screen rendering of a pressure
+volume.  Creates the mesh, adds isosurface contours, applies axis styling, and
+returns the plotter so you can compose additional actors before calling
+<code>.show()</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-2-1"><a id="__codelineno-2-1" name="__codelineno-2-1" href="#__codelineno-2-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_pressure_field</span><span class="p">,</span> <span class="n">add_transducer_mesh</span>
+</span><span id="__span-2-2"><a id="__codelineno-2-2" name="__codelineno-2-2" href="#__codelineno-2-2"></a>
+</span><span id="__span-2-3"><a id="__codelineno-2-3" name="__codelineno-2-3" href="#__codelineno-2-3"></a><span class="c1"># standalone 3-D pressure view</span>
+</span><span id="__span-2-4"><a id="__codelineno-2-4" name="__codelineno-2-4" href="#__codelineno-2-4"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">plot_pressure_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">pressure_field</span><span class="p">,</span>
+</span><span id="__span-2-5"><a id="__codelineno-2-5" name="__codelineno-2-5" href="#__codelineno-2-5"></a>                         <span class="n">contour_levels</span><span class="o">=</span><span class="mi">11</span><span class="p">,</span>
+</span><span id="__span-2-6"><a id="__codelineno-2-6" name="__codelineno-2-6" href="#__codelineno-2-6"></a>                         <span class="n">colorbar_title</span><span class="o">=</span><span class="s2">&quot;Pressure (a.u.)&quot;</span><span class="p">)</span>
+</span><span id="__span-2-7"><a id="__codelineno-2-7" name="__codelineno-2-7" href="#__codelineno-2-7"></a><span class="n">pl</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span><span id="__span-2-8"><a id="__codelineno-2-8" name="__codelineno-2-8" href="#__codelineno-2-8"></a>
+</span><span id="__span-2-9"><a id="__codelineno-2-9" name="__codelineno-2-9" href="#__codelineno-2-9"></a><span class="c1"># compose with transducer mesh</span>
+</span><span id="__span-2-10"><a id="__codelineno-2-10" name="__codelineno-2-10" href="#__codelineno-2-10"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">plot_pressure_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">p</span><span class="p">,</span> <span class="n">contour_levels</span><span class="o">=</span><span class="mi">11</span><span class="p">)</span>
+</span><span id="__span-2-11"><a id="__codelineno-2-11" name="__codelineno-2-11" href="#__codelineno-2-11"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_transducer_mesh</span><span class="p">(</span><span class="n">tx</span><span class="o">.</span><span class="n">get_mesh</span><span class="p">(),</span> <span class="n">plotter</span><span class="o">=</span><span class="n">pl</span><span class="p">)</span>
+</span><span id="__span-2-12"><a id="__codelineno-2-12" name="__codelineno-2-12" href="#__codelineno-2-12"></a><span class="n">pl</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></code></pre></div>
+<p><strong>Linear array (Domino) — TX + pressure, 3-D view</strong></p>
+<p><img alt="Linear array 3-D pressure" src="../assets/pressure_linear_3d.png" /></p>
+<p><strong>Matrix array (Zeus_Matrix) — TX + pressure, 3-D view</strong></p>
+<p><img alt="Matrix array 3-D pressure" src="../assets/pressure_matrix_3d_pyvista.png" /></p>
+<h3 id="plot_deltak_distribution"><code>plot_deltak_distribution</code><a class="headerlink" href="#plot_deltak_distribution" title="Permanent link">&para;</a></h3>
+<p>Diagnostic plot showing the Δk condition across all patches and field points.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-3-1"><a id="__codelineno-3-1" name="__codelineno-3-1" href="#__codelineno-3-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_deltak_distribution</span>
+</span><span id="__span-3-2"><a id="__codelineno-3-2" name="__codelineno-3-2" href="#__codelineno-3-2"></a><span class="n">fig</span> <span class="o">=</span> <span class="n">plot_deltak_distribution</span><span class="p">(</span><span class="n">sim</span><span class="p">,</span> <span class="n">per_element</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="pyvista-functions">PyVista functions<a class="headerlink" href="#pyvista-functions" title="Permanent link">&para;</a></h2>
+<p>All PyVista functions accept an optional <code>plotter</code> argument so multiple
+objects can be composed in a single scene.</p>
+<h3 id="create_vol_mesh"><code>create_vol_mesh</code><a class="headerlink" href="#create_vol_mesh" title="Permanent link">&para;</a></h3>
+<p>Convert a pressure array to a <code>pv.ImageData</code> mesh (prerequisite for volume
+rendering).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-4-1"><a id="__codelineno-4-1" name="__codelineno-4-1" href="#__codelineno-4-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">create_vol_mesh</span>
+</span><span id="__span-4-2"><a id="__codelineno-4-2" name="__codelineno-4-2" href="#__codelineno-4-2"></a><span class="n">mesh</span> <span class="o">=</span> <span class="n">create_vol_mesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">pressure_field</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="s2">&quot;Pressure&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="plot_pressure_field_1"><code>plot_pressure_field</code><a class="headerlink" href="#plot_pressure_field_1" title="Permanent link">&para;</a></h3>
+<p>High-level wrapper: creates the mesh, adds isosurface contours, sets axis
+labels, and returns the plotter.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-5-1"><a id="__codelineno-5-1" name="__codelineno-5-1" href="#__codelineno-5-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">plot_pressure_field</span>
+</span><span id="__span-5-2"><a id="__codelineno-5-2" name="__codelineno-5-2" href="#__codelineno-5-2"></a><span class="n">plotter</span> <span class="o">=</span> <span class="n">plot_pressure_field</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">pressure_field</span><span class="p">,</span>
+</span><span id="__span-5-3"><a id="__codelineno-5-3" name="__codelineno-5-3" href="#__codelineno-5-3"></a>                              <span class="n">colorbar_title</span><span class="o">=</span><span class="s2">&quot;Pressure (a.u.)&quot;</span><span class="p">,</span>
+</span><span id="__span-5-4"><a id="__codelineno-5-4" name="__codelineno-5-4" href="#__codelineno-5-4"></a>                              <span class="n">contour_levels</span><span class="o">=</span><span class="mi">15</span><span class="p">)</span>
+</span><span id="__span-5-5"><a id="__codelineno-5-5" name="__codelineno-5-5" href="#__codelineno-5-5"></a><span class="n">plotter</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></code></pre></div>
+<h3 id="add_pressure_vol"><code>add_pressure_vol</code><a class="headerlink" href="#add_pressure_vol" title="Permanent link">&para;</a></h3>
+<p>Add a pressure mesh (contour isosurfaces) to an existing plotter.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-6-1"><a id="__codelineno-6-1" name="__codelineno-6-1" href="#__codelineno-6-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_pressure_vol</span><span class="p">,</span> <span class="n">create_vol_mesh</span>
+</span><span id="__span-6-2"><a id="__codelineno-6-2" name="__codelineno-6-2" href="#__codelineno-6-2"></a><span class="n">mesh</span> <span class="o">=</span> <span class="n">create_vol_mesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">p</span><span class="p">)</span>
+</span><span id="__span-6-3"><a id="__codelineno-6-3" name="__codelineno-6-3" href="#__codelineno-6-3"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_pressure_vol</span><span class="p">(</span><span class="n">mesh</span><span class="p">,</span> <span class="n">colorbar_title</span><span class="o">=</span><span class="s2">&quot;Pressure&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="add_transducer_mesh"><code>add_transducer_mesh</code><a class="headerlink" href="#add_transducer_mesh" title="Permanent link">&para;</a></h3>
+<p>Render the transducer geometry coloured by apodization or delays.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-7-1"><a id="__codelineno-7-1" name="__codelineno-7-1" href="#__codelineno-7-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_transducer_mesh</span>
+</span><span id="__span-7-2"><a id="__codelineno-7-2" name="__codelineno-7-2" href="#__codelineno-7-2"></a><span class="n">tx_mesh</span> <span class="o">=</span> <span class="n">tx</span><span class="o">.</span><span class="n">get_mesh</span><span class="p">()</span>
+</span><span id="__span-7-3"><a id="__codelineno-7-3" name="__codelineno-7-3" href="#__codelineno-7-3"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_transducer_mesh</span><span class="p">(</span><span class="n">tx_mesh</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="s2">&quot;Apodization&quot;</span><span class="p">)</span>
+</span><span id="__span-7-4"><a id="__codelineno-7-4" name="__codelineno-7-4" href="#__codelineno-7-4"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_transducer_mesh</span><span class="p">(</span><span class="n">tx_mesh</span><span class="p">,</span> <span class="n">plotter</span><span class="o">=</span><span class="n">pl</span><span class="p">,</span> <span class="n">scalars</span><span class="o">=</span><span class="s2">&quot;Delays&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="add_3d_vol"><code>add_3D_vol</code><a class="headerlink" href="#add_3d_vol" title="Permanent link">&para;</a></h3>
+<p>Volume rendering of arbitrary 3-D scalar data (e.g. Doppler volumes).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-8-1"><a id="__codelineno-8-1" name="__codelineno-8-1" href="#__codelineno-8-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_3D_vol</span>
+</span><span id="__span-8-2"><a id="__codelineno-8-2" name="__codelineno-8-2" href="#__codelineno-8-2"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_3D_vol</span><span class="p">(</span><span class="n">vol_mesh</span><span class="p">,</span> <span class="n">colorbar_title</span><span class="o">=</span><span class="s2">&quot;Doppler (dB)&quot;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;hot&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="add_2d_image"><code>add_2D_image</code><a class="headerlink" href="#add_2d_image" title="Permanent link">&para;</a></h3>
+<p>Render a 2-D <code>pv.ImageData</code> as a flat mesh (e.g. a B-mode image).</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-9-1"><a id="__codelineno-9-1" name="__codelineno-9-1" href="#__codelineno-9-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_2D_image</span>
+</span><span id="__span-9-2"><a id="__codelineno-9-2" name="__codelineno-9-2" href="#__codelineno-9-2"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_2D_image</span><span class="p">(</span><span class="n">image_grid</span><span class="p">,</span> <span class="n">colorbar_title</span><span class="o">=</span><span class="s2">&quot;B-mode (dB)&quot;</span><span class="p">,</span> <span class="n">cmap</span><span class="o">=</span><span class="s2">&quot;gray&quot;</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="add_regions_mesh"><code>add_regions_mesh</code><a class="headerlink" href="#add_regions_mesh" title="Permanent link">&para;</a></h3>
+<p>Render a dictionary of brain region meshes from <code>BG_Atlas.pv_mesh</code>.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-10-1"><a id="__codelineno-10-1" name="__codelineno-10-1" href="#__codelineno-10-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_regions_mesh</span>
+</span><span id="__span-10-2"><a id="__codelineno-10-2" name="__codelineno-10-2" href="#__codelineno-10-2"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_regions_mesh</span><span class="p">(</span><span class="n">atlas</span><span class="o">.</span><span class="n">pv_mesh</span><span class="p">,</span> <span class="n">opacity</span><span class="o">=</span><span class="mf">0.3</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="add_markers"><code>add_markers</code><a class="headerlink" href="#add_markers" title="Permanent link">&para;</a></h3>
+<p>Scatter sphere markers with optional text labels.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-11-1"><a id="__codelineno-11-1" name="__codelineno-11-1" href="#__codelineno-11-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">add_markers</span>
+</span><span id="__span-11-2"><a id="__codelineno-11-2" name="__codelineno-11-2" href="#__codelineno-11-2"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_markers</span><span class="p">(</span><span class="n">points_mm</span><span class="p">,</span> <span class="n">color</span><span class="o">=</span><span class="s2">&quot;red&quot;</span><span class="p">,</span> <span class="n">point_size</span><span class="o">=</span><span class="mi">12</span><span class="p">,</span>
+</span><span id="__span-11-3"><a id="__codelineno-11-3" name="__codelineno-11-3" href="#__codelineno-11-3"></a>                 <span class="n">labels</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;A&quot;</span><span class="p">,</span> <span class="s2">&quot;B&quot;</span><span class="p">,</span> <span class="s2">&quot;C&quot;</span><span class="p">],</span> <span class="n">label_font_size</span><span class="o">=</span><span class="mi">14</span><span class="p">)</span>
+</span></code></pre></div>
+<h3 id="recompute_bounds"><code>recompute_bounds</code><a class="headerlink" href="#recompute_bounds" title="Permanent link">&para;</a></h3>
+<p>Return the bounding box of all meshes currently in a plotter.</p>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-12-1"><a id="__codelineno-12-1" name="__codelineno-12-1" href="#__codelineno-12-1"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="n">recompute_bounds</span>
+</span><span id="__span-12-2"><a id="__codelineno-12-2" name="__codelineno-12-2" href="#__codelineno-12-2"></a><span class="n">bounds</span> <span class="o">=</span> <span class="n">recompute_bounds</span><span class="p">(</span><span class="n">plotter</span><span class="p">)</span>  <span class="c1"># (xmin, xmax, ymin, ymax, zmin, zmax)</span>
+</span></code></pre></div>
+<hr />
+<h2 id="brain-atlas-scenes">Brain atlas scenes<a class="headerlink" href="#brain-atlas-scenes" title="Permanent link">&para;</a></h2>
+<p>Combine <code>add_regions_mesh</code>, <code>add_transducer_mesh</code>, and <code>add_pressure_vol</code> to
+overlay anatomy, probe geometry, and simulated pressure in one interactive
+scene.  See <a href="../brain_atlas/">brain_atlas.md</a> for the registration step that
+maps the atlas into the lab coordinate frame.</p>
+<p><strong>Rat brain (whs_sd_rat_39um) — Domino linear array focused at M1/S1</strong></p>
+<p><img alt="Rat brain scene" src="../assets/brain_rat_scene.png" /></p>
+<p><strong>Mouse brain (allen_mouse_25um) — circular transducer focused at CA1</strong></p>
+<p><img alt="Mouse brain scene" src="../assets/brain_mouse_scene.png" /></p>
+<hr />
+<h2 id="composing-scenes">Composing scenes<a class="headerlink" href="#composing-scenes" title="Permanent link">&para;</a></h2>
+<div class="language-python highlight"><pre><span></span><code><span id="__span-13-1"><a id="__codelineno-13-1" name="__codelineno-13-1" href="#__codelineno-13-1"></a><span class="kn">import</span><span class="w"> </span><span class="nn">pyvista</span><span class="w"> </span><span class="k">as</span><span class="w"> </span><span class="nn">pv</span>
+</span><span id="__span-13-2"><a id="__codelineno-13-2" name="__codelineno-13-2" href="#__codelineno-13-2"></a><span class="kn">from</span><span class="w"> </span><span class="nn">pyfield.utilities</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+</span><span id="__span-13-3"><a id="__codelineno-13-3" name="__codelineno-13-3" href="#__codelineno-13-3"></a>    <span class="n">add_pressure_vol</span><span class="p">,</span> <span class="n">add_transducer_mesh</span><span class="p">,</span> <span class="n">add_regions_mesh</span><span class="p">,</span> <span class="n">create_vol_mesh</span>
+</span><span id="__span-13-4"><a id="__codelineno-13-4" name="__codelineno-13-4" href="#__codelineno-13-4"></a><span class="p">)</span>
+</span><span id="__span-13-5"><a id="__codelineno-13-5" name="__codelineno-13-5" href="#__codelineno-13-5"></a>
+</span><span id="__span-13-6"><a id="__codelineno-13-6" name="__codelineno-13-6" href="#__codelineno-13-6"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">pv</span><span class="o">.</span><span class="n">Plotter</span><span class="p">(</span><span class="n">window_size</span><span class="o">=</span><span class="p">[</span><span class="mi">900</span><span class="p">,</span> <span class="mi">700</span><span class="p">])</span>
+</span><span id="__span-13-7"><a id="__codelineno-13-7" name="__codelineno-13-7" href="#__codelineno-13-7"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_regions_mesh</span><span class="p">(</span><span class="n">atlas</span><span class="o">.</span><span class="n">pv_mesh</span><span class="p">,</span> <span class="n">plotter</span><span class="o">=</span><span class="n">pl</span><span class="p">,</span> <span class="n">opacity</span><span class="o">=</span><span class="mf">0.25</span><span class="p">)</span>
+</span><span id="__span-13-8"><a id="__codelineno-13-8" name="__codelineno-13-8" href="#__codelineno-13-8"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_pressure_vol</span><span class="p">(</span><span class="n">create_vol_mesh</span><span class="p">(</span><span class="n">x</span><span class="p">,</span> <span class="n">y</span><span class="p">,</span> <span class="n">z</span><span class="p">,</span> <span class="n">p</span><span class="p">),</span> <span class="n">plotter</span><span class="o">=</span><span class="n">pl</span><span class="p">)</span>
+</span><span id="__span-13-9"><a id="__codelineno-13-9" name="__codelineno-13-9" href="#__codelineno-13-9"></a><span class="n">pl</span> <span class="o">=</span> <span class="n">add_transducer_mesh</span><span class="p">(</span><span class="n">tx</span><span class="o">.</span><span class="n">get_mesh</span><span class="p">(),</span> <span class="n">plotter</span><span class="o">=</span><span class="n">pl</span><span class="p">)</span>
+</span><span id="__span-13-10"><a id="__codelineno-13-10" name="__codelineno-13-10" href="#__codelineno-13-10"></a><span class="n">pl</span><span class="o">.</span><span class="n">show</span><span class="p">()</span>
+</span></code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+              </article>
+            </div>
+          
+          
+  <script>var tabs=__md_get("__tabs");if(Array.isArray(tabs))e:for(var set of document.querySelectorAll(".tabbed-set")){var labels=set.querySelector(".tabbed-labels");for(var tab of tabs)for(var label of labels.getElementsByTagName("label"))if(label.innerText.trim()===tab){var input=document.getElementById(label.htmlFor);input.checked=!0;continue e}}</script>
+
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+          <button type="button" class="md-top md-icon" data-md-component="top" hidden>
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-circle-arrow-up" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m16 12-4-4-4 4M12 16V8"/></svg>
+  Back to top
+</button>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+    
+      
+      <nav class="md-footer__inner md-grid" aria-label="Footer" >
+        
+          
+          <a href="../transducers/" class="md-footer__link md-footer__link--prev" aria-label="Previous: Transducers">
+            <div class="md-footer__button md-icon">
+              
+              <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-arrow-left" viewBox="0 0 24 24"><path d="m12 19-7-7 7-7M19 12H5"/></svg>
+            </div>
+            <div class="md-footer__title">
+              <span class="md-footer__direction">
+                Previous
+              </span>
+              <div class="md-ellipsis">
+                Transducers
+              </div>
+            </div>
+          </a>
+        
+        
+      </nav>
+    
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"..","features":["announce.dismiss","content.code.annotate","content.code.copy","content.code.select","content.footnote.tooltips","content.tabs.link","content.tooltips","navigation.footer","navigation.indexes","navigation.instant","navigation.instant.prefetch","navigation.path","navigation.sections","navigation.top","navigation.tracking","search.highlight"],"search":"../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":null}</script>
+    
+    
+      <script src="../assets/javascripts/bundle.c2b142ea.min.js"></script>
+      
+    
+  </body>
+</html>

@@ -1,0 +1,45 @@
+[project]
+
+site_name = "PyField"
+site_description = "Acoustic field simulator for ultrasound transducers."
+site_author = "deyve"
+
+# nav = [
+#   { "Home" = "index.md" },
+#   { "Transducers" = "transducers.md" },
+#   { "Simulation" = "simulation.md" },
+#   { "Visualization" = "visualization.md" },
+#   { "Brain Atlas" = "brain_atlas.md" },
+# ]
+
+[project.theme]
+
+language = "en"
+features = [
+    "announce.dismiss",
+    "content.code.annotate",
+    "content.code.copy",
+    "content.code.select",
+    "content.footnote.tooltips",
+    "content.tabs.link",
+    "content.tooltips",
+    "navigation.footer",
+    "navigation.indexes",
+    "navigation.instant",
+    "navigation.instant.prefetch",
+    "navigation.path",
+    "navigation.sections",
+    "navigation.top",
+    "navigation.tracking",
+    "search.highlight",
+]
+
+[[project.theme.palette]]
+scheme = "default"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.theme.palette]]
+scheme = "slate"
+toggle.icon = "lucide/moon"
+toggle.name = "Switch to light mode"

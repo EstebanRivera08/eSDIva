@@ -7,6 +7,26 @@ from numba import njit, prange
 # -------------------- Functions for pre calculations ---------------------------
 @njit(parallel=True)
 def compute_minmax_distance_patch_to_point(P, M, pts, center):
+    """
+    Compute the global min and max distance between all field points and all
+    patch centres.  Runs in parallel over field points via Numba's ``prange``.
+
+    Parameters
+    ----------
+    P : int
+        Number of field points.
+    M : int
+        Number of patches.
+    pts : float32 array (P, 3)
+        Field point coordinates (metres).
+    center : float32 array (M, 3)
+        Patch centre coordinates (metres).
+
+    Returns
+    -------
+    global_max, global_min : float
+        Maximum and minimum distance across all (point, patch) pairs (metres).
+    """
     # Compute per-point min/max in parallel to avoid race conditions on shared scalars
     local_max = np.empty(P, dtype=np.float32)
     local_min = np.empty(P, dtype=np.float32)
@@ -43,22 +63,58 @@ def compute_minmax_distance_patch_to_point(P, M, pts, center):
 
 # ------------------ Functions for initialization -------------------------------
 def compute_sub_elem_attributes(transducer):
-    centers_sub_elem, apodization_sub_elem, delays_sub_elem = [], [], []
-    for elem in range(transducer.n_elements):
-        for sub_elem in range(transducer.no_sub_x * transducer.no_sub_y):
-            verts = transducer.sub_quad_verts[
-                elem * (transducer.no_sub_x * transducer.no_sub_y) + sub_elem
-            ]
-            centers_sub_elem.append(verts.mean(axis=0))
-            apodization_sub_elem.append(transducer.apodization[elem])
-            delays_sub_elem.append(transducer.delays[elem])
+    """
+    Flatten transducer patch geometry into arrays required by the SIR kernel.
 
-    centers_sub_elem = np.array(centers_sub_elem, dtype=np.float32)  # mm
+    Iterates over every patch using ``sub_quad_verts`` and ``sub_el_idx`` so
+    that the patch-to-element mapping is correct even when the number of
+    patches per element is not uniform (e.g. circular transducers).
+
+    For curved transducers the vertices are flat rectangles in the local
+    tangent plane (built by ``subdivide_parametric_surface``), so edge lengths
+    give correct arc-length dimensions without any special treatment here.
+
+    Parameters
+    ----------
+    transducer : TransducerBase
+        Any configured transducer.  Must have ``sub_quad_verts``,
+        ``sub_el_idx``, ``apodization``, and ``delays`` populated.
+
+    Returns
+    -------
+    centers_sub_elem : float32 array (M, 3)
+        Centroid of each patch (metres) — equals the surface point for patches
+        built by ``subdivide_parametric_surface``.
+    apodization_sub_elem : float32 array (M,)
+        Apodization weight of the element that owns each patch.
+    delays_sub_elem : float32 array (M,)
+        Transmit delay (seconds) of the element that owns each patch.
+    M : int
+        Total number of patches.
+    range_k : None
+        Reserved for future use (Δk diagnostic storage).
+    wx_arr : float32 array (M,)
+        Width of each patch (metres) — ``‖v[1]−v[0]‖``.
+    wy_arr : float32 array (M,)
+        Height of each patch (metres) — ``‖v[3]−v[0]‖``.
+    """
+    centers_sub_elem, apodization_sub_elem, delays_sub_elem = [], [], []
+    wx_list, wy_list = [], []
+    for verts, el_idx in zip(transducer.sub_quad_verts, transducer.sub_el_idx):
+        centers_sub_elem.append(verts.mean(axis=0))
+        apodization_sub_elem.append(transducer.apodization[el_idx])
+        delays_sub_elem.append(transducer.delays[el_idx])
+        wx_list.append(np.linalg.norm(verts[1] - verts[0]))
+        wy_list.append(np.linalg.norm(verts[3] - verts[0]))
+
+    centers_sub_elem = np.array(centers_sub_elem, dtype=np.float32)
     apodization_sub_elem = np.array(apodization_sub_elem, dtype=np.float32)
     delays_sub_elem = np.array(delays_sub_elem, dtype=np.float32)
+    wx_arr = np.array(wx_list, dtype=np.float32)
+    wy_arr = np.array(wy_list, dtype=np.float32)
     M = len(centers_sub_elem)
     range_k = None
-    return centers_sub_elem, apodization_sub_elem, delays_sub_elem, M, range_k
+    return centers_sub_elem, apodization_sub_elem, delays_sub_elem, M, range_k, wx_arr, wy_arr
 
 
 # ------------------ Functions to create spatial and temporal grid -----------------
@@ -116,10 +172,26 @@ def create_spatial_grid_from_dict(simulation_struct):
     if Nz % 2 == 0:
         Nz += 1
 
-    # print(
-    #     f"Creating grid with {Nx} x {Ny} x {Nz} points in x, y, z directions respectively."
-    # )
-    # print(f"Grid extents: x: [{x0}, {xf}], y: [{y0}, {yf}], z: [{z0}, {zf}]")
+    # Memory estimate for h_sir (P × T × 4 bytes float32).
+    # T is approximated from the z-extent: T ≈ z_range_m / c * fs (c=1540, fs=200 MHz).
+    P = Nx * Ny * Nz
+    z_range_m = max(zf - z0, 1.0) * 1e-3          # at least 1 mm to avoid zero
+    T_est = max(500, int(z_range_m / 1540.0 * 200e6))
+    h_sir_gb = P * T_est * 4 / 1e9
+    if h_sir_gb >= 2.0:
+        print(
+            f"\nWARNING: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
+            f"estimated h_sir ≈ {h_sir_gb:.1f} GB (T≈{T_est} samples). "
+            "This will likely cause a memory error.\n"
+            "  → Reduce dx/dy/dz, shrink the extent, or compute a 2-D plane "
+            "(set one extent to [v, v] and its step to 0).\n"
+        )
+    elif h_sir_gb >= 0.5:
+        print(
+            f"INFO: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
+            f"estimated h_sir ≈ {h_sir_gb*1e3:.0f} MB (T≈{T_est} samples). "
+            "Consider a coarser grid if memory is limited.\n"
+        )
     x = np.linspace(x0, xf, Nx)
     y = np.linspace(y0, yf, Ny)
     z = np.linspace(z0, zf, Nz)
@@ -130,6 +202,15 @@ def create_spatial_grid_from_dict(simulation_struct):
 
 
 def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
+    """
+    Extract or build a 3-D coordinate grid from user-supplied field points.
+
+    Accepts either a dict of grid parameters (delegated to
+    ``create_spatial_grid_from_dict``) or a raw ``(N, 3)`` point array from
+    which unique x, y, z axes are extracted.
+
+    Returns axes in mm and the full point array converted to metres.
+    """
     field_points_mm = check_valid_field_points(field_points_mm)
 
     if isinstance(field_points_mm, dict):
@@ -154,6 +235,14 @@ def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
 
 
 def check_valid_field_points(field_points_mm):
+    """
+    Validate and normalise ``field_points_mm`` to a standard form.
+
+    Accepts a grid-parameter dict (with ``x_extent``/``dx`` keys, or their
+    ``_mm``-suffixed variants) or a numeric array/list of shape ``(N, 3)``
+    or ``(3,)``.  Returns the input unchanged if it is already valid, or a
+    normalised dict/array otherwise.  Raises ``ValueError`` on invalid input.
+    """
     if isinstance(field_points_mm, dict):
         # Detect which key convention is used
         if "x_extent" in field_points_mm:
@@ -213,8 +302,16 @@ def check_valid_field_points(field_points_mm):
     return field_points_mm
 
 
-# Reshape flattened volume to mapped points
 def reshape_to_mapped_points(x, y, z, flattened_volume):
+    """
+    Reshape the flat SIR output to ``(Nt_or_1, Nx, Ny, Nz)`` layout.
+
+    The SIR kernel returns a 2-D array ``(Nt, P)`` where ``P = Nx*Ny*Nz``
+    field points were flattened with ``meshgrid`` order ``(z, x, y)`` (i.e.
+    the loop order used during grid construction).  This function reverses
+    that flattening and transposes the axes to the standard ``(Nt, Nx, Ny, Nz)``
+    convention expected by the rest of the library.
+    """
     if isinstance(flattened_volume, (list, tuple)):
         flattened_volume = np.array(flattened_volume)
     elif isinstance(flattened_volume, np.ndarray):
@@ -231,6 +328,41 @@ def reshape_to_mapped_points(x, y, z, flattened_volume):
 
 
 def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True):
+    """
+    Compute the time axis needed to capture the full SIR response.
+
+    The earliest possible arrival is ``(min_distance - 0.5*(wx+wy)) / c``
+    and the latest is ``(max_distance + (wx+wy)) / c + max_delay``.  The
+    returned grid spans this range at sampling interval ``1/fs``.
+
+    Parameters
+    ----------
+    P, M : int
+        Number of field points and patches.
+    points : float32 (P, 3)
+        Field point coordinates (metres).
+    centers : float32 (M, 3)
+        Patch centre coordinates (metres).
+    wx, wy : float
+        Patch dimensions (metres) — used to bound the SIR kernel width.
+    c : float
+        Speed of sound (m/s).
+    fs : float
+        Sampling frequency (Hz).
+    delays : float32 (n_elements,)
+        Per-element transmit delays (seconds).
+
+    Returns
+    -------
+    t_grid : float32 (T,)
+        Time samples in seconds.
+    min_time : float
+        Start of the time window (seconds).
+    dt : float
+        Sampling interval ``1/fs`` (seconds).
+    T : int
+        Number of time samples.
+    """
     start = time.time()
 
     max_dist, min_dist = compute_minmax_distance_patch_to_point(P, M, points, centers)

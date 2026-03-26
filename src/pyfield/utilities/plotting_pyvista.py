@@ -112,6 +112,7 @@ def add_3D_vol(
     window_size=[700, 700],
     off_screen=False,
     scale=1,
+    colorbar_title=None,
     **kwargs,
 ):
     """
@@ -138,6 +139,7 @@ def add_3D_vol(
 
     scalars = vol_3D.point_data.keys()[0]  # Get the name of the first scalar
 
+    cb_title = colorbar_title if colorbar_title is not None else scalars
     default_kwargs = {
         "scalars": scalars,
         "cmap": "hot",
@@ -146,7 +148,7 @@ def add_3D_vol(
         "show_scalar_bar": True,
         "ambient": 0.3,
         "scalar_bar_args": {
-            "title": "Doppler (dB)",
+            "title": cb_title,
             "title_font_size": int(20 * scale),
             "label_font_size": int(18 * scale),
             "vertical": False,
@@ -176,6 +178,7 @@ def add_2D_image(
     window_size=[700, 700],
     off_screen=False,
     scale=1,
+    colorbar_title=None,
     **kwargs,
 ):
     """
@@ -209,6 +212,8 @@ def add_2D_image(
             window_size=window_size, notebook=notebook, off_screen=off_screen
         )
 
+    scalars = image_grid.point_data.keys()[0]
+    cb_title = colorbar_title if colorbar_title is not None else scalars
     default_kwargs = {
         "show_edges": False,
         "cmap": "gray",
@@ -216,7 +221,7 @@ def add_2D_image(
         "name": "2D doppler",  # Name for the volume
         "show_scalar_bar": True,
         "scalar_bar_args": {
-            "title": "2D Doppler (dB)",
+            "title": cb_title,
             "title_font_size": int(20 * scale),
             "label_font_size": int(18 * scale),
             "vertical": True,
@@ -453,6 +458,7 @@ def add_transducer_mesh(
         },
         "opacity": 1.0,
         "show_edges": True,
+        "ambient": 1,
     }
 
     for key, value in default_kwargs.items():
