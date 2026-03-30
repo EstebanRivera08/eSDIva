@@ -5,6 +5,8 @@ Saves all figures to docs/assets/.  Run with:
 
     uv run generate_doc_images.py
 
+    claude --resume 645158ed-eff6-47f1-b7f5-f186cd94655d
+
 Requirements: PyVista must be able to render off-screen (Mesa / osmesa or a
 real display).  On headless Linux set:  export DISPLAY=:99
 """

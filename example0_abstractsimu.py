@@ -23,13 +23,13 @@ if theme == "dark":
     color = "white"
     pv.global_theme.font.color = "white"
     ambient_tx = 1
-    ambient_pr = 0.55
+    ambient_pr = 0.7
 else:
     pv.set_plot_theme("default")
     pv.global_theme.anti_aliasing = "ssaa"
     color = "black"
     ambient_tx = 1
-    ambient_pr = 0.5
+    ambient_pr = 0.6
 
 ## -------Define the transducer focus and F/D and field points grid--------
 focus_mm = np.array([0, 0, 3])
@@ -69,8 +69,8 @@ print(
 matrix_array_probe = MatrixArrayTransducer(
     n_elements_x=17,
     n_elements_y=17,
-    elem_width_mm=0.2,
-    elem_height_mm=0.2,
+    element_width_mm=0.2,
+    element_height_mm=0.2,
     kerf_x_mm=0.05,
     kerf_y_mm=0.05,
     no_sub_x=2,
@@ -86,7 +86,7 @@ print("\n--- Matrix Array Transducer ---\n")
 delays = matrix_array_probe.compute_delays(focus_mm=focus_mm)
 apodization = matrix_array_probe.compute_apodization(focus_mm=focus_mm, FoverD=FoverD)
 _ = matrix_array_probe.plot_delays_apodization()
-matrix_array_probe.show(scalars="Delays")
+# matrix_array_probe.show(scalars="Delays")
 
 # Perform simulation
 

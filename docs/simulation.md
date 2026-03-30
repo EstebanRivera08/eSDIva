@@ -37,8 +37,67 @@ x_out, y_out, z_out, pressure = sim(field_points_mm, method="auto")
 | Name | Description |
 |------|-------------|
 | `"naive"` | Direct evaluation — O(M·P) |
-| `"SDI"` | Sub-aperture decomposition — same result, faster for dense grids |
+| `"sdi"` | Sparse Delta Integration — same result, faster for dense grids |
 | `"auto"` | Picks the faster method based on `M` and `P` |
+
+---
+
+## Simulation methods
+
+Both methods compute the same transducer SIR by summing the contribution of
+each patch `m` over all `M` patches:
+
+```
+h_tx(r_p, t) = Σ_m  a_m · h_m(r_p, t − τ_m)
+```
+
+where `a_m` and `τ_m` are the apodization weight and delay of patch `m`, and
+`h_m` is its spatial impulse response — a **trapezoid** in time whose four
+corners are set by the patch geometry and the field-point direction cosines:
+
+```
+t₁ = l/c − (Δt₁ + Δt₂)/2
+t₂ = t₁ + Δt₁          Δt₁ = |xᵤ| · wx / c
+t₃ = t₁ + Δt₂          Δt₂ = |yᵤ| · wy / c
+t₄ = t₁ + Δt₁ + Δt₂
+```
+
+`l` is the patch-to-field-point distance, `(xᵤ, yᵤ)` are direction cosines,
+and `wx`, `wy` are the physical patch half-widths.
+
+### Naive method
+
+Fills the trapezoid sample-by-sample for every `(patch, field-point)` pair.
+Straightforward but scales as O(M · P · T_trap) where `T_trap` is the number
+of samples within `[t₁, t₄]`.
+
+### Sparse Delta Integration (SDI)
+
+The trapezoid is the double time-integral of four weighted Dirac deltas.
+Taking two derivatives of `h_m`:
+
+```
+∂h_m/∂t   = s · [u(t−t₁) − u(t−t₂) − u(t−t₃) + u(t−t₄)]
+
+∂²h_m/∂t² = s · [δ(t−t₁) − δ(t−t₂) − δ(t−t₃) + δ(t−t₄)]
+```
+
+where `s = h_max / (t₂ − t₁)` is the trapezoid slope and `u`, `δ` are the
+Heaviside step and Dirac delta.
+
+Instead of filling the trapezoid, SDI places **4 weighted delta samples** per
+patch into a sparse accumulator and then integrates twice.  The inner loop
+touches only 4 time samples per `(patch, field-point)` pair regardless of
+`T_trap`, which gives a large speedup when the field grid is dense.
+
+```
+for each (patch m, field point p):
+    place ±s at t₁, t₂, t₃, t₄  →  d²h accumulator
+cumsum twice  →  h_tx
+```
+
+The `"auto"` method selects naive or SDI based on the ratio of M·P to the
+expected trapezoid width, choosing whichever is faster for the given problem.
 
 ---
 

@@ -316,16 +316,35 @@ near the rim.  PyField handles this automatically via
 
 #### How it works
 
-Each patch is built in the **local tangent plane** at the patch centre:
+The curved surface is approximated by a mosaic of small **flat tangent-plane
+rectangles**.  At each patch centre `r(uc, vc)` an orthonormal frame
+`(tu, tv, n)` is estimated by central finite differences and Gram-Schmidt
+orthogonalisation — no analytic derivatives needed.  The four corners are
+then:
 
 ```
-centre  =  surface_fn(uc, vc)          ← point on the curved surface
-tu, tv  =  orthonormal tangent frame   ← estimated by finite differences + Gram-Schmidt
-corners =  centre ± wu/2·tu ± wv/2·tv ← flat rectangle by construction
+corners = { r(uc, vc) ± wu/2 · tu ± wv/2 · tv }
 ```
 
-No analytic derivatives are needed — the frame vectors are computed from the
-surface function itself, so the same algorithm works for any smooth surface.
+`wu`, `wv` (physical widths in metres) are passed directly to the SIR kernel.
+The patch width in the u-direction is proportional to the local arc-length
+metric:
+
+```
+wu_half = ‖∂r/∂u‖ × (Δu / 2)
+```
+
+where `‖∂r/∂u‖ = 1` on a flat surface and grows toward the rim on curved
+surfaces (e.g. `1/cos θ` for a spherical cap).  Coverage is reported as
+
+```
+coverage = Σᵢ (wuᵢ × wvᵢ) / ∫∫ ‖∂r/∂u × ∂r/∂v‖ du dv
+```
+
+Values above 1 are possible — they mean the flat patches sum to more area
+than the curved surface they approximate (not physical overlap).  See
+[`surface_subdivision.py`](../src/pyfield/utilities/surface_subdivision.py)
+for the full implementation.
 
 #### Two-mode curvature strategy
 
@@ -336,25 +355,47 @@ between two strategies based on the measured worst-case amplification:
 
 | Mode | Condition | Grid | Patch size |
 |------|-----------|------|------------|
-| **Low curvature** | `max ‖∂r/∂u‖ ≤ 1.1` | Uniform Cartesian | Full arc-length `wu = ‖∂r/∂u‖ × Δu` — near-perfect tiling |
-| **High curvature** | `max ‖∂r/∂u‖ > 1.1` | Arc-length adapted | Fixed `patch_fill × Δu_nominal` — uniform gap, no overlap |
+| **Low curvature** | `max ‖∂r/∂u‖ ≤ curvature_threshold` | Uniform Cartesian | Full arc-length `wu = ‖∂r/∂u‖ × Δu` — near-perfect tiling, `patch_fill` ignored |
+| **High curvature** | `max ‖∂r/∂u‖ > curvature_threshold` | Arc-length adapted | `patch_fill × ‖∂r/∂u‖ × Δu_cell` — scaled to prevent physical overlap |
 
-In high-curvature mode the grid is resampled so that patch centres are
+In **low-curvature mode** the surface is gentle enough that a full arc-length
+patch (one that spans the entire cell) produces near-zero gaps and negligible
+second-order overlap.  `patch_fill` has no effect in this mode.
+
+In **high-curvature mode** the grid is resampled so that patch centres are
 **uniformly spaced in arc-length** on the surface, regardless of local
-curvature.  This prevents the rim from being under-sampled.  Patches whose
-arc-length extent exceeds `max_patch_scale × Δu_nominal` are rejected
+curvature.  The arc-length adapted cell edges are found by numerically
+inverting the cumulative arc-length function:
+
+```
+L(u) = ∫_{u₀}^{u} ‖∂r/∂u(s, v_mid)‖ ds        (total arc-length from u₀ to u)
+```
+
+`L(u)` is approximated by a fine numerical quadrature (≥ 500 intervals).
+The `n` cell edges are then placed at the parameter values `uₖ` satisfying
+`L(uₖ) = k × L(u₁) / n` for k = 0, …, n — i.e. at equal arc-length
+increments of `arc_spacing = L(u₁) / n`.  The same procedure is applied
+independently in v.  This ensures that near the rim, where `‖∂r/∂u‖` is
+large, cells are automatically narrower in parameter space so that each cell
+spans the same arc-length as a centre cell.
+
+Each patch is then sized to `patch_fill` times the actual arc-length cell
+width — see [Choosing `patch_fill`](#choosing-patch_fill) below.  Patches
+whose arc-length amplification exceeds `max_patch_scale` are rejected
 entirely, leaving intentional holes at extreme rims rather than producing
 oversized or overlapping patches.
 
 #### Tuning parameters
 
 `ConcaveCircularTransducer`, `ConvexCircularTransducer`, and
-`FocusedCircularTransducer` all expose two tunable parameters:
+`FocusedCircularTransducer` all expose the following tunable parameters:
 
 | Parameter | Default | Effect |
 |-----------|---------|--------|
-| `patch_fill` | `0.75` | Fraction of the arc-length cell spacing filled by each patch. `1.0` → patches exactly touch; `0.75` → 25% gap per edge (coverage ≈ 56%); `0.9` → 10% gap (coverage ≈ 81%). Scales as `patch_fill²`. |
-| `max_patch_scale` | `3.0` | Patches whose local arc-length amplification `‖∂r/∂u‖` exceeds this factor are discarded, leaving intentional holes at extreme rims. Lower → more aggressive rejection; higher → keep more rim patches. |
+| `patch_fill` | `1.0` | *High-curvature mode only.* Fraction of the arc-length cell filled by each patch. `1.0` → patches touch along the arc; values below 1 add a uniform gap. See [Choosing `patch_fill`](#choosing-patch_fill). |
+| `max_patch_scale` | `3.0` | Patches whose local arc-length amplification `‖∂r/∂u‖` exceeds this factor are discarded. Lower → more aggressive rejection; higher → keep more rim patches. |
+| `curvature_threshold` | `1.1` | Maximum arc-length amplification allowed before switching from low- to high-curvature mode. Raise to keep more surfaces in low-curvature mode (faster, no gaps); lower to detect and handle curvature earlier. |
+| `filled_radius_with_big_patches` | `0.95` | Fraction of the aperture radius tiled with coarse patches. The outer ring (`1 − filled_radius`) is always subdivided by `border_refine` for a smoother circular boundary. |
 
 ```python
 from pyfield.transducers import ConcaveCircularTransducer
@@ -376,9 +417,35 @@ At construction PyField prints a coverage summary:
   Patches: 684 accepted / 706 attempted, 22 rejected (oversized)  |  Coverage: 73.4%
 ```
 
-In high-curvature mode coverage scales as `patch_fill²` — to achieve a target
-coverage `C`, set `patch_fill = √C` (e.g. `0.90` for ~81 %).  A coverage
-below ~50 % usually means `no_sub` should be increased or `patch_fill` raised.
+#### Choosing `patch_fill`
+
+The purpose of `patch_fill` is different depending on the curvature mode.
+
+**Low-curvature mode** — `patch_fill` is ignored.  The function always uses
+the full arc-length cell width so adjacent patches tile seamlessly with
+negligible second-order overlap.  Clinical transducers (large radius of
+curvature relative to aperture diameter) typically fall into this mode.
+
+**High-curvature mode** — on a strongly curved surface, two adjacent flat
+patches each spanning the full arc-length cell physically intersect in 3-D.
+Even though their *centres* are uniformly spaced along the arc, the flat
+rectangles are tilted relative to each other by the surface's dihedral angle,
+and their corners protrude into the neighbouring patch.  `patch_fill` shrinks
+each patch so it stays within its own "lane" on the surface.
+
+The geometric overlap scales quadratically with patch size, so halving
+`patch_fill` reduces the overlap by ~4×.  Coverage scales as `patch_fill²`:
+`0.5` → ~25 %, `0.7` → ~49 %, `0.9` → ~81 %.
+
+Practical starting points:
+
+- Start with `patch_fill = 1.0`.  If the visualisation shows physical patch
+  intersection (corners of one patch protruding into its neighbour), reduce
+  in steps of 0.1 until intersections disappear.
+- **Coarser grids need a smaller `patch_fill`** because each patch subtends
+  a larger angle and the tilt mismatch between neighbours is greater.
+- Use `max_patch_scale` to discard the steepest rim cells rather than
+  compensating with a very small `patch_fill`.
 
 #### Using the subdivision function directly
 
@@ -397,15 +464,26 @@ def ellipsoid_cap(x, y):
     arg = max(1.0 - (x / a) ** 2 - (y / b) ** 2, 0.0)
     return np.array([x, y, c * np.sqrt(arg)])
 
+# This cap has strong curvature → high-curvature mode is triggered.
+#
+# patch_fill = 0.5: each patch fills only half the arc-length cell in
+# each direction (coverage ≈ 25 %).  Using patch_fill = 1.0 would cause
+# the flat patches to physically intersect in 3-D — the surface curves
+# enough between adjacent centres that full-width flat rectangles
+# protrude into their neighbours.  With a coarse grid (n_u = n_v = 10),
+# 0.5 is the empirically safe value for this geometry; a finer grid
+# would allow a higher patch_fill.
+#
+# max_patch_scale = 1.5: conservatively rejects the steepest rim cells.
 frames = subdivide_parametric_surface(
     ellipsoid_cap,
     u_range=(-R_ap, R_ap),
     v_range=(-R_ap, R_ap),
-    n_u=25, n_v=25,
+    n_u=10, n_v=10,
     inside_fn=lambda x, y: x ** 2 / a ** 2 + y ** 2 / b ** 2 <= 1.0,
     normal_sign=1.0,
-    patch_fill=0.75,
-    max_patch_scale=3.0,
+    patch_fill=0.5,
+    max_patch_scale=1.5,
 )
 
 # frames is a dict with keys:
