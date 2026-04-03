@@ -34,7 +34,8 @@ FREQ_SAMPLING_HZ = 100e6
 DB_SCALE = False
 VMAX = 1
 VMIN = 0
-COMPUTE_PRESSURE_FIELD = False
+COMPUTE_PRESSURE_FIELD = True
+FIGSIZE = (6, 8)
 
 # Common XZ simulation plane (Y fixed at 0)
 XZ_GRID = {
@@ -62,7 +63,7 @@ if COMPUTE_PRESSURE_FIELD:
     sim_flat = PyField(flat, c=C, fs=FREQ_SAMPLING_HZ)
     x, y, z, p_flat = sim_flat(XZ_GRID, method="auto")
 
-    plot_slices_2d(
+    plot_pressure_planes(
         x,
         y,
         z,
@@ -70,7 +71,7 @@ if COMPUTE_PRESSURE_FIELD:
         db_scale=DB_SCALE,
         vmin=VMIN,
         vmax=VMAX,
-        title="FlatCircularTransducer — XZ plane",
+        figsize=FIGSIZE,
     )
 
 # ===========================================================================
@@ -98,7 +99,7 @@ if COMPUTE_PRESSURE_FIELD:
         db_scale=DB_SCALE,
         vmin=VMIN,
         vmax=VMAX,
-        title="ConcaveCircularTransducer — XZ plane (focus at 60 mm)",
+        figsize=FIGSIZE,
     )
 
 # ===========================================================================
@@ -119,7 +120,7 @@ if COMPUTE_PRESSURE_FIELD:
     sim_cyl = PyField(cyl, c=C, fs=FREQ_SAMPLING_HZ)
     x, y, z, p_cyl = sim_cyl(XZ_GRID, method="auto")
 
-    plot_slices_2d(
+    plot_pressure_planes(
         x,
         y,
         z,
@@ -127,7 +128,7 @@ if COMPUTE_PRESSURE_FIELD:
         db_scale=DB_SCALE,
         vmin=VMIN,
         vmax=VMAX,
-        title="FocusedCircularTransducer — XZ plane (line focus at 40 mm)",
+        figsize=FIGSIZE,
     )
 
 # ===========================================================================
@@ -150,7 +151,7 @@ if COMPUTE_PRESSURE_FIELD:
     sim_conv = PyField(conv, c=C, fs=FREQ_SAMPLING_HZ)
     x, y, z, p_conv = sim_conv(XZ_GRID, method="auto")
 
-    plot_slices_2d(
+    plot_pressure_planes(
         x,
         y,
         z,
@@ -158,7 +159,7 @@ if COMPUTE_PRESSURE_FIELD:
         db_scale=DB_SCALE,
         vmin=VMIN,
         vmax=VMAX,
-        title="FocusedCircularTransducer — XZ plane (line focus at 40 mm)",
+        figsize=FIGSIZE,
     )
 
 

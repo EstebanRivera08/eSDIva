@@ -563,6 +563,203 @@ def add_markers(
 # ...existing code...
 
 
+# ------------- STL Mesh Loading and Visualization -------------
+
+
+def load_stl_mesh(
+    file_path,
+    *,
+    scale=1.0,
+    translation=(0.0, 0.0, 0.0),
+    rotation_axis=None,
+    rotation_angle=0.0,
+):
+    """
+    Load an STL file and create a PyVista mesh with optional transformations.
+
+    Parameters
+    ----------
+    file_path : str or Path
+        Path to the STL file to load.
+    scale : float, optional
+        Uniform scaling factor to apply to the mesh. Default is 1.0 (no scaling).
+    translation : tuple of float, optional
+        Translation vector (dx, dy, dz) to apply to the mesh. Default is (0, 0, 0).
+    rotation_axis : tuple of float, optional
+        Axis of rotation as a 3D vector (x, y, z). If None, no rotation is applied.
+        Default is None.
+    rotation_angle : float, optional
+        Rotation angle in degrees around the specified axis. Default is 0.0.
+
+    Returns
+    -------
+    pv.PolyData
+        The loaded STL mesh with transformations applied.
+
+    Notes
+    -----
+    STL files are commonly used for 3D printing and CAD models. This function provides
+    a simple interface to load STL files and apply basic transformations to position
+    them correctly in your simulation space.
+
+    Examples
+    --------
+    Load a simple STL file:
+    >>> mesh = load_stl_mesh("my_model.stl")
+
+    Load and scale to millimeters (if STL is in meters):
+    >>> mesh = load_stl_mesh("model.stl", scale=1000.0)
+
+    Load, scale, and translate:
+    >>> mesh = load_stl_mesh("model.stl", scale=10.0, translation=(5, 0, 10))
+
+    Load and rotate 45 degrees around z-axis:
+    >>> mesh = load_stl_mesh(
+    ...     "model.stl",
+    ...     rotation_axis=(0, 0, 1),
+    ...     rotation_angle=45
+    ... )
+    """
+    import pyvista as pv
+    from pathlib import Path
+
+    # Load the STL file
+    file_path = Path(file_path)
+    if not file_path.exists():
+        raise FileNotFoundError(f"STL file not found: {file_path}")
+
+    mesh = pv.read(str(file_path))
+
+    # Apply transformations
+    if scale != 1.0:
+        mesh = mesh.scale(scale)
+
+    if rotation_axis is not None and rotation_angle != 0.0:
+        mesh = mesh.rotate_vector(
+            vector=rotation_axis, angle=rotation_angle, point=mesh.center
+        )
+
+    if translation != (0.0, 0.0, 0.0):
+        mesh = mesh.translate(translation)
+
+    return mesh
+
+
+def add_stl_mesh(
+    stl_mesh,
+    *,
+    plotter=None,
+    window_size=(800, 800),
+    notebook=False,
+    off_screen=False,
+    color="lightblue",
+    opacity=1.0,
+    show_edges=True,
+    edge_color="black",
+    ambient=0.3,
+    label=None,
+    **kwargs,
+):
+    """
+    Add an STL mesh to a PyVista plotter for 3D visualization.
+
+    Parameters
+    ----------
+    stl_mesh : pv.PolyData or str or Path
+        Either a PyVista mesh object (from load_stl_mesh) or a path to an STL file.
+        If a path is provided, the STL will be loaded automatically.
+    plotter : pv.Plotter, optional
+        An existing PyVista plotter to add the mesh to. If None, a new plotter
+        will be created. Default is None.
+    window_size : tuple of int, optional
+        Size of the plot window as (width, height). Default is (800, 800).
+    notebook : bool, optional
+        Whether to use notebook mode for the plotter. Default is False.
+    off_screen : bool, optional
+        Whether to render the plot off-screen. Default is False.
+    color : str or tuple, optional
+        Color of the mesh. Can be a color name (e.g., 'red', 'lightblue') or
+        RGB tuple. Default is 'lightblue'.
+    opacity : float, optional
+        Opacity of the mesh, ranging from 0.0 (transparent) to 1.0 (opaque).
+        Default is 1.0.
+    show_edges : bool, optional
+        Whether to show the edges of the mesh. Default is True.
+    edge_color : str or tuple, optional
+        Color of the mesh edges if show_edges is True. Default is 'black'.
+    ambient : float, optional
+        Ambient lighting coefficient. Higher values make the mesh brighter in
+        shadowed areas. Default is 0.3.
+    label : str, optional
+        Label for the mesh in the legend. If None, no label is added. Default is None.
+    **kwargs
+        Additional keyword arguments passed to plotter.add_mesh().
+
+    Returns
+    -------
+    pv.Plotter
+        The PyVista plotter with the STL mesh added.
+
+    Notes
+    -----
+    This function provides an easy interface to visualize STL files with sensible
+    defaults. You can customize the appearance by modifying color, opacity, and
+    lighting parameters.
+
+    Examples
+    --------
+    Visualize an STL file directly:
+    >>> plotter = add_stl_mesh("model.stl", color="red")
+    >>> plotter.show()
+
+    Load, transform, then visualize:
+    >>> mesh = load_stl_mesh("model.stl", scale=10.0, translation=(0, 0, 5))
+    >>> plotter = add_stl_mesh(mesh, opacity=0.8, show_edges=False)
+    >>> plotter.show()
+
+    Add to existing plotter with other meshes:
+    >>> plotter = pv.Plotter()
+    >>> plotter = add_stl_mesh("part1.stl", plotter=plotter, color="blue", label="Part 1")
+    >>> plotter = add_stl_mesh("part2.stl", plotter=plotter, color="red", label="Part 2")
+    >>> plotter.show()
+    """
+    import pyvista as pv
+    from pathlib import Path
+
+    # Create plotter if not provided
+    if plotter is None:
+        plotter = pv.Plotter(
+            notebook=notebook, window_size=window_size, off_screen=off_screen
+        )
+
+    # Load mesh if path is provided
+    if isinstance(stl_mesh, (str, Path)):
+        stl_mesh = load_stl_mesh(stl_mesh)
+
+    # Set up default keyword arguments
+    default_kwargs = {
+        "color": color,
+        "opacity": opacity,
+        "show_edges": show_edges,
+        "edge_color": edge_color,
+        "ambient": ambient,
+    }
+
+    if label is not None:
+        default_kwargs["label"] = label
+
+    # Merge with user-provided kwargs (user kwargs take precedence)
+    for key, value in default_kwargs.items():
+        if key not in kwargs:
+            kwargs[key] = value
+
+    # Add mesh to plotter
+    plotter.add_mesh(stl_mesh, **kwargs)
+    plotter.add_axes()
+
+    return plotter
+
+
 # ------------ helper functions --------------
 
 

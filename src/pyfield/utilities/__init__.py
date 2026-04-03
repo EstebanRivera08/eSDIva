@@ -16,8 +16,10 @@ from .plotting_pyvista import (
     add_markers,
     add_pressure_vol,
     add_regions_mesh,
+    add_stl_mesh,
     add_transducer_mesh,
     create_vol_mesh,
+    load_stl_mesh,
     recompute_bounds,
 )
 from .transformation_functions import (
@@ -38,7 +40,9 @@ __all__ = [
     "add_3D_vol",
     "add_2D_image",
     "add_markers",
+    "add_stl_mesh",
     "create_vol_mesh",
+    "load_stl_mesh",
     "recompute_bounds",
     # Helpers
     "to_dB",

@@ -192,8 +192,7 @@ def plot_pressure_planes(
     figsize=None,
     title=None,
     centered_to_max=False,
-    save_fig_name=None,
-    save_dir=None,
+    save_path=None,
     ratios=None,
     label=None,
     p_max=None,
@@ -223,9 +222,7 @@ def plot_pressure_planes(
     centered_to_max : bool, optional
         If True the slice planes pass through the pressure maximum.
         Default False (geometric centre).
-    save_fig_name : str, optional
-        Output file name.  Saved inside ``save_dir`` if provided.
-    save_dir : str or Path, optional
+    save_path : str or Path, optional
         Directory for output file.
     ratios : array-like of length 3, optional
         Manual column width ratios ``[XZ, XY, YZ]``.  Auto-computed from
@@ -238,14 +235,6 @@ def plot_pressure_planes(
         Passed through to :func:`plot_pressure_2D` (e.g. ``vmin``, ``vmax``,
         ``interpolation``).
     """
-    import pathlib
-
-    if save_dir is not None:
-        save_path = pathlib.Path(save_dir)
-        save_path.mkdir(parents=True, exist_ok=True)
-        print(f"Output will be saved to: {save_path.resolve()}")
-    else:
-        save_path = None
 
     if pressure_field.ndim != 3:
         raise ValueError(
@@ -293,8 +282,6 @@ def plot_pressure_planes(
             x2,
             pressure_field.squeeze(),
             ax=ax,
-            figsize=figsize,
-            title=title,
             plane_axis=plane_axis,
             vmin=vmin,
             vmax=vmax,
@@ -382,10 +369,15 @@ def plot_pressure_planes(
     if title is not None:
         fig.suptitle(title)
     plt.tight_layout()
-    if save_fig_name is not None:
-        image_path = save_path / save_fig_name if save_path else save_fig_name
-        plt.savefig(image_path, dpi=300)
+
+    if save_path is not None:
+        from pathlib import Path
+
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        plt.savefig(save_path)
+        print(f"\nPlot saved to: {save_path}")
     plt.show()
+    plt.close()
 
 
 def plot_slices_2d(
@@ -397,7 +389,7 @@ def plot_slices_2d(
     time_array=None,
     db_scale=True,
     figsize=None,
-    save_dir=None,
+    save_path=None,
     save_format="png",
     video_duration_s=5,
     fps=30,
@@ -431,7 +423,7 @@ def plot_slices_2d(
         Convert pressures to dB before plotting.  Default True.
     figsize : tuple, optional
         Figure size ``(width, height)`` in inches.  Default ``(10, 5)``.
-    save_dir : str or Path, optional
+    save_path : str or Path, optional
         Directory for output files.  None means no saving.
         - 3D: saves one image named ``pressure_field.<fmt>``.
         - 4D: saves one image per frame (``frame_NNNNN.<fmt>``) and attempts
@@ -480,8 +472,8 @@ def plot_slices_2d(
         raise ValueError("pressure_field must be 3D (Nx,Ny,Nz) or 4D (Nt,Nx,Ny,Nz).")
 
     # ── save directory ──────────────────────────────────────────────────────
-    if save_dir is not None:
-        save_path = pathlib.Path(save_dir)
+    if save_path is not None:
+        save_path = pathlib.Path(save_path)
         save_path.mkdir(parents=True, exist_ok=True)
         print(f"Output will be saved to: {save_path.resolve()}")
     else:
@@ -508,7 +500,6 @@ def plot_slices_2d(
             vmin=vmin,
             vmax=vmax,
             label=label,
-            save_fig_name=save_file,
         )
         return
 

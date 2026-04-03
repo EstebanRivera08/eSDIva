@@ -51,11 +51,11 @@ print(
 print("--- 1. LinearArrayTransducer ---")
 linear = LinearArrayTransducer(
     n_elements=64,
-    element_width_mm=0.25,
+    element_width_mm=1,
     element_height_mm=12.0,
     kerf_mm=0.05,
-    no_sub_x=2,
-    no_sub_y=4,
+    no_sub_x=1,
+    no_sub_y=10,
     frequency_Hz=FC_HZ,
     elevation_focus_mm=60.0,  # fixed elevation focus (lens) at 60 mm depth
 )
@@ -90,11 +90,11 @@ matrix.show(scalars="Apodization")
 print("\n--- 2b. ConvexArrayTransducer ---")
 convex = ConvexArrayTransducer(
     n_elements=128,
-    element_width_mm=2,
-    element_height_mm=12.0,
+    element_width_mm=0.5,
+    element_height_mm=10.0,
     kerf_mm=0.1,
     radius_of_curvature_mm=60.0,  # typical abdominal probe radius
-    no_sub_x=2,
+    no_sub_x=1,
     no_sub_y=10,
     frequency_Hz=3.5e6,
 )
