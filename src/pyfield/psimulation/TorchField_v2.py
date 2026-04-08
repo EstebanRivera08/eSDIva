@@ -31,7 +31,6 @@ Example usage:
 """
 
 import math
-import warnings
 from time import time as TIME
 from typing import Dict, List, Optional, Tuple, Union
 
@@ -184,9 +183,7 @@ def accumulate_events_derivative(
     s1 = hmax / (t2 - t1)
 
     # Batch indices
-    batch_idx = (
-        torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
-    )
+    batch_idx = torch.arange(B, device=device).unsqueeze(1).expand(B, M).reshape(-1)
 
     # Accumulate second derivative
     d2H = torch.zeros(B, T, device=device)
@@ -303,12 +300,8 @@ class TorchField(nn.Module):
         self.n_elements = self.tx.n_elements
 
         # Patch dimensions (assume uniform for now)
-        self.wx = (
-            self.tx.elem_width / self.tx.no_sub_x * self.space_m_to_unit
-        )  # μm
-        self.wy = (
-            self.tx.elem_height / self.tx.no_sub_y * self.space_m_to_unit
-        )  # μm
+        self.wx = self.tx.elem_width / self.tx.no_sub_x * self.space_m_to_unit  # μm
+        self.wy = self.tx.elem_height / self.tx.no_sub_y * self.space_m_to_unit  # μm
 
         # Extract patch centers
         centers = []
@@ -401,8 +394,8 @@ class TorchField(nn.Module):
         self.apodization.requires_grad = optimize_apodization
 
         # Store constraints
-        self._constraints['delays'] = delay_constraints or {}
-        self._constraints['apodization'] = apodization_constraints or {}
+        self._constraints["delays"] = delay_constraints or {}
+        self._constraints["apodization"] = apodization_constraints or {}
 
         if self.verbose:
             print("\nOptimization configuration:")
@@ -420,16 +413,18 @@ class TorchField(nn.Module):
         """
         with torch.no_grad():
             # Apply delay constraints
-            if self._optimize_delays and 'min' in self._constraints['delays']:
+            if self._optimize_delays and "min" in self._constraints["delays"]:
                 self.delays.clamp_(
-                    min=self._constraints['delays'].get('min', -float('inf')) * self.time_sec_to_unit,
-                    max=self._constraints['delays'].get('max', float('inf')) * self.time_sec_to_unit,
+                    min=self._constraints["delays"].get("min", -float("inf"))
+                    * self.time_sec_to_unit,
+                    max=self._constraints["delays"].get("max", float("inf"))
+                    * self.time_sec_to_unit,
                 )
 
             # Apply apodization constraints
             if self._optimize_apodization:
-                apod_min = self._constraints['apodization'].get('min', 0.0)
-                apod_max = self._constraints['apodization'].get('max', 1.0)
+                apod_min = self._constraints["apodization"].get("min", 0.0)
+                apod_max = self._constraints["apodization"].get("max", 1.0)
                 self.apodization.clamp_(min=apod_min, max=apod_max)
 
     def get_optimizable_parameters(self) -> List[nn.Parameter]:
@@ -500,7 +495,9 @@ class TorchField(nn.Module):
         desc = "Computing SIR" if self.verbose else None
         disable = not self.verbose
 
-        for i in tqdm(range(0, P, batch_size), desc=desc, disable=disable, unit="batch"):
+        for i in tqdm(
+            range(0, P, batch_size), desc=desc, disable=disable, unit="batch"
+        ):
             j = min(i + batch_size, P)
             batch = pts[i:j]  # [B, 3]
 
@@ -718,7 +715,7 @@ class TorchField(nn.Module):
             f"  n_elements={self.n_elements},\n"
             f"  n_patches={self.n_patches},\n"
             f"  c={self.c} m/s,\n"
-            f"  fc={self.fc/1e6:.1f} MHz,\n"
+            f"  fc={self.fc / 1e6:.1f} MHz,\n"
             f"  device={self.device},\n"
             f"  optimize_delays={self._optimize_delays},\n"
             f"  optimize_apodization={self._optimize_apodization}\n"

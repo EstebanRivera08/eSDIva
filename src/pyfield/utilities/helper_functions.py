@@ -114,7 +114,15 @@ def compute_sub_elem_attributes(transducer):
     wy_arr = np.array(wy_list, dtype=np.float32)
     M = len(centers_sub_elem)
     range_k = None
-    return centers_sub_elem, apodization_sub_elem, delays_sub_elem, M, range_k, wx_arr, wy_arr
+    return (
+        centers_sub_elem,
+        apodization_sub_elem,
+        delays_sub_elem,
+        M,
+        range_k,
+        wx_arr,
+        wy_arr,
+    )
 
 
 # ------------------ Functions to create spatial and temporal grid -----------------
@@ -159,8 +167,8 @@ def create_spatial_grid_from_dict(simulation_struct):
         simulation_struct["dz"],
     )
 
-    if z0 <= 0.1:
-        z0 = 0.1  # avoid z=0 plane
+    # if z0 <= 0.1:
+    #     z0 = 0.1  # avoid z=0 plane
 
     Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
     Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
@@ -175,7 +183,7 @@ def create_spatial_grid_from_dict(simulation_struct):
     # Memory estimate for h_sir (P × T × 4 bytes float32).
     # T is approximated from the z-extent: T ≈ z_range_m / c * fs (c=1540, fs=200 MHz).
     P = Nx * Ny * Nz
-    z_range_m = max(zf - z0, 1.0) * 1e-3          # at least 1 mm to avoid zero
+    z_range_m = max(zf - z0, 1.0) * 1e-3  # at least 1 mm to avoid zero
     T_est = max(500, int(z_range_m / 1540.0 * 200e6))
     h_sir_gb = P * T_est * 4 / 1e9
     if h_sir_gb >= 2.0:
@@ -189,7 +197,7 @@ def create_spatial_grid_from_dict(simulation_struct):
     elif h_sir_gb >= 0.5:
         print(
             f"INFO: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
-            f"estimated h_sir ≈ {h_sir_gb*1e3:.0f} MB (T≈{T_est} samples). "
+            f"estimated h_sir ≈ {h_sir_gb * 1e3:.0f} MB (T≈{T_est} samples). "
             "Consider a coarser grid if memory is limited.\n"
         )
     x = np.linspace(x0, xf, Nx)

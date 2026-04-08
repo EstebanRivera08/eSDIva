@@ -1,3 +1,5 @@
+from importlib.metadata import PackageNotFoundError, version
+
 import pyfield.psimulation as psimulation
 import pyfield.transducers as transducers
 import pyfield.utilities as utilities
@@ -18,7 +20,10 @@ __all__ = [
     "to_dB",
 ]
 
-__version__ = "0.1.0"
+try:
+    __version__ = version("pyfield")
+except PackageNotFoundError:
+    __version__ = "0.0.1"
 
 
 def main() -> None:

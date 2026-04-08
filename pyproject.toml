@@ -1,43 +1,43 @@
 [project]
 name = "pyfield"
-version = "0.1.0"
-description = "Add your description here"
+version = "0.0.1"
+description = "Python package for acoustic simulations using the SIR approach."
 readme = "README.md"
 authors = [
-    { name = "Esteban RIvera", email = "113285895+EstebanRivera08@users.noreply.github.com" }
+    { name = "Deyver Esteban Rivera", email = "113285895+EstebanRivera08@users.noreply.github.com" }
 ]
 requires-python = ">=3.11"
+classifiers = [
+    "Programming Language :: Python",
+    "Intended Audience :: Science/Research",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Scientific/Engineering :: Physics",
+    "Topic :: Scientific/Engineering :: Medical Science Apps.",
+]
 dependencies = [
-    "brainglobe>=1.3.1",
+    # "brainglobe>=1.3.1",
     "brainglobe-atlasapi>=2.2.1",
     "brainglobe-space>=1.0.3",
-    "brainglobe-workflows>=1.4.1",
-    "brainrender>=2.1.17",
+    # "brainglobe-workflows>=1.4.1",
+    # "brainrender>=2.1.17",
     "h5py>=3.13.0",
-    "imageio[ffmpeg]>=2.37.0",
-    "ipykernel>=6.29.5",
-    "ipympl>=0.9.7",
-    "ipython>=9.1.0",
-    "ipyvtklink>=0.2.3",
-    "joblib>=1.4.2",
-    "markupsafe<3.0.2",
+    # "imageio[ffmpeg]>=2.37.0",
+    # "joblib>=1.4.2",
+    # "markupsafe<3.0.2",
     "matplotlib>=3.10.1",
+    "numba>=0.65.0",
     "numpy<=2.1.2",
-    "pip>=25.0.1",
-    "plotly>=6.1.2",
+    # "pip>=25.0.1",
+    # "plotly>=6.1.2",
     "pyqt5-qt5<=5.15.2",
-    "pyside6>=6.9.0",
+    # "pyside6>=6.9.0",
     "pyvista[jupyter]>=0.45.0",
-    "ruff>=0.12.0",
-    "scikit-image>=0.25.2",
+    # "scikit-image>=0.25.2",
     "scipy>=1.15.2",
-    "torch==2.6.0",
-    "torchaudio==2.6.0",
-    "torchvision==0.21.0",
 ]
 
 [tool.ruff]
-line-length = 88
+exclude = []
 
 [project.scripts]
 pyfield = "pyfield:main"
@@ -49,4 +49,55 @@ build-backend = "hatchling.build"
 [dependency-groups]
 dev = [
     "zensical>=0.0.28",
+    "ipykernel>=6.29.5",
+    "ipympl>=0.9.7",
+    "ipython>=9.1.0",
+    "ipyvtklink>=0.2.3",
+    "ruff>=0.12.0",
+    "torch==2.6.0",
+    # "torchaudio==2.6.0",
+    # "torchvision==0.21.0",
+    "pytest>=8.4.2",
+    "pytest-cov>=6.0.0",
+    "ty>=0.0.10",
+    "pytest-pyvista>=0.3.2",
+    "mkdocstrings[python]>=1.0.3",
+    "prek>=0.2.0",
+    "vtk>=9.2.2",
+    "pytest-mpl>=0.16.0",
+    "tqdm>=4.67.3",
+    "codespell>=2.3.0",
+    "numpydoc>=1.9.0",
 ]
+
+# --------------------------------------------------------------------------- #
+#  pytest
+# --------------------------------------------------------------------------- #
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = [
+    "-ra",
+    "--strict-markers",
+    "--strict-config",
+    "--showlocals",
+]
+filterwarnings = [
+    "error",
+    "ignore::DeprecationWarning",
+    "ignore:The active matplotlib backend.*is non-interactive:UserWarning",
+    "ignore:FigureCanvasAgg is non-interactive:UserWarning",
+]
+
+# --------------------------------------------------------------------------- #
+#  coverage
+# --------------------------------------------------------------------------- #
+[tool.coverage.run]
+source = ["pyfield"]
+omit = ["*/brain_atlas/*", "*/scans/*", "*/TorchField*"]
+
+[tool.coverage.report]
+exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]

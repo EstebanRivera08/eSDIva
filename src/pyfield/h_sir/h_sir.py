@@ -116,9 +116,15 @@ class h_sir:
 
     def compute_delays(self, focus_mm):
         self.delays = self.tx.compute_delays(focus_mm=focus_mm, c=self.c)
-        (self.centers_sub_elem, self.apodization_sub_elem,
-         self.delays_sub_elem, self.M, self.range_k,
-         self.wx_arr, self.wy_arr) = compute_sub_elem_attributes(self.tx)
+        (
+            self.centers_sub_elem,
+            self.apodization_sub_elem,
+            self.delays_sub_elem,
+            self.M,
+            self.range_k,
+            self.wx_arr,
+            self.wy_arr,
+        ) = compute_sub_elem_attributes(self.tx)
         self.wx = float(self.wx_arr.max())
         self.wy = float(self.wy_arr.max())
 
@@ -126,9 +132,15 @@ class h_sir:
         self.apodization = self.tx.compute_apodization(
             focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
         )
-        (self.centers_sub_elem, self.apodization_sub_elem,
-         self.delays_sub_elem, self.M, self.range_k,
-         self.wx_arr, self.wy_arr) = compute_sub_elem_attributes(self.tx)
+        (
+            self.centers_sub_elem,
+            self.apodization_sub_elem,
+            self.delays_sub_elem,
+            self.M,
+            self.range_k,
+            self.wx_arr,
+            self.wy_arr,
+        ) = compute_sub_elem_attributes(self.tx)
         self.wx = float(self.wx_arr.max())
         self.wy = float(self.wy_arr.max())
 

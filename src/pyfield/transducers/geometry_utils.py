@@ -73,10 +73,10 @@ def compute_2d_element_centers(
     """
     pitch_x = element_size_x_m + kerf_x_m
     pitch_y = element_size_y_m + kerf_y_m
-    
+
     total_w = n_elem_x * element_size_x_m + (n_elem_x - 1) * kerf_x_m
     total_h = n_elem_y * element_size_y_m + (n_elem_y - 1) * kerf_y_m
-    
+
     start_x = -total_w / 2 + element_size_x_m / 2
     start_y = -total_h / 2 + element_size_y_m / 2
 
@@ -353,11 +353,7 @@ def rotation_matrix_z_to_normal(normal: np.ndarray) -> np.ndarray:
         return np.diag([1.0, -1.0, -1.0])
 
     k = cross / sin_theta  # unit rotation axis
-    K = np.array(
-        [[0.0, -k[2], k[1]],
-         [k[2],  0.0, -k[0]],
-         [-k[1], k[0],  0.0]]
-    )
+    K = np.array([[0.0, -k[2], k[1]], [k[2], 0.0, -k[0]], [-k[1], k[0], 0.0]])
     # Rodrigues: R = I + sin(θ)·K + (1 - cos(θ))·K²
     return np.eye(3) + sin_theta * K + (1.0 - cos_theta) * (K @ K)
 

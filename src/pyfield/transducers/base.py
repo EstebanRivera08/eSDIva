@@ -9,7 +9,6 @@ management.
 """
 
 from abc import ABC, abstractmethod
-from time import time as TIME
 from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt

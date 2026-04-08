@@ -4,13 +4,23 @@ site_name = "PyField"
 site_description = "Acoustic field simulator for ultrasound transducers."
 site_author = "deyve"
 
-# nav = [
-#   { "Home" = "index.md" },
-#   { "Transducers" = "transducers.md" },
-#   { "Simulation" = "simulation.md" },
-#   { "Visualization" = "visualization.md" },
-#   { "Brain Atlas" = "brain_atlas.md" },
-# ]
+nav = [
+  { "Home" = "index.md" },
+  { "Getting Started" = "user-guide/getting-started.md" },
+  { "User Guide" = [
+    { "Transducers" = "user-guide/transducers.md" },
+    { "Simulation" = "user-guide/simulation.md" },
+    { "Visualization" = "user-guide/visualization.md" },
+  ]},
+  { "API Reference" = [
+    { "Overview" = "api/index.md" },
+    { "Transducers" = "api/transducers.md" },
+    { "Simulation" = "api/simulation.md" },
+    { "Visualization" = "api/visualization.md" },
+    { "Brain Atlas" = "api/brain_atlas.md" },
+  ]},
+  { "Contributing" = "contributing.md" },
+]
 
 [project.theme]
 

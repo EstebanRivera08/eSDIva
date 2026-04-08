@@ -19,6 +19,13 @@ test_models/
 .claude
 .cache
 
+# Coverage reports
+htmlcov/
+coverage.xml
+*.cover
+.coverage
+.coverage.*
+
 # Specific files (too heavy)
 Linear_nsubx1_nsuby10_fs200_P359601_M1280_T2634_pulsed.mat
 Linear_nsubx1_nsuby10_fs200_P90201_M1280_T2634_pulsed.mat

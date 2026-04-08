@@ -55,7 +55,6 @@ Example - Element Position Optimization:
 """
 
 import math
-import warnings
 from collections import OrderedDict
 from time import time as TIME
 from typing import Any, Callable, Dict, List, Optional, Tuple, Union

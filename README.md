@@ -1,3 +1,4 @@
+[![codecov](https://codecov.io/gh/EstebanRivera08/PyField/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/PyField)
 
 > [!WARNING]
 > PyField is currently under development. The API is subject to change, and some features may be incomplete or unstable.

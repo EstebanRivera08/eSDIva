@@ -94,7 +94,6 @@ def create_transducer(kind: str, **kwargs):
     key = kind.lower()
     if key not in mapping:
         raise ValueError(
-            f"Unknown transducer kind '{kind}'. "
-            f"Available: {list(mapping.keys())}"
+            f"Unknown transducer kind '{kind}'. Available: {list(mapping.keys())}"
         )
     return mapping[key](**kwargs)

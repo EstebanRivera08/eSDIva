@@ -16,10 +16,9 @@ import warnings
 from time import time as TIME
 from typing import List, Optional, Tuple
 
-import matplotlib.pyplot as plt
 import numpy as np
 
-from . import geometry_utils, validators
+from . import validators
 from .base import TransducerBase
 
 

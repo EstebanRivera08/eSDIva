@@ -1,6 +1,6 @@
 # PyField Documentation
 
-PyField is a Python acoustic field simulator based on the Tupholme–Stepanishen
+PyField is a Python acoustic field simulator based on the Tupholme-Stepanishen
 Spatial Impulse Response (SIR) method.  It models arbitrary transducer geometries
 as collections of rectangular patches and computes pressure fields via convolution.
 
@@ -55,27 +55,37 @@ x, y, z, p = sim(field_points, method="auto")
 plot_slices_2d(x, y, z, p, db_scale=True, vmin=-40)
 ```
 
-![Monochromatic pressure field — linear array](assets/pressure_linear_xz.png)
+![Monochromatic pressure field -- linear array](assets/pressure_linear_xz.png)
 
-## Sections
+## Documentation sections
+
+### User Guide
+
+Conceptual guides to help you understand how PyField works:
 
 | Page | Content |
 |------|---------|
-| [transducers.md](transducers.md) | All transducer types and their parameters |
-| [simulation.md](simulation.md) | PyField simulator — methods, excitation, output |
-| [visualization.md](visualization.md) | Matplotlib and PyVista plotting functions |
-| [brain_atlas.md](brain_atlas.md) | BG_Atlas — anatomical atlas registration |
+| [Getting Started](user-guide/getting-started.md) | Installation, first simulation, key concepts |
+| [Transducers](user-guide/transducers.md) | How transducers work in PyField |
+| [Simulation Modes](user-guide/simulation.md) | Monochromatic vs transient simulations |
+| [Visualization](user-guide/visualization.md) | 2D and 3D plotting guide |
 
-## Numbered examples
+### API Reference
 
-| File | Description |
-|------|-------------|
-| `example0_abstractsimu.py` | Matrix array — abstract simulation |
-| `example1_monochrom_focus.py` | Linear and matrix — monochromatic focused field |
-| `example2_ratbrainzones_focus.py` | Rat brain — zone-focused simulation |
-| `example3_transient_focusing.py` | Transient (pulsed) pressure field |
-| `example4_linear_divergingwaves.py` | Linear array — diverging waves |
-| `example5_transducer_gallery.py` | All transducer types visualised |
+Detailed function and class documentation:
+
+| Page | Content |
+|------|---------|
+| [Transducers](api/transducers.md) | All transducer types and their parameters |
+| [Simulation](api/simulation.md) | PyField simulator -- methods, excitation, output |
+| [Visualization](api/visualization.md) | Matplotlib and PyVista plotting functions |
+| [Brain Atlas](api/brain_atlas.md) | BG_Atlas -- anatomical atlas registration |
+
+### Contributing
+
+| Page | Content |
+|------|---------|
+| [Contributing Guide](contributing.md) | Development setup, code style, PR workflow |
 
 ## Citation
 

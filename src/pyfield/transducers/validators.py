@@ -90,9 +90,7 @@ def validate_range(
     return value
 
 
-def validate_integer(
-    value: Union[int, float], name: str, min_val: int = 1
-) -> int:
+def validate_integer(value: Union[int, float], name: str, min_val: int = 1) -> int:
     """
     Validate that a value is a positive integer.
 
@@ -118,13 +116,9 @@ def validate_integer(
         If value is not an integer type.
     """
     if not isinstance(value, (int, np.integer)):
-        raise TypeError(
-            f"{name} must be an integer, got {type(value).__name__}"
-        )
+        raise TypeError(f"{name} must be an integer, got {type(value).__name__}")
     if value < min_val:
-        raise ValueError(
-            f"{name} must be >= {min_val}, got {value}"
-        )
+        raise ValueError(f"{name} must be >= {min_val}, got {value}")
     return int(value)
 
 
@@ -153,10 +147,11 @@ def validate_kerf(kerf_mm: float, element_size_mm: float, name: str = "kerf") ->
     """
     if kerf_mm < 0:
         raise ValueError(f"{name} must be non-negative, got {kerf_mm}")
-    
+
     # Warn if kerf is very large compared to element size
     if kerf_mm > element_size_mm:
         import warnings
+
         warnings.warn(
             f"{name} ({kerf_mm} mm) exceeds element size ({element_size_mm} mm). "
             "This may result in significant gaps between elements.",
@@ -218,11 +213,9 @@ def validate_focus_coordinates(
         If focus coordinates are invalid.
     """
     focus = np.atleast_1d(focus_mm)
-    
+
     if focus.ndim != 1:
-        raise ValueError(
-            f"Focus must be 1D array or sequence, got shape {focus.shape}"
-        )
+        raise ValueError(f"Focus must be 1D array or sequence, got shape {focus.shape}")
 
     if allow_2d and focus.size == 2:
         # Convert [x, z] to [x, 0, z]
@@ -266,6 +259,7 @@ def validate_f_over_d(f_over_d: Optional[float], focus_depth_mm: float) -> float
 
     if f_over_d < 0.1:
         import warnings
+
         warnings.warn(
             f"F/D ratio ({f_over_d}) is very small. This may result in "
             "a very tight aperture.",
@@ -314,6 +308,7 @@ def validate_apodization_weights(
 
     if np.all(weights == 0):
         import warnings
+
         warnings.warn(
             f"{name} is all zeros. No energy will be transmitted.",
             UserWarning,
@@ -389,6 +384,7 @@ def validate_speed_of_sound(c_mps: Optional[float] = None) -> float:
 
     if c_mps < 800 or c_mps > 3000:
         import warnings
+
         warnings.warn(
             f"Speed of sound ({c_mps} m/s) is outside typical range [800, 3000]. "
             "Are you sure about this value?",

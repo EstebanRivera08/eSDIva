@@ -176,6 +176,7 @@ def optimize_delays_apod_for_pattern(
     sigma_z=0.7,
     use_gpu=True,
     save_path=None,
+    optimizer_type = "Adam"
 ):
     """
     Optimize delays and apodization to match a target binary mask.
@@ -303,13 +304,21 @@ def optimize_delays_apod_for_pattern(
     # Freeze apodization
     tf._optimizable_params["apodization"].value.requires_grad = False
     tf._optimizable_params["delays"].value.requires_grad = True
-
-    optimizer = torch.optim.Adam(
-        [
-            {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
-            {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
-        ]
-    )
+    
+    if optimizer_type == "Adam"
+        optimizer = torch.optim.Adam(
+            [
+                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
+            ]
+        )
+    elif optimizer_type == "SGD"
+        optimizer = torch.optim.SGD(
+            [
+                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
+            ]
+        )
 
     loss_history_delays = []
     loss_energy_values = []
@@ -366,13 +375,22 @@ def optimize_delays_apod_for_pattern(
     # Unfreeze apodization
     tf._optimizable_params["apodization"].value.requires_grad = True
     tf._optimizable_params["delays"].value.requires_grad = True
+ 
+    if optimizer_type == "Adam"
+        optimizer = torch.optim.Adam(
+            [
+                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
+            ]
+        )
+    elif optimizer_type == "SGD"
+        optimizer = torch.optim.SGD(
+            [
+                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
+            ]
+        )
 
-    optimizer = torch.optim.Adam(
-        [
-            {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
-            {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
-        ]
-    )
     loss_history_apod = []
 
     for epoch in range(num_epochs_apod):
@@ -629,21 +647,18 @@ if __name__ == "__main__":
 
     use_cuda = True  # Set to False if you want to run on CPU
     # transducer type and saving folder
-    base_path = "./results/loss_comparison/"
+    base_path = "./results/optimizer/"
     txarray = "linarray"  # "linarray" or "matrixarray"
 
     # Optimization settings
-    Energy_loss_type = "log"  # "linear" or "log"
+    Energy_loss_type = "linear"  # "linear" or "log"
     MSE_loss_type = "log"  # "linear" or "log"
     n_delays = 0  # Skip delay optimization for this example
     n_apod = 200
     lr_delays = 1e-3
     lr_apod = 1e-3
     alpha = None  # Weight for combining losses (if using combined loss)
-    if alpha is not None:
-        comment = f"_alpha{alpha}"
-    else:
-        comment = "_alphaAuto"
+    optimizer_type = "SGD"
 
     # Select transducer
     if txarray == "linarray":
@@ -694,9 +709,10 @@ if __name__ == "__main__":
 
     # Run optimization
     def pH(lr):
-        return f"pH{int(-np.log10(lr)):.2f}"
+        return f"pH{-np.log10(lr):.2f}"
 
-    file_name = f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod1_dxlambdas{dx_lambdas}{comment}.npz"""
+    file_name =
+    f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod1_dxlambdas{dx_lambdas}{optimizer_type}.npz"""
 
     save_path = str(Path(base_path) / resultsfolder / file_name)
     # print(save_path)
@@ -716,6 +732,7 @@ if __name__ == "__main__":
         batch_size=2048,
         use_gpu=True,
         save_path=save_path,
+        optimizer_type = "Adam"
     )
     print(
         "Max pressure at target:{:.4e}".format(results["pressure_final"].max().item())

@@ -36,7 +36,7 @@ from typing import List, Optional, Tuple
 import numpy as np
 
 from .base import TransducerBase
-from . import geometry_utils, validators
+from . import geometry_utils
 
 
 class CustomTransducer(TransducerBase):
@@ -273,5 +273,5 @@ class CustomTransducer(TransducerBase):
             f"CustomTransducer("
             f"n_elements={self.n_elements}, "
             f"element_types={types}, "
-            f"fc={self.fc/1e6:.2f} MHz)"
+            f"fc={self.fc / 1e6:.2f} MHz)"
         )

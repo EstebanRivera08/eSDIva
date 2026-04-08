@@ -4,9 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-PyField is a Python acoustic field simulator based on the Tupholme–Stepanishen Spatial Impulse Response (SIR) method. It models arbitrary transducer geometries as collections of rectangular patches and computes pressure fields via convolution with excitation pulses.
-
-**Warning**: PyField is currently under development. The API is subject to change.
+PyField is a Python acoustic field simulator based on the Tupholme–Stepanishen Spatial 
+Impulse Response (SIR) method. It models arbitrary transducer geometries as collections 
+of rectangular patches and computes pressure fields via convolution with excitation pulses.
 
 ## Development Commands
 
@@ -22,44 +22,18 @@ uv run <script.py>
 # Add new dependencies
 uv add <package>
 ```
-
-### Running Examples
-Run bundled examples to test functionality:
-```bash
-uv run example1_monochrom_focus.py
-uv run example2_ratbrainzones_focus.py
-uv run example3_transient_focusing.py
-uv run example4_linear_divergingwaves.py
-uv run example5_transducer_gallery.py
-uv run example6_circular_transducer.py
-```
-
-### Running Tests
-Run the test file:
-```bash
-uv run test.py
-```
-
-### Code Formatting
-The project uses `ruff` for linting (configured in `pyproject.toml` with line-length=88):
-```bash
-uv run ruff check src/
-uv run ruff format src/
-```
-
-### Documentation Generation
-Generate documentation images:
-```bash
-uv run test.py  # Contains doc generation code
-```
-
 ## Architecture
 
-### Module Structure
+### Module Structure (Subject to change as project evolves)
 
-The codebase follows a modular architecture with clear separation of concerns:
+The codebase follows a modular architecture with clear separation of concerns. 
 
-**`src/pyfield/transducers/`** — Transducer geometry definitions
+1) **`src/pyfield/h_sir/`** — Spatial Impulse Response computation
+- `h_sir.py`: Main `h_sir` class that orchestrates SIR computation
+- `farfield_rect_patch.py`: Core `compute_h_sir()` function implementing Tupholme-Stepanishen formulation
+- Methods: `"naive"` (sample-wise-looping), `"sdi"` (new developped method), `"auto"` (automatic selection)
+
+2) **`src/pyfield/transducers/`** — Transducer geometry definitions
 - `base.py`: Abstract `TransducerBase` class. All transducers inherit from this and implement `_compute_element_centers()` and `_build_subdivisions()`.
 - `linear.py`: `LinearArrayTransducer`, `ConvexArrayTransducer`
 - `matrix.py`: `MatrixArrayTransducer`
@@ -69,30 +43,36 @@ The codebase follows a modular architecture with clear separation of concerns:
 - `geometry_utils.py`: Geometric computation utilities
 - `validators.py`: Input validation
 
-**`src/pyfield/h_sir/`** — Spatial Impulse Response computation
-- `h_sir.py`: Main `h_sir` class that orchestrates SIR computation
-- `farfield_rect_patch.py`: Core `compute_h_sir()` function implementing Tupholme-Stepanishen formulation
-- `hsir_SDI.py`: Sparse Delta Integration (SDI) optimized method
-- Methods: `"naive"` (brute-force), `"sdi"` (optimized), `"auto"` (automatic selection)
-
-**`src/pyfield/psimulation/`** — Pressure field simulation
+3) **`src/pyfield/psimulation/`** — Pressure field simulation
 - `PyField.py`: Main `PyField` class that converts SIR to pressure
 - `sir_to_pressure.py`: Convolution of SIR with excitation pulses
 - Supports both monochromatic (spatial-only) and transient (spatio-temporal) simulations
 
-**`src/pyfield/brain_atlas/`** — Brain atlas integration
-- `bg_atlas.py`: Integration with BrainGlobe atlas API
-- `transformations.py`: Coordinate transformations for brain mapping
-
-**`src/pyfield/utilities/`** — Plotting and helper functions
+4) **`src/pyfield/utilities/`** — Plotting and helper functions
 - `plotting.py`: Matplotlib-based visualization (2D slices)
 - `plotting_pyvista.py`: PyVista-based 3D visualization
 - `helper_functions.py`: Field point validation, grid creation, time grid computation
 - `surface_subdivision.py`: Patch subdivision utilities
 - `transformation_functions.py`: Coordinate transformations
 
-**`src/pyfield/scans/`** — Scanning sequence utilities
+5) **`src/pyfield/brain_atlas/`** — Brain atlas integration (Bonus for neuroscience
+applications)
+- `bg_atlas.py`: Integration with BrainGlobe atlas API
+- `transformations.py`: Coordinate transformations for brain mapping
+
+6) **`src/pyfield/scans/`** — Scanning sequence utilities 
 - `dopplerscan.py`: Doppler scanning implementations
+
+IMPORTANT NOTES: 
+- The module 1) Is the core computation engine, be careful with modifications. 
+- Module 2) will be a module under constant development since new transducers can be created and added,
+  so think in generalization since backward compatibility might be important.
+- Module 3) will have the principal class used for the API. Must be intuitive, 
+consistent, and predictable, minimizing friction for adoption and being robust over versions. 
+- The scans module is for personal use, keep it independent of the
+rest of the project. 
+- Anything labelled or using TorchField is under development and will not be release 
+soon, so keep independent and secret.
 
 ### Simulation Workflow
 
@@ -110,7 +90,7 @@ The codebase follows a modular architecture with clear separation of concerns:
    )
    ```
 
-2. **Configure Delays and Apodization**:
+2. **Configure Delays and Apodization (just for multielement transducers)**:
    ```python
    tx.compute_delays(focus_mm=[0, 0, 30])
    tx.compute_apodization(focus_mm=[0, 0, 30], FoverD=2.0)
@@ -128,28 +108,48 @@ The codebase follows a modular architecture with clear separation of concerns:
    }
    ```
 
-4. **Run Simulation**:
+4. **Run Simulation (Default is monochromatic)**:
    ```python
    from pyfield.psimulation import PyField
-   sim = PyField(tx, monochromatic=True)
+   sim = PyField(tx)
    x, y, z, p = sim(field_points, method="auto")
    ```
+if no excitation is given, the transient simulation is pulsed and `monochromatic =
+    False` needs to me added to sim(). 
+
+If performing transient simulations and excitation could be given :
+  ```python
+  import numpy as np
+  from pyfield.psimulation import PyField
+
+  f_s = 200e6  # Sampling frequency
+  fc = 5e6  # Center frequency of the pulse
+  n_cycles = 2  # Number of cycles in the pulse
+  time = np.arange(0, n_cycles/fc, 1/f_s)  # Time vector for the pulse
+  excitation = np.sin(2*pi*fc*time)  # Example pulse
+    sim = PyField(tx, fs=f_s)
+    x, y, z, t, p = sim(field_points, method="auto", excitation=excitation)
+  ```
 
 5. **Visualize**:
    ```python
-   from pyfield.utilities import plot_slices_2d
-   plot_slices_2d(x, y, z, p, db_scale=True, vmin=-40)
+   from pyfield.utilities import plot_pressure_planes #if monochromatic (pressure field is 3D)
+   plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
    ```
 
 ### Key Design Patterns
 
-**Patch-Based Discretization**: All transducers are decomposed into small rectangular patches (sub-elements). The `no_sub_x` and `no_sub_y` parameters control subdivision density and simulation accuracy.
+**Patch-Based Discretization**: All transducers are decomposed into small rectangular 
+patches (sub-elements). The `no_sub_x` and `no_sub_y` parameters control subdivision 
+density and simulation accuracy.
 
-**Lazy Geometry Loading**: `TransducerBase` uses lazy-loaded properties for geometry (element centers, patch vertices) to defer computation until needed.
+**Lazy Geometry Loading**: `TransducerBase` uses lazy-loaded properties for geometry 
+(element centers, patch vertices) to defer computation until needed.
 
 **Method Selection**: The SIR computation supports three methods:
-- `"naive"`: Direct summation over all patches (slow but accurate)
-- `"sdi"`: Sparse Delta Integration (fast, automatic range detection)
+- `"naive"`: Sample-piece-wise-looping  (accurate but slow, reference implementation)
+- `"sdi"`: Sparse Delta Integration (new method, faster for large grids, may have
+  numerical inaccuracies)
 - `"auto"`: Automatically selects between naive and SDI based on grid properties
 
 **Unit Convention**: User-facing APIs use millimeters (`_mm` suffix), but internal computations use SI units (meters, seconds).
@@ -182,22 +182,6 @@ Delays and apodization can be recomputed for different focal points without recr
 
 ### Brain Atlas Integration
 Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires downloading atlas data (e.g., rat, mouse atlases) on first use.
-
-## File Organization
-
-- `src/pyfield/`: Main source code
-- `example*.py`: Standalone example scripts demonstrating key features
-- `tutorials/`: Jupyter notebooks and comparison with Field II
-- `others/`: Experimental code, analysis scripts, learning materials
-- `docs/`: Markdown documentation (rendered with zensical)
-- `test.py`: Test script and documentation figure generation
-
-## Testing Strategy
-
-Currently, testing is done through example scripts rather than formal unit tests. When adding new features:
-1. Create a standalone example demonstrating the functionality
-2. Verify output visually or against known reference (e.g., Field II)
-3. Add the example to the root directory as `example*.py`
 
 ## Common Modifications
 
