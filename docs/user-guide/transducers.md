@@ -1,3 +1,7 @@
+---
+icon: lucide/container
+---
+
 # Understanding Transducers
 
 This guide explains how transducers work in PyField at a conceptual level.

@@ -1,3 +1,7 @@
+---
+icon: lucide/rocket
+---
+
 # Getting Started
 
 This guide walks you through installing PyField and running your first simulation.

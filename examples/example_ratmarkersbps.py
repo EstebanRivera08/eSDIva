@@ -3,8 +3,8 @@ import numpy as np
 
 import pyfield.transducers as Transducers
 from pyfield.brain_atlas import BG_Atlas
-from pyfield.psimulation import PyField, TorchField
-from pyfield.scans import DopplerScan
+from pyfield.future import DopplerScan
+from pyfield.psimulation import PyField
 from pyfield.utilities import (
     add_2D_image,
     add_3D_vol,
@@ -121,7 +121,7 @@ if plot_tx_pr:
 
     # ------------------ Compute the pressue field --------------------
     # Use PyField to compute the pressure field
-    Domino_field = TorchField(domino)
+    Domino_field = PyField(domino)
     field_info_mm = {
         "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
         "y_extent": [-0.5 + focus_mm[1], 0.5 + focus_mm[1]],

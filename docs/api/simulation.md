@@ -1,3 +1,7 @@
+---
+icon: lucide/audio-lines
+---
+
 # Simulation
 
 ## PyField

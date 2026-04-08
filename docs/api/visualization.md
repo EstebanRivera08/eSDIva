@@ -1,3 +1,7 @@
+---
+icon: lucide/app-window
+---
+
 # Visualization
 
 PyField provides two sets of plotting helpers:

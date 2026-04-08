@@ -1,3 +1,6 @@
+[![PyPI version](https://img.shields.io/pypi/v/pyfield)](https://pypi.org/project/pyfield/)
+[![Python versions](https://img.shields.io/pypi/pyversions/pyfield)](https://pypi.org/project/pyfield/)
+[![DOI]()]()
 [![codecov](https://codecov.io/gh/EstebanRivera08/PyField/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/PyField)
 
 > [!WARNING]

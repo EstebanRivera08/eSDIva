@@ -1,3 +1,7 @@
+---
+icon: lucide/brain
+---
+
 # Brain Atlas
 
 `BG_Atlas` wraps the [BrainGlobe Atlas API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html)

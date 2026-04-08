@@ -1,3 +1,7 @@
+---
+icon: lucide/square-activity
+---
+
 # Visualization Guide
 
 PyField provides two visualization backends for different use cases.

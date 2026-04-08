@@ -1,8 +1,5 @@
 """Tests for pyfield.utilities.helper_functions."""
 
-import numpy as np
-import pytest
-
 from pyfield.utilities.helper_functions import (
     create_spatial_grid_from_dict,
 )

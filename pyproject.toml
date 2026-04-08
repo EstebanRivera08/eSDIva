@@ -97,7 +97,29 @@ filterwarnings = [
 # --------------------------------------------------------------------------- #
 [tool.coverage.run]
 source = ["pyfield"]
-omit = ["*/brain_atlas/*", "*/scans/*", "*/TorchField*"]
+omit = ["*pyfield/future/*", "*/examples/*", "*/others/*"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
+
+# --------------------------------------------------------------------------- #
+# numpydoc
+# --------------------------------------------------------------------------- #
+
+[tool.numpydoc_validation]
+exclude = [
+    '\.__init__$',
+    '\._.*$',
+    '^src/pyfield/future/.*',
+    '^\.examples/.*',
+    '^others/.*',
+]
+checks = [
+    "all",  # Report on all checks, except the below
+    "GL01",
+    "ES01",
+    "SA01",
+    "EX01",
+]
+numpydoc_validation_checks = ["all", "GL01", "ES01", "SA01", "EX01"]
+

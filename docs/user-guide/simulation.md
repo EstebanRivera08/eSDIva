@@ -1,3 +1,7 @@
+---
+icon: lucide/audio-lines
+---
+
 # Simulation Modes
 
 PyField supports two simulation modes: **monochromatic** (continuous wave) and

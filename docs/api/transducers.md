@@ -1,3 +1,7 @@
+---
+icon: lucide/container
+---
+
 # Transducers
 
 Every transducer in PyField is built from rectangular patches.  The patch

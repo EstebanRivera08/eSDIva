@@ -6,7 +6,9 @@ files: |
 
 exclude: |
     (?x)^(
-        src/scans.*/ |
+        src/future/.* |
+        others/.* |
+        examples/.*
     )$
 
 

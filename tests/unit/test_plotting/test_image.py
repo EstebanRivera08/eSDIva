@@ -7,7 +7,7 @@ import pytest
 
 matplotlib.use("Agg")
 
-from pyfield.utilities.plotting import plot_pressure_2D, plot_pressure_planes
+from pyfield.utilities.plotting import plot_pressure_2D
 
 
 @pytest.fixture
