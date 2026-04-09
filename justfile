@@ -25,7 +25,7 @@ test:
 pre-commit:
     uv run prek run --all-files
 
-# Run pre-commit verbose in failure
+# Run pre-commit and create and output .txt file
 pre-commit-verbose:
     just pc > precommit_full.txt
 

@@ -182,3 +182,11 @@ print("  - Combine STL meshes with PyField transducers and pressure fields")
 print("  - Adjust scale parameter if STL units don't match (e.g., mm vs m)")
 print("  - Use translation to position experimental setup components")
 print("  - Use rotation to orient components correctly")
+
+del (
+    plotter1,
+    plotter2,
+    plotter3,
+    plotter4,
+    plotter5,
+)  # Clean up plotters to free resources

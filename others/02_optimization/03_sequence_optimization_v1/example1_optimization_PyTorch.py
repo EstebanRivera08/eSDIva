@@ -174,7 +174,7 @@ print(f"  Initial: x = {x_2d.item():.4f}, y = {y_2d.item():.4f}")
 
 # Step 2: Set up optimizer
 learning_rate_2d = 0.1
-optimizer_2d = torch.optim.Adam([x_2d, y_2d], lr=learning_rate_2d)
+optimizer_2d = torch.optim.SGD([x_2d, y_2d], lr=learning_rate_2d)
 print(f"  Optimizer: Adam with learning rate = {learning_rate_2d}")
 # Adam is an adaptive optimizer that adjusts learning rates for each parameter based on
 # estimates of first and second moments of the gradients, which can lead to faster
@@ -183,7 +183,7 @@ print(f"  Optimizer: Adam with learning rate = {learning_rate_2d}")
 # Step 3: Optimization loop
 print("-" * 80)
 
-num_epochs_2d = 50
+num_epochs_2d = 200
 x_2d_history = [x_2d.item()]
 y_2d_history = [y_2d.item()]
 loss_2d_history = []
