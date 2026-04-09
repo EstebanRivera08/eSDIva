@@ -1,36 +1,35 @@
-"""
-pyfield.transducers
-===================
+"""Transducer geometry classes for the PyField acoustic simulator.
 
-Transducer geometry classes for the PyField acoustic simulator.
+Notes
+-----
+**Array transducers** (multi-element, electronic steering):
 
-Array transducers (multi-element, electronic steering)
--------------------------------------------------------
-LinearArrayTransducer   1-D row of rectangular elements, optional elevation lens.
-MatrixArrayTransducer   2-D grid of rectangular elements.
+- ``LinearArrayTransducer`` -- 1-D row of rectangular elements, optional elevation lens.
+- ``MatrixArrayTransducer`` -- 2-D grid of rectangular elements.
 
-Mono-element transducers (geometric focusing, no electronic delays)
---------------------------------------------------------------------
-FlatCircularTransducer      Flat piston disc.
-ConcaveCircularTransducer   Spherically curved bowl (HIFU / TUS).
-ConvexCircularTransducer    Spherically convex dome; virtual focus behind transducer.
-                            Models transducers with acoustic refractive lenses.
-FocusedCircularTransducer   Circular-disk aperture with single-axis curvature (line focus).
+**Mono-element transducers** (geometric focusing, no electronic delays):
 
-Composite arrays
-----------------
-CustomTransducer        Assemble any number of mono-element transducers at
-                        arbitrary positions and orientations (e.g. TUS helmet).
+- ``FlatCircularTransducer`` -- Flat piston disc.
+- ``ConcaveCircularTransducer`` -- Spherically curved bowl (HIFU / TUS).
+- ``ConvexCircularTransducer`` -- Spherically convex dome; virtual focus behind
+  transducer. Models transducers with acoustic refractive lenses.
+- ``FocusedCircularTransducer`` -- Circular-disk aperture with single-axis curvature
+  (line focus).
 
-Pre-defined transducers
------------------------
-Domino                  128-element linear array (clinical probe).
-Zeus_Matrix             55×55 matrix array (research probe).
+**Composite arrays**:
 
-Utilities
----------
-available_transducers() List all exported class names.
-create_transducer()     Simple factory for 'linear' and 'matrix' kinds.
+- ``CustomTransducer`` -- Assemble any number of mono-element transducers at
+  arbitrary positions and orientations (e.g. TUS helmet).
+
+**Pre-defined transducers**:
+
+- ``Domino`` -- 128-element linear array (clinical probe).
+- ``Zeus_Matrix`` -- 55x55 matrix array (research probe).
+
+**Utilities**:
+
+- ``available_transducers()`` -- List all exported class names.
+- ``create_transducer()`` -- Simple factory for 'linear' and 'matrix' kinds.
 """
 
 from .base import TransducerBase
@@ -66,7 +65,13 @@ __all__ = [
 
 
 def available_transducers() -> list:
-    """Return a list of all available transducer class names."""
+    """Return a list of all available transducer class names.
+
+    Returns
+    -------
+    list of str
+        Names of all exported transducer classes.
+    """
     return [name for name in __all__ if not name.startswith("_")]
 
 
@@ -81,6 +86,11 @@ def create_transducer(kind: str, **kwargs):
         ``'concave_circular'``, ``'focused_circular'``.
     **kwargs
         Passed directly to the transducer constructor.
+
+    Returns
+    -------
+    TransducerBase
+        A transducer instance of the requested kind.
     """
     mapping = {
         "linear": LinearArrayTransducer,

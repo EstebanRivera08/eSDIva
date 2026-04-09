@@ -1,14 +1,22 @@
+"""Coordinate transformation utilities for probe alignment."""
+
 import numpy as np
 
 
 def get_LabToTransducer(TX_mesh, Doppler2D):
-    """
-    Align the transducer mesh to the probe mesh.
-    Args:
-        TX_mesh (pv.PolyData): The transducer mesh.
-        Doppler2D (DopplerScan): The DopplerScan object containing the probe mesh.
-    Returns:
-        pv.PolyData: The aligned transducer mesh.
+    """Compute the lab-to-transducer transformation matrix.
+
+    Parameters
+    ----------
+    TX_mesh : pyvista.PolyData
+        The transducer mesh.
+    Doppler2D : DopplerScan
+        The DopplerScan object containing the probe mesh.
+
+    Returns
+    -------
+    ndarray
+        4x4 homogeneous transformation matrix (lab to transducer).
     """
     # Invert the
     invertz = np.diag([1, 1, -1, 1])  # Invert
@@ -60,11 +68,27 @@ def compute_affine_from_markers(
     source_normal=np.array([0, 1, 0]),
     up_axis=np.array([0, 0, -1]),
 ):
-    """
-    Returns a 4 x 4 rigid - body transform T that maps:
-      - source_origin → p1
-      - source_normal     → target plane normal
-    where the target plane is defined by points p1, p2, and the up_axis.
+    """Compute a rigid-body transform from two marker points.
+
+    Parameters
+    ----------
+    p1 : ndarray, shape (3,)
+        First marker point (becomes the mapped origin).
+    p2 : ndarray, shape (3,)
+        Second marker point (defines target plane with ``up_axis``).
+    source_origin : ndarray, shape (3,), optional
+        Origin in the source frame. Default ``[0, 0, 0]``.
+    source_normal : ndarray, shape (3,), optional
+        Normal in the source frame. Default ``[0, 1, 0]``.
+    up_axis : ndarray, shape (3,), optional
+        Up direction used to define the target plane. Default ``[0, 0, -1]``.
+
+    Returns
+    -------
+    t : ndarray, shape (3,)
+        Translation vector.
+    R : ndarray, shape (3, 3)
+        Rotation matrix.
     """
     # 1) target normal n_t
     d = p2 - p1

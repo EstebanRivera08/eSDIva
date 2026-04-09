@@ -230,19 +230,22 @@ class CustomTransducer(TransducerBase):
 
         Parameters
         ----------
-        focus_mm : ignored
+        focus_mm : array-like, optional
+            Accepted for API consistency.
+        FoverD : float, optional
             Accepted for API consistency.
         apodization_type : {'none', 'uniform'} or None
             ``'none'`` / ``'uniform'`` / ``None`` all give all-ones weights.
             For custom weight patterns, use ``set_apodization()`` directly.
-        plot, FoverD : ignored
+        plot : bool
             Accepted for API consistency.
         inline : bool
             If True (default), store result in ``self.apodization``.
 
         Returns
         -------
-        apod : ndarray, shape (n_elements,)
+        ndarray
+            Uniform apodization weights, shape ``(n_elements,)``.
         """
         apod = np.ones(self.n_elements, dtype=float)
         if inline:
@@ -258,17 +261,35 @@ class CustomTransducer(TransducerBase):
 
     @property
     def elements(self) -> List[TransducerBase]:
-        """The individual mono-element transducers that make up this array."""
+        """The individual mono-element transducers that make up this array.
+
+        Returns
+        -------
+        list of TransducerBase
+            Constituent mono-element transducers.
+        """
         return self._elements
 
     @property
     def positions_mm(self) -> np.ndarray:
-        """Element centre positions in mm, shape ``(n_elements, 3)``."""
+        """Element centre positions in mm, shape ``(n_elements, 3)``.
+
+        Returns
+        -------
+        ndarray
+            Positions in millimetres.
+        """
         return self._positions_m * 1e3
 
     @property
     def normals(self) -> np.ndarray:
-        """Unit normal vectors for each element, shape ``(n_elements, 3)``."""
+        """Unit normal vectors for each element, shape ``(n_elements, 3)``.
+
+        Returns
+        -------
+        ndarray
+            Unit normals for each element.
+        """
         return self._normals.copy()
 
     def __repr__(self) -> str:

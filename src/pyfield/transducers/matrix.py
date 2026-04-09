@@ -217,8 +217,9 @@ class MatrixArrayTransducer(TransducerBase):
 
         Returns
         -------
-        apod : ndarray, shape (n_elements,)
-            Flattened in row-major order (y-first).
+        ndarray
+            Apodization weights, shape ``(n_elements,)``, flattened in
+            row-major order (y-first).
         """
         if focus_mm is None:
             raise ValueError("focus_mm is required for multi-element transducers.")
@@ -299,7 +300,24 @@ class MatrixArrayTransducer(TransducerBase):
         ax=None,
         **kwargs,
     ):
-        """Display the 2-D apodization map as an image."""
+        """Display the 2-D apodization map as an image.
+
+        Parameters
+        ----------
+        apodization : ndarray, optional
+            Weights to plot. Defaults to ``self.apodization``.
+        figsize : tuple of int
+            Figure size in inches ``(width, height)``.
+        ax : matplotlib.axes.Axes, optional
+            Axes to draw on. If *None*, a new figure is created.
+        **kwargs
+            Forwarded to ``ax.imshow()``.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            The axes object if ``ax`` was provided, otherwise *None*.
+        """
         standalone = ax is None
         if apodization is None:
             apodization = self.apodization
@@ -333,7 +351,24 @@ class MatrixArrayTransducer(TransducerBase):
         ax=None,
         **kwargs,
     ):
-        """Display the 2-D delay map as an image."""
+        """Display the 2-D delay map as an image.
+
+        Parameters
+        ----------
+        delays : ndarray, optional
+            Delays to plot. Defaults to ``self.delays``.
+        figsize : tuple of int
+            Figure size in inches ``(width, height)``.
+        ax : matplotlib.axes.Axes, optional
+            Axes to draw on. If *None*, a new figure is created.
+        **kwargs
+            Forwarded to ``ax.imshow()``.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            The axes object if ``ax`` was provided, otherwise *None*.
+        """
         standalone = ax is None
         if delays is None:
             delays = self.delays

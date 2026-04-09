@@ -1,31 +1,22 @@
-"""
-Mono-element circular transducer types.
+"""Mono-element circular transducer types.
 
 All four classes model single-element transducers (no electronic steering).
-The aperture is always used at full amplitude — ``compute_apodization`` is
+The aperture is always used at full amplitude --- ``compute_apodization`` is
 inherited from ``TransducerBase`` and returns ``[1.0]``.  Use them directly
 for a single-focus experiment, or assemble multiple instances into a
 ``CustomTransducer`` to build multi-element arrays such as a TUS helmet.
 
-Classes
--------
-FlatCircularTransducer
-    Flat piston.  The simplest unfocused circular source.
+Notes
+-----
+Available classes:
 
-ConcaveCircularTransducer
-    Spherically curved (bowl-shaped) surface.  Achieves geometric focus at
-    a prescribed depth without any electronic delays.
-
-ConvexCircularTransducer
-    Spherically convex (dome-shaped) surface.  The virtual focus is behind the
-    transducer; the beam diverges geometrically.  Models transducers with
-    acoustic lenses that use refraction to achieve focusing, or any application
-    that requires a wider directivity pattern than a flat piston.
-
-FocusedCircularTransducer
-    Circular-disk aperture curved in one axis only (cylindrical arc), producing
-    a line focus.  Useful for 2-D cross-sectional imaging or line-focused
-    therapeutic ultrasound.
+- ``FlatCircularTransducer`` -- Flat piston, simplest unfocused circular source.
+- ``ConcaveCircularTransducer`` -- Spherically curved (bowl-shaped) surface.
+  Achieves geometric focus without electronic delays.
+- ``ConvexCircularTransducer`` -- Spherically convex (dome-shaped) surface.
+  The virtual focus is behind the transducer.
+- ``FocusedCircularTransducer`` -- Circular-disk aperture curved in one axis
+  only (cylindrical arc), producing a line focus.
 """
 
 from time import time as TIME
@@ -179,9 +170,9 @@ class FlatCircularTransducer(TransducerBase):
         smoothing the jagged border.  Default 3.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional. Defalults 0.99.
-        The are to be filled with big patches is defined by
-        ``radius_filled_with_big_patches × diameter_mm / 2``.
+    filled_radius_with_big_patches : float, optional
+        Fraction of the radius to fill with coarse patches. Defaults to 0.99.
+        The area to be filled is ``filled_radius_with_big_patches * diameter_mm / 2``.
 
     Notes
     -----
@@ -304,17 +295,20 @@ class ConcaveCircularTransducer(TransducerBase):
         ``max_patch_scale × du_nominal`` are discarded, leaving intentional
         holes near the rim rather than overlapping oversized patches.
         Default 3.0.
+    curvature_threshold : float, optional
+        Ratio ``R / (D/2)`` below which the high-curvature grid strategy is
+        activated.  Default 1.1.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional. Defalults 0.95.
-        The are to be filled with big patches is defined by
-        ``radius_filled_with_big_patches × diameter_mm / 2``.
+    filled_radius_with_big_patches : float, optional
+        Fraction of the radius to fill with coarse patches. Defaults to 0.95.
+        The area to be filled is ``filled_radius_with_big_patches * diameter_mm / 2``.
 
     Raises
     ------
     ValueError
         If the radius of curvature is smaller than the aperture radius (the
-        focal point would be inside the aperture — physically impossible).
+        focal point would be inside the aperture --- physically impossible).
     """
 
     def __init__(
@@ -506,8 +500,13 @@ class ConvexCircularTransducer(TransducerBase):
     max_patch_scale : float, optional
         Rejection threshold for oversized patches at the rim.  Default 3.0.
         See :class:`ConcaveCircularTransducer` for details.
+    curvature_threshold : float, optional
+        Ratio ``R / (D/2)`` below which the high-curvature grid strategy is
+        activated.  Default 1.1.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
+    filled_radius_with_big_patches : float, optional
+        Fraction of the radius to fill with coarse patches. Defaults to 0.95.
     """
 
     def __init__(
@@ -701,11 +700,14 @@ class FocusedCircularTransducer(TransducerBase):
     max_patch_scale : float, optional
         Rejection threshold for oversized patches at the rim.  Default 3.0.
         See :class:`ConcaveCircularTransducer` for details.
+    curvature_threshold : float, optional
+        Ratio ``R / (D/2)`` below which the high-curvature grid strategy is
+        activated.  Default 1.1.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional. Defalults 0.95.
-        The are to be filled with big patches is defined by
-        ``radius_filled_with_big_patches × diameter_mm / 2``.
+    filled_radius_with_big_patches : float, optional
+        Fraction of the radius to fill with coarse patches. Defaults to 0.95.
+        The area to be filled is ``filled_radius_with_big_patches * diameter_mm / 2``.
     """
 
     def __init__(

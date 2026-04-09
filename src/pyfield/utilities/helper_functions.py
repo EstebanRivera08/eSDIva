@@ -1,3 +1,5 @@
+"""Helper functions for spatial grids, time grids, and unit conversions."""
+
 import time
 
 import numpy as np
@@ -24,8 +26,10 @@ def compute_minmax_distance_patch_to_point(P, M, pts, center):
 
     Returns
     -------
-    global_max, global_min : float
-        Maximum and minimum distance across all (point, patch) pairs (metres).
+    global_max : float
+        Maximum distance across all (point, patch) pairs (metres).
+    global_min : float
+        Minimum distance across all (point, patch) pairs (metres).
     """
     # Compute per-point min/max in parallel to avoid race conditions on shared scalars
     local_max = np.empty(P, dtype=np.float32)
@@ -130,12 +134,11 @@ def compute_sub_elem_attributes(transducer):
 
 # Spatial grid
 def create_spatial_grid_from_dict(simulation_struct):
-    """
-    Create a simulation mesh for the ultrasound field.
+    """Create a simulation mesh for the ultrasound field.
 
     Parameters
     ----------
-    simulation_grid_dict : dict
+    simulation_struct : dict
         Dictionary containing the simulation parameters:
         - x_extent (or x_extent_mm) : list
             The extent of the simulation in the x direction (in mm).
@@ -152,8 +155,14 @@ def create_spatial_grid_from_dict(simulation_struct):
 
     Returns
     -------
+    x : ndarray
+        1-D array of x coordinates in mm.
+    y : ndarray
+        1-D array of y coordinates in mm.
+    z : ndarray
+        1-D array of z coordinates in mm.
     grid_points : ndarray
-        Array of points in the simulation space.
+        Array of shape ``(N, 3)`` with all grid points in mm.
     """
     # Create a grid of points in the simulation space
     [x0, xf], [y0, yf], [z0, zf] = (
@@ -210,14 +219,29 @@ def create_spatial_grid_from_dict(simulation_struct):
 
 
 def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
-    """
-    Extract or build a 3-D coordinate grid from user-supplied field points.
+    """Extract or build a 3-D coordinate grid from user-supplied field points.
 
     Accepts either a dict of grid parameters (delegated to
     ``create_spatial_grid_from_dict``) or a raw ``(N, 3)`` point array from
     which unique x, y, z axes are extracted.
 
-    Returns axes in mm and the full point array converted to metres.
+    Parameters
+    ----------
+    field_points_mm : dict or ndarray
+        Grid-parameter dict or ``(N, 3)`` point array in mm.
+    create_meshgrid : bool, optional
+        If True, rebuild the full meshgrid. Default False.
+
+    Returns
+    -------
+    x : ndarray
+        Unique x coordinates in mm.
+    y : ndarray
+        Unique y coordinates in mm.
+    z : ndarray
+        Unique z coordinates in mm.
+    spatial_grid : ndarray
+        Point array in metres, shape ``(N, 3)``.
     """
     field_points_mm = check_valid_field_points(field_points_mm)
 
@@ -243,13 +267,22 @@ def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
 
 
 def check_valid_field_points(field_points_mm):
-    """
-    Validate and normalise ``field_points_mm`` to a standard form.
+    """Validate and normalise ``field_points_mm`` to a standard form.
 
     Accepts a grid-parameter dict (with ``x_extent``/``dx`` keys, or their
     ``_mm``-suffixed variants) or a numeric array/list of shape ``(N, 3)``
     or ``(3,)``.  Returns the input unchanged if it is already valid, or a
     normalised dict/array otherwise.  Raises ``ValueError`` on invalid input.
+
+    Parameters
+    ----------
+    field_points_mm : dict or array-like
+        Field points in mm as a dict, ndarray, list, or tuple.
+
+    Returns
+    -------
+    dict or ndarray
+        Validated field points.
     """
     if isinstance(field_points_mm, dict):
         # Detect which key convention is used
@@ -311,14 +344,29 @@ def check_valid_field_points(field_points_mm):
 
 
 def reshape_to_mapped_points(x, y, z, flattened_volume):
-    """
-    Reshape the flat SIR output to ``(Nt_or_1, Nx, Ny, Nz)`` layout.
+    """Reshape the flat SIR output to ``(Nt_or_1, Nx, Ny, Nz)`` layout.
 
     The SIR kernel returns a 2-D array ``(Nt, P)`` where ``P = Nx*Ny*Nz``
     field points were flattened with ``meshgrid`` order ``(z, x, y)`` (i.e.
     the loop order used during grid construction).  This function reverses
     that flattening and transposes the axes to the standard ``(Nt, Nx, Ny, Nz)``
     convention expected by the rest of the library.
+
+    Parameters
+    ----------
+    x : ndarray
+        1-D array of unique x coordinates.
+    y : ndarray
+        1-D array of unique y coordinates.
+    z : ndarray
+        1-D array of unique z coordinates.
+    flattened_volume : ndarray or list
+        Flat SIR output, shape ``(Nt, P)`` or ``(P,)``.
+
+    Returns
+    -------
+    ndarray
+        Reshaped array of shape ``(Nt, Nx, Ny, Nz)``.
     """
     if isinstance(flattened_volume, (list, tuple)):
         flattened_volume = np.array(flattened_volume)
@@ -359,11 +407,13 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
         Sampling frequency (Hz).
     delays : float32 (n_elements,)
         Per-element transmit delays (seconds).
+    verbose : bool, optional
+        Print diagnostic messages. Default True.
 
     Returns
     -------
-    t_grid : float32 (T,)
-        Time samples in seconds.
+    t_grid : ndarray
+        Time samples in seconds, shape ``(T,)``.
     min_time : float
         Start of the time window (seconds).
     dt : float
@@ -403,7 +453,22 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
 
 
 def to_dB(matrix, *, vmin=None, vmax=None):
-    """Convert a matrix to decibel (dB) scale."""
+    """Convert a matrix to decibel (dB) scale.
+
+    Parameters
+    ----------
+    matrix : array-like
+        Input data (magnitude or complex).
+    vmin : float, optional
+        Floor value for the dB conversion (linear scale).
+    vmax : float, optional
+        Reference maximum for normalisation. Defaults to ``abs(matrix).max()``.
+
+    Returns
+    -------
+    ndarray
+        Values in decibels, normalised so that the peak is 0 dB.
+    """
 
     mat = np.asarray(matrix, dtype=float)
     mag = np.abs(mat)

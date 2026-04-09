@@ -199,7 +199,8 @@ class LinearArrayTransducer(TransducerBase):
 
         Returns
         -------
-        apod : ndarray, shape (n_elements,)
+        ndarray
+            Apodization weights, shape ``(n_elements,)``.
         """
         if focus_mm is None:
             raise ValueError("focus_mm is required for multi-element transducers.")
@@ -480,9 +481,25 @@ class ConvexArrayTransducer(TransducerBase):
         plot: bool = False,
         inline: bool = True,
     ) -> np.ndarray:
-        """
-        Compute per-element apodization.  Delegates to
-        :class:`LinearArrayTransducer` logic (F/D aperture + window).
+        """Compute per-element apodization for the convex array.
+
+        Parameters
+        ----------
+        focus_mm : array-like, shape (2,) or (3,)
+            Focus in mm. 2-D ``[x, z]`` is accepted (y=0 assumed).
+        FoverD : float, optional
+            F-number. Ignored when ``apodization_type='none'``.
+        apodization_type : {'none', 'rect', 'hanning', 'hamming'}, optional
+            Window shape. ``None`` defaults to ``'rect'``.
+        plot : bool
+            Display the result after computation.
+        inline : bool
+            Store result in ``self.apodization`` (default True).
+
+        Returns
+        -------
+        ndarray
+            Apodization weights, shape ``(n_elements,)``.
         """
         if focus_mm is None:
             raise ValueError("focus_mm is required for multi-element transducers.")

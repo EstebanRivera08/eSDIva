@@ -81,14 +81,26 @@ class TransducerBase(ABC):
 
     @property
     def element_centers(self) -> np.ndarray:
-        """3-D element centre positions, shape ``(n_elements, 3)`` in metres."""
+        """3-D element centre positions, shape ``(n_elements, 3)`` in metres.
+
+        Returns
+        -------
+        ndarray
+            Array of shape ``(n_elements, 3)`` with element positions in metres.
+        """
         if self._element_centers is None:
             self._element_centers = self._compute_element_centers()
         return self._element_centers
 
     @property
     def sub_quad_verts(self) -> List[np.ndarray]:
-        """List of quad-vertex arrays ``(4, 3)`` for every patch, in metres."""
+        """List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.
+
+        Returns
+        -------
+        list of ndarray
+            Each element is a ``(4, 3)`` array of corner positions.
+        """
         if self._sub_quad_verts is None:
             self._sub_quad_verts, self._sub_area, self._sub_el_idx = (
                 self._build_subdivisions()
@@ -97,7 +109,13 @@ class TransducerBase(ABC):
 
     @property
     def sub_area(self) -> float:
-        """Patch area in m² (same for all patches in a uniform grid)."""
+        """Patch area in m² (same for all patches in a uniform grid).
+
+        Returns
+        -------
+        float
+            Area of each sub-patch in square metres.
+        """
         if self._sub_area is None:
             _ = self.sub_quad_verts  # trigger lazy load
         assert self._sub_area is not None
@@ -105,7 +123,13 @@ class TransducerBase(ABC):
 
     @property
     def sub_el_idx(self) -> List[int]:
-        """Element index for each patch; maps patch → parent element."""
+        """Element index for each patch; maps patch to parent element.
+
+        Returns
+        -------
+        list of int
+            Index of the parent element for each sub-patch.
+        """
         if self._sub_el_idx is None:
             _ = self.sub_quad_verts
         assert self._sub_el_idx is not None
@@ -113,13 +137,18 @@ class TransducerBase(ABC):
 
     @property
     def n_sub_patches(self) -> int:
-        """Total number of rectangular sub-patches across all elements."""
+        """Total number of rectangular sub-patches across all elements.
+
+        Returns
+        -------
+        int
+            Number of sub-patches.
+        """
         return len(self.sub_quad_verts)
 
     @property
     def sub_patch_frames(self) -> Dict:
-        """
-        Per-patch rigid-body frames used by the SIR kernel.
+        """Per-patch rigid-body frames used by the SIR kernel.
 
         Returns a dict with keys ``centers``, ``normals``, ``tangents_u``,
         ``tangents_v``, ``wu``, ``wv`` — all ndarrays indexed by patch.
@@ -129,6 +158,11 @@ class TransducerBase(ABC):
         exact for any flat, arbitrarily-oriented patch.  Curved transducers
         override ``_build_patch_frames`` to return surface-accurate frames
         derived from the parametric surface equations.
+
+        Returns
+        -------
+        dict
+            Patch-frame arrays keyed by ``centers``, ``normals``, etc.
         """
         if self._sub_patch_frames is None:
             self._sub_patch_frames = self._build_patch_frames()
@@ -186,31 +220,63 @@ class TransducerBase(ABC):
 
     @property
     def apodization(self) -> np.ndarray:
-        """Per-element apodization weights, shape ``(n_elements,)``."""
+        """Per-element apodization weights, shape ``(n_elements,)``.
+
+        Returns
+        -------
+        ndarray
+            Apodization weights for each element.
+        """
         if self._apodization is None:
             self._apodization = np.ones(self.n_elements, dtype=float)
         return self._apodization
 
     @apodization.setter
     def apodization(self, weights: np.ndarray) -> None:
+        """Set per-element apodization weights.
+
+        Parameters
+        ----------
+        weights : ndarray
+            Apodization weights, shape ``(n_elements,)``.
+        """
         self._apodization = validators.validate_apodization_weights(
             weights, self.n_elements
         )
 
     @property
     def delays(self) -> np.ndarray:
-        """Per-element delays in seconds, shape ``(n_elements,)``."""
+        """Per-element delays in seconds, shape ``(n_elements,)``.
+
+        Returns
+        -------
+        ndarray
+            Delay values for each element in seconds.
+        """
         if self._delays is None:
             self._delays = np.zeros(self.n_elements, dtype=float)
         return self._delays
 
     @delays.setter
     def delays(self, delay_values: np.ndarray) -> None:
+        """Set per-element delays.
+
+        Parameters
+        ----------
+        delay_values : ndarray
+            Delays in seconds, shape ``(n_elements,)``.
+        """
         self._delays = validators.validate_delays(delay_values, self.n_elements)
 
     @property
     def tx_N_active(self) -> int:
-        """Number of elements with non-zero apodization."""
+        """Number of elements with non-zero apodization.
+
+        Returns
+        -------
+        int
+            Count of active elements.
+        """
         return int(np.sum(self.apodization > 0))
 
     # ------------------------------------------------------------------
@@ -266,8 +332,8 @@ class TransducerBase(ABC):
 
         Returns
         -------
-        delays : ndarray, shape (n_elements,)
-            Delays in seconds (minimum delay is always 0).
+        ndarray
+            Delays in seconds, shape ``(n_elements,)`` (minimum delay is always 0).
         """
         if self.n_elements == 1:
             warnings.warn(
@@ -323,16 +389,21 @@ class TransducerBase(ABC):
 
         Parameters
         ----------
-        focus_mm : ignored
+        focus_mm : array-like, optional
             Accepted for API consistency with multi-element subclasses.
-        FoverD, apodization_type, plot : ignored
+        FoverD : float, optional
+            Accepted for API consistency.
+        apodization_type : str, optional
+            Accepted for API consistency.
+        plot : bool
             Accepted for API consistency.
         inline : bool
             If True (default), store result in ``self.apodization``.
 
         Returns
         -------
-        apodization : ndarray, shape (n_elements,)
+        ndarray
+            Uniform apodization weights, shape ``(n_elements,)``.
         """
         if self.n_elements == 1:
             warnings.warn(
@@ -352,11 +423,23 @@ class TransducerBase(ABC):
         return apod
 
     def set_apodization(self, weights: np.ndarray) -> None:
-        """Set per-element apodization weights directly."""
+        """Set per-element apodization weights directly.
+
+        Parameters
+        ----------
+        weights : ndarray
+            Apodization weights, shape ``(n_elements,)``.
+        """
         self.apodization = np.asarray(weights, dtype=float)
 
     def set_delays(self, delays: np.ndarray) -> None:
-        """Set per-element delays directly (normalised so minimum = 0)."""
+        """Set per-element delays directly (normalised so minimum = 0).
+
+        Parameters
+        ----------
+        delays : ndarray
+            Delays in seconds, shape ``(n_elements,)``.
+        """
         d = np.atleast_1d(delays).astype(float)
         self.delays = d - d.min()
 
@@ -463,10 +546,23 @@ class TransducerBase(ABC):
         figsize: Tuple[int, int] = (6, 5),
         ax=None,
     ):
-        """
-        Plot apodization weights as a line/stem chart.
+        """Plot apodization weights as a line/stem chart.
 
         For 2-D matrix transducers, override this method to produce an image.
+
+        Parameters
+        ----------
+        apodization : ndarray, optional
+            Weights to plot. Defaults to ``self.apodization``.
+        figsize : tuple of int
+            Figure size in inches ``(width, height)``.
+        ax : matplotlib.axes.Axes, optional
+            Axes to draw on. If *None*, a new figure is created.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            The axes object if ``ax`` was provided, otherwise *None*.
         """
         standalone = ax is None
         if apodization is None:
@@ -501,7 +597,22 @@ class TransducerBase(ABC):
         figsize: Tuple[int, int] = (6, 5),
         ax=None,
     ):
-        """Plot per-element delays in microseconds."""
+        """Plot per-element delays in microseconds.
+
+        Parameters
+        ----------
+        delays : ndarray, optional
+            Delays to plot. Defaults to ``self.delays``.
+        figsize : tuple of int
+            Figure size in inches ``(width, height)``.
+        ax : matplotlib.axes.Axes, optional
+            Axes to draw on. If *None*, a new figure is created.
+
+        Returns
+        -------
+        matplotlib.axes.Axes or None
+            The axes object if ``ax`` was provided, otherwise *None*.
+        """
         standalone = ax is None
         if delays is None:
             delays = self.delays
@@ -529,7 +640,13 @@ class TransducerBase(ABC):
             return ax
 
     def plot_delays_apodization(self, figsize: Tuple[int, int] = (10, 4)) -> None:
-        """Side-by-side delay and apodization plot."""
+        """Side-by-side delay and apodization plot.
+
+        Parameters
+        ----------
+        figsize : tuple of int
+            Figure size in inches ``(width, height)``.
+        """
         fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
         self.plot_delays(ax=ax1)
         self.plot_apodization(ax=ax2)
@@ -547,7 +664,13 @@ class TransducerBase(ABC):
         print(f"{self.name} cleaned up.")
 
     def get_state_dict(self) -> Dict[str, Any]:
-        """Return a snapshot of the current apodization / delay state."""
+        """Return a snapshot of the current apodization / delay state.
+
+        Returns
+        -------
+        dict
+            Keys ``apodization``, ``delays``, ``apodization_type``, ``FoverD``.
+        """
         return {
             "apodization": self.apodization.copy(),
             "delays": self.delays.copy(),
@@ -556,7 +679,13 @@ class TransducerBase(ABC):
         }
 
     def set_state_dict(self, state: Dict[str, Any]) -> None:
-        """Restore apodization / delay state from a dictionary."""
+        """Restore apodization / delay state from a dictionary.
+
+        Parameters
+        ----------
+        state : dict
+            State dictionary as returned by ``get_state_dict()``.
+        """
         if "apodization" in state:
             self.apodization = state["apodization"]
         if "delays" in state:

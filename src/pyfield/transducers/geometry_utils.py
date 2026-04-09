@@ -242,7 +242,7 @@ def create_mesh_from_quads(
 
     Returns
     -------
-    mesh : pyvista.PolyData
+    pyvista.PolyData
         Mesh with apodization and delays as cell data.
     """
     verts = []

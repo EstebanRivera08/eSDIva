@@ -1,7 +1,21 @@
+"""Utilities for reading and exploring MATLAB .mat file structures."""
+
 import numpy as np
 
 
 def mat_struct_fields(ms):
+    """Return field names from a MATLAB struct-like object.
+
+    Parameters
+    ----------
+    ms : object
+        MATLAB struct loaded via ``scipy.io.loadmat``.
+
+    Returns
+    -------
+    list of str
+        Field names of the struct.
+    """
     if hasattr(ms, "_fieldnames"):
         return list(ms._fieldnames)
     if hasattr(ms, "__dict__"):
@@ -10,6 +24,18 @@ def mat_struct_fields(ms):
 
 
 def mat_struct_to_dict(ms):
+    """Convert a MATLAB struct recursively to a Python dict.
+
+    Parameters
+    ----------
+    ms : object
+        MATLAB struct or numpy object array to convert.
+
+    Returns
+    -------
+    dict or list or object
+        Converted Python representation.
+    """
     # recursive conversion: mat_struct -> dict, object arrays -> lists
     if isinstance(ms, np.ndarray) and ms.dtype == object:
         return [mat_struct_to_dict(x) for x in ms.flat]
@@ -28,6 +54,19 @@ def mat_struct_to_dict(ms):
 
 
 def explore_mat(obj, name="root", depth=0, max_depth=3):
+    """Print the hierarchical structure of a MATLAB .mat object.
+
+    Parameters
+    ----------
+    obj : object
+        MATLAB object to explore.
+    name : str, optional
+        Display name for the root node.
+    depth : int, optional
+        Current recursion depth.
+    max_depth : int, optional
+        Maximum recursion depth.
+    """
     indent = "  " * depth
     if depth > max_depth:
         print(f"{indent}{name}: {type(obj)} (max depth)")

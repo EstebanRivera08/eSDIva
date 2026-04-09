@@ -1,3 +1,5 @@
+"""PyField pressure field simulation class."""
+
 import time
 
 import numpy as np
@@ -19,12 +21,10 @@ inv_2pi = 1 / (2 * np.pi)
 
 
 class PyField:
-    """
-    PyField class for computing the pressure field.
+    """Compute the acoustic pressure field for a given transducer.
 
     Parameters
     ----------
-
     transducer : Transducer
         The transducer object containing the transducer parameters and attributes.
     rho : float, optional
@@ -78,7 +78,6 @@ class PyField:
         Attenuation coefficient at 1 MHz in dB/(MHz^y cm).
     freq_power : float (Temporarily unused)
         Exponent for frequency power law in attenuation.
-
     """
 
     def __init__(
@@ -154,6 +153,7 @@ class PyField:
         h_sir : ndarray
             The computed Spatial Impulse Response (SIR) with shape (T, P).
         t0 : float
+            Start time of the time grid in seconds.
 
         Examples
         --------
@@ -180,8 +180,7 @@ class PyField:
         >>> field_points_mm = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)  # (P, 3)
         >>> # Compute SIR
         >>> h_sir, t0 = field.compute_sir(field_points_mm, method='auto',
-        adjust_t0=True, verbose=True)
-
+        ...     adjust_t0=True, verbose=True)
         """
 
         if verbose is None:
@@ -343,7 +342,7 @@ class PyField:
         ...     'dz_mm': 0.1,
         ... }
         >>> x_plane, y_plane, z_plane, pressure_field_plane = field(
-        ...     plane_points_mm, excitation = excitation)
+        ...     plane_points_mm, excitation=excitation)
         """
         if monochromatic is None:
             monochromatic = self.monochromatic
@@ -382,15 +381,14 @@ class PyField:
         return x, y, z, pressure_field
 
     def set_field(self, attribute_name, value):
-        """
-        Set the value of a specified attribute of the PyField object.
+        """Set the value of a specified attribute of the PyField object.
+
         Parameters
         ----------
         attribute_name : str
             The name of the attribute to be updated.
-        value : any
+        value : object
             The new value to be assigned to the specified attribute.
-
         """
         if not hasattr(self, attribute_name):
             self.__repr__()
@@ -401,6 +399,13 @@ class PyField:
         print(f"Attribute '{attribute_name}' updated.")
 
     def compute_delays(self, focus_mm):
+        """Recompute element delays and refresh sub-element attributes.
+
+        Parameters
+        ----------
+        focus_mm : array-like
+            Focal point in mm.
+        """
         self.delays = self.tx.compute_delays(focus_mm=focus_mm, c=self.c)
         (
             self.centers_sub_elem,
@@ -415,6 +420,17 @@ class PyField:
         self.wy = float(self.wy_arr.max())
 
     def compute_apodization(self, focus_mm, FoverD=1, apodization_type="rect"):
+        """Recompute element apodization and refresh sub-element attributes.
+
+        Parameters
+        ----------
+        focus_mm : array-like
+            Focal point in mm.
+        FoverD : float, optional
+            F-number for aperture sizing. Default 1.
+        apodization_type : str, optional
+            Window type. Default ``'rect'``.
+        """
         self.apodization = self.tx.compute_apodization(
             focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
         )

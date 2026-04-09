@@ -1,3 +1,5 @@
+"""Far-field rectangular patch SIR computation kernels."""
+
 import numpy as np
 from numba import njit, prange
 
@@ -9,13 +11,33 @@ inv_2pi = 1 / (2 * np.pi)
 
 @njit(inline="always")
 def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
-    """
-    Computes the parameters of the trapezoidal SIR for a rectangular patch aperture.
+    """Compute trapezoidal SIR parameters for a rectangular patch.
 
-    Return t1,t2,t3,t4,h_max (float32).
-    dx,dy are direction components (xp, yp) used in your original compute.
-    dist is distance from patch center to field point (float).
-    inv_c is 1/c (float).
+    Parameters
+    ----------
+    wx : float
+        Patch half-width in the x-direction.
+    wy : float
+        Patch half-width in the y-direction.
+    dx : float
+        Direction component (xp) from patch centre to field point.
+    dy : float
+        Direction component (yp) from patch centre to field point.
+    dist : float
+        Distance from patch centre to field point.
+    inv_c : float
+        Inverse speed of sound (1/c).
+    apod : float
+        Apodization weight for this patch.
+    delay : float
+        Time delay for this patch in seconds.
+    dt : float
+        Time step size.
+
+    Returns
+    -------
+    tuple of float
+        ``(t1, t2, t3, t4, h_max)`` trapezoidal SIR timing parameters.
     """
     xp_abs = abs(dx) * wx * inv_c
     yp_abs = abs(dy) * wy * inv_c
@@ -59,9 +81,43 @@ def compute_parallelized_sir_optimized(
     dt,
     method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
 ):
-    """
-    Returns h_out (P, T) and range_k_matrix (P, M)
-    method_flag: 0 naive, 1 sdi, 2 auto
+    """Compute SIR in parallel over field points.
+
+    Parameters
+    ----------
+    P : int
+        Number of field points.
+    M : int
+        Number of sub-patches.
+    T : int
+        Number of time samples.
+    points : ndarray, shape (P, 3)
+        Field point coordinates.
+    center : ndarray, shape (M, 3)
+        Patch centre coordinates.
+    wx : ndarray, shape (M,)
+        Per-patch width in x.
+    wy : ndarray, shape (M,)
+        Per-patch width in y.
+    inv_c : float
+        Inverse speed of sound.
+    apodization : ndarray, shape (M,)
+        Apodization weights per patch.
+    delays : ndarray, shape (M,)
+        Delays per patch in seconds.
+    time_grid : ndarray
+        Array of time samples.
+    fs : float
+        Sampling frequency in Hz.
+    dt : float
+        Time step size.
+    method_flag : int
+        0 for naive, 1 for SDI, 2 for auto.
+
+    Returns
+    -------
+    tuple
+        ``(h_out, range_k_matrix, min_time, max_time)``.
     """
     h_out = np.zeros((P, T), dtype=np.float32)
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
@@ -286,34 +342,45 @@ def compute_h_sir(
     delays_sub_elem,
     method_flag=1,
 ):
-    """
-    Compute the SIR-based impulse response h_out for a set of field points and
-    transducer elements.
-    Args:
-        P (int): Number of field points.
-        M (int): Number of transducer elements.
-        T (int): Number of time samples.
-        dt (float): Time step size.
-        time_grid (np.ndarray): Array of time samples.
-        points (np.ndarray): Array of shape (P, 3) containing the coordinates of field
-        points.
-        centers (np.ndarray): Array of shape (M, 3) containing the coordinates of
-        transducer element patches centers.
-        wx (float32 array, shape (M,)): Per-patch width in the x-direction.
-        wy (float32 array, shape (M,)): Per-patch width in the y-direction.
-        inv_c (float): Inverse of the speed of sound (1/c).
-        fs (float): Sampling frequency.
-        apodization_sub_elem (np.ndarray): Array of shape (M,) containing the
-        apodization values for each transducer element.
-        delays_sub_elem (np.ndarray): Array of shape (M,) containing the delay
-        values for each transducer element.
-        method_flag (int): Flag to choose computation method (0 -> naive, 1 -> SDI,
-        2 -> auto).
-    Returns:
-        h_out (np.ndarray): Array of shape (P, T) containing the computed impulse
-        response for each field point and time sample.
-           'min_time', 'max_time', and 'range_k_matrix'.tion such as
-        'min_time', 'max_time', and 'range_k_matrix'.
+    """Compute the SIR impulse response for field points and patches.
+
+    Parameters
+    ----------
+    P : int
+        Number of field points.
+    M : int
+        Number of transducer sub-patches.
+    T : int
+        Number of time samples.
+    dt : float
+        Time step size.
+    time_grid : ndarray
+        Array of time samples.
+    points : ndarray, shape (P, 3)
+        Coordinates of field points.
+    centers : ndarray, shape (M, 3)
+        Coordinates of patch centres.
+    wx : ndarray, shape (M,)
+        Per-patch width in x-direction.
+    wy : ndarray, shape (M,)
+        Per-patch width in y-direction.
+    inv_c : float
+        Inverse of the speed of sound (1/c).
+    fs : float
+        Sampling frequency in Hz.
+    apodization_sub_elem : ndarray, shape (M,)
+        Apodization weights per patch.
+    delays_sub_elem : ndarray, shape (M,)
+        Delay values per patch in seconds.
+    method_flag : int, optional
+        Computation method: 0 naive, 1 SDI, 2 auto. Default 1.
+
+    Returns
+    -------
+    tuple
+        ``(h_out, info_struct)`` where ``h_out`` is shape ``(P, T)`` and
+        ``info_struct`` is a dict with ``min_time``, ``max_time``, and
+        ``range_k_matrix``.
     """
     h_out, range_k_matrix, min_time, max_time = compute_parallelized_sir_optimized(
         P,

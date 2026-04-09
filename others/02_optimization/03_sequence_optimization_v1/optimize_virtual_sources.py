@@ -14,20 +14,22 @@ Usage:
     uv run others/learning_focalization/optimize_virtual_sources.py
 """
 
+from typing import List, Tuple
+
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
-from typing import List, Tuple
 
-from pyfield.psimulation.TorchField_flexible import TorchFieldFlexible
+from pyfield.future.TorchField_flexible import TorchFieldFlexible
 from pyfield.transducers import Domino, LinearArrayTransducer
 from pyfield.utilities import to_dB
-
 
 # ============================================================================
 # Helper Functions
 # ============================================================================
+tx = Domino()  # Global transducer for helper functions
+print(tx.element_centers())
 
 
 def compute_element_usage_penalty(apodization, sparsity_weight=0.1):
@@ -159,6 +161,10 @@ class VirtualSourceOptimizer:
 
         self._setup_virtual_sources()
 
+    def compute_delays(self, virtual_source):
+        """Compute the delays for the virtual sources"""
+        delays = torch.sqrt()
+
     def _setup_virtual_sources(self):
         """Initialize virtual sources with default positions."""
         print(f"Setting up {self.n_vs} virtual sources...")
@@ -177,23 +183,23 @@ class VirtualSourceOptimizer:
             )
 
             # Add virtual source parameter
-            vs_name = f'vs_{i}'
+            vs_name = f"vs_{i}"
             tf.add_optimizable_parameter(
                 vs_name,
-                initial_value=[x_pos, 0.0, z_behind],
-                level='global',
+                initial_value=[x_pos, z_behind],
+                level="global",
                 requires_grad=True,
-                constraints={'min': -50, 'max': 50},
+                constraints={"min": -50, "max": 50},
             )
 
             # Add apodization parameter (per virtual source)
-            apod_name = f'apod_{i}'
+            apod_name = f"apod_{i}"
             tf.add_optimizable_parameter(
                 apod_name,
                 initial_value=np.ones(self.transducer.n_elements) / self.n_vs,
-                level='element',
+                level="element",
                 requires_grad=True,
-                constraints={'min': 0.0, 'max': 1.0},
+                constraints={"min": 0.0, "max": 1.0},
                 transform=lambda x: torch.sigmoid(10 * (x - 0.5)),
             )
 
@@ -201,36 +207,39 @@ class VirtualSourceOptimizer:
             def make_vs_to_delays(vs_name):
                 def vs_to_delays(**kwargs):
                     vs = kwargs[vs_name]
-                    tx = kwargs['tx']
-                    device = kwargs['device']
+                    tx = kwargs["tx"]
+                    device = kwargs["device"]
 
-                    vs_mm = vs.detach().cpu().numpy()
+                    focus_mm = [vs_mm[0], 0, vs_mm[1]]
+                    element_centers_m = tx.element_centers_m
                     delays_s = tx.compute_delays(focus_mm=vs_mm, apply=False)
                     return torch.tensor(
                         delays_s * 1e6, dtype=torch.float32, device=device
                     )
+
                 return vs_to_delays
 
             tf.add_parameter_mapping(
-                name=f'vs_to_delays_{i}',
+                name=f"vs_to_delays_{i}",
                 function=make_vs_to_delays(vs_name),
                 inputs=[vs_name],
-                output='delays',
-                level='element',
+                output="delays",
+                level="element",
             )
 
             # Mapping: apod parameter → apodization
             def make_apod_mapping(apod_name):
                 def get_apod(**kwargs):
                     return kwargs[apod_name]
+
                 return get_apod
 
             tf.add_parameter_mapping(
-                name=f'apod_mapping_{i}',
+                name=f"apod_mapping_{i}",
                 function=make_apod_mapping(apod_name),
                 inputs=[apod_name],
-                output='apodization',
-                level='element',
+                output="apodization",
+                level="element",
             )
 
             self.torch_fields.append(tf)
@@ -251,9 +260,7 @@ class VirtualSourceOptimizer:
         pr_combined = None
 
         for i, tf in enumerate(self.torch_fields):
-            x, y, z, pr_i = tf(
-                self.field_points, training=True, batch_size=batch_size
-            )
+            x, y, z, pr_i = tf(self.field_points, training=True, batch_size=batch_size)
 
             if pr_combined is None:
                 pr_combined = pr_i
@@ -274,7 +281,7 @@ class VirtualSourceOptimizer:
         apod_total = None
 
         for tf in self.torch_fields:
-            apod_i = tf.get_parameter('apodization')
+            apod_i = tf.get_parameter("apodization")
 
             if apod_total is None:
                 apod_total = apod_i
@@ -408,11 +415,13 @@ def optimize_virtual_sources(
 
         # Print progress
         if epoch % 10 == 0 or epoch == num_epochs - 1:
-            print(f"Epoch {epoch:3d}: "
-                  f"Loss={loss.item():.4f} "
-                  f"(Unif={loss_uniformity.item():.4f}, "
-                  f"Sparse={loss_sparsity.item():.4f}, "
-                  f"Cover={-loss_coverage.item():.4f})")
+            print(
+                f"Epoch {epoch:3d}: "
+                f"Loss={loss.item():.4f} "
+                f"(Unif={loss_uniformity.item():.4f}, "
+                f"Sparse={loss_sparsity.item():.4f}, "
+                f"Cover={-loss_coverage.item():.4f})"
+            )
 
     print()
     print("=" * 70)
@@ -427,9 +436,11 @@ def optimize_virtual_sources(
     # Get virtual source positions
     vs_positions = []
     for i, tf in enumerate(vs_opt.torch_fields):
-        vs_pos = tf.get_parameter(f'vs_{i}').detach().cpu().numpy()
+        vs_pos = tf.get_parameter(f"vs_{i}").detach().cpu().numpy()
         vs_positions.append(vs_pos)
-        print(f"VS {i}: position = [{vs_pos[0]:6.2f}, {vs_pos[1]:6.2f}, {vs_pos[2]:6.2f}] mm")
+        print(
+            f"VS {i}: position = [{vs_pos[0]:6.2f}, {vs_pos[1]:6.2f}, {vs_pos[2]:6.2f}] mm"
+        )
 
     print()
     print(f"Active elements (>0.1): {(apod_final > 0.1).sum()} / {len(apod_final)}")
@@ -437,17 +448,17 @@ def optimize_virtual_sources(
 
     # Results
     results = {
-        'virtual_source_positions': np.array(vs_positions),
-        'apodization_total': apod_final,
-        'loss_history': loss_history,
-        'uniformity_history': uniformity_history,
-        'sparsity_history': sparsity_history,
-        'coverage_history': coverage_history,
-        'x': x,
-        'y': y,
-        'z': z,
-        'pressure_final': pr_final,
-        'n_virtual_sources': n_virtual_sources,
+        "virtual_source_positions": np.array(vs_positions),
+        "apodization_total": apod_final,
+        "loss_history": loss_history,
+        "uniformity_history": uniformity_history,
+        "sparsity_history": sparsity_history,
+        "coverage_history": coverage_history,
+        "x": x,
+        "y": y,
+        "z": z,
+        "pressure_final": pr_final,
+        "n_virtual_sources": n_virtual_sources,
     }
 
     return results
@@ -465,75 +476,90 @@ def plot_virtual_source_results(results):
 
     # Loss history
     ax1 = fig.add_subplot(gs[0, 0])
-    ax1.plot(results['loss_history'], label='Total Loss')
-    ax1.set_xlabel('Epoch')
-    ax1.set_ylabel('Loss')
-    ax1.set_title('Total Loss')
+    ax1.plot(results["loss_history"], label="Total Loss")
+    ax1.set_xlabel("Epoch")
+    ax1.set_ylabel("Loss")
+    ax1.set_title("Total Loss")
     ax1.legend()
     ax1.grid(True)
 
     # Individual loss components
     ax2 = fig.add_subplot(gs[0, 1])
-    ax2.plot(results['uniformity_history'], label='Uniformity')
-    ax2.plot(results['sparsity_history'], label='Sparsity')
-    ax2.plot(results['coverage_history'], label='Coverage')
-    ax2.set_xlabel('Epoch')
-    ax2.set_ylabel('Loss Component')
-    ax2.set_title('Loss Components')
+    ax2.plot(results["uniformity_history"], label="Uniformity")
+    ax2.plot(results["sparsity_history"], label="Sparsity")
+    ax2.plot(results["coverage_history"], label="Coverage")
+    ax2.set_xlabel("Epoch")
+    ax2.set_ylabel("Loss Component")
+    ax2.set_title("Loss Components")
     ax2.legend()
     ax2.grid(True)
 
     # Total apodization
     ax3 = fig.add_subplot(gs[0, 2])
-    ax3.plot(results['apodization_total'], 'o-')
-    ax3.axhline(0.1, color='r', linestyle='--', label='Threshold')
-    ax3.set_xlabel('Element Index')
-    ax3.set_ylabel('Total Apodization')
-    ax3.set_title('Element Usage (Combined)')
+    ax3.plot(results["apodization_total"], "o-")
+    ax3.axhline(0.1, color="r", linestyle="--", label="Threshold")
+    ax3.set_xlabel("Element Index")
+    ax3.set_ylabel("Total Apodization")
+    ax3.set_title("Element Usage (Combined)")
     ax3.legend()
     ax3.grid(True)
     ax3.set_ylim([0, 1.05])
 
     # Virtual source positions
     ax4 = fig.add_subplot(gs[1, 0])
-    vs_pos = results['virtual_source_positions']
-    ax4.scatter(vs_pos[:, 0], vs_pos[:, 2], s=100, c='red', marker='x')
+    vs_pos = results["virtual_source_positions"]
+    ax4.scatter(vs_pos[:, 0], vs_pos[:, 2], s=100, c="red", marker="x")
     for i, pos in enumerate(vs_pos):
-        ax4.annotate(f'VS{i}', (pos[0], pos[2]), xytext=(5, 5),
-                    textcoords='offset points')
-    ax4.axhline(0, color='k', linestyle='-', linewidth=2, label='Array')
-    ax4.set_xlabel('X (mm)')
-    ax4.set_ylabel('Z (mm)')
-    ax4.set_title('Virtual Source Positions')
+        ax4.annotate(
+            f"VS{i}", (pos[0], pos[2]), xytext=(5, 5), textcoords="offset points"
+        )
+    ax4.axhline(0, color="k", linestyle="-", linewidth=2, label="Array")
+    ax4.set_xlabel("X (mm)")
+    ax4.set_ylabel("Z (mm)")
+    ax4.set_title("Virtual Source Positions")
     ax4.legend()
     ax4.grid(True)
-    ax4.axis('equal')
+    ax4.axis("equal")
 
     # Pressure field (XZ plane)
     ax5 = fig.add_subplot(gs[1, 1])
-    pr = results['pressure_final']
-    x, y, z = results['x'], results['y'], results['z']
+    pr = results["pressure_final"]
+    x, y, z = results["x"], results["y"], results["z"]
 
     y_center = len(y) // 2
     pr_xz = pr[:, y_center, :]
     pr_db = to_dB(pr_xz)
 
     extent = [z.min(), z.max(), x.min(), x.max()]
-    im5 = ax5.imshow(pr_db, aspect='auto', origin='lower', extent=extent,
-                     cmap='hot', vmin=-40, vmax=0)
-    ax5.set_xlabel('Z (mm)')
-    ax5.set_ylabel('X (mm)')
-    ax5.set_title('Pressure Field (XZ plane, dB)')
-    plt.colorbar(im5, ax=ax5, label='dB')
+    im5 = ax5.imshow(
+        pr_db,
+        aspect="auto",
+        origin="lower",
+        extent=extent,
+        cmap="hot",
+        vmin=-40,
+        vmax=0,
+    )
+    ax5.set_xlabel("Z (mm)")
+    ax5.set_ylabel("X (mm)")
+    ax5.set_title("Pressure Field (XZ plane, dB)")
+    plt.colorbar(im5, ax=ax5, label="dB")
 
     # Normalized pressure field
     ax6 = fig.add_subplot(gs[1, 2])
     pr_norm = pr_xz / pr_xz.max()
-    im6 = ax6.imshow(pr_norm, aspect='auto', origin='lower', extent=extent,
-                     cmap='hot', vmin=0, vmax=1)
-    ax6.set_xlabel('Z (mm)')
-    ax6.set_ylabel('X (mm)')
-    ax6.set_title('Normalized Pressure Field')
+    im6 = ax6.imshow(
+        pr_norm,
+        aspect="auto",
+        origin="lower",
+        extent=extent,
+        cmap="hot",
+        vmin=0,
+        vmax=1,
+    )
+    ax6.set_xlabel("Z (mm)")
+    ax6.set_ylabel("X (mm)")
+    ax6.set_title("Normalized Pressure Field")
     plt.colorbar(im6, ax=ax6)
 
     # Lateral profile at different depths
@@ -543,16 +569,19 @@ def plot_virtual_source_results(results):
 
     for idx in z_indices:
         lateral_profile = pr_norm[:, idx]
-        ax7.plot(x, lateral_profile, label=f'z={z[idx]:.1f}mm')
+        ax7.plot(x, lateral_profile, label=f"z={z[idx]:.1f}mm")
 
-    ax7.set_xlabel('X (mm)')
-    ax7.set_ylabel('Normalized Pressure')
-    ax7.set_title('Lateral Profiles at Different Depths')
+    ax7.set_xlabel("X (mm)")
+    ax7.set_ylabel("Normalized Pressure")
+    ax7.set_title("Lateral Profiles at Different Depths")
     ax7.legend()
     ax7.grid(True)
 
-    plt.suptitle(f'Virtual Source Optimization ({results["n_virtual_sources"]} sources)',
-                 fontsize=14, fontweight='bold')
+    plt.suptitle(
+        f"Virtual Source Optimization ({results['n_virtual_sources']} sources)",
+        fontsize=14,
+        fontweight="bold",
+    )
     plt.show()
 
 
@@ -570,19 +599,19 @@ if __name__ == "__main__":
 
     # Field specification (imaging region)
     field_points = {
-        'x_extent': [-10, 10],  # mm, lateral extent
-        'y_extent': [-0.5, 0.5],  # mm, thin slice
-        'z_extent': [10, 40],  # mm, depth range
-        'dx': 0.3,
-        'dy': 1.0,
-        'dz': 0.5,
+        "x_extent": [-10, 10],  # mm, lateral extent
+        "y_extent": [-0.5, 0.5],  # mm, thin slice
+        "z_extent": [10, 40],  # mm, depth range
+        "dx": 0.3,
+        "dy": 1.0,
+        "dz": 0.5,
     }
 
     # Test with different numbers of virtual sources
     for n_vs in [3, 5]:
         print(f"\n{'=' * 70}")
         print(f"Testing with {n_vs} virtual sources")
-        print('=' * 70)
+        print("=" * 70)
 
         results = optimize_virtual_sources(
             tx,
@@ -601,6 +630,6 @@ if __name__ == "__main__":
         plot_virtual_source_results(results)
 
         # Save results
-        output_file = f'virtual_source_optimization_{n_vs}vs.npz'
+        output_file = f"virtual_source_optimization_{n_vs}vs.npz"
         np.savez(output_file, **results)
         print(f"\nResults saved to: {output_file}")

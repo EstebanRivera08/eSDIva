@@ -1,3 +1,5 @@
+"""Spatial Impulse Response wrapper class."""
+
 import time
 
 import numpy as np
@@ -12,6 +14,22 @@ from .farfield_rect_patch import compute_h_sir
 
 
 class h_sir:
+    """Compute the Spatial Impulse Response for a given transducer.
+
+    Parameters
+    ----------
+    transducer : TransducerBase
+        Transducer instance with geometry and beamforming state.
+    c : float, optional
+        Speed of sound in m/s. Default 1540.
+    fs : float, optional
+        Sampling frequency in Hz. Default 200 MHz.
+    alpha0 : float, optional
+        Attenuation coefficient in dB/(MHz^y cm). Default 0.5.
+    freq_power : float, optional
+        Frequency power law exponent. Default 1.0.
+    """
+
     def __init__(self, transducer, *, c=1540.0, fs=200e6, alpha0=0.5, freq_power=1.0):
         self.tx = transducer
         self.fc = transducer.fc  # Hz
@@ -106,6 +124,15 @@ class h_sir:
         return t0, h_sir.T
 
     def set_field(self, attribute_name, value):
+        """Set an attribute value by name.
+
+        Parameters
+        ----------
+        attribute_name : str
+            Name of the attribute to set.
+        value : object
+            New value for the attribute.
+        """
         if not hasattr(self, attribute_name):
             self.__repr__()
             raise AttributeError(
@@ -115,6 +142,13 @@ class h_sir:
         print(f"Attribute '{attribute_name}' updated.")
 
     def compute_delays(self, focus_mm):
+        """Recompute element delays and refresh sub-element attributes.
+
+        Parameters
+        ----------
+        focus_mm : array-like
+            Focal point in mm.
+        """
         self.delays = self.tx.compute_delays(focus_mm=focus_mm, c=self.c)
         (
             self.centers_sub_elem,
@@ -129,6 +163,17 @@ class h_sir:
         self.wy = float(self.wy_arr.max())
 
     def compute_apodization(self, focus_mm, FoverD=1, apodization_type="rect"):
+        """Recompute element apodization and refresh sub-element attributes.
+
+        Parameters
+        ----------
+        focus_mm : array-like
+            Focal point in mm.
+        FoverD : float, optional
+            F-number for aperture sizing. Default 1.
+        apodization_type : str, optional
+            Window type. Default ``'rect'``.
+        """
         self.apodization = self.tx.compute_apodization(
             focus_mm=focus_mm, FoverD=FoverD, apodization_type=apodization_type
         )

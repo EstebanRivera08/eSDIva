@@ -1,11 +1,12 @@
+"""PyVista 3-D visualisation utilities for pressure fields and transducers."""
+
 import numpy as np
 import pyvista as pv
 
 
 # -------------------- Plotting Functions --------------------
 def create_vol_mesh(x, y, z, vol_matrix, *, scalars="Values"):
-    """
-    Compute the volume mesh for the given vol_matrix and coordinates.
+    """Create a PyVista volume mesh from coordinate arrays and data.
 
     Parameters
     ----------
@@ -13,11 +14,13 @@ def create_vol_mesh(x, y, z, vol_matrix, *, scalars="Values"):
         Coordinate arrays.
     vol_matrix : ndarray
         Volume data (dim = 3).
+    scalars : str, optional
+        Name for the scalar data array. Default ``'Values'``.
 
     Returns
     -------
-    pressure_vol : pyvista.UniformGrid
-        The pressure volume mesh.
+    pyvista.ImageData
+        The volume mesh with attached scalar data.
     """
     dx = x[1] - x[0] if len(x) > 1 else 1e-6
     dy = y[1] - y[0] if len(y) > 1 else 1e-6
@@ -50,19 +53,29 @@ def add_regions_mesh(
     kwargs_dict=None,
     **kwargs,
 ):
-    """
-    Plot the PyVista mesh of a specified BrainAtlas structure.
+    """Plot the PyVista mesh of specified BrainAtlas structures.
 
-    Parameters:
-    -----------
-        pv_regions_dict (dict): A dictionary of PyVista meshes for different brain regions.
-        window_size (list, optional): Size of the plot window. Default is [800, 800].
-        notebook (bool, optional): Whether to use notebook mode for the plotter. Default is True.
-        off_screen (bool, optional): Whether to render the plot off-screen. Default is False.
-        kwargs_dict (dict, optional): Additional keyword arguments for the mesh rendering.
-    Returns:
-    --------
-        pv.Plotter: The PyVista plotter with the mesh added.
+    Parameters
+    ----------
+    pv_regions_dict : dict or pyvista.PolyData
+        Dictionary of PyVista meshes keyed by region name, or a single mesh.
+    plotter : pyvista.Plotter, optional
+        Existing plotter. If *None*, a new one is created.
+    window_size : list of int, optional
+        Render window size in pixels. Default ``[800, 800]``.
+    notebook : bool, optional
+        Enable Jupyter notebook rendering. Default False.
+    off_screen : bool, optional
+        Render off-screen. Default False.
+    kwargs_dict : dict, optional
+        Per-region keyword arguments for ``add_mesh``.
+    **kwargs
+        Forwarded to ``plotter.add_mesh()`` as defaults.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The plotter with brain region meshes added.
     """
     if plotter is None:
         plotter = pv.Plotter(
@@ -115,22 +128,31 @@ def add_3D_vol(
     colorbar_title=None,
     **kwargs,
 ):
-    """
-    Add PyVista objects to a plotter for visualizing.
-    Args:
-        vol_3D (pv.ImageData): The volumen data (e.g. 3D ultrasound scan).
-        plotter (pv.Plotter, optional): An existing PyVista plotter to add the
-            volume to. If None, a new plotter will be created. Default is None.
-        notebook (bool, optional): Whether to use notebook mode for the plotter. Default
-        is True.
-        window_size (list, optional): Size of the plot window. Default is [700, 700].
-        off_screen (bool, optional): Whether to render the plot off-screen. Default is False
-            scale (float, optional): Scaling factor for font sizes in the scalar bar.
-            Default is 1.
-        kwargs: Additional keyword arguments to pass to the add_volume method of the
-        plotter.
-    Returns:
-        pv.Plotter: The PyVista plotter with the volume added.
+    """Add a 3-D volume to a PyVista plotter.
+
+    Parameters
+    ----------
+    vol_3D : pyvista.ImageData
+        The volume data (e.g. 3-D ultrasound scan).
+    plotter : pyvista.Plotter, optional
+        Existing plotter. If *None*, a new one is created.
+    notebook : bool, optional
+        Enable Jupyter notebook rendering. Default False.
+    window_size : list of int, optional
+        Render window size. Default ``[700, 700]``.
+    off_screen : bool, optional
+        Render off-screen. Default False.
+    scale : float, optional
+        Scaling factor for scalar bar font sizes. Default 1.
+    colorbar_title : str, optional
+        Title for the colour bar. Defaults to the scalar name.
+    **kwargs
+        Forwarded to ``plotter.add_volume()``.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The plotter with the volume added.
     """
     if plotter is None:
         plotter = pv.Plotter(
@@ -199,13 +221,15 @@ def add_2D_image(
         Whether to render the plot off-screen. Default is False.
     scale : float, optional
         Scaling factor for font sizes in the scalar bar. Default is 1.
-    kwargs: Additional keyword arguments to pass to the add_mesh method of the plotter.
+    colorbar_title : str, optional
+        Title for the colour bar. Defaults to the scalar name.
+    **kwargs
+        Forwarded to ``plotter.add_mesh()``.
 
     Returns
     -------
-    pv.Plotter
+    pyvista.Plotter
         The PyVista plotter with the 2D image mesh added.
-
     """
     if plotter is None:
         plotter = pv.Plotter(
@@ -289,13 +313,13 @@ def add_pressure_vol(
     vmax : float, optional
         Maximum value for the contour levels. If None, it will use the maximum value in
         the pressure volume. Default is None.
-    kwargs: Additional keyword arguments to pass to the add_mesh method of the plotter.
+    **kwargs
+        Forwarded to ``plotter.add_mesh()``.
 
     Returns
     -------
-    pv.Plotter
+    pyvista.Plotter
         The PyVista plotter with the pressure volume mesh added.
-
     """
 
     if plotter is None:
@@ -417,13 +441,13 @@ def add_transducer_mesh(
     colorbar_title : str, optional
         Title for the colorbar. If None, it will use "Apodization" or "Delays" based on
         the scalars parameter. Default is None.
-    kwargs: Additional keyword arguments to pass to the add_mesh method of the plotter.
+    **kwargs
+        Forwarded to ``plotter.add_mesh()``.
 
     Returns
     -------
-    pv.Plotter
-        The PyVista plotter with the transducer mesh added and colored by the specified
-        scalar field.
+    pyvista.Plotter
+        The plotter with the transducer mesh added.
     """
 
     if plotter is None:
@@ -489,11 +513,35 @@ def add_markers(
     label_font_size=12,
     **kwargs,
 ):
-    """
-    Add marker points (and optional labels) to a pyvista Plotter.
+    """Add marker points and optional labels to a PyVista plotter.
 
-    - Consumes 'color' and 'glyph_scale' explicitly.
-    - Does not forward arbitrary kwargs that pyvista.Property will treat as color.
+    Parameters
+    ----------
+    points : array-like, shape (N, 3)
+        Marker coordinates.
+    plotter : pyvista.Plotter, optional
+        Existing plotter. If *None*, a new one is created.
+    notebook : bool, optional
+        Enable Jupyter notebook rendering. Default False.
+    window_size : tuple of int, optional
+        Render window size. Default ``(700, 700)``.
+    off_screen : bool, optional
+        Render off-screen. Default False.
+    point_size : float, optional
+        Size of marker points. Default 1.
+    labels : list of str, optional
+        Text labels for each point.
+    label_offset : tuple of float, optional
+        Offset for label placement. Default ``(0, 0, 0)``.
+    label_font_size : int, optional
+        Font size for labels. Default 12.
+    **kwargs
+        Forwarded to ``plotter.add_mesh()``.
+
+    Returns
+    -------
+    pyvista.Plotter
+        The plotter with markers added.
     """
     import pyvista as pv
 
@@ -764,7 +812,18 @@ def add_stl_mesh(
 
 
 def recompute_bounds(plotter):
-    """Recompute the bounds of a PyVista plotter based on its current meshes."""
+    """Recompute the bounds of a PyVista plotter based on its current meshes.
+
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        The plotter whose bounds should be recomputed.
+
+    Returns
+    -------
+    tuple of float
+        ``(x_min, x_max, y_min, y_max, z_min, z_max)``.
+    """
     if not plotter.meshes:
         raise ValueError("The plotter has no meshes to compute bounds from.")
 

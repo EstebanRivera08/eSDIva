@@ -1,8 +1,5 @@
-"""
-Parametric surface subdivision into flat rectangular patch approximations.
+"""Parametric surface subdivision into flat rectangular patch approximations.
 
-Overview
---------
 Ultrasound simulators based on the spatial impulse response (SIR) method
 decompose a transducer aperture into a mosaic of small **flat rectangular
 piston patches**.  The SIR of the full aperture is the superposition of the
@@ -12,61 +9,36 @@ mosaic for **any smooth (C1) parametric surface**, not just flat disks.
 The key physical requirement is that every patch must be a genuine rectangle
 (not a parallelogram or trapezoid), so the analytical piston-SIR formula
 remains valid.  On a curved surface this is achieved by constructing each
-patch as a rectangle in the **local tangent plane** at the patch centre:
+patch as a rectangle in the **local tangent plane** at the patch centre.
 
-    centre  =  surface_fn(uc, vc)           — on the curved surface
-    tu, tv  =  orthonormal tangent frame     — estimated by finite differences
-    corners =  centre ± wu/2·tu ± wv/2·tv   — flat rectangle by construction
+Notes
+-----
+The module uses two grid strategies selected automatically by the maximum
+arc-length amplification measured along the parameter centre lines.
 
-The frame vectors are computed by central finite differences and
-Gram-Schmidt orthogonalisation, so no analytic derivatives are required.
+**Low curvature** (``max ||dr/du|| <= 1.01``):
+    Uniform Cartesian grid with full arc-length patch size.
 
-Curvature-adaptive grid strategy
----------------------------------
-A naive uniform Cartesian grid in parameter space places patch *centres*
-at equal parameter intervals ``Δu``.  On a curved surface the arc-length
-between adjacent centres is ``||∂r/∂u|| × Δu``, which grows near the rim
-of a spherical cap (``||∂r/∂u|| → ∞`` as the rim angle → 90°).  If patches
-are sized by arc-length they overlap; if sized by parameter cell they leave
-large rim gaps.
+**High curvature** (``max ||dr/du|| > 1.01``):
+    Arc-length adapted grid where cell boundaries correspond to uniform
+    arc-length intervals on the surface.
 
-This module uses two strategies selected automatically by the maximum
-arc-length amplification ``||∂r/∂u||`` measured along the parameter centre
-lines.  The threshold is ``1.01`` — any surface with more than 1% curvature
-anywhere in the parameter domain uses the high-curvature strategy:
+**Tuning parameters**:
 
-**Low curvature** (``max ||∂r/∂u|| ≤ 1.01``):
-    Uniform Cartesian grid.  Each patch uses its full arc-length dimensions
-    (``wu = ||∂r/∂u|| × Δu``).  Adjacent tilted flat rectangles share edges
-    to first order, giving near-perfect coverage.  The second-order overlap
-    between tilted patches is negligible (< 0.01 %) at this curvature level.
+- ``n_u``, ``n_v`` -- resolution; increase until ``coverage`` is acceptable.
+- ``patch_fill`` -- fraction of arc-length spacing used as patch width
+  (high-curvature mode only).
+- ``max_patch_scale`` -- rejection threshold for steep patches.
+- ``border_refine`` -- subdivision factor for boundary cells.
 
-**High curvature** (``max ||∂r/∂u|| > 1.01``):
-    Arc-length adapted grid — cell boundaries are placed at parameter values
-    that correspond to *uniform arc-length intervals* on the surface.  This
-    ensures patch centres are equidistant on the surface regardless of local
-    curvature, so rim patches are as dense as central patches.  Each patch
-    is then sized at ``patch_fill × arc_spacing``, where ``arc_spacing`` is
-    the arc-length between adjacent cell centres (``total_arclen / n``).
-    With ``patch_fill = 1.0`` patches exactly touch; with ``patch_fill < 1``
-    a uniform gap of ``(1 − patch_fill) × arc_spacing`` is left between
-    neighbours, guaranteeing no physical overlap of the flat rectangles.
-    Patches whose local arc-length amplification exceeds ``max_patch_scale``
-    are rejected entirely, leaving intentional holes at extreme rims.
-
-Public API
-----------
-subdivide_parametric_surface(surface_fn, u_range, v_range, n_u, n_v, ...)
-    Build the patch mosaic for any C1 parametric surface.
-
-Usage example
--------------
-**Spherical bowl** (concave transducer, radius R, aperture radius R_ap)::
+Examples
+--------
+Spherical bowl (concave transducer)::
 
     import numpy as np
     from pyfield.utilities.surface_subdivision import subdivide_parametric_surface
 
-    R, R_ap = 20e-3, 8e-3   # metres
+    R, R_ap = 20e-3, 8e-3
 
     def bowl(x, y):
         z = R - np.sqrt(max(R**2 - x**2 - y**2, 0.0))
@@ -78,62 +50,7 @@ Usage example
         v_range=(-R_ap, R_ap),
         n_u=30, n_v=30,
         inside_fn=lambda x, y: x**2 + y**2 <= R_ap**2,
-        normal_sign=1.0,
-        max_patch_scale=3.0,  # reject patches steeper than 3× amplification
-        patch_fill=0.75,      # patch width = 75% of nominal cell → 25% gap
     )
-
-    # frames["centers"]    — (M, 3) patch centre positions in metres
-    # frames["wu"]         — (M,)   physical width  of each patch (metres)
-    # frames["wv"]         — (M,)   physical height of each patch (metres)
-    # frames["normals"]    — (M, 3) unit outward normals
-    # frames["tangents_u"] — (M, 3) unit tangent vectors (u-direction)
-    # frames["tangents_v"] — (M, 3) unit tangent vectors (v-direction)
-    # frames["coverage"]   — fraction of theoretical surface area covered
-    # frames["n_rejected"] — number of patches rejected as too steep
-
-**Custom surface** (e.g. an ellipsoid cap)::
-
-    a, b, c = 15e-3, 10e-3, 12e-3   # semi-axes
-
-    def ellipsoid(u, v):
-        return np.array([a * np.cos(u) * np.cos(v),
-                         b * np.sin(u) * np.cos(v),
-                         c * np.sin(v)])
-
-    frames = subdivide_parametric_surface(
-        ellipsoid,
-        u_range=(0, 2 * np.pi),
-        v_range=(-np.pi / 4, np.pi / 4),
-        n_u=40, n_v=20,
-        normal_sign=-1.0,
-    )
-
-Tuning guide
-------------
-``n_u``, ``n_v``
-    Resolution.  Increase until the patch mosaic matches the surface well
-    (use the ``coverage`` return value as a quality metric).  For a 10 mm
-    diameter transducer at 3 MHz, ``n_u = n_v = 20`` is typically sufficient.
-
-``patch_fill``  *(high-curvature mode only)*
-    Controls how much of the arc-length spacing each patch fills.
-    ``patch_fill = 1.0`` → patches exactly touch (no gap, no overlap).
-    ``patch_fill = 0.75`` → each patch covers 75 % of the arc-length spacing,
-    leaving a 25 % uniform gap between neighbours (default).
-    ``patch_fill = 0.5`` → 50 % gap, very conservative.
-    Has no effect when the surface is nearly flat (low-curvature mode).
-
-``max_patch_scale``
-    Patches whose local arc-length amplification ``||∂r/∂u||`` exceeds this
-    factor are rejected (hole left in mesh).  Default ``3.0``.  Decrease to
-    reject more aggressively (cleaner holes, fewer artifacts); increase to
-    keep more patches at the cost of poorer flat-rectangle approximation.
-
-``border_refine``
-    When ``inside_fn`` is provided, boundary cells are subdivided into
-    ``border_refine²`` sub-patches.  Default ``3`` (9 sub-patches per
-    boundary cell).  Increase for smoother aperture edges.
 """
 
 from __future__ import annotations
@@ -199,42 +116,16 @@ def subdivide_parametric_surface(
     patch_fill: float = 1,
     curvature_threshold: float = 1.1,  # max 10% curvature
 ) -> dict:
-    """
-    Subdivide a C1 parametric surface into flat rectangular patch approximations.
+    """Subdivide a C1 parametric surface into flat rectangular patches.
 
     Each accepted patch is a genuine flat rectangle in the local tangent plane
     at the patch centre.  Patch dimensions ``(wu, wv)`` represent the physical
     width and height of that piston element in metres; they are used directly
     by the SIR kernel (``farfield_rect_patch``).
 
-    Grid strategy
-    -------------
-    The function first measures the maximum arc-length amplification
-    ``max ||∂r/∂u||`` along the parameter centre lines.  If this is above
-    ``1.01`` the surface is considered **high-curvature** and an arc-length
-    adapted grid is used; otherwise a standard uniform Cartesian grid is used.
-
-    *Low-curvature mode* (uniform grid, full arc-length patch size):
-        Patch centres are placed at equal parameter intervals.  Each patch
-        uses its full arc-length dimensions so adjacent patches tile the
-        surface nearly perfectly.  The second-order overlap between adjacent
-        tilted flat rectangles is negligible (< 0.01 %) at this curvature
-        level.
-
-    *High-curvature mode* (adapted grid, arc-length-proportional patch size):
-        Cell boundaries are redistributed so that centres are uniformly spaced
-        in **arc-length** on the surface — the 1-D metric
-        ``||∂r/∂u(u, v_center)||`` is integrated numerically and the inverse
-        mapping gives equal arc-length intervals.  This places proportionally
-        more centres near steep rims.  Each patch is then sized at
-        ``patch_fill × arc_spacing`` where ``arc_spacing = total_arclen / n``
-        is the arc-length distance between neighbouring centres.  With
-        ``patch_fill = 1.0`` patches exactly touch; with ``patch_fill < 1`` a
-        uniform gap proportional to ``(1 − patch_fill)`` is left between
-        neighbours, guaranteeing no physical overlap.  Patches whose local
-        amplification ``||∂r/∂u||`` exceeds ``max_patch_scale`` are rejected,
-        leaving intentional holes where the flat-rectangle approximation would
-        break down.
+    The function first measures the maximum arc-length amplification along the
+    parameter centre lines and selects either a uniform Cartesian grid
+    (low curvature) or an arc-length adapted grid (high curvature).
 
     Parameters
     ----------
@@ -283,40 +174,16 @@ def subdivide_parametric_surface(
           coarse grids.
 
         Has no effect in low-curvature mode (full arc-length is always used).
+    curvature_threshold : float, optional
+        Maximum metric value below which the surface is considered low
+        curvature.  Default 1.1.
 
     Returns
     -------
-    dict with the following keys:
-
-    ``corners``    : list[ndarray(4, 3)]
-        Flat rectangular corner points in the local tangent plane of each
-        patch, in metres.  Vertex order: ``(u−, v−), (u+, v−), (u+, v+),
-        (u−, v+)`` — counter-clockwise when viewed from outside.
-    ``centers``    : ndarray(M, 3)
-        Patch centre positions on the surface, in metres.
-    ``normals``    : ndarray(M, 3)
-        Unit outward normal vectors.
-    ``tangents_u`` : ndarray(M, 3)
-        Unit tangent vectors in the u-direction (``∂r/∂u`` normalised).
-    ``tangents_v`` : ndarray(M, 3)
-        Unit tangent vectors in the v-direction (Gram-Schmidt orthogonal to
-        ``tangents_u``).
-    ``wu``         : ndarray(M,) float32
-        Physical width of each patch in the u-direction (metres).  This is
-        the value passed to the SIR kernel as ``wx``.
-    ``wv``         : ndarray(M,) float32
-        Physical height of each patch in the v-direction (metres).
-    ``el_idx``     : list[int]
-        Parent element index for each patch (all ``0`` for single-element
-        transducers; set by the caller for multi-element arrays).
-    ``coverage``   : float
-        Fraction of the theoretical surface area (estimated by numerical
-        integration of ``||∂r/∂u × ∂r/∂v||``) that is covered by accepted
-        patches.  A value close to ``1.0`` indicates good coverage; values
-        below ``0.8`` indicate significant holes, typically from aggressive
-        ``max_patch_scale`` rejection near steep rims.
-    ``n_rejected`` : int
-        Number of patches discarded by the ``max_patch_scale`` filter.
+    dict
+        Patch mosaic with keys ``corners``, ``centers``, ``normals``,
+        ``tangents_u``, ``tangents_v``, ``wu``, ``wv``, ``el_idx``,
+        ``coverage``, and ``n_rejected``.
     """
     u0, u1 = u_range
     v0, v1 = v_range

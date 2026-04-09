@@ -176,7 +176,7 @@ def optimize_delays_apod_for_pattern(
     sigma_z=0.7,
     use_gpu=True,
     save_path=None,
-    optimizer_type = "Adam"
+    optimizer_type="Adam",
 ):
     """
     Optimize delays and apodization to match a target binary mask.
@@ -304,15 +304,15 @@ def optimize_delays_apod_for_pattern(
     # Freeze apodization
     tf._optimizable_params["apodization"].value.requires_grad = False
     tf._optimizable_params["delays"].value.requires_grad = True
-    
-    if optimizer_type == "Adam"
+
+    if optimizer_type == "Adam":
         optimizer = torch.optim.Adam(
             [
                 {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
                 {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
             ]
         )
-    elif optimizer_type == "SGD"
+    elif optimizer_type == "SGD":
         optimizer = torch.optim.SGD(
             [
                 {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
@@ -375,15 +375,15 @@ def optimize_delays_apod_for_pattern(
     # Unfreeze apodization
     tf._optimizable_params["apodization"].value.requires_grad = True
     tf._optimizable_params["delays"].value.requires_grad = True
- 
-    if optimizer_type == "Adam"
+
+    if optimizer_type == "Adam":
         optimizer = torch.optim.Adam(
             [
                 {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
                 {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
             ]
         )
-    elif optimizer_type == "SGD"
+    elif optimizer_type == "SGD":
         optimizer = torch.optim.SGD(
             [
                 {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
@@ -658,7 +658,7 @@ if __name__ == "__main__":
     lr_delays = 1e-3
     lr_apod = 1e-3
     alpha = None  # Weight for combining losses (if using combined loss)
-    optimizer_type = "SGD"
+    optimizer_type = "Adam"  # "Adam" or "SGD"
 
     # Select transducer
     if txarray == "linarray":
@@ -711,8 +711,7 @@ if __name__ == "__main__":
     def pH(lr):
         return f"pH{-np.log10(lr):.2f}"
 
-    file_name =
-    f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod1_dxlambdas{dx_lambdas}_{optimizer_type}.npz"""
+    file_name = f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod1_dxlambdas{dx_lambdas}_{optimizer_type}.npz"""
 
     save_path = str(Path(base_path) / resultsfolder / file_name)
     # print(save_path)
@@ -732,7 +731,7 @@ if __name__ == "__main__":
         batch_size=2048,
         use_gpu=True,
         save_path=save_path,
-        optimizer_type = optimizer_type
+        optimizer_type=optimizer_type,
     )
     print(
         "Max pressure at target:{:.4e}".format(results["pressure_final"].max().item())

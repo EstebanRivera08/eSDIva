@@ -1,3 +1,5 @@
+"""Sparse Delta Integration (SDI) SIR computation kernels."""
+
 import numpy as np
 from numba import njit, prange
 
@@ -9,11 +11,33 @@ inv_2pi = 1 / (2 * np.pi)
 
 @njit(inline="always")
 def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
-    """
-    Return t1,t2,t3,t4,h_max (float32).
-    dx,dy are direction cosines (xp, yp) used in your original compute.
-    dist is distance from patch center to field point (float).
-    inv_c is 1/c (float).
+    """Compute trapezoidal SIR parameters for a rectangular patch.
+
+    Parameters
+    ----------
+    wx : float
+        Patch half-width in x.
+    wy : float
+        Patch half-width in y.
+    dx : float
+        Direction component (xp) from patch centre to field point.
+    dy : float
+        Direction component (yp) from patch centre to field point.
+    dist : float
+        Distance from patch centre to field point.
+    inv_c : float
+        Inverse speed of sound (1/c).
+    apod : float
+        Apodization weight.
+    delay : float
+        Time delay in seconds.
+    dt : float
+        Time step size.
+
+    Returns
+    -------
+    tuple of float
+        ``(t1, t2, t3, t4, h_max)`` trapezoidal SIR timing parameters.
     """
     xp_abs = abs(dx) * wx * inv_c
     yp_abs = abs(dy) * wy * inv_c
@@ -55,9 +79,41 @@ def compute_parallelized_SDI_sir(
     fs,
     dt,
 ):
-    """
-    Returns d2h (P, T)
-    method_flag: 0 naive, 1 sdi, 2 auto
+    """Compute SIR via Sparse Delta Integration in parallel.
+
+    Parameters
+    ----------
+    P : int
+        Number of field points.
+    M : int
+        Number of sub-patches.
+    T : int
+        Number of time samples.
+    points : ndarray, shape (P, 3)
+        Field point coordinates.
+    center : ndarray, shape (M, 3)
+        Patch centre coordinates.
+    wx : ndarray, shape (M,)
+        Per-patch width in x.
+    wy : ndarray, shape (M,)
+        Per-patch width in y.
+    inv_c : float
+        Inverse speed of sound.
+    apodization : ndarray, shape (M,)
+        Apodization weights per patch.
+    delays : ndarray, shape (M,)
+        Delays per patch in seconds.
+    time_grid : ndarray
+        Array of time samples.
+    fs : float
+        Sampling frequency in Hz.
+    dt : float
+        Time step size.
+
+    Returns
+    -------
+    ndarray
+        Second derivative of SIR, shape ``(P, T)``.
     """
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
     t0 = time_grid[0]

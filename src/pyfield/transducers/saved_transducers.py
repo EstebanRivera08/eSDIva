@@ -1,3 +1,5 @@
+"""Pre-defined transducer configurations."""
+
 from .linear import LinearArrayTransducer
 from .matrix import MatrixArrayTransducer
 
@@ -5,11 +7,12 @@ from .matrix import MatrixArrayTransducer
 
 
 def Domino():
-    """
-    Create a Domino transducer with specific parameters.
+    """Create a Domino transducer with specific parameters.
 
-    Returns:
-        LinearArrayTransducer: An instance of the Domino transducer.
+    Returns
+    -------
+    LinearArrayTransducer
+        An instance of the Domino transducer.
     """
 
     # Create transducer with elevation focus
@@ -36,10 +39,12 @@ def Domino():
 
 
 def Zeus_Matrix():
-    """
-    Create a Zeus Matrix transducer with specific parameters.
-    Returns:
-        MatrixArrayTransducer: An instance of the Zeus Matrix transducer.
+    """Create a Zeus Matrix transducer with specific parameters.
+
+    Returns
+    -------
+    MatrixArrayTransducer
+        An instance of the Zeus Matrix transducer.
     """
 
     # Create transducer with elevation focus

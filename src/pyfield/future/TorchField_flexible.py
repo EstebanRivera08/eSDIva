@@ -142,6 +142,7 @@ class OptimizableParameter:
             val = self.transform(val)
         return val
 
+    # [TODO] : apply_contraints should be a function to be applied to values (is more general)
     def apply_constraints(self):
         """Apply constraints to parameter value."""
         if not self.constraints:

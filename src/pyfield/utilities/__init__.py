@@ -1,3 +1,5 @@
+"""Plotting and helper utility functions."""
+
 from .helper_functions import (
     compute_sub_elem_attributes,
     create_spatial_grid_from_dict,
