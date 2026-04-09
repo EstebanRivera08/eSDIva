@@ -53,7 +53,7 @@ class ComplexWave:
         self.set_params(x, omega)
 
     def __repr__(self):
-        return f"ComplexWave(x=[{self.x[0]}-{self.x[-1]}], omega=self.omega)"
+        return f"ComplexWave(x=[{self.x[0]}-{self.x[-1]}], omega={self.omega})"
 
 
 # Let's create an instance of the ComplexWave class and plot it

@@ -28,9 +28,6 @@ from pyfield.utilities import to_dB
 # ============================================================================
 # Helper Functions
 # ============================================================================
-tx = Domino()  # Global transducer for helper functions
-print(tx.element_centers())
-
 
 def compute_element_usage_penalty(apodization, sparsity_weight=0.1):
     """
@@ -171,6 +168,11 @@ class VirtualSourceOptimizer:
 
         # Initialize virtual sources at different positions
         # For plane waves: spread behind the array
+        self.element_centers_m = torch.tensor(
+                transducer.element_centers, dtype=torch.float32, device=self.device
+                )
+
+
         z_behind = -30  # mm behind array
 
         for i in range(self.n_vs):
@@ -196,7 +198,7 @@ class VirtualSourceOptimizer:
             apod_name = f"apod_{i}"
             tf.add_optimizable_parameter(
                 apod_name,
-                initial_value=np.ones(self.transducer.n_elements) / self.n_vs,
+                initial_value=np.ones(self.transducer.n_elements),
                 level="element",
                 requires_grad=True,
                 constraints={"min": 0.0, "max": 1.0},
@@ -210,9 +212,9 @@ class VirtualSourceOptimizer:
                     tx = kwargs["tx"]
                     device = kwargs["device"]
 
-                    focus_mm = [vs_mm[0], 0, vs_mm[1]]
-                    element_centers_m = tx.element_centers_m
-                    delays_s = tx.compute_delays(focus_mm=vs_mm, apply=False)
+                    focus_mm = torch.Tensor([vs_mm[0], 0, vs_mm[1]])
+                    element_centers_m = tx.element_centers
+                    distance_m = np.sqrt()                         )
                     return torch.tensor(
                         delays_s * 1e6, dtype=torch.float32, device=device
                     )
