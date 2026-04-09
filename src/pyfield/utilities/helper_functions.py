@@ -31,7 +31,7 @@ def compute_minmax_distance_patch_to_point(P, M, pts, center):
     local_max = np.empty(P, dtype=np.float32)
     local_min = np.empty(P, dtype=np.float32)
 
-    for p in prange(P):
+    for p in prange(P):  # ty: ignore[not-iterable]
         # initialize per-point values
         max_d_p = 0.0
         min_d_p = 1e30

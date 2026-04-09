@@ -103,6 +103,13 @@ omit = ["*pyfield/future/*", "*/examples/*", "*/others/*"]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
 
 # --------------------------------------------------------------------------- #
+#  codespell
+# --------------------------------------------------------------------------- #
+[tool.codespell]
+skip = "*.ipynb,*.lock,others/*,examples/*,src/pyfield/future/*,.git"
+ignore-words-list = "ser,hsi,nd,mear,apod,fo,te,bu"
+
+# --------------------------------------------------------------------------- #
 # numpydoc
 # --------------------------------------------------------------------------- #
 

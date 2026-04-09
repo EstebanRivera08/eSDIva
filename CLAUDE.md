@@ -1,12 +1,16 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Anytime a modification is performed in the project update this document in case the
+logic changes.
 
 ## Project Overview
 
 PyField is a Python acoustic field simulator based on the Tupholme–Stepanishen Spatial 
 Impulse Response (SIR) method. It models arbitrary transducer geometries as collections 
 of rectangular patches and computes pressure fields via convolution with excitation pulses.
+
+IMPORTANT: For programming guidelines see @AGENTS.md. !
 
 ## Development Commands
 
@@ -29,39 +33,17 @@ uv add <package>
 The codebase follows a modular architecture with clear separation of concerns. 
 
 1) **`src/pyfield/h_sir/`** — Spatial Impulse Response computation
-- `h_sir.py`: Main `h_sir` class that orchestrates SIR computation
-- `farfield_rect_patch.py`: Core `compute_h_sir()` function implementing Tupholme-Stepanishen formulation
-- Methods: `"naive"` (sample-wise-looping), `"sdi"` (new developped method), `"auto"` (automatic selection)
 
 2) **`src/pyfield/transducers/`** — Transducer geometry definitions
-- `base.py`: Abstract `TransducerBase` class. All transducers inherit from this and implement `_compute_element_centers()` and `_build_subdivisions()`.
-- `linear.py`: `LinearArrayTransducer`, `ConvexArrayTransducer`
-- `matrix.py`: `MatrixArrayTransducer`
-- `circular.py`: `FlatCircularTransducer`, `ConcaveCircularTransducer`, `ConvexCircularTransducer`, `FocusedCircularTransducer`
-- `custom.py`: `CustomTransducer` for assembling arbitrary multi-element configurations
-- `saved_transducers.py`: Pre-defined transducers (`Domino`, `Zeus_Matrix`)
-- `geometry_utils.py`: Geometric computation utilities
-- `validators.py`: Input validation
 
 3) **`src/pyfield/psimulation/`** — Pressure field simulation
-- `PyField.py`: Main `PyField` class that converts SIR to pressure
-- `sir_to_pressure.py`: Convolution of SIR with excitation pulses
-- Supports both monochromatic (spatial-only) and transient (spatio-temporal) simulations
 
 4) **`src/pyfield/utilities/`** — Plotting and helper functions
-- `plotting.py`: Matplotlib-based visualization (2D slices)
-- `plotting_pyvista.py`: PyVista-based 3D visualization
-- `helper_functions.py`: Field point validation, grid creation, time grid computation
-- `surface_subdivision.py`: Patch subdivision utilities
-- `transformation_functions.py`: Coordinate transformations
 
 5) **`src/pyfield/brain_atlas/`** — Brain atlas integration (Bonus for neuroscience
 applications)
-- `bg_atlas.py`: Integration with BrainGlobe atlas API
-- `transformations.py`: Coordinate transformations for brain mapping
 
 6) **`src/pyfield/scans/`** — Scanning sequence utilities 
-- `dopplerscan.py`: Doppler scanning implementations
 
 IMPORTANT NOTES: 
 - The module 1) Is the core computation engine, be careful with modifications. 
@@ -179,6 +161,19 @@ Each transducer stores:
 - Configuration: frequency, element dimensions
 
 Delays and apodization can be recomputed for different focal points without recreating the transducer.
+
+### Mono-Element vs Multi-Element Transducers
+`compute_delays()` and `compute_apodization()` are designed for element-level
+beamforming (multi-element arrays like linear, convex, and matrix transducers).
+
+For **mono-element transducers** (all circular types: flat, concave, convex, focused):
+- `compute_delays()` is ignored with a warning — the entire aperture surface acts
+  simultaneously, so element-level delays do not apply.
+- `compute_apodization()` returns uniform weights with a warning. However, **patch-wise
+  apodization** is physically meaningful (e.g. apodizing the aperture edge) and can be
+  set directly via `set_apodization()`.
+- Geometric focusing for mono-element transducers is achieved by the physical curvature
+  of the surface, not by electronic delays.
 
 ### Brain Atlas Integration
 Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires downloading atlas data (e.g., rat, mouse atlases) on first use.

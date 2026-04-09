@@ -27,7 +27,7 @@ pre-commit:
 
 # Run pre-commit verbose in failure
 pre-commit-verbose:
-    uv run prek --all-files --verbose --show-diff-on-failure
+    just pc > precommit_full.txt
 
 # Run tests with coverage report.
 coverage:

@@ -148,7 +148,7 @@ def _arclen_adapted_edges(
     s0: float,
     s1: float,
     n_cells: int,
-) -> np.ndarray:
+) -> Tuple[np.ndarray, float]:
     """
     Compute ``n_cells + 1`` parameter edge values uniformly spaced in arc-length.
 

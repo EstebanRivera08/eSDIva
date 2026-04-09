@@ -219,6 +219,7 @@ class CustomTransducer(TransducerBase):
         FoverD=None,
         apodization_type: Optional[str] = None,
         plot: bool = False,
+        inline: bool = True,
     ) -> np.ndarray:
         """
         Set per-element apodization weights.
@@ -236,14 +237,17 @@ class CustomTransducer(TransducerBase):
             For custom weight patterns, use ``set_apodization()`` directly.
         plot, FoverD : ignored
             Accepted for API consistency.
+        inline : bool
+            If True (default), store result in ``self.apodization``.
 
         Returns
         -------
         apod : ndarray, shape (n_elements,)
         """
         apod = np.ones(self.n_elements, dtype=float)
-        self.apodization = apod
-        self.apodization_type = apodization_type or "uniform"
+        if inline:
+            self.apodization = apod
+            self.apodization_type = apodization_type or "uniform"
         if plot:
             self.plot_apodization()
         return apod

@@ -450,6 +450,7 @@ class ConcaveCircularTransducer(TransducerBase):
     def _build_patch_frames(self) -> Dict:
         """Frames already built inside _build_subdivisions; just return them."""
         _ = self.sub_quad_verts  # ensures _build_subdivisions has run
+        assert self._sub_patch_frames is not None
         return self._sub_patch_frames
 
     def __repr__(self) -> str:
@@ -635,6 +636,7 @@ class ConvexCircularTransducer(TransducerBase):
     def _build_patch_frames(self) -> Dict:
         """Frames already built inside _build_subdivisions; just return them."""
         _ = self.sub_quad_verts
+        assert self._sub_patch_frames is not None
         return self._sub_patch_frames
 
     def __repr__(self) -> str:
@@ -833,6 +835,7 @@ class FocusedCircularTransducer(TransducerBase):
     def _build_patch_frames(self) -> Dict:
         """Frames already built inside _build_subdivisions; just return them."""
         _ = self.sub_quad_verts
+        assert self._sub_patch_frames is not None
         return self._sub_patch_frames
 
     def __repr__(self) -> str:

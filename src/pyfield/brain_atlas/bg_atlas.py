@@ -253,15 +253,20 @@ class BG_Atlas:
             pv_mesh_transformed (dict): A dictionary containing the transformed PyVista mesh(es).
         """
         if pv_mesh is None and not inplace:
+            if self.pv_mesh is None:
+                raise ValueError("No mesh available. Load mesh before transforming.")
             pv_mesh = {}
             for region_name, mesh in self.pv_mesh.items():
                 pv_mesh[region_name] = mesh.copy()
         elif pv_mesh is None and inplace:  # if inplace, transform the existing mesh
             # If no mesh is provided, and inplace is True use the atlas mesh
+            if self.pv_mesh is None:
+                raise ValueError("No mesh available. Load mesh before transforming.")
             pv_mesh = self.pv_mesh
 
         if T_matrix is not None:
             trans_pv_mesh = {}
+            assert pv_mesh is not None
             for region_name, mesh in pv_mesh.items():
                 trans_pv_mesh[region_name] = mesh.transform(T_matrix, inplace=True)
         else:

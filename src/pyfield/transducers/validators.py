@@ -74,7 +74,6 @@ def validate_range(
     ValueError
         If validation fails.
     """
-    cmp_op = "<=" if inclusive else "<"
     if min_val is not None:
         if inclusive and value < min_val:
             raise ValueError(f"{name} must be >= {min_val}, got {value}")

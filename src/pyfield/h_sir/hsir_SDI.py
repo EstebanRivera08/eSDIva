@@ -62,7 +62,7 @@ def compute_parallelized_SDI_sir(
     d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
     t0 = time_grid[0]
 
-    for p in prange(P):
+    for p in prange(P):  # ty: ignore[not-iterable]
         # per-point local event buffers for SDI (max 8*M entries)
         idxs = np.empty(8 * M, dtype=np.int32)
         vals = np.empty(8 * M, dtype=np.float32)

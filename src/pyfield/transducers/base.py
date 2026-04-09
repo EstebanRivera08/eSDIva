@@ -8,6 +8,7 @@ interface: delay computation, apodization, visualization, and state
 management.
 """
 
+import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -99,6 +100,7 @@ class TransducerBase(ABC):
         """Patch area in m² (same for all patches in a uniform grid)."""
         if self._sub_area is None:
             _ = self.sub_quad_verts  # trigger lazy load
+        assert self._sub_area is not None
         return self._sub_area
 
     @property
@@ -106,6 +108,7 @@ class TransducerBase(ABC):
         """Element index for each patch; maps patch → parent element."""
         if self._sub_el_idx is None:
             _ = self.sub_quad_verts
+        assert self._sub_el_idx is not None
         return self._sub_el_idx
 
     @property
@@ -149,7 +152,6 @@ class TransducerBase(ABC):
         ``_sub_patch_frames`` as a side-effect inside ``_build_subdivisions``).
         """
         verts = self.sub_quad_verts
-        M = len(verts)
         centers = np.array([v.mean(axis=0) for v in verts], dtype=np.float64)
 
         e_u = np.array([v[1] - v[0] for v in verts], dtype=np.float64)
@@ -267,6 +269,16 @@ class TransducerBase(ABC):
         delays : ndarray, shape (n_elements,)
             Delays in seconds (minimum delay is always 0).
         """
+        if self.n_elements == 1:
+            warnings.warn(
+                f"{self.name} is a mono-element transducer. "
+                "compute_delays() is ignored — the entire aperture surface "
+                "acts simultaneously, so element-level delays do not apply.",
+                UserWarning,
+                stacklevel=2,
+            )
+            return np.zeros(1)
+
         c = (
             validators.validate_speed_of_sound(c)
             if c is not None
@@ -297,6 +309,7 @@ class TransducerBase(ABC):
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = None,
         plot: bool = False,
+        inline: bool = True,
     ) -> np.ndarray:
         """
         Return uniform full-aperture apodization (all ones).
@@ -305,20 +318,35 @@ class TransducerBase(ABC):
         Multi-element subclasses (linear, matrix) override this method with
         window-based aperture selection.
 
+        For mono-element transducers, patch-wise apodization can still be
+        set directly via ``set_apodization()``.
+
         Parameters
         ----------
         focus_mm : ignored
             Accepted for API consistency with multi-element subclasses.
         FoverD, apodization_type, plot : ignored
             Accepted for API consistency.
+        inline : bool
+            If True (default), store result in ``self.apodization``.
 
         Returns
         -------
         apodization : ndarray, shape (n_elements,)
         """
+        if self.n_elements == 1:
+            warnings.warn(
+                f"{self.name} is a mono-element transducer. "
+                "compute_apodization() returns uniform weights. "
+                "Use set_apodization() for custom patch-wise weighting.",
+                UserWarning,
+                stacklevel=2,
+            )
+
         apod = np.ones(self.n_elements, dtype=float)
-        self.apodization = apod
-        self.apodization_type = "full"
+        if inline:
+            self.apodization = apod
+            self.apodization_type = "full"
         if plot:
             self.plot_apodization()
         return apod
@@ -446,6 +474,7 @@ class TransducerBase(ABC):
         if standalone:
             _, ax = plt.subplots(figsize=figsize)
 
+        assert ax is not None
         ax.plot(
             np.arange(self.n_elements),
             apodization,
@@ -479,6 +508,7 @@ class TransducerBase(ABC):
         if standalone:
             _, ax = plt.subplots(figsize=figsize)
 
+        assert ax is not None
         ax.plot(
             np.arange(self.n_elements),
             delays * 1e6,

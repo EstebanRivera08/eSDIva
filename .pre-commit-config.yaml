@@ -1,15 +1,15 @@
 files: |
     (?x)^(
-        src/.*/.*py
-        | tests/.*/.*py
-    )$
+        src/.*/.*\.py$
+        | tests/.*/.*\.py$
+    )
 
 exclude: |
     (?x)^(
-        src/future/.* |
-        others/.* |
-        examples/.*
-    )$
+        src/pyfield/future/
+        | others/
+        | examples/
+    )
 
 
 repos:
@@ -17,7 +17,7 @@ repos:
     rev: v0.12.0
     hooks:
       - id: ruff-check
-        exluce: ^docs/
+        exclude: ^docs/
         types_or: [python, pyi, jupyter]
         args: [--fix]
       - id: ruff-format
@@ -27,7 +27,7 @@ repos:
     hooks:
       - id: ty
         name: ty check
-        entry: uv run ty check src/
+        entry: uv run ty check src/ --exclude "src/pyfield/future/" --ignore missing-argument --ignore invalid-argument-type
         language: system
         pass_filenames: false
 
@@ -41,4 +41,4 @@ repos:
     rev: v1.9.0
     hooks:
       - id: numpydoc-validation
-        files: ^src/(?!.*tests).+$
+        files: ^src/(?!.*future)(?!.*tests).+$

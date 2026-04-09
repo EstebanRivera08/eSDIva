@@ -234,7 +234,7 @@ def add_2D_image(
         if key not in kwargs:
             kwargs[key] = value
 
-    vol = plotter.add_mesh(image_grid, **kwargs)
+    plotter.add_mesh(image_grid, **kwargs)
     plotter.add_axes()
     return plotter
 

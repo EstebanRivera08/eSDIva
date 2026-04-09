@@ -13,7 +13,7 @@ def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     Computes the parameters of the trapezoidal SIR for a rectangular patch aperture.
 
     Return t1,t2,t3,t4,h_max (float32).
-    dx,dy are direction componenets (xp, yp) used in your original compute.
+    dx,dy are direction components (xp, yp) used in your original compute.
     dist is distance from patch center to field point (float).
     inv_c is 1/c (float).
     """
@@ -75,7 +75,7 @@ def compute_parallelized_sir_optimized(
     # precompute threshold term for auto decision (8 + 2*T/M)
     threshold_term = 8.0 + 2.0 * (T / M)
 
-    for p in prange(P):
+    for p in prange(P):  # ty: ignore[not-iterable]
         # per-point local event buffers for SDI (max 8*M entries)
         idxs = np.empty(8 * M, dtype=np.int32)
         vals = np.empty(8 * M, dtype=np.float32)

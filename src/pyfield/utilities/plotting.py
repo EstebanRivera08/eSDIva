@@ -175,7 +175,7 @@ def plot_pressure_2D(
     )
     ax.set_xlabel(xlabel)
     ax.set_ylabel(ylabel)
-    ax._image = im
+    ax._image = im  # ty: ignore[unresolved-attribute]
     if title is not None:
         ax.set_title(title)
 
@@ -485,9 +485,6 @@ def plot_slices_2d(
     if not is_transient:
         pressure_plot = to_dB(pressure_field) if db_scale else pressure_field.copy()
         auto_title = title or "Monochromatic Pressure Field"
-        save_file = (
-            str(save_path / f"pressure_field.{save_format}") if save_path else None
-        )
         plot_pressure_planes(
             x,
             y,
@@ -775,7 +772,7 @@ def plot_deltak_distribution(
         edgecolor="black",
         alpha=0.85,
     )
-    max_count = counts.max()
+    max_count = np.max(counts)
     ax1.axvline(mean_k, color="blue", linestyle="dashed", linewidth=2)
     ax1.text(
         mean_k,

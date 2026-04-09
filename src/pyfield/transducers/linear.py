@@ -170,12 +170,11 @@ class LinearArrayTransducer(TransducerBase):
 
     def compute_apodization(
         self,
-        focus_mm,
+        focus_mm=None,
         *,
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = None,
         plot: bool = False,
-        equiv_energy: bool = False,
         inline: bool = True,
     ) -> np.ndarray:
         """
@@ -195,9 +194,6 @@ class LinearArrayTransducer(TransducerBase):
             Window shape. ``None`` defaults to ``'rect'`` with a warning.
         plot : bool
             Display the result after computation.
-        equiv_energy : bool
-            Scale Hanning/Hamming windows to maintain the same total energy
-            as a rectangular window of the same F/D.
         inline : bool
             Store result in ``self.apodization`` (default True).
 
@@ -205,6 +201,9 @@ class LinearArrayTransducer(TransducerBase):
         -------
         apod : ndarray, shape (n_elements,)
         """
+        if focus_mm is None:
+            raise ValueError("focus_mm is required for multi-element transducers.")
+
         allowed = {None, "none", "rect", "hanning", "hamming"}
         if apodization_type not in allowed:
             raise ValueError(
@@ -237,13 +236,7 @@ class LinearArrayTransducer(TransducerBase):
             N_virt = int(round((D / (N * self.pitch)) * N / 2) * 2 + (N % 2))
             N_virt = max(1, N_virt)
 
-            factor = 1.0
-            if equiv_energy:
-                factor = {"rect": 1.0, "hanning": 0.5, "hamming": 0.54}[
-                    apodization_type
-                ]
-
-            N_ext = int(np.round(N_virt / factor))
+            N_ext = N_virt
             if N_ext > N:
                 warnings.warn("Focus outside imaging window: using full aperture.")
                 N_ext = N
@@ -480,7 +473,7 @@ class ConvexArrayTransducer(TransducerBase):
 
     def compute_apodization(
         self,
-        focus_mm,
+        focus_mm=None,
         *,
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = None,
@@ -491,6 +484,9 @@ class ConvexArrayTransducer(TransducerBase):
         Compute per-element apodization.  Delegates to
         :class:`LinearArrayTransducer` logic (F/D aperture + window).
         """
+        if focus_mm is None:
+            raise ValueError("focus_mm is required for multi-element transducers.")
+
         # Reuse linear apodization — the arc curvature only matters for delays
         focus_m = validators.validate_focus_coordinates(focus_mm)
         x_foc, z_foc = focus_m[0], focus_m[2]

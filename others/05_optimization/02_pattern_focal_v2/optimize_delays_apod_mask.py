@@ -712,7 +712,7 @@ if __name__ == "__main__":
         return f"pH{-np.log10(lr):.2f}"
 
     file_name =
-    f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod1_dxlambdas{dx_lambdas}{optimizer_type}.npz"""
+    f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod1_dxlambdas{dx_lambdas}_{optimizer_type}.npz"""
 
     save_path = str(Path(base_path) / resultsfolder / file_name)
     # print(save_path)
@@ -732,7 +732,7 @@ if __name__ == "__main__":
         batch_size=2048,
         use_gpu=True,
         save_path=save_path,
-        optimizer_type = "Adam"
+        optimizer_type = optimizer_type
     )
     print(
         "Max pressure at target:{:.4e}".format(results["pressure_final"].max().item())

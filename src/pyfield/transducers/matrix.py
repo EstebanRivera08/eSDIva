@@ -188,10 +188,10 @@ class MatrixArrayTransducer(TransducerBase):
 
     def compute_apodization(
         self,
-        focus_mm,
+        focus_mm=None,
         *,
         FoverD: Optional[float] = None,
-        apodization_type: str = "circular",
+        apodization_type: Optional[str] = "circular",
         plot: bool = False,
         inline: bool = True,
     ) -> np.ndarray:
@@ -220,6 +220,9 @@ class MatrixArrayTransducer(TransducerBase):
         apod : ndarray, shape (n_elements,)
             Flattened in row-major order (y-first).
         """
+        if focus_mm is None:
+            raise ValueError("focus_mm is required for multi-element transducers.")
+
         allowed = {"none", "rect", "circular", "hanning", "hamming"}
         if apodization_type not in allowed:
             raise ValueError(f"apodization_type must be one of {allowed}.")
@@ -303,6 +306,7 @@ class MatrixArrayTransducer(TransducerBase):
         if standalone:
             _, ax = plt.subplots(figsize=figsize)
 
+        assert ax is not None
         ax.imshow(
             apodization.reshape((self.n_elem_x, self.n_elem_y)),
             cmap="cool",
@@ -336,6 +340,7 @@ class MatrixArrayTransducer(TransducerBase):
         if standalone:
             _, ax = plt.subplots(figsize=figsize)
 
+        assert ax is not None
         ax.imshow(
             delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6,
             cmap="jet",
