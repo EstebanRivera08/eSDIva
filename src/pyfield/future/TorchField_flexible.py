@@ -74,6 +74,123 @@ from .TorchField_v2 import (
 )
 
 # ============================================================================
+# Differentiable geometry builders
+# ============================================================================
+
+
+def build_rect_patch_vertices_torch(
+    element_centers: Tensor,
+    *,
+    elem_width: float,
+    elem_height: float,
+    no_sub_x: int,
+    no_sub_y: int,
+    elev_focus: float = 0.0,
+) -> Tensor:
+    """
+    Torch-differentiable equivalent of ``LinearArrayTransducer._build_subdivisions``.
+
+    Produces the full ``quad_vertices`` tensor (shape ``[n_patches, 4, 3]``)
+    used by :class:`TorchFieldFlexible`. The gradient graph is preserved
+    through ``element_centers`` so element positions can be optimized end-to-end.
+
+    The patch layout is the one used by ``LinearArrayTransducer``:
+
+    * Each element is subdivided into ``no_sub_x × no_sub_y`` rectangular
+      sub-patches laid out in the local (x, y) plane of the element.
+    * Sub-patch ordering matches the numpy builder:
+      outer loop over ``i`` (x-sub-index), inner loop over ``j`` (y-sub-index).
+    * When ``elev_focus > 0``, an elevation cylindrical lens is applied so
+      that sub-patch vertices are lifted onto an arc of radius ``elev_focus``
+      in the yz-plane (flat lens at ``elev_focus == 0``).
+
+    Parameters
+    ----------
+    element_centers : Tensor [n_elements, 3]
+        Element centre positions in metres. May require grad.
+    elem_width : float
+        Element width (x-extent) in metres.
+    elem_height : float
+        Element height (y-extent) in metres.
+    no_sub_x, no_sub_y : int
+        Number of sub-patches per element in x and y.
+    elev_focus : float, optional
+        Cylindrical elevation focal length in metres. ``0.0`` = flat lens.
+
+    Returns
+    -------
+    Tensor [n_patches, 4, 3]
+        Quad vertices in metres. Carries grad if ``element_centers`` does.
+        ``n_patches = n_elements * no_sub_x * no_sub_y``.
+        The four corners per patch are ordered (low-x low-y), (high-x low-y),
+        (high-x high-y), (low-x high-y) — same as the numpy builder.
+    """
+    device = element_centers.device
+    dtype = element_centers.dtype
+
+    # Local patch grid edges (metres), relative to the element centre
+    xs = torch.linspace(
+        -elem_width / 2, elem_width / 2, no_sub_x + 1, device=device, dtype=dtype
+    )
+    ys = torch.linspace(
+        -elem_height / 2, elem_height / 2, no_sub_y + 1, device=device, dtype=dtype
+    )
+
+    # Build the (no_sub_x, no_sub_y, 4) arrays of corner x- and y-coordinates
+    # in the element-local frame. Order: (lo-x, lo-y), (hi-x, lo-y),
+    # (hi-x, hi-y), (lo-x, hi-y) — matches LinearArrayTransducer._build_subdivisions.
+    x_lo = xs[:-1]  # [no_sub_x]
+    x_hi = xs[1:]  # [no_sub_x]
+    y_lo = ys[:-1]  # [no_sub_y]
+    y_hi = ys[1:]  # [no_sub_y]
+
+    # corner_x: [no_sub_x, 4]
+    corner_x = torch.stack([x_lo, x_hi, x_hi, x_lo], dim=1)
+    # corner_y: [no_sub_y, 4]
+    corner_y = torch.stack([y_lo, y_lo, y_hi, y_hi], dim=1)
+
+    # Broadcast to [no_sub_x, no_sub_y, 4]
+    local_x = corner_x.unsqueeze(1).expand(no_sub_x, no_sub_y, 4)
+    local_y = corner_y.unsqueeze(0).expand(no_sub_x, no_sub_y, 4)
+    local_z = torch.zeros_like(local_x)
+
+    # Apply cylindrical elevation lens (before combining with element centres)
+    if elev_focus > 0:
+        # z_offset(y) = R - sqrt(R² - y²), clamped to avoid sqrt of negative
+        R = elev_focus
+        local_z = R - torch.sqrt(torch.clamp(R * R - local_y * local_y, min=0.0))
+
+    # Stack into local_corners: [no_sub_x, no_sub_y, 4, 3]
+    local_corners = torch.stack([local_x, local_y, local_z], dim=-1)
+
+    # Flatten sub-patch grid: [no_sub_x * no_sub_y, 4, 3]
+    local_corners_flat = local_corners.reshape(no_sub_x * no_sub_y, 4, 3)
+
+    # Broadcast-add element centres. element_centers: [n_elements, 1, 1, 3]
+    # local_corners_flat:                             [1,         M, 4, 3] where M = no_sub_x*no_sub_y
+    # result:                                         [n_elements, M, 4, 3]
+    n_elements = element_centers.shape[0]
+    ec = element_centers.view(n_elements, 1, 1, 3)
+    lc = local_corners_flat.unsqueeze(0)  # [1, M, 4, 3]
+
+    if elev_focus > 0:
+        # In the numpy builder, the z-offset from the cylindrical lens
+        # REPLACES any z component of the element centre (corners[:, 2] += elev_focus - ...).
+        # For a flat linear array element_centers[:, 2] is 0, so the two
+        # formulations agree; we nevertheless mirror the numpy behaviour by
+        # only adding the (x, y) components of the element centre.
+        xy = ec[..., :2]
+        z_local = lc[..., 2:3].expand(n_elements, -1, 4, 1)
+        xy_full = lc[..., :2] + xy
+        verts = torch.cat([xy_full, z_local], dim=-1)
+    else:
+        verts = lc + ec
+
+    # Flatten to [n_patches, 4, 3]
+    return verts.reshape(n_elements * no_sub_x * no_sub_y, 4, 3)
+
+
+# ============================================================================
 # Parameter Management Classes
 # ============================================================================
 
@@ -369,8 +486,25 @@ class TorchFieldFlexible(nn.Module):
         """
         Initialize with transducer's current parameters as defaults.
 
-        Users can replace these by adding their own optimizable parameters
-        and mappings.
+        The default parameter graph is:
+
+        ::
+
+            delays         (direct)  [n_elements]        μs
+            apodization    (direct)  [n_elements]        —
+            quad_vertices  (direct)  [n_patches, 4, 3]   μm
+            patch_centers  (mapping) [n_patches, 3]      μm   = quad_vertices.mean(dim=1)
+
+        Users can override any of these by:
+
+        - Replacing a direct parameter with ``add_optimizable_parameter(name, ..., replace=True)``
+        - Adding a mapping with the same ``output`` name; mappings take
+          precedence over direct parameters in ``get_parameter``.
+
+        Using ``quad_vertices`` as the geometric foundation (instead of
+        ``patch_centers`` directly) lets higher-level transducer attributes —
+        element positions, element sizes, etc. — be optimized through a
+        differentiable chain ``attribute → quad_vertices → patch_centers → SIR``.
         """
         # Extract initial delays and apodization
         delays_init = self.tx.delays  # seconds
@@ -394,20 +528,31 @@ class TorchFieldFlexible(nn.Module):
             verbose=verbose,
         )
 
-        # Extract patch centers
-        centers = []
-        for elem_idx in range(self.n_elements):
-            for sub_idx in range(self.no_sub_x * self.no_sub_y):
-                patch_idx = elem_idx * (self.no_sub_x * self.no_sub_y) + sub_idx
-                verts = self.tx.sub_quad_verts[patch_idx]
-                centers.append(verts.mean(axis=0))
-
+        # Stack per-patch quad vertices: list of (4,3) arrays → (n_patches, 4, 3)
+        quad_verts_m = np.stack(
+            [np.asarray(v, dtype=np.float64) for v in self.tx.sub_quad_verts],
+            axis=0,
+        )
         self.add_optimizable_parameter(
-            "patch_centers",
-            initial_value=np.array(centers) * self.space_m_to_unit,  # to μm
+            "quad_vertices",
+            initial_value=quad_verts_m * self.space_m_to_unit,  # to μm
             level="patch",
             requires_grad=False,
             verbose=verbose,
+        )
+
+        # patch_centers is now a mapping derived from quad_vertices so that
+        # any chain which ultimately produces quad_vertices also produces
+        # patch_centers differentiably.
+        def _quad_vertices_to_patch_centers(**kwargs):
+            return kwargs["quad_vertices"].mean(dim=1)
+
+        self.add_parameter_mapping(
+            name="quad_vertices_to_patch_centers",
+            function=_quad_vertices_to_patch_centers,
+            inputs=["quad_vertices"],
+            output="patch_centers",
+            level="patch",
         )
 
     # ========================================================================
@@ -579,10 +724,15 @@ class TorchFieldFlexible(nn.Module):
         """
         Get a parameter value, computing it if necessary.
 
-        This handles dependency resolution:
-        1. Check if it's a direct optimizable parameter
-        2. Check if there's a mapping that computes it
-        3. Check cache
+        Resolution order (mappings take precedence over direct parameters so
+        that user-added mappings override auto-registered defaults without
+        requiring manual bookkeeping):
+
+        1. Check ``_computed_cache``
+        2. Check ``_parameter_mappings`` — if a mapping produces ``name``,
+           call it (recursing into its inputs)
+        3. Check ``_optimizable_params`` — return the direct parameter
+        4. Raise ``ValueError``
 
         Parameters
         ----------
@@ -594,26 +744,23 @@ class TorchFieldFlexible(nn.Module):
         Tensor
             Parameter value
         """
-        # Check cache first
+        # 1. Cache
         if name in self._computed_cache:
             return self._computed_cache[name]
 
-        # Check if it's a direct optimizable parameter
+        # 2. Mappings first — user-added mappings override defaults
+        for mapping in self._parameter_mappings.values():
+            if mapping.output == name:
+                input_values = {inp: self.get_parameter(inp) for inp in mapping.inputs}
+                value = mapping.compute(input_values, self.tx, self.device)
+                self._computed_cache[name] = value
+                return value
+
+        # 3. Direct optimizable parameters
         if name in self._optimizable_params:
             value = self._optimizable_params[name].get_value().to(self.device)
             self._computed_cache[name] = value
             return value
-
-        # Check if there's a mapping that computes it
-        for mapping in self._parameter_mappings.values():
-            if mapping.output == name:
-                # Get input values (recursively)
-                input_values = {inp: self.get_parameter(inp) for inp in mapping.inputs}
-
-                # Compute
-                value = mapping.compute(input_values, self.tx, self.device)
-                self._computed_cache[name] = value
-                return value
 
         raise ValueError(
             f"Parameter '{name}' not found. "
@@ -762,7 +909,7 @@ class TorchFieldFlexible(nn.Module):
         # Parse field
         x, y, z, pts, P = self._check_points(field_info_mm)
 
-        if self.verbose:
+        if self.verbose or not training:
             mode = "training" if training else "inference"
             print(f"Computing field ({mode}) for {P} points...")
 

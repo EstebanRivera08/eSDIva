@@ -10,16 +10,13 @@ The optimization searches for the best virtual source locations behind
 (or in front of) the array that produce the desired field distribution
 with minimal element activation.
 
-Usage:
-    uv run others/learning_focalization/optimize_virtual_sources.py
 """
 
-from typing import List, Tuple
+from typing import List
 
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
-import torch.nn as nn
 
 from pyfield.future.TorchField_flexible import TorchFieldFlexible
 from pyfield.transducers import Domino, LinearArrayTransducer
@@ -28,6 +25,8 @@ from pyfield.utilities import to_dB
 # ============================================================================
 # Helper Functions
 # ============================================================================
+print("torch version:", torch.__version__)
+
 
 def compute_element_usage_penalty(apodization, sparsity_weight=0.1):
     """
@@ -80,9 +79,35 @@ def compute_uniformity_loss(pr_field, target_region_mask=None):
     std_val = field_roi.std()
 
     # Avoid division by zero
-    cv = std_val / (mean_val + 1e-6)
+    cv = std_val / (mean_val + 1e-1)
 
     return cv
+
+
+def compute_transmit_energy(apodization, pressure, pressure_ref=1):
+    """
+    Measure mean energy in the field.
+
+    Higher is better - want to maximize energy delivery.
+
+    Parameters
+    ----------
+    apodization : Tensor [n_elements]
+        Element apodization values
+    mean_pressure : Tensor (scalar)
+        Mean pressure in the field
+
+    Returns
+    -------
+    Tensor (scalar)
+        Energy loss (negative of mean pressure)
+    """
+    # Energy is proportional to mean pressure and element usage
+    mean_pressure = ((pressure + 1e-1) / (pressure_ref + 1e-1)).mean()
+    energy = mean_pressure / apodization.mean()
+
+    # Return negative (want to maximize energy)
+    return -energy
 
 
 def compute_coverage_loss(pr_field, threshold=0.3):
@@ -102,7 +127,7 @@ def compute_coverage_loss(pr_field, threshold=0.3):
         Coverage loss (want to maximize, so return negative)
     """
     # Fraction of points above threshold
-    coverage = (pr_field > threshold).float().mean()
+    coverage = (pr_field > threshold).to(torch.float32).mean()
 
     # Return negative (want to maximize coverage)
     return -coverage
@@ -141,11 +166,17 @@ class VirtualSourceOptimizer:
         n_virtual_sources: int,
         field_points: dict,
         use_gpu: bool = True,
+        c: float = 1540.0,
+        z_behind: float = -3,
+        x_spacing: float = 5,
     ):
         self.transducer = transducer
         self.n_vs = n_virtual_sources
         self.field_points = field_points
         self.use_gpu = use_gpu
+        self.c = c  # Speed of sound in m/s
+        self.z_behind = z_behind  # Default distance behind array for virtual sources
+        self.x_spacing = x_spacing  # Spacing between virtual sources in mm
 
         # Device
         self.device = torch.device(
@@ -158,26 +189,20 @@ class VirtualSourceOptimizer:
 
         self._setup_virtual_sources()
 
-    def compute_delays(self, virtual_source):
-        """Compute the delays for the virtual sources"""
-        delays = torch.sqrt()
-
     def _setup_virtual_sources(self):
         """Initialize virtual sources with default positions."""
         print(f"Setting up {self.n_vs} virtual sources...")
 
         # Initialize virtual sources at different positions
         # For plane waves: spread behind the array
-        self.element_centers_m = torch.tensor(
-                transducer.element_centers, dtype=torch.float32, device=self.device
-                )
 
-
-        z_behind = -30  # mm behind array
+        self.element_centers = torch.tensor(
+            self.transducer.element_centers, dtype=torch.float32, device=self.device
+        )  # [n_elements, 3]
 
         for i in range(self.n_vs):
             # Spread in x (lateral direction)
-            x_pos = (i - self.n_vs // 2) * 5.0  # 5mm spacing
+            x_pos = (i - self.n_vs // 2) * self.x_spacing  # 5mm spacing
 
             # Create TorchField
             tf = TorchFieldFlexible(
@@ -188,20 +213,20 @@ class VirtualSourceOptimizer:
             vs_name = f"vs_{i}"
             tf.add_optimizable_parameter(
                 vs_name,
-                initial_value=[x_pos, z_behind],
+                initial_value=[x_pos, self.z_behind],
                 level="global",
                 requires_grad=True,
-                constraints={"min": -50, "max": 50},
             )
 
             # Add apodization parameter (per virtual source)
             apod_name = f"apod_{i}"
             tf.add_optimizable_parameter(
                 apod_name,
-                initial_value=np.ones(self.transducer.n_elements),
+                initial_value=self.transducer.compute_apodization(
+                    focus_mm=[x_pos, 0, self.z_behind], inline=False
+                ),
                 level="element",
                 requires_grad=True,
-                constraints={"min": 0.0, "max": 1.0},
                 transform=lambda x: torch.sigmoid(10 * (x - 0.5)),
             )
 
@@ -209,15 +234,30 @@ class VirtualSourceOptimizer:
             def make_vs_to_delays(vs_name):
                 def vs_to_delays(**kwargs):
                     vs = kwargs[vs_name]
-                    tx = kwargs["tx"]
-                    device = kwargs["device"]
+                    # Focus position in meters, preserving gradient flow by
+                    # operating directly on vs elements (no torch.stack/tensor
+                    # assembly, which is prone to breaking the graph).
+                    focus_x_m = vs[0] * 1e-3
+                    focus_z_m = torch.abs(vs[1]) * 1e-3
 
-                    focus_mm = torch.Tensor([vs_mm[0], 0, vs_mm[1]])
-                    element_centers_m = tx.element_centers
-                    distance_m = np.sqrt()                         )
-                    return torch.tensor(
-                        delays_s * 1e6, dtype=torch.float32, device=device
-                    )
+                    # Per-element distance components [n_elements]
+                    ec = self.element_centers  # [n_elements, 3]
+                    dx = ec[:, 0] - focus_x_m
+                    dy = ec[:, 1]  # y = 0 for the virtual source
+                    dz = ec[:, 2] - focus_z_m
+                    distances = torch.sqrt(dx * dx + dy * dy + dz * dz)
+                    delays_s = distances / self.c  # [n_elements]
+
+                    # Normalize delays using a Python branch on a detached scalar
+                    if vs[1].detach().item() <= 0:
+                        # Diverging wave (virtual source behind array):
+                        # earliest element fires first
+                        delays = delays_s - delays_s.min()
+                    else:
+                        # Focusing: farthest element fires first
+                        delays = delays_s.max() - delays_s
+
+                    return delays * 1e6  # us, shape [n_elements]
 
                 return vs_to_delays
 
@@ -247,9 +287,9 @@ class VirtualSourceOptimizer:
             self.torch_fields.append(tf)
             self.virtual_sources.append(vs_name)
 
-            print(f"  VS {i}: x={x_pos:.1f}, z={z_behind:.1f} mm")
+            print(f"  VS {i}: x={x_pos:.1f}, z={self.z_behind:.1f} mm")
 
-    def get_combined_field(self, batch_size=2048):
+    def get_combined_field(self, batch_size=2048, training=True):
         """
         Compute combined pressure field from all virtual sources.
 
@@ -261,13 +301,27 @@ class VirtualSourceOptimizer:
         # Compute field for each virtual source and sum
         pr_combined = None
 
-        for i, tf in enumerate(self.torch_fields):
-            x, y, z, pr_i = tf(self.field_points, training=True, batch_size=batch_size)
+        if training:
+            for i, tf in enumerate(self.torch_fields):
+                x, y, z, pr_i = tf(
+                    self.field_points, training=training, batch_size=batch_size
+                )
 
-            if pr_combined is None:
-                pr_combined = pr_i
-            else:
-                pr_combined = pr_combined + pr_i
+                if pr_combined is None:
+                    pr_combined = pr_i
+                else:
+                    pr_combined = pr_combined + pr_i
+        else:
+            with torch.no_grad():
+                for i, tf in enumerate(self.torch_fields):
+                    x, y, z, pr_i = tf(
+                        self.field_points, training=training, batch_size=batch_size
+                    )
+
+                    if pr_combined is None:
+                        pr_combined = pr_i
+                    else:
+                        pr_combined = pr_combined + pr_i
 
         return x, y, z, pr_combined
 
@@ -290,7 +344,7 @@ class VirtualSourceOptimizer:
             else:
                 apod_total = apod_total + apod_i
 
-        return apod_total.clamp(0, 1)
+        return apod_total
 
     def get_optimizable_parameters(self) -> List[torch.nn.Parameter]:
         """Get all optimizable parameters from all virtual sources."""
@@ -320,8 +374,10 @@ def optimize_virtual_sources(
     sparsity_weight: float = 0.1,
     uniformity_weight: float = 1.0,
     coverage_weight: float = 0.5,
+    energy_weight: float = 0.2,
     batch_size: int = 2048,
     use_gpu: bool = True,
+    optimizer_type: str = "SGD",
 ):
     """
     Optimize virtual source positions and element apodization.
@@ -368,15 +424,28 @@ def optimize_virtual_sources(
     )
 
     # Setup optimizer
-    optimizer = torch.optim.Adam(vs_opt.get_optimizable_parameters(), lr=lr)
+    if optimizer_type == "SGD":
+        optimizer = torch.optim.SGD(vs_opt.get_optimizable_parameters(), lr=lr)
+    elif optimizer_type == "Adam":
+        optimizer = torch.optim.Adam(vs_opt.get_optimizable_parameters(), lr=lr)
+    else:
+        raise ValueError(f"Unsupported optimizer type: {optimizer_type}")
 
     # Loss history
     loss_history = []
     uniformity_history = []
     sparsity_history = []
     coverage_history = []
+    energy_history = []
 
     # Training loop
+    print("Computing reference field...")
+    _, _, _, pr_ref = vs_opt.get_combined_field(batch_size=batch_size, training=False)
+    # training=False returns a numpy array; convert to a detached torch tensor
+    # so it can be used inside the differentiable loss expressions.
+    pr_ref = torch.as_tensor(
+        np.asarray(pr_ref), dtype=torch.float32, device=vs_opt.device
+    )
     print(f"Training for {num_epochs} epochs...")
     print()
 
@@ -384,15 +453,18 @@ def optimize_virtual_sources(
         optimizer.zero_grad()
 
         # Forward pass - get combined field
-        x, y, z, pr = vs_opt.get_combined_field(batch_size=batch_size)
+        x, y, z, pr = vs_opt.get_combined_field(batch_size=batch_size, training=True)
 
         # Normalize
         pr_norm = pr / pr.max()
 
         # Get total apodization
-        apod_total = vs_opt.get_total_apodization()
+        apod_total = vs_opt.get_total_apodization() / n_virtual_sources  # Normalize
 
         # Compute losses
+        loss_energy = compute_transmit_energy(
+            apod_total, pr, pr_ref
+        )  # Maximize mean energy
         loss_uniformity = compute_uniformity_loss(pr_norm)
         loss_sparsity = compute_element_usage_penalty(apod_total, sparsity_weight)
         loss_coverage = compute_coverage_loss(pr_norm, threshold=0.3)
@@ -402,6 +474,7 @@ def optimize_virtual_sources(
             uniformity_weight * loss_uniformity
             + sparsity_weight * loss_sparsity
             + coverage_weight * loss_coverage
+            # + energy_weight * loss_energy
         )
 
         # Backward
@@ -411,6 +484,7 @@ def optimize_virtual_sources(
 
         # Store history
         loss_history.append(loss.item())
+        energy_history.append(-loss_energy.item())  # Negate for plotting
         uniformity_history.append(loss_uniformity.item())
         sparsity_history.append(loss_sparsity.item())
         coverage_history.append(-loss_coverage.item())  # Negate for plotting
@@ -422,7 +496,8 @@ def optimize_virtual_sources(
                 f"Loss={loss.item():.4f} "
                 f"(Unif={loss_uniformity.item():.4f}, "
                 f"Sparse={loss_sparsity.item():.4f}, "
-                f"Cover={-loss_coverage.item():.4f})"
+                f"Cover={loss_coverage.item():.4f}, "
+                f"Energy={loss_energy.item():.4f})"
             )
 
     print()
@@ -440,9 +515,7 @@ def optimize_virtual_sources(
     for i, tf in enumerate(vs_opt.torch_fields):
         vs_pos = tf.get_parameter(f"vs_{i}").detach().cpu().numpy()
         vs_positions.append(vs_pos)
-        print(
-            f"VS {i}: position = [{vs_pos[0]:6.2f}, {vs_pos[1]:6.2f}, {vs_pos[2]:6.2f}] mm"
-        )
+        print(f"VS {i}: position = [x={vs_pos[0]:6.2f}, z={vs_pos[1]:6.2f}] mm")
 
     print()
     print(f"Active elements (>0.1): {(apod_final > 0.1).sum()} / {len(apod_final)}")
@@ -456,10 +529,11 @@ def optimize_virtual_sources(
         "uniformity_history": uniformity_history,
         "sparsity_history": sparsity_history,
         "coverage_history": coverage_history,
-        "x": x,
-        "y": y,
-        "z": z,
-        "pressure_final": pr_final,
+        "energy_history": energy_history,
+        "x": x.detach().cpu().numpy(),
+        "y": y.detach().cpu().numpy(),
+        "z": z.detach().cpu().numpy(),
+        "pressure_final": pr_final.detach().cpu().numpy(),
         "n_virtual_sources": n_virtual_sources,
     }
 
@@ -471,10 +545,10 @@ def optimize_virtual_sources(
 # ============================================================================
 
 
-def plot_virtual_source_results(results):
+def plot_virtual_source_results(results, output_file=None):
     """Plot virtual source optimization results."""
     fig = plt.figure(figsize=(16, 10))
-    gs = fig.add_gridspec(3, 3, hspace=0.3, wspace=0.3)
+    gs = fig.add_gridspec(3, 3)
 
     # Loss history
     ax1 = fig.add_subplot(gs[0, 0])
@@ -486,10 +560,15 @@ def plot_virtual_source_results(results):
     ax1.grid(True)
 
     # Individual loss components
+    def _norm_btwn_0_and_1(arr):
+        arr = np.array(arr)
+        return (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
+
     ax2 = fig.add_subplot(gs[0, 1])
-    ax2.plot(results["uniformity_history"], label="Uniformity")
-    ax2.plot(results["sparsity_history"], label="Sparsity")
-    ax2.plot(results["coverage_history"], label="Coverage")
+    ax2.plot(_norm_btwn_0_and_1(results["uniformity_history"]), label="Uniformity")
+    ax2.plot(_norm_btwn_0_and_1(results["sparsity_history"]), label="Sparsity")
+    ax2.plot(_norm_btwn_0_and_1(results["coverage_history"]), label="Coverage")
+    ax2.plot(_norm_btwn_0_and_1(results["energy_history"]), label="Energy")
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("Loss Component")
     ax2.set_title("Loss Components")
@@ -505,15 +584,14 @@ def plot_virtual_source_results(results):
     ax3.set_title("Element Usage (Combined)")
     ax3.legend()
     ax3.grid(True)
-    ax3.set_ylim([0, 1.05])
 
     # Virtual source positions
     ax4 = fig.add_subplot(gs[1, 0])
     vs_pos = results["virtual_source_positions"]
-    ax4.scatter(vs_pos[:, 0], vs_pos[:, 2], s=100, c="red", marker="x")
+    ax4.scatter(vs_pos[:, 0], vs_pos[:, 1], s=100, c="red", marker="x")
     for i, pos in enumerate(vs_pos):
         ax4.annotate(
-            f"VS{i}", (pos[0], pos[2]), xytext=(5, 5), textcoords="offset points"
+            f"VS{i}", (pos[0], pos[1]), xytext=(5, 5), textcoords="offset points"
         )
     ax4.axhline(0, color="k", linestyle="-", linewidth=2, label="Array")
     ax4.set_xlabel("X (mm)")
@@ -532,11 +610,11 @@ def plot_virtual_source_results(results):
     pr_xz = pr[:, y_center, :]
     pr_db = to_dB(pr_xz)
 
-    extent = [z.min(), z.max(), x.min(), x.max()]
+    extent = [x.min(), x.max(), z.min(), z.max()]
     im5 = ax5.imshow(
-        pr_db,
+        pr_db.T,
         aspect="auto",
-        origin="lower",
+        origin="upper",
         extent=extent,
         cmap="hot",
         vmin=-40,
@@ -551,9 +629,9 @@ def plot_virtual_source_results(results):
     ax6 = fig.add_subplot(gs[1, 2])
     pr_norm = pr_xz / pr_xz.max()
     im6 = ax6.imshow(
-        pr_norm,
+        pr_norm.T,
         aspect="auto",
-        origin="lower",
+        origin="upper",
         extent=extent,
         cmap="hot",
         vmin=0,
@@ -579,11 +657,10 @@ def plot_virtual_source_results(results):
     ax7.legend()
     ax7.grid(True)
 
-    plt.suptitle(
-        f"Virtual Source Optimization ({results['n_virtual_sources']} sources)",
-        fontsize=14,
-        fontweight="bold",
-    )
+    plt.tight_layout()
+    if output_file is not None:
+        plt.savefig(output_file)
+        print(f"Figure saved to: {output_file}")
     plt.show()
 
 
@@ -596,21 +673,28 @@ if __name__ == "__main__":
     print("\nOptimizing Virtual Sources for Plane Wave Imaging")
     print("=" * 70)
 
+    # Optimizer
+    data_folder = r"results/domino/"
+    optimizer_type = "SGD"  # Options: "SGD", "Adam"
+    energies = "loss_sparse_uniform_coverage"  # Options: "uniform", "sparse", "coverage", "energy"
+    num_epochs = 300
+    lr = 1e-3
+
     # Create transducer
     tx = Domino()
 
     # Field specification (imaging region)
     field_points = {
         "x_extent": [-10, 10],  # mm, lateral extent
-        "y_extent": [-0.5, 0.5],  # mm, thin slice
-        "z_extent": [10, 40],  # mm, depth range
-        "dx": 0.3,
+        "y_extent": [0, 0],  # mm, thin slice
+        "z_extent": [0, 15],  # mm, depth range
+        "dx": 0.25,
         "dy": 1.0,
-        "dz": 0.5,
+        "dz": 0.25,
     }
 
     # Test with different numbers of virtual sources
-    for n_vs in [3, 5]:
+    for n_vs in [3]:
         print(f"\n{'=' * 70}")
         print(f"Testing with {n_vs} virtual sources")
         print("=" * 70)
@@ -619,19 +703,23 @@ if __name__ == "__main__":
             tx,
             n_virtual_sources=n_vs,
             field_points=field_points,
-            num_epochs=80,
-            lr=0.05,
+            num_epochs=num_epochs,
+            lr=lr,
             sparsity_weight=0.1,
             uniformity_weight=1.0,
             coverage_weight=0.5,
+            energy_weight=0.01,
             batch_size=2048,
             use_gpu=True,
+            optimizer_type=optimizer_type,
         )
 
         # Plot results
         plot_virtual_source_results(results)
 
         # Save results
-        output_file = f"virtual_source_optimization_{n_vs}vs.npz"
+        output_file = (
+            f"vsource_{n_vs}vs_{lr}_nepoch{num_epochs}_optim{optimizer_type}.npz"
+        )
         np.savez(output_file, **results)
         print(f"\nResults saved to: {output_file}")
