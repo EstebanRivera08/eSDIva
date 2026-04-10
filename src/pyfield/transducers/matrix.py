@@ -236,7 +236,7 @@ class MatrixArrayTransducer(TransducerBase):
         N_x, N_y = self.n_elem_x, self.n_elem_y
 
         if z_foc <= 0:
-            print("z_foc ≤ 0: computing diverging-wave apodization.")
+            print("z_foc <= 0: computing diverging-wave apodization.")
 
         if apodization_type == "none":
             apod_2d = np.ones((N_x, N_y))

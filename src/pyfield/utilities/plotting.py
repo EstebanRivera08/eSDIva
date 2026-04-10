@@ -1,3 +1,5 @@
+"""Matplotlib and PyVista plotting helpers for pressure fields."""
+
 import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
@@ -11,7 +13,7 @@ def _normalize_window_size(window_size, scale=1.0):
     """
     Return ``window_size`` scaled and rounded to a valid ``(width, height)`` tuple.
 
-    PyVista requires integer pixel dimensions ≥ 1.  Applying a ``scale`` factor
+    PyVista requires integer pixel dimensions >= 1. Applying a ``scale`` factor
     (> 1 for high-res screenshots, < 1 for thumbnails) before rounding keeps the
     aspect ratio exact.
     """
@@ -80,14 +82,56 @@ def plot_pressure_field(
     **kwargs,
 ):
     """
-    Plot the pressure field in 3D.
+    Plot a 3D pressure field as a PyVista volume with bounding box and axes.
 
     Parameters
     ----------
-    pressure_field : ndarray
-        Pressure field data.
-    x, y, z : ndarray
-        Coordinate arrays.
+    x : (Nx,) numpy.ndarray
+        Lateral coordinates (mm).
+    y : (Ny,) numpy.ndarray
+        Elevation coordinates (mm).
+    z : (Nz,) numpy.ndarray
+        Axial coordinates (mm).
+    pressure_field : (Nx, Ny, Nz) numpy.ndarray
+        Pressure field samples on the grid.
+    scalars : str, optional
+        Name of the scalar array attached to the volume. Default is
+        ``"Pressure"``.
+    plotter : pyvista.Plotter, optional
+        Existing plotter to draw into. If None, a new plotter is created.
+        Default is None.
+    off_screen : bool, optional
+        Render off-screen (no window). Default is False.
+    window_size : list[int], optional
+        Window size as ``[width, height]`` in pixels before ``scale``.
+        Default is ``[520, 720]``.
+    notebook : bool, optional
+        Use notebook-mode rendering. Default is False.
+    return_mesh : bool, optional
+        If True, also return the pressure volume mesh. Default is False.
+    plot_focal_spot : bool, optional
+        Draw the focal spot as an isosurface. Default is False.
+    scale : float, optional
+        Resolution scale factor applied to the window size and fonts.
+        Default is 1.0.
+    anti_aliasing : str, optional
+        PyVista anti-aliasing mode. Default is ``"ssaa"``.
+    colorbar_title : str, optional
+        Colorbar title. If None, use the scalar name. Default is None.
+    box_color : str, optional
+        Bounding-box color. Default is ``"#b0b0b0"``.
+    box_opacity : float, optional
+        Bounding-box opacity. Default is 0.2.
+    contour_levels : int, optional
+        Number of isosurface levels. Default is 11.
+    **kwargs
+        Forwarded to ``plotter.add_mesh()``.
+
+    Returns
+    -------
+    pyvista.Plotter or tuple[pyvista.Plotter, pyvista.ImageData]
+        The configured plotter, or ``(plotter, pressure_vol)`` when
+        ``return_mesh=True``.
     """
     pv.global_theme.anti_aliasing = anti_aliasing
     # Create the pressure volume mesh
@@ -130,15 +174,34 @@ def plot_pressure_2D(
     **kwargs,
 ):
     """
-    Plot a 2D pressure plane.
+    Plot a 2D pressure plane using ``matplotlib.pyplot.imshow``.
+
     Parameters
     ----------
-    pressure_plane : ndarray
+    x : numpy.ndarray
+        First in-plane coordinate array (lateral axis of the slice, mm).
+    z : numpy.ndarray
+        Second in-plane coordinate array (axial axis of the slice, mm).
+    pressure_plane : (len(x), len(z)) numpy.ndarray
         2D pressure plane data.
-    x, z (or y) : ndarray
-        Coordinate arrays for the plane.
+    figsize : tuple[float, float], optional
+        Figure size in inches. If None, computed from the grid aspect
+        ratio. Default is None.
+    title : str, optional
+        Figure title. Default is None.
     plane_axis : str, optional
-        Axis along which the plane is taken ("x", "y", or "z"). Default is "y".
+        Axis along which the plane is taken (``"x"``, ``"y"``, or ``"z"``).
+        Default is ``"y"``.
+    ax : matplotlib.axes.Axes, optional
+        Existing axes to draw into. If None, a new figure and axes are
+        created. Default is None.
+    **kwargs
+        Forwarded to ``matplotlib.axes.Axes.imshow``.
+
+    Returns
+    -------
+    matplotlib.axes.Axes
+        The axes containing the pressure image.
     """
     cmap = kwargs.pop("cmap", "jet")
 
@@ -456,13 +519,15 @@ def plot_slices_2d(
     Returns
     -------
     None
+        Nothing is returned; the figure is shown via ``matplotlib.pyplot``
+        and, if ``save_path`` is given, frames/videos are written to disk.
     """
     import pathlib
 
     if label is None:
         label = "Pressure (dB)" if db_scale else "Pressure (a.u.)"
 
-    # ── dimensionality check ────────────────────────────────────────────────
+    # --- dimensionality check ---
     if pressure_field.ndim == 3:
         is_transient = False
     elif pressure_field.ndim == 4:
@@ -471,7 +536,7 @@ def plot_slices_2d(
     else:
         raise ValueError("pressure_field must be 3D (Nx,Ny,Nz) or 4D (Nt,Nx,Ny,Nz).")
 
-    # ── save directory ──────────────────────────────────────────────────────
+    # --- save directory ---
     if save_path is not None:
         save_path = pathlib.Path(save_path)
         save_path.mkdir(parents=True, exist_ok=True)
@@ -479,9 +544,7 @@ def plot_slices_2d(
     else:
         save_path = None
 
-    # ════════════════════════════════════════════════════════════════════════
-    # MONOCHROMATIC (3D) — delegate to plot_pressure_planes
-    # ════════════════════════════════════════════════════════════════════════
+    # === MONOCHROMATIC (3D) -- delegate to plot_pressure_planes ===
     if not is_transient:
         pressure_plot = to_dB(pressure_field) if db_scale else pressure_field.copy()
         auto_title = title or "Monochromatic Pressure Field"
@@ -500,9 +563,7 @@ def plot_slices_2d(
         )
         return
 
-    # ════════════════════════════════════════════════════════════════════════
-    # TRANSIENT (4D) — frame-by-frame animation
-    # ════════════════════════════════════════════════════════════════════════
+    # === TRANSIENT (4D) -- frame-by-frame animation ===
     print(
         f"Plotting transient pressure field: shape={pressure_field.shape}, frames={nt}"
     )
@@ -512,7 +573,7 @@ def plot_slices_2d(
         time_display = np.arange(nt).astype(float)
         time_unit = "frame"
     elif time_array[0] < 1e-3:
-        time_display = time_array * 1e6  # seconds → µs
+        time_display = time_array * 1e6  # seconds -> µs
         time_unit = "µs"
     else:
         time_display = np.asarray(time_array, dtype=float)
@@ -521,7 +582,7 @@ def plot_slices_2d(
     from matplotlib.animation import FuncAnimation
 
     # Subsample first: only process the frames that will actually be displayed.
-    # step = nt / (duration * fps)  →  n_display ≈ duration * fps frames
+    # step = nt / (duration * fps)  ->  n_display ~= duration * fps frames
     step = max(1.0, nt / (video_duration_s * fps))
     frame_indices = np.unique(np.arange(0, nt, step).astype(int))
     n_display = len(frame_indices)
@@ -556,7 +617,7 @@ def plot_slices_2d(
         vmin=vmin, vmax=vmax, cmap=cmap, interpolation=interpolation, aspect="auto"
     )
 
-    # ── Build figure (single panel for planar fields, three panels for volumes)
+    # --- Build figure (single panel for planar fields, three panels for volumes)
     if is_plane:
         fig, ax_main = plt.subplots(1, 1, figsize=figsize)
 
@@ -718,6 +779,37 @@ def plot_deltak_distribution(
     xlim=None,
     ylim=None,
 ):
+    """
+    Plot the distribution of the SDI band-limiting factor ``delta_k``.
+
+    Draws a side-by-side range plot and histogram to inspect the
+    ``delta_k`` values used by the sparse-delta-integration path.
+
+    Parameters
+    ----------
+    pyfield : pyfield.psimulation.PyField
+        Simulation instance whose last-run ``sub_elem_delta_k``, ``T_log``
+        and ``P_log`` are plotted.
+    figsize : tuple[float, float], optional
+        Figure size in inches. Default is ``(11, 4)``.
+    per_element : bool, optional
+        If True, average ``delta_k`` across sub-elements belonging to the
+        same physical element; otherwise plot per-patch values. Default is
+        True.
+    cmap : str, optional
+        Colormap for the range plot. Default is ``"turbo"``.
+    hist_color : str, optional
+        Fill color for the histogram bars. Default is ``"#AB0000E8"``.
+    xlim : tuple[float, float], optional
+        X-axis limits for the histogram. Default is None (auto).
+    ylim : tuple[float, float], optional
+        Y-axis limits for the range plot. Default is None (auto).
+
+    Returns
+    -------
+    matplotlib.figure.Figure
+        The matplotlib figure containing the two subplots.
+    """
     sub_elem_delta_k = pyfield.sub_elem_delta_k
     transducer = pyfield.tx
 

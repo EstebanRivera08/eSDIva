@@ -83,7 +83,7 @@ class LinearArrayTransducer(TransducerBase):
             validators.validate_positive(elevation_focus_mm, "elevation_focus_mm")
             if elevation_focus_mm > 0 and no_sub_y < 2:
                 raise ValueError(
-                    "elevation_focus_mm requires no_sub_y ≥ 2 to model the curved surface."
+                    "elevation_focus_mm requires no_sub_y >= 2 to model the curved surface."
                 )
 
         # --- store parameters in SI units ---
@@ -215,7 +215,7 @@ class LinearArrayTransducer(TransducerBase):
         x_foc, z_foc = focus_m[0], focus_m[2]
 
         if z_foc <= 0:
-            print("z_foc ≤ 0: computing diverging-wave apodization.")
+            print("z_foc <= 0: computing diverging-wave apodization.")
 
         N = self.n_elements
 
@@ -324,7 +324,7 @@ class ConvexArrayTransducer(TransducerBase):
     elevation_focus_mm : float, optional
         Cylindrical elevation-lens focus depth in mm.  When provided, each
         element surface is curved in the y-direction so that
-        ``z(y) = R_elev − √(R_elev² − y²)``, producing a geometric line
+        ``z(y) = R_elev - √(R_elev² - y²)``, producing a geometric line
         focus at ``elevation_focus_mm`` depth in elevation.  Equivalent to
         the acoustic lens of a focused convex probe (FIELD II
         ``xdc_focused_convex``).  Must be ≥ ``element_height_mm / 2``.
@@ -367,11 +367,13 @@ class ConvexArrayTransducer(TransducerBase):
             )
             if elevation_focus_mm < element_height_mm / 2:
                 raise ValueError(
-                    f"elevation_focus_mm ({elevation_focus_mm:.2f}) must be ≥ "
+                    f"elevation_focus_mm ({elevation_focus_mm:.2f}) must be >= "
                     f"element_height_mm/2 ({element_height_mm / 2:.2f} mm)."
                 )
             if no_sub_y < 2:
-                raise ValueError("no_sub_y must be ≥ 2 when elevation_focus_mm is set.")
+                raise ValueError(
+                    "no_sub_y must be >= 2 when elevation_focus_mm is set."
+                )
 
         self.n_elements = n_elements
         self.elem_width = element_width_mm * 1e-3
@@ -415,7 +417,7 @@ class ConvexArrayTransducer(TransducerBase):
         Element centres on the convex arc.
 
         The arc is defined with the centre of curvature at (0, 0, -R).
-        Element i at angle θ_i is at (R·sin θ_i, 0, R·(cos θ_i − 1)).
+        Element i at angle θ_i is at (R·sin θ_i, 0, R·(cos θ_i - 1)).
         """
         x = self.R * np.sin(self._thetas)
         y = np.zeros(self.n_elements)

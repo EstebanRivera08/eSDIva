@@ -37,6 +37,15 @@ Pre-commit hooks include:
 - **codespell**: Spell checking
 - **numpydoc-validation**: Docstring validation
 
+> **Windows note:** `numpydoc-validation` opens source files with the
+> platform default encoding, which is cp1252 on Windows. Several modules
+> intentionally contain UTF-8 math symbols (e.g. `θ`, `∂`, `√`, `‖…‖`) in
+> docstrings. To avoid a `UnicodeDecodeError` the pre-commit run must happen
+> with `PYTHONUTF8=1` set. `just pre-commit` does this automatically
+> (see the recipe in `justfile`); if you invoke `uv run prek run --all-files`
+> directly on Windows, set `$env:PYTHONUTF8 = "1"` (pwsh) or
+> `set PYTHONUTF8=1` (cmd) first.
+
 ### Testing
 - `just test` (or `just t`) - Run all tests with coverage
 - `just test-verbose` (or `just tv`) - Run all tests with verbose output

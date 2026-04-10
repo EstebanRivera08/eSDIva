@@ -291,10 +291,10 @@ def add_pressure_vol(
     plotter : pv.Plotter, optional
         An existing PyVista plotter to which the pressure volume will be added. If None,
         a new plotter will be created. Default is None.
-    notebook : bool, optional
-        Whether to use notebook mode for the plotter. Default is False.
     window_size : list, optional
         Size of the plot window. Default is [800, 800].
+    notebook : bool, optional
+        Whether to use notebook mode for the plotter. Default is False.
     plot_focal_spot : bool, optional
         Whether to plot the focal spot as an isosurface. Default is False.
     off_screen : bool, optional

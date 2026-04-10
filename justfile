@@ -23,7 +23,7 @@ test:
 
 # Run all pre-commit hooks.
 pre-commit:
-    uv run prek run --all-files
+    $env:PYTHONUTF8 = "1"; uv run prek run --all-files
 
 # Run pre-commit and create and output .txt file
 pre-commit-verbose:

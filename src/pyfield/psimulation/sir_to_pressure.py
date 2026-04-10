@@ -1,4 +1,5 @@
-# ...existing code...
+"""Convert a spatial impulse response (SIR) to a pressure field."""
+
 import time
 from concurrent.futures import ThreadPoolExecutor
 
@@ -17,7 +18,37 @@ def from_sir_to_monochromatic_pressure(
     h_sir, x, y, z, fc, fs, *, batch_size=2048, max_workers=None, verbose=False
 ):
     """
-    Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
+    Compute the monochromatic pressure field from the SIR at a given frequency.
+
+    Batches field points and evaluates the FFT of the SIR in parallel threads,
+    then extracts the frequency bin closest to ``fc``.
+
+    Parameters
+    ----------
+    h_sir : (T, P) numpy.ndarray
+        Spatial impulse response sampled at ``fs`` for ``P`` field points.
+    x : (Nx,) numpy.ndarray
+        Grid coordinates along the lateral axis (metres).
+    y : (Ny,) numpy.ndarray
+        Grid coordinates along the elevation axis (metres).
+    z : (Nz,) numpy.ndarray
+        Grid coordinates along the axial axis (metres).
+    fc : float
+        Center frequency at which to evaluate the pressure field (Hz).
+    fs : float
+        Sampling frequency of the SIR (Hz).
+    batch_size : int, optional
+        Number of field points processed per FFT batch. Default is 2048.
+    max_workers : int, optional
+        Maximum number of worker threads. ``None`` lets ``ThreadPoolExecutor``
+        choose. Default is None.
+    verbose : bool, optional
+        If True, print timing information. Default is False.
+
+    Returns
+    -------
+    (Nx, Ny, Nz) numpy.ndarray
+        Monochromatic pressure field magnitude at ``fc`` on the 3D grid.
     """
     start_time = time.time()
     n_points = h_sir.shape[1]
@@ -26,7 +57,8 @@ def from_sir_to_monochromatic_pressure(
     idx = np.argmin((freq_vect - fc) ** 2)
     Hsir = np.zeros(n_points, dtype=np.float32)  # FFT(h_sir) at fc
 
-    def process_batch(start):
+    def _process_batch(start):
+        """Evaluate ``|FFT(h_sir)|`` at ``fc`` for one batch of field points."""
         end = min(start + batch_size, n_points)
         fft_batch = np.fft.fft(h_sir[:, start:end], axis=0)
         return start, end, np.abs(fft_batch[idx, :])
@@ -34,7 +66,7 @@ def from_sir_to_monochromatic_pressure(
     # Parallel loop
     with ThreadPoolExecutor(max_workers=max_workers) as executor:
         for start, end, vals in executor.map(
-            process_batch, range(0, n_points, batch_size)
+            _process_batch, range(0, n_points, batch_size)
         ):
             Hsir[start:end] = vals
 
@@ -61,12 +93,42 @@ def from_sir_to_pressure(
     verbose=False,
 ):
     """
-    Compute the pressure field from the Spatial Impulse Response (SIR) in parallel.
+    Compute the transient pressure field from the SIR and an excitation pulse.
 
-    This implementation performs batched FFT convolution in frequency domain.
-    It zero-pads both the SIR columns and the derivative of the excitation
-    to a common FFT length nfft >= T + L - 1, avoiding broadcast errors and
-    producing linear convolution results. Results mimic fftconvolve(..., mode='full')[:T].
+    Batched FFT convolution in the frequency domain. Both the SIR columns and
+    the derivative of the excitation are zero-padded to a common FFT length
+    ``nfft >= T + L - 1``, producing linear convolution results that mimic
+    ``scipy.signal.fftconvolve(..., mode='full')[:T]``.
+
+    Parameters
+    ----------
+    h_sir : (T, P) numpy.ndarray
+        Spatial impulse response sampled at ``fs`` for ``P`` field points.
+    x : (Nx,) numpy.ndarray
+        Grid coordinates along the lateral axis (metres).
+    y : (Ny,) numpy.ndarray
+        Grid coordinates along the elevation axis (metres).
+    z : (Nz,) numpy.ndarray
+        Grid coordinates along the axial axis (metres).
+    fs : float
+        Sampling frequency of the SIR (Hz).
+    rho : float, optional
+        Density of the propagation medium in kg/m^3. Default is 1.
+    excitation : (L,) numpy.ndarray, optional
+        Excitation pulse samples. If None, the SIR itself is returned as the
+        pressure (identity excitation). Default is None.
+    batch_size : int, optional
+        Number of field points processed per FFT batch. Default is 2048.
+    max_workers : int, optional
+        Maximum number of worker threads. ``None`` lets ``ThreadPoolExecutor``
+        choose. Default is None.
+    verbose : bool, optional
+        If True, print timing information. Default is False.
+
+    Returns
+    -------
+    (Nx, Ny, Nz, T) numpy.ndarray
+        Transient pressure field on the 3D grid across ``T`` time samples.
     """
     # allow excitation to be None (no excitation -> identity)
 
@@ -95,7 +157,8 @@ def from_sir_to_pressure(
 
             Pressure_flat = np.zeros((T, n_points), dtype=np.float32)
 
-            def process_batch(start):
+            def _process_batch(start):
+                """Convolve one batch of SIR columns with the excitation derivative."""
                 end = min(start + batch_size, n_points)
                 cols = end - start
                 # pad h_sir columns to nfft
@@ -113,7 +176,7 @@ def from_sir_to_pressure(
             # Parallel loop: collect blocks and write to Pressure_flat
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 for start, end, out in executor.map(
-                    process_batch, range(0, n_points, batch_size)
+                    _process_batch, range(0, n_points, batch_size)
                 ):
                     Pressure_flat[:, start:end] = out.astype(np.float32, copy=False)
 

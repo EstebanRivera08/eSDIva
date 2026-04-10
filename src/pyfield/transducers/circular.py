@@ -269,7 +269,7 @@ class ConcaveCircularTransducer(TransducerBase):
     Patch vertices are lifted toward positive z according to the spherical cap
     equation:
 
-        z(r) = R − √(R² − r²),    r = √(x² + y²) ≤ D/2
+        z(r) = R - √(R² - r²),    r = √(x² + y²) ≤ D/2
 
     so the centre patch is at z = 0 and the rim patches are at z > 0.
 
@@ -339,7 +339,7 @@ class ConcaveCircularTransducer(TransducerBase):
 
         if radius_of_curvature_mm < diameter_mm / 2:
             raise ValueError(
-                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be ≥ "
+                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be >= "
                 f"diameter_mm/2 ({diameter_mm / 2:.2f}).  The focus cannot be inside "
                 "the aperture."
             )
@@ -387,7 +387,7 @@ class ConcaveCircularTransducer(TransducerBase):
 
         Uses :func:`subdivide_parametric_surface` with the surface equation
 
-            z(x, y) = R − √(R² − x² − y²)
+            z(x, y) = R - √(R² - x² - y²)
 
         so that each patch has an **arc-length** extent (wu, wv) and a local
         frame whose tangent axes lie tangent to the sphere.  This replaces the
@@ -429,7 +429,7 @@ class ConcaveCircularTransducer(TransducerBase):
             n_v=self.no_sub,
             inside_fn=lambda x, y: x * x + y * y <= self.filled_radius**2 * R_ap * R_ap,
             border_refine=self.border_refine,
-            normal_sign=1.0,  # ∂r/∂x × ∂r/∂y gives +z component → toward medium
+            normal_sign=1.0,  # ∂r/∂x × ∂r/∂y gives +z component -> toward medium
             patch_fill=self.patch_fill,
             max_patch_scale=self.max_patch_scale,
             curvature_threshold=self.curvature_threshold,
@@ -470,7 +470,7 @@ class ConvexCircularTransducer(TransducerBase):
     medium** (positive-z direction).  In contrast to
     :class:`ConcaveCircularTransducer`, which curves inward and converges to a
     geometric focus at depth ``R``, the convex surface diverges — its virtual
-    focus is at ``z = −R`` (behind the transducer).
+    focus is at ``z = -R`` (behind the transducer).
 
     This geometry models transducers that use an **acoustic refractive lens**
     to achieve focusing: the convex surface widens the natural directivity
@@ -480,8 +480,8 @@ class ConvexCircularTransducer(TransducerBase):
 
     Surface z-profile (rim at z = 0, apex at z = sag):
 
-        sag = R − √(R² − (D/2)²)
-        z(r) = sag − (R − √(R² − r²))   r = √(x² + y²) ≤ D/2
+        sag = R - √(R² - (D/2)²)
+        z(r) = sag - (R - √(R² - r²))   r = √(x² + y²) ≤ D/2
 
     Parameters
     ----------
@@ -537,7 +537,7 @@ class ConvexCircularTransducer(TransducerBase):
 
         if radius_of_curvature_mm < diameter_mm / 2:
             raise ValueError(
-                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be ≥ "
+                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be >= "
                 f"diameter_mm/2 ({diameter_mm / 2:.2f}).  The dome cannot curve more "
                 "than a hemisphere."
             )
@@ -585,7 +585,7 @@ class ConvexCircularTransducer(TransducerBase):
 
         Surface equation (apex at z = sag, rim at z = 0):
 
-            z(x, y) = sag − (R − √(R² − x² − y²))
+            z(x, y) = sag - (R - √(R² - x² - y²))
 
         Uses :func:`subdivide_parametric_surface` so patches have arc-length
         extents and tangent axes that lie tangent to the dome surface.
@@ -675,7 +675,7 @@ class FocusedCircularTransducer(TransducerBase):
 
     The curvature follows:
 
-        z(val) = R − √(R² − val²)
+        z(val) = R - √(R² - val²)
 
     where ``val`` is the x- or y-coordinate of each patch corner (depending on
     ``focus_axis``).  The centre is at z = 0 and the outer edges are lifted
@@ -742,7 +742,7 @@ class FocusedCircularTransducer(TransducerBase):
 
         if radius_of_curvature_mm < diameter_mm / 2:
             raise ValueError(
-                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be ≥ "
+                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be >= "
                 f"diameter_mm/2 ({diameter_mm / 2:.2f} mm)."
             )
 
@@ -785,7 +785,7 @@ class FocusedCircularTransducer(TransducerBase):
 
         Surface equation (curved along ``focus_axis``):
 
-            z(x, y) = R − √(R² − val²)   where val = y (or x) for focus_axis
+            z(x, y) = R - √(R² - val²)   where val = y (or x) for focus_axis
 
         Uses :func:`subdivide_parametric_surface` so each patch has arc-length
         extents and tangents tangent to the cylindrical surface.

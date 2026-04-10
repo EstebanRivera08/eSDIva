@@ -24,8 +24,8 @@ class TransducerBase(ABC):
     Abstract base class for all transducer types.
 
     Subclasses must implement:
-      - ``_compute_element_centers()`` → element positions in 3-D space
-      - ``_build_subdivisions()``      → rectangular patch geometry
+      - ``_compute_element_centers()`` -> element positions in 3-D space
+      - ``_build_subdivisions()``      -> rectangular patch geometry
 
     Everything else (delay law, apodization setter/getter, mesh generation,
     visualization, state dict) is provided here and shared by all types.
@@ -174,11 +174,11 @@ class TransducerBase(ABC):
 
         Computes each patch's local frame directly from its corner vertices:
 
-        * ``tangent_u`` = normalised ``v[1] − v[0]``  (first edge)
-        * ``tangent_v`` = ``v[3] − v[0]`` orthogonalised against ``tangent_u``
+        * ``tangent_u`` = normalised ``v[1] - v[0]``  (first edge)
+        * ``tangent_v`` = ``v[3] - v[0]`` orthogonalised against ``tangent_u``
         * ``normal``    = ``tangent_u × tangent_v``
-        * ``wu``        = ``‖v[1] − v[0]‖``
-        * ``wv``        = ``‖v[3] − v[0]‖``
+        * ``wu``        = ``‖v[1] - v[0]‖``
+        * ``wv``        = ``‖v[3] - v[0]‖``
 
         This is exact for truly flat patches and gives a good approximation
         for very gently curved surfaces.  Subclasses whose geometry is

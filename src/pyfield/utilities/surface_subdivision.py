@@ -76,7 +76,7 @@ def _arclen_adapted_edges(
     Parameters
     ----------
     metric_fn : callable
-        ``s → ||dr/ds||`` — the local arc-length scaling (metric) along the
+        ``s -> ||dr/ds||`` — the local arc-length scaling (metric) along the
         parameter axis at value *s*.
     s0, s1 : float
         Parameter-space extent.
@@ -130,7 +130,7 @@ def subdivide_parametric_surface(
     Parameters
     ----------
     surface_fn : callable
-        ``(u: float, v: float) → ndarray(3,)`` — surface position in metres.
+        ``(u: float, v: float) -> ndarray(3,)`` — surface position in metres.
         Must be C1 (continuously differentiable) within the parameter range.
     u_range : (float, float)
         Parameter-space extent ``(u_min, u_max)`` for the first axis.
@@ -142,7 +142,7 @@ def subdivide_parametric_surface(
     n_v : int
         Number of coarse patches along the v-direction.
     inside_fn : callable, optional
-        ``(u: float, v: float) → bool`` — aperture mask.  Cells entirely
+        ``(u: float, v: float) -> bool`` — aperture mask. Cells entirely
         outside are discarded; boundary cells (mixed inside/outside corners)
         are subdivided into ``border_refine²`` sub-patches and only the
         sub-patches whose centre is inside are kept.  If ``None`` all cells
@@ -290,8 +290,8 @@ def subdivide_parametric_surface(
         # surface tilt is < 0.01 % at this curvature level).
         # High-curvature mode: scale by patch_fill so the flat rectangle fits
         # within the arc-length cell without physically overlapping its
-        # neighbours.  patch_fill = 1.0 → touching; patch_fill < 1 → uniform
-        # gap proportional to (1 − patch_fill).
+        # neighbours.  patch_fill = 1.0 -> touching; patch_fill < 1 -> uniform
+        # gap proportional to (1 - patch_fill).
         if _high_curvature:
             wu_half = patch_fill * wu_half_arc
             wv_half = patch_fill * wv_half_arc

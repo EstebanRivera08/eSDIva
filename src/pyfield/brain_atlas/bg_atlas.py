@@ -1,3 +1,5 @@
+"""BrainGlobe atlas wrapper for mapping acoustic fields to anatomy."""
+
 import brainglobe_space as bg_space
 import numpy as np
 import pyvista as pv
@@ -30,6 +32,25 @@ _ATLAS_LANDMARKS: dict = {
 
 
 class BG_Atlas:
+    """Wrap a BrainGlobe atlas and align it to the PyField brain coordinate space.
+
+    Parameters
+    ----------
+    atlas_name : str, optional
+        BrainGlobe atlas name (e.g. ``"whs_sd_rat"``). If None, a list of
+        available atlases is printed. Default is None.
+    region_names : str or list[str], optional
+        Structure name(s) to load. Default is None (falls back to ``"root"``).
+    whs_voxels : dict, optional
+        Landmark voxel coordinates with keys ``"origin"``, ``"bregma"``,
+        ``"lambda"`` (each a length-3 ndarray). Default is None.
+    manual_fit : dict, optional
+        Manual alignment with keys ``"origin"`` (voxel, length-3 ndarray) and
+        ``"bregma_lambda_um"`` (scalar distance in micrometres). Default is None.
+    verbose : bool, optional
+        If True, print intermediate matrices during alignment. Default is False.
+    """
+
     def __init__(
         self,
         atlas_name=None,
@@ -62,13 +83,23 @@ class BG_Atlas:
         verbose=False,
     ):
         """
-        Set a new BrainGlobe Atlas and update the attributes.
-        Args:
-            atlas_name (str): The name of the BrainGlobe Atlas to load.
-            region_names (str or list/tuple/set): The name(s) of the structure(s) to retrieve.
-            whs_voxels (dict, optional): A dictionary containing the WHS origin, bregma, and lambda voxels.
-            manual_fit (dict, optional): A dictionary containing manual fit parameters.
-            verbose (bool, optional): Whether to print verbose output.
+        Load a BrainGlobe atlas and update the instance attributes.
+
+        Parameters
+        ----------
+        atlas_name : str
+            The name of the BrainGlobe atlas to load.
+        region_names : str or list[str], optional
+            Structure name(s) to retrieve. Default is None (falls back to
+            ``"root"``).
+        whs_voxels : dict, optional
+            Landmark voxel coordinates with keys ``"origin"``, ``"bregma"``,
+            ``"lambda"``. Default is None.
+        manual_fit : dict, optional
+            Manual alignment with keys ``"origin"`` and ``"bregma_lambda_um"``.
+            Default is None.
+        verbose : bool, optional
+            If True, print intermediate matrices. Default is False.
         """
         self.atlas_name = atlas_name
 
@@ -108,13 +139,12 @@ class BG_Atlas:
         self, bg_atlas, *, whs_voxels=None, manual_fit=None, verbose=False
     ):
         """
-        Compute the 4×4 affine matrix from BrainGlobe Atlas voxel space to
-        normalised Brain-space (BPS).
+        Compute the 4x4 affine from BrainGlobe voxel space to brain-space (BPS).
 
         The function first checks the module-level ``_ATLAS_LANDMARKS`` registry
-        for pre-calibrated landmark data.  User-supplied ``whs_voxels`` or
+        for pre-calibrated landmark data. User-supplied ``whs_voxels`` or
         ``manual_fit`` take precedence over the registry (allowing per-subject
-        overrides).  If neither is available the atlas is returned in its raw
+        overrides). If neither is available the atlas is returned in its raw
         voxel space with a warning.
 
         Parameters
@@ -123,16 +153,17 @@ class BG_Atlas:
             The loaded BrainGlobe atlas object.
         whs_voxels : dict, optional
             Landmark voxel coordinates with keys ``"origin"``, ``"bregma"``,
-            ``"lambda"`` (each a length-3 ndarray).
+            ``"lambda"`` (each a length-3 ndarray). Default is None.
         manual_fit : dict, optional
             Coarser alignment via keys ``"origin"`` (voxel, length-3 ndarray)
-            and ``"bregma_lambda_um"`` (scalar distance in µm).
+            and ``"bregma_lambda_um"`` (scalar distance in micrometres).
+            Default is None.
         verbose : bool, optional
-            Print intermediate matrices for debugging.  Default False.
+            Print intermediate matrices for debugging. Default is False.
 
         Returns
         -------
-        bgatlasToBrain : ndarray, shape (4, 4)
+        (4, 4) numpy.ndarray
             Homogeneous transform from atlas voxel indices to normalised
             brain coordinates.
         """
@@ -212,12 +243,19 @@ class BG_Atlas:
 
     def get_pv_mesh_from_atlas(self, bg_atlas, region_names):
         """
-        Get a PyVista mesh from the BrainGlobe Atlas for a given structure name.
-        Args:
-            bg_atlas (BrainGlobeAtlas): The BrainGlobe Atlas object.
-            structure_name (str or list/tuple/set): The name of the structure(s) to retrieve.
-        Returns:
-            pv_mesh (dict): A dictionary containing the PyVista mesh(es) for the specified structure(s).
+        Load PyVista mesh(es) from a BrainGlobe atlas for the given structures.
+
+        Parameters
+        ----------
+        bg_atlas : BrainGlobeAtlas
+            The BrainGlobe atlas object.
+        region_names : str or list[str]
+            The name(s) of the structure(s) to retrieve.
+
+        Returns
+        -------
+        dict[str, pyvista.PolyData]
+            Mapping of region name to its PyVista mesh.
         """
         pv_mesh = {}
         if not isinstance(region_names, str):
@@ -246,11 +284,24 @@ class BG_Atlas:
 
     def transform(self, T_matrix=None, pv_mesh=None, *, inplace=False):
         """
-        Transform the PyVista mesh using a transformation matrix.
-        Args:
-            transformation_matrix (np.ndarray): The transformation matrix to apply to the mesh.
-        Returns:
-            pv_mesh_transformed (dict): A dictionary containing the transformed PyVista mesh(es).
+        Apply an affine transformation to the stored or supplied PyVista mesh.
+
+        Parameters
+        ----------
+        T_matrix : (4, 4) numpy.ndarray, optional
+            Homogeneous transformation matrix to apply. If None, no
+            transformation is performed. Default is None.
+        pv_mesh : dict[str, pyvista.PolyData], optional
+            Mesh(es) to transform. If None, the atlas mesh stored on the
+            instance is used. Default is None.
+        inplace : bool, optional
+            If True, mutate the instance's mesh in place and return None.
+            If False, return a transformed copy. Default is False.
+
+        Returns
+        -------
+        dict[str, pyvista.PolyData] or None
+            Transformed mesh(es), or None when ``inplace=True``.
         """
         if pv_mesh is None and not inplace:
             if self.pv_mesh is None:
@@ -279,9 +330,12 @@ class BG_Atlas:
 
     def reset_mesh(self):
         """
-        Reset the PyVista mesh to the original mesh.
-        Returns:
-            pv_mesh (dict): A dictionary containing the original PyVista mesh(es).
+        Reload the PyVista mesh from the atlas and re-apply the BPS transform.
+
+        Returns
+        -------
+        dict[str, pyvista.PolyData]
+            The freshly loaded and transformed mesh(es).
         """
         self.pv_mesh = self.get_pv_mesh_from_atlas(self.bg_atlas, self.region_names)
         self.transform(self.bgatlasToBrain, inplace=True)

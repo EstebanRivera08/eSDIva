@@ -10,8 +10,9 @@ from numba import njit, prange
 @njit(parallel=True)
 def compute_minmax_distance_patch_to_point(P, M, pts, center):
     """
-    Compute the global min and max distance between all field points and all
-    patch centres.  Runs in parallel over field points via Numba's ``prange``.
+    Compute the global min and max distance between field points and patch centres.
+
+    Runs in parallel over field points via Numba's ``prange``.
 
     Parameters
     ----------
@@ -98,9 +99,9 @@ def compute_sub_elem_attributes(transducer):
     range_k : None
         Reserved for future use (Δk diagnostic storage).
     wx_arr : float32 array (M,)
-        Width of each patch (metres) — ``‖v[1]−v[0]‖``.
+        Width of each patch (metres) — ``‖v[1] - v[0]‖``.
     wy_arr : float32 array (M,)
-        Height of each patch (metres) — ``‖v[3]−v[0]‖``.
+        Height of each patch (metres) — ``‖v[3] - v[0]‖``.
     """
     centers_sub_elem, apodization_sub_elem, delays_sub_elem = [], [], []
     wx_list, wy_list = [], []
@@ -190,7 +191,7 @@ def create_spatial_grid_from_dict(simulation_struct):
         Nz += 1
 
     # Memory estimate for h_sir (P × T × 4 bytes float32).
-    # T is approximated from the z-extent: T ≈ z_range_m / c * fs (c=1540, fs=200 MHz).
+    # T is approximated from the z-extent: T ~= z_range_m / c * fs (c=1540, fs=200 MHz).
     P = Nx * Ny * Nz
     z_range_m = max(zf - z0, 1.0) * 1e-3  # at least 1 mm to avoid zero
     T_est = max(500, int(z_range_m / 1540.0 * 200e6))
@@ -198,15 +199,15 @@ def create_spatial_grid_from_dict(simulation_struct):
     if h_sir_gb >= 2.0:
         print(
             f"\nWARNING: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
-            f"estimated h_sir ≈ {h_sir_gb:.1f} GB (T≈{T_est} samples). "
+            f"estimated h_sir ~= {h_sir_gb:.1f} GB (T~={T_est} samples). "
             "This will likely cause a memory error.\n"
-            "  → Reduce dx/dy/dz, shrink the extent, or compute a 2-D plane "
+            "  -> Reduce dx/dy/dz, shrink the extent, or compute a 2-D plane "
             "(set one extent to [v, v] and its step to 0).\n"
         )
     elif h_sir_gb >= 0.5:
         print(
             f"INFO: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
-            f"estimated h_sir ≈ {h_sir_gb * 1e3:.0f} MB (T≈{T_est} samples). "
+            f"estimated h_sir ~= {h_sir_gb * 1e3:.0f} MB (T~={T_est} samples). "
             "Consider a coarser grid if memory is limited.\n"
         )
     x = np.linspace(x0, xf, Nx)

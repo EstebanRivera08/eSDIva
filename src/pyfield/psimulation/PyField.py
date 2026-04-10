@@ -43,7 +43,6 @@ class PyField:
         If True, compute monochromatic pressure field. If False, compute broadband
         pressure field. Default is True.
 
-
     Attributes
     ----------
     tx : Transducer
