@@ -453,7 +453,7 @@ def plot_slices_2d(
     db_scale=True,
     figsize=None,
     save_path=None,
-    save_format="png",
+    file_name="pressure_field",
     video_duration_s=5,
     fps=30,
     vmin=None,
@@ -491,6 +491,8 @@ def plot_slices_2d(
         - 3D: saves one image named ``pressure_field.<fmt>``.
         - 4D: saves one image per frame (``frame_NNNNN.<fmt>``) and attempts
           to assemble an mp4 video via imageio (skipped if not installed).
+    file_name : str, optional
+        Base name for saved files (without extension).  Default ``"pressure_field"``.
     save_format : str, optional
         Image format for saved frames.  Default ``"png"``.
     video_duration_s : float, optional
@@ -560,6 +562,7 @@ def plot_slices_2d(
             vmin=vmin,
             vmax=vmax,
             label=label,
+            save_path=save_path / f"{file_name}.png" if save_path else None,
         )
         return
 
@@ -749,13 +752,13 @@ def plot_slices_2d(
     if save_path:
         # n_display frames at fps gives exactly video_duration_s seconds
         save_fps = fps
-        video_path = save_path / "pressure_field_video.mp4"
+        video_path = save_path / f"{file_name}_video.mp4"
         try:
             ani.save(str(video_path), writer="ffmpeg", fps=save_fps, dpi=150)
             print(f"Video saved: {video_path.resolve()}")
         except Exception as e:
             # ffmpeg not available — fall back to pillow gif
-            gif_path = save_path / "pressure_field_video.gif"
+            gif_path = save_path / f"{file_name}_video.gif"
             try:
                 ani.save(str(gif_path), writer="pillow", fps=save_fps)
                 print(f"GIF saved (ffmpeg unavailable): {gif_path.resolve()}")

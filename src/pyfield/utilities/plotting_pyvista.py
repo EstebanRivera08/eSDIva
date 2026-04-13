@@ -390,7 +390,7 @@ def add_pressure_vol(
             },
             "label": scalars,  # label for the legend
             "color": "r",  # color of the mesh,
-            "ambient": 0.3,
+            "ambient": 0.7,
         }
         for key, value in default_kwargs.items():
             if key not in kwargs:
@@ -668,8 +668,9 @@ def load_stl_mesh(
     ...     rotation_angle=45
     ... )
     """
-    import pyvista as pv
     from pathlib import Path
+
+    import pyvista as pv
 
     # Load the STL file
     file_path = Path(file_path)
@@ -771,8 +772,9 @@ def add_stl_mesh(
     >>> plotter = add_stl_mesh("part2.stl", plotter=plotter, color="red", label="Part 2")
     >>> plotter.show()
     """
-    import pyvista as pv
     from pathlib import Path
+
+    import pyvista as pv
 
     # Create plotter if not provided
     if plotter is None:

@@ -70,6 +70,14 @@ Conceptual guides to help you understand how PyField works:
 | [Simulation Modes](user-guide/simulation.md) | Monochromatic vs transient simulations |
 | [Visualization](user-guide/visualization.md) | 2D and 3D plotting guide |
 
+### Examples
+
+Worked examples that progressively introduce PyField's features:
+
+| Page | Content |
+|------|---------|
+| [Examples Overview](examples/index.md) | Learning path from basic geometry to brain-atlas integration |
+
 ### API Reference
 
 Detailed function and class documentation:
