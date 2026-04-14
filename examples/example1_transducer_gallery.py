@@ -25,8 +25,6 @@ Run with:
     uv run examples/example1_transducer_gallery.py
 """
 
-from pathlib import Path
-
 import numpy as np
 import pyvista as pv
 
@@ -44,9 +42,7 @@ from pyfield.transducers import (
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
+from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 # Physics / transducer constants
 FC_HZ = 1.5e6  # Centre frequency (1.5 MHz)

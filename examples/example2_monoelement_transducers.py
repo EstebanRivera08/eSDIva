@@ -19,7 +19,7 @@ Run with:
     uv run examples/example2_monoelement_transducers.py
 """
 
-from pathlib import Path
+from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 from pyfield.psimulation import PyField
 from pyfield.transducers import (
@@ -33,10 +33,6 @@ from pyfield.utilities import plot_pressure_planes
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
-
 # Physics constants
 C = 1540.0  # Speed of sound (m/s)
 FREQ_HZ = 1e6  # Centre frequency

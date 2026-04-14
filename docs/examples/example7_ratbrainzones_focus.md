@@ -17,7 +17,7 @@ downloaded automatically on first run.
 
 ## Output
 
-<!-- Figures will be added after running with SAVE_FIG=True -->
+![Rat brain zones with focused pressure field](assets/rat_brain_zones.png)
 
 ## Run it
 

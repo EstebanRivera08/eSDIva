@@ -11,7 +11,7 @@ visualise the complete experimental configuration in a single 3-D scene.
 
 ## Output
 
-<!-- Figures will be added after running with SAVE_FIG=True -->
+![Full experimental scene: transducer + pressure + petri dish](assets/stl_simulation.png)
 
 ## Run it
 

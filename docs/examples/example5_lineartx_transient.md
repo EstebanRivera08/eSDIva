@@ -19,7 +19,7 @@ Demonstrates pulsed ultrasound simulation with two emission modes: focused
 
 ## Output
 
-<!-- Figures will be added after running with SAVE_FIG=True -->
+![Transient wavefront animation](assets/pressure_field_video.gif)
 
 ## Run it
 

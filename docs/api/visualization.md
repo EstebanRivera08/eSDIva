@@ -102,11 +102,11 @@ pl.show()
 
 **Linear array (Domino) — TX + pressure, 3-D view**
 
-![Linear array 3-D pressure](../assets/pressure_linear_3d.png)
+![Linear array 3-D pressure](../examples/assets/linear_array_pressure_field.png)
 
 **Matrix array (Zeus_Matrix) — TX + pressure, 3-D view**
 
-![Matrix array 3-D pressure](../assets/pressure_matrix_3d_pyvista.png)
+![Matrix array 3-D pressure](../examples/assets/matrix_array_pressure_field.png)
 
 ### `plot_deltak_distribution`
 
@@ -225,11 +225,11 @@ maps the atlas into the lab coordinate frame.
 
 **Rat brain (whs_sd_rat_39um) — Domino linear array focused at M1/S1**
 
-![Rat brain scene](../assets/brain_rat_scene.png)
+![Rat brain scene](../examples/assets/rat_brain_zones.png)
 
 **Mouse brain (allen_mouse_25um) — circular transducer focused at CA1**
 
-![Mouse brain scene](../assets/brain_mouse_scene.png)
+![Mouse brain scene](../examples/assets/brain_mouse_scene.png)
 
 ---
 

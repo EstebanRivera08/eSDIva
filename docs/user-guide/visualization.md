@@ -21,6 +21,8 @@ plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
 This produces three orthogonal slice views (XZ, XY, YZ) through the pressure
 volume. If one spatial dimension has size 1, a single 2D image is shown instead.
 
+![Monochromatic pressure planes — linear array](../examples/assets/lineartx_monochromatic.png)
+
 ### Transient fields
 
 ```python
@@ -34,6 +36,8 @@ plot_slices_2d(x, y, z, p_transient,
 
 This creates an animated display of time frames. All frames are spread evenly
 over the specified duration.
+
+![Transient wavefront animation](../examples/assets/pressure_field_video.gif)
 
 ### Tips
 
@@ -53,6 +57,9 @@ from pyfield.utilities import plot_pressure_field
 pl = plot_pressure_field(x, y, z, p, contour_levels=11)
 pl.show()
 ```
+
+![3-D pressure field — linear array](../examples/assets/linear_array_pressure_field.png)
+![3-D pressure field — matrix array](../examples/assets/matrix_array_pressure_field.png)
 
 ### Transducer visualization
 

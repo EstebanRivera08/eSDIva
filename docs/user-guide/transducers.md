@@ -35,6 +35,10 @@ steering and focusing.
 | `ConvexArrayTransducer` | Elements on a convex arc in XZ | Abdominal imaging |
 | `MatrixArrayTransducer` | 2D grid of elements | 3D volumetric imaging |
 
+![LinearArrayTransducer](../examples/assets/gallery_linear.png)
+![ConvexArrayTransducer](../examples/assets/gallery_convex.png)
+![MatrixArrayTransducer](../examples/assets/gallery_matrix.png)
+
 ### Mono-element transducers
 
 Single-element transducers with `n_elements = 1`. Focusing is purely
@@ -47,11 +51,17 @@ geometric (curved surface). Electronic steering is not available.
 | `ConvexCircularTransducer` | Spherical dome | Diverging field |
 | `FocusedCircularTransducer` | Cylindrical focus (one axis) | Line-focused TUS |
 
+![FlatCircularTransducer](../examples/assets/gallery_flat_circular.png)
+![ConcaveCircularTransducer](../examples/assets/gallery_concave.png)
+![FocusedCircularTransducer](../examples/assets/gallery_focused_circular.png)
+
 ### Composite arrays
 
 `CustomTransducer` lets you place multiple mono-element transducers at
 arbitrary positions and orientations -- useful for TUS helmets, ring arrays,
 or any non-standard layout.
+
+![CustomTransducer — TUS helmet](../examples/assets/gallery_custom_helmet.png)
 
 ## Delays and apodization
 

@@ -55,7 +55,7 @@ x, y, z, p = sim(field_points, method="auto")
 plot_slices_2d(x, y, z, p, db_scale=True, vmin=-40)
 ```
 
-![Monochromatic pressure field -- linear array](assets/pressure_linear_xz.png)
+![Monochromatic pressure field -- linear array](examples/assets/linear_array_field.png)
 
 ## Documentation sections
 

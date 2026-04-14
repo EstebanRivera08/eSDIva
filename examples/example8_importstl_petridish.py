@@ -31,9 +31,8 @@ from pyfield.utilities import add_stl_mesh, load_stl_mesh
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
+from config import FIG_FOLDER, SAVE_FIG, SCALE
+
 WIN_W, WIN_H = 800, 600
 
 # STL file location

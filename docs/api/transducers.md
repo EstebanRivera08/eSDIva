@@ -24,7 +24,7 @@ These are lazy properties — computed on first access and cached.
 1-D row of rectangular elements along the x-axis.  Supports an optional
 cylindrical elevation lens.
 
-![LinearArrayTransducer geometry](../assets/transducer_linear.png)
+![LinearArrayTransducer geometry](../examples/assets/gallery_linear.png)
 ![Linear array focal law](../assets/transducer_linear_focal_law.png)
 
 ```python
@@ -50,7 +50,7 @@ Elements arranged on a convex cylindrical arc in the XZ plane — the standard
 geometry for abdominal, cardiac, and obstetric probes.  Supports an optional
 elevation focus (acoustic lens), equivalent to FIELD II `xdc_focused_convex`.
 
-![ConvexArrayTransducer geometry](../assets/transducer_convex.png)
+![ConvexArrayTransducer geometry](../examples/assets/gallery_convex.png)
 ![Convex array focal law](../assets/transducer_convex_focal_law.png)
 
 ```python
@@ -86,7 +86,7 @@ tx.compute_apodization(focus_mm=[0, 0, 60], FoverD=1.5)
 
 ### MatrixArrayTransducer
 
-![MatrixArrayTransducer geometry](../assets/transducer_matrix.png)
+![MatrixArrayTransducer geometry](../examples/assets/gallery_matrix.png)
 ![Matrix array focal law](../assets/transducer_matrix_focal_law.png)
 
 2-D grid of rectangular elements.  Independent kerf in x and y.  Both
@@ -136,7 +136,7 @@ excitation pulse.
 
 ### FlatCircularTransducer — flat piston
 
-![FlatCircularTransducer geometry](../assets/transducer_flat_circular.png)
+![FlatCircularTransducer geometry](../examples/assets/gallery_flat_circular.png)
 
 ```python
 from pyfield.transducers import FlatCircularTransducer
@@ -172,7 +172,7 @@ behind the transducer at `z = −R`.
 
 ### ConcaveCircularTransducer — spherical bowl (TUS / HIFU)
 
-![ConcaveCircularTransducer geometry](../assets/transducer_concave_circular.png)
+![ConcaveCircularTransducer geometry](../examples/assets/gallery_concave.png)
 
 ```python
 from pyfield.transducers import ConcaveCircularTransducer
@@ -190,7 +190,7 @@ patch is equidistant from the focus at `(0, 0, R)`.
 
 ### FocusedCircularTransducer — line focus (cylindrical)
 
-![FocusedCircularTransducer geometry](../assets/transducer_focused_circular.png)
+![FocusedCircularTransducer geometry](../examples/assets/gallery_focused_circular.png)
 
 Circular disk aperture curved in **one axis only**.  Produces a line focus
 instead of a point focus.  Useful for 2-D cross-sectional imaging or
@@ -218,7 +218,7 @@ are lifted toward z > 0.
 
 ### CustomTransducer — arbitrary multi-element arrays
 
-![CustomTransducer (TUS helmet) geometry](../assets/transducer_helmet.png)
+![CustomTransducer (TUS helmet) geometry](../examples/assets/gallery_custom_helmet.png)
 
 Assemble any number of mono-element transducers at arbitrary positions and
 orientations.  Useful for TUS helmets, ring arrays, or any non-rectangular

@@ -28,7 +28,9 @@ Place the `Petri_dish.stl` file in the `examples/` folder.
 
 ## Output
 
-<!-- Figures will be added after running with SAVE_FIG=True -->
+![Simple STL visualisation](assets/stl_simple.png)
+![Multiple STL objects in one scene](assets/stl_multiple.png)
+![Custom lighting and materials](assets/stl_lighting.png)
 
 ## Run it
 

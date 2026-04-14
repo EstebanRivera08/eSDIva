@@ -15,8 +15,6 @@ Run with:
     uv run examples/example4_multielement_transducers.py
 """
 
-from pathlib import Path
-
 import numpy as np
 import pyvista as pv
 
@@ -27,9 +25,7 @@ from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
+from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 RUN_LINEAR_ARRAY = True
 RUN_MATRIX_ARRAY = True

@@ -493,8 +493,6 @@ def plot_slices_2d(
           to assemble an mp4 video via imageio (skipped if not installed).
     file_name : str, optional
         Base name for saved files (without extension).  Default ``"pressure_field"``.
-    save_format : str, optional
-        Image format for saved frames.  Default ``"png"``.
     video_duration_s : float, optional
         Total display and save duration in seconds (4D only).  All ``nt``
         frames are spread evenly over this duration.  Default 5 seconds.

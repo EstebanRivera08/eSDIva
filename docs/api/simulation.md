@@ -118,19 +118,19 @@ x, y, z, p = sim(pts_mm, method="auto")
 
 **Linear array — XZ plane (Domino probe)**
 
-![Monochromatic pressure — linear array 2D](../assets/pressure_linear_xz.png)
+![Monochromatic pressure — linear array 2D](../examples/assets/lineartx_monochromatic.png)
 
 **Linear array — 3-D isosurface view (TX + pressure)**
 
-![Monochromatic pressure — linear array 3D](../assets/pressure_linear_3d.png)
+![Monochromatic pressure — linear array 3D](../examples/assets/linear_array_pressure_field.png)
 
 **Matrix array — three orthogonal planes (Zeus_Matrix)**
 
-![Monochromatic pressure — matrix array 2D](../assets/pressure_matrix_3d.png)
+![Monochromatic pressure — matrix array 2D](../examples/assets/matrix_array_field.png)
 
 **Matrix array — 3-D isosurface view (TX + pressure)**
 
-![Monochromatic pressure — matrix array 3D](../assets/pressure_matrix_3d_pyvista.png)
+![Monochromatic pressure — matrix array 3D](../examples/assets/matrix_array_pressure_field.png)
 
 ---
 

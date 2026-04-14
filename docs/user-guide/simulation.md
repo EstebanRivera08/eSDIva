@@ -24,6 +24,8 @@ x, y, z, p = sim(field_points, method="auto")
 **When to use**: beam pattern analysis, focal spot characterization, comparing
 transducer designs.
 
+![Monochromatic CW pressure field — linear array](../examples/assets/lineartx_monochromatic.png)
+
 ## Transient simulation
 
 Computes the time-domain pressure field by convolving the SIR with an
@@ -51,6 +53,8 @@ x, y, z, p = sim(
 
 **When to use**: realistic pulse propagation, tissue heating estimates,
 waveform analysis.
+
+![Transient wavefront animation — pulsed linear array](../examples/assets/pressure_field_video.gif)
 
 ## Choosing a computation method
 

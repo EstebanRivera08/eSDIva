@@ -12,7 +12,7 @@ diverging-wave transmission (virtual source behind the array).
 
 ## Output
 
-<!-- Figures will be added after running with SAVE_FIG=True -->
+![Linear array — diverging-wave CW field](assets/lineartx_monochromatic.png)
 
 ## Run it
 

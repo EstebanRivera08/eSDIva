@@ -14,13 +14,15 @@ Thank you for your interest in contributing to PyField!
    ```bash
    uv sync
    ```
-
-3. **Run the test suite**:
+3. **Install just tool** 
+    ```bash
+    uv tool install rust-just
+    ```
+4. **Run the test suite**:
    ```bash
    just test
    ```
-
-4. **Run pre-commit hooks**:
+5. **Run pre-commit hooks**:
    ```bash
    just pre-commit
    ```
@@ -71,11 +73,3 @@ uv run pytest tests/ --cov=pyfield --cov-report=term-missing
 4. Run `just test` to verify all tests pass
 5. Open a PR with a clear description of the changes
 
-## Visual regression tests
-
-Some tests compare plot outputs against baseline images. To regenerate baselines
-after intentional visual changes:
-
-```bash
-just generate-baselines
-```

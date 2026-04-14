@@ -21,8 +21,6 @@ Run with:
     uv run examples/example5_lineartx_transient.py
 """
 
-from pathlib import Path
-
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -33,9 +31,7 @@ from pyfield.utilities import plot_slices_2d
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
+from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 # Emission mode: 1 = pulsed focused, 2 = steered with explicit excitation
 EMISSION_TYPE = 1

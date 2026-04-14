@@ -89,7 +89,7 @@ interactive scene by chaining the PyVista helper functions.
 
 ### Rat brain — Domino linear array
 
-![Rat brain atlas + Domino + pressure field](../assets/brain_rat_scene.png)
+![Rat brain atlas + Domino + pressure field](../examples/assets/rat_brain_zones.png)
 
 ```python
 import numpy as np
@@ -147,7 +147,7 @@ pl.show()
 
 ### Mouse brain — circular transducer (TUS)
 
-![Mouse brain atlas + circular TX + pressure field](../assets/brain_mouse_scene.png)
+![Mouse brain atlas + circular TX + pressure field](../examples/assets/brain_mouse_scene.png)
 
 ```python
 import numpy as np

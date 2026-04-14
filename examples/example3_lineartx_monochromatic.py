@@ -19,8 +19,6 @@ Run with:
     uv run examples/example3_lineartx_monochromatic.py
 """
 
-from pathlib import Path
-
 import numpy as np
 
 import pyfield.transducers as transducers
@@ -30,9 +28,7 @@ from pyfield.utilities import plot_slices_2d
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
+from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 # Steering configuration
 VIRTUAL_FOCUS_MM = [0, 0, -1]  # Behind the array → diverging wave

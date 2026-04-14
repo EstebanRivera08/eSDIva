@@ -88,6 +88,8 @@ from pyfield.utilities import plot_pressure_planes
 plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
 ```
 
+![Monochromatic pressure field — linear array](../examples/assets/lineartx_monochromatic.png)
+
 ## Key concepts
 
 - **Patch-based discretization**: every transducer surface is approximated by

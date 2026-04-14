@@ -21,8 +21,6 @@ Run with:
     uv run examples/example7_ratbrainzones_focus.py
 """
 
-from pathlib import Path
-
 import numpy as np
 import pyvista as pv
 
@@ -39,9 +37,8 @@ from pyfield.utilities import (
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-SAVE_FIG = True  # Set True to save figures to assets/
-FIG_FOLDER = Path(__file__).parent / "assets"
-SCALE = 3  # Resolution multiplier when saving
+from config import FIG_FOLDER, SAVE_FIG, SCALE
+
 WIN_W, WIN_H = 800, 600
 
 THEME = "dark"
