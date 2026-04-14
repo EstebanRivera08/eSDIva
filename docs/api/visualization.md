@@ -102,11 +102,11 @@ pl.show()
 
 **Linear array (Domino) — TX + pressure, 3-D view**
 
-![Linear array 3-D pressure](../examples/assets/linear_array_pressure_field.png)
+![Linear array 3-D pressure](../examples/assets/linear_array_field.png)
 
 **Matrix array (Zeus_Matrix) — TX + pressure, 3-D view**
 
-![Matrix array 3-D pressure](../examples/assets/matrix_array_pressure_field.png)
+![Matrix array 3-D pressure](../examples/assets/matrix_array_field.png)
 
 ### `plot_deltak_distribution`
 
