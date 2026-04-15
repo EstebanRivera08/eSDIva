@@ -325,7 +325,7 @@ class MatrixArrayTransducer(TransducerBase):
             _, ax = plt.subplots(figsize=figsize)
 
         assert ax is not None
-        ax.imshow(
+        im = ax.imshow(
             apodization.reshape((self.n_elem_x, self.n_elem_y)),
             cmap="cool",
             vmin=0,
@@ -335,6 +335,7 @@ class MatrixArrayTransducer(TransducerBase):
         ax.set_title(f"Apodization: {self.apodization_type}")
         ax.set_xlabel("Element x #")
         ax.set_ylabel("Element y #")
+        ax._im = im  # store for colorbar if needed
 
         if standalone:
             plt.tight_layout()
@@ -376,7 +377,7 @@ class MatrixArrayTransducer(TransducerBase):
             _, ax = plt.subplots(figsize=figsize)
 
         assert ax is not None
-        ax.imshow(
+        im = ax.imshow(
             delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6,
             cmap="jet",
             **kwargs,
@@ -384,7 +385,7 @@ class MatrixArrayTransducer(TransducerBase):
         ax.set_title("Delays (µs)")
         ax.set_xlabel("Element x #")
         ax.set_ylabel("Element y #")
-
+        ax._im = im  # store for colorbar if needed
         if standalone:
             plt.tight_layout()
             plt.show()
