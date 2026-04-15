@@ -235,17 +235,7 @@ def optimize_delays_apod_for_pattern(
     # ========================================================================
     print("\n[2/4] Setting up optimization...")
 
-    # Add sigmoid transform for apodization
-    sigmoid_transform = lambda x: torch.sigmoid(10 * (x - 0.5))
-
-    # Delay are periodic, so we can use a sigmoid transform to keep them in a
-    # reasonable range (e.g., ±2pi -> ±1/fc time)
-    max_delay = 1 / transducer.fc * 1e6  # Max delay (us) ~ one period
-
-    sigmoid_transform_delays = lambda x: max_delay * torch.sigmoid(10 / max_delay * x)
-
     # Reinitialize with optimizable parameters
-    # Start with zeros for delays, 0.5 for apodization (will be sigmoided)
     if initial_delays is None:
         initial_delays = np.zeros(transducer.n_elements)
     if initial_apod is None:
@@ -253,14 +243,38 @@ def optimize_delays_apod_for_pattern(
 
     tf = TorchFieldFlexible(transducer, use_gpu=use_gpu, verbose=False)
 
-    # Replace default parameters with optimizable ones
+    # --- Delay reparametrization via phasor (cos φ, sin φ) ---
+    # Each delay τ produces a phase shift φ = 2π·fc·τ. The acoustic field
+    # only sees exp(i·φ), so φ lives on a circle. We parametrize each
+    # element as a 2D vector (cos φ, sin φ) — unconstrained, no saturation,
+    # gradient always flows. The delay is recovered as τ = atan2(sin,cos)/(2π·fc).
+    phi_init = 2 * np.pi * transducer.fc * initial_delays  # radians
+    cos_init = np.cos(phi_init)
+    sin_init = np.sin(phi_init)
+
+    def phase_to_delays_us(delay_cos, delay_sin, tx, device):
+        """Map phasor (cos φ, sin φ) → delay in μs. τ = atan2(sin,cos) / (2π·fc)."""
+        phi = torch.atan2(delay_sin, delay_cos)
+        return phi / (2 * np.pi * tx.fc) * 1e6  # μs
+
     tf.add_optimizable_parameter(
-        "delays",
-        initial_value=initial_delays * 1e6,  # to μs
+        "delay_cos",
+        initial_value=cos_init,
         level="element",
         requires_grad=True,
-        transform=sigmoid_transform_delays,  # Apply sigmoid transform
-        replace=True,
+    )
+    tf.add_optimizable_parameter(
+        "delay_sin",
+        initial_value=sin_init,
+        level="element",
+        requires_grad=True,
+    )
+    tf.add_parameter_mapping(
+        name="phasor_to_delays",
+        function=phase_to_delays_us,
+        inputs=["delay_cos", "delay_sin"],
+        output="delays",
+        level="element",
     )
 
     tf.add_optimizable_parameter(
@@ -269,7 +283,6 @@ def optimize_delays_apod_for_pattern(
         level="element",
         requires_grad=True,
         constraints={"min": 0.0, "max": 1.0},
-        transform=sigmoid_transform,  # Apply sigmoid
         replace=True,
     )
 
@@ -288,19 +301,22 @@ def optimize_delays_apod_for_pattern(
 
     # Freeze apodization
     tf._optimizable_params["apodization"].value.requires_grad = False
-    tf._optimizable_params["delays"].value.requires_grad = True
+    tf._optimizable_params["delay_cos"].value.requires_grad = True
+    tf._optimizable_params["delay_sin"].value.requires_grad = True
 
     if optimizer_type == "Adam":
         optimizer = torch.optim.Adam(
             [
-                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_cos"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_sin"].value, "lr": lr_delays},
                 {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
             ]
         )
     elif optimizer_type == "SGD":
         optimizer = torch.optim.SGD(
             [
-                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_cos"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_sin"].value, "lr": lr_delays},
                 {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
             ]
         )
@@ -359,19 +375,22 @@ def optimize_delays_apod_for_pattern(
 
     # Unfreeze apodization
     tf._optimizable_params["apodization"].value.requires_grad = True
-    tf._optimizable_params["delays"].value.requires_grad = True
+    tf._optimizable_params["delay_cos"].value.requires_grad = True
+    tf._optimizable_params["delay_sin"].value.requires_grad = True
 
     if optimizer_type == "Adam":
         optimizer = torch.optim.Adam(
             [
-                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_cos"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_sin"].value, "lr": lr_delays},
                 {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
             ]
         )
     elif optimizer_type == "SGD":
         optimizer = torch.optim.SGD(
             [
-                {"params": tf._optimizable_params["delays"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_cos"].value, "lr": lr_delays},
+                {"params": tf._optimizable_params["delay_sin"].value, "lr": lr_delays},
                 {"params": tf._optimizable_params["apodization"].value, "lr": lr_apod},
             ]
         )
@@ -440,6 +459,13 @@ def optimize_delays_apod_for_pattern(
     print(f"Final apodization range: [{apod_final.min():.3f}, {apod_final.max():.3f}]")
 
     # Save results
+    loss_history_delays = np.array(loss_history_delays)
+    loss_history_apod = np.array(loss_history_apod)
+    if loss_history_delays.size != 0:
+        loss_history_delays = loss_history_delays - loss_history_delays.min() + 1
+    if loss_history_apod.size != 0:
+        loss_history_apod = loss_history_apod - loss_history_apod.min() + 1
+
     results = {
         "delays": delays_final,
         "apodization": apod_final,

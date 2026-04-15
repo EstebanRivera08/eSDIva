@@ -10,7 +10,7 @@ from pathlib import Path
 
 import numpy as np
 import torch
-from optimization import optimize_delays_apod_for_pattern
+from optimize_v2 import optimize_delays_apod_for_pattern
 from plotting import plot_results
 
 from pyfield import PyField
@@ -24,19 +24,26 @@ if __name__ == "__main__":
     print(torch.__version__)
 
     use_cuda = True  # Set to False if you want to run on CPU
+    if use_cuda:
+        # Free space if any used in cuda
+        torch.cuda.empty_cache()
+
     # transducer type and saving folder
     base_path = "./results/initial_conditions/"
-    txarray = "linarray"  # "linarray" or "matrixarray"
+    txarray = "matrixarray"  # "linarray" or "matrixarray"
 
     # Optimization settings
     Energy_loss_type = "log"  # "linear" or "log"
     MSE_loss_type = "log"  # "linear" or "log"
     n_delays = 0  # Skip delay optimization for this example
     n_apod = 200
-    lr_delays = 1e-3
-    lr_apod = 1e-3
+    lr_delays = 1e-2
+    lr_apod = 1e-2
+    init_apod = 0.5
     alpha = None  # Weight for combining losses (if using combined los)
     optimizer_type = "Adam"  # "Adam" or "SGD"
+    dx_lambdas = 1
+    version = "_v2"
 
     # Select transducer
     if txarray == "linarray":
@@ -68,7 +75,6 @@ if __name__ == "__main__":
         FoverD = z_focal / aperture_mm
 
     estimated_width_mm = lambda_mm * FoverD  # mm
-    dx_lambdas = 0.5
 
     print(
         f"Transducer center frequency: {fc / 1e6:.2f} MHz, wavelength: {lambda_mm:.2f}mm"
@@ -83,8 +89,8 @@ if __name__ == "__main__":
 
     # Define field points around focal region
     field_points = {
-        "x_extent": [-dx_mm * 30, dx_mm * 30],
-        "y_extent": [-dx_mm * 30, dx_mm * 30],
+        "x_extent": [-dx_mm * 15, dx_mm * 15],
+        "y_extent": [-dx_mm * 15, dx_mm * 15],
         "z_extent": [z_focal, z_focal],
         "dx": dx_mm,
         "dy": dx_mm,
@@ -107,7 +113,7 @@ if __name__ == "__main__":
     def pH(lr):
         return f"pH{-np.log10(lr):.2f}"
 
-    file_name = f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod0.5_dxlambdas{dx_lambdas}_{optimizer_type}_sigmoiddelays.npz"""
+    file_name = f"""optim_{txarray}_zfoc{z_focal}_loss1{Energy_loss_type}_loss2{MSE_loss_type}_ndel{n_delays}_napod{n_apod}_lrdel{pH(lr_delays)}_lrapod{pH(lr_apod)}_initdel0_initapod{init_apod}_dxlambdas{dx_lambdas}_{optimizer_type}{version}.npz"""
 
     save_path = str(Path(base_path) / resultsfolder / file_name)
     # print(save_path)
@@ -116,7 +122,7 @@ if __name__ == "__main__":
         target,
         field_points,
         initial_delays=None,
-        initial_apod=np.ones(tx.n_elements) / 2,
+        initial_apod=np.ones(tx.n_elements) * init_apod,
         num_epochs_delays=n_delays,
         num_epochs_apod=n_apod,
         loss1_type=Energy_loss_type,
