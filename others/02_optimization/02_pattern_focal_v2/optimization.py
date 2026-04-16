@@ -440,6 +440,14 @@ def optimize_delays_apod_for_pattern(
     print(f"Final apodization range: [{apod_final.min():.3f}, {apod_final.max():.3f}]")
 
     # Save results
+    loss_history_delays = np.array(loss_history_delays)
+    loss_history_apod = np.array(loss_history_apod)
+    if loss_history_apod.size != 0:
+        loss_history_delays = loss_history_delays - loss_history_apod.min() + 1
+        loss_history_apod = loss_history_apod - loss_history_apod.min() + 1
+    else:
+        loss_history_delays = loss_history_delays - loss_history_delays.min() + 1
+
     results = {
         "delays": delays_final,
         "apodization": apod_final,

@@ -41,17 +41,17 @@ Example - Element Position Optimization:
     ... )
     >>>
     >>> # Map element positions to patch centers
-    >>> def compute_patches_from_positions(element_offsets, tx):
+    >>> def compute_quad_vert_from_positions(element_offsets, tx):
     ...     # Recompute patch centers with offsets
     ...     ...
-    >>>
     >>> tf.add_parameter_mapping(
-    ...     name='positions_to_patches',
-    ...     function=compute_patches_from_positions,
+    ...     name='positions_to_quad_vertices',
+    ...     function=compute_quad_vert_from_positions,
     ...     inputs=['element_offsets'],
-    ...     output='patch_centers',
+    ...     output='quad_vertices',
     ...     level='patch'
-    ... )
+    ...     )
+     ... )
 """
 
 import math
@@ -287,7 +287,7 @@ class ParameterMapping:
 
     This enables complex parameter transformations like:
     - virtual_source → delays
-    - element_positions → patch_centers
+    - element_positions → quad_vertices -> patch_centers
     - custom_apod_params → apodization
 
     Parameters
@@ -539,20 +539,6 @@ class TorchFieldFlexible(nn.Module):
             level="patch",
             requires_grad=False,
             verbose=verbose,
-        )
-
-        # patch_centers is now a mapping derived from quad_vertices so that
-        # any chain which ultimately produces quad_vertices also produces
-        # patch_centers differentiably.
-        def _quad_vertices_to_patch_centers(**kwargs):
-            return kwargs["quad_vertices"].mean(dim=1)
-
-        self.add_parameter_mapping(
-            name="quad_vertices_to_patch_centers",
-            function=_quad_vertices_to_patch_centers,
-            inputs=["quad_vertices"],
-            output="patch_centers",
-            level="patch",
         )
 
     # ========================================================================
@@ -819,7 +805,9 @@ class TorchFieldFlexible(nn.Module):
         # Get required parameters (computed via mappings if needed)
         delays_elem = self.get_parameter("delays")  # [n_elements] in μs
         apod_elem = self.get_parameter("apodization")  # [n_elements]
-        patch_centers = self.get_parameter("patch_centers")  # [n_patches, 3] in μm
+        quad_vertices = self.get_parameter("quad_vertices")  # [n_patches, 4, 3] in μm
+
+        patch_centers = quad_vertices.mean(dim=1)  # [n_patches, 3] in μm
 
         # Expand element-level to patch-level
         delays_patch = delays_elem.repeat_interleave(self.no_sub_x * self.no_sub_y)

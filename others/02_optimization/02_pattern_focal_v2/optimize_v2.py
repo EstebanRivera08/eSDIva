@@ -116,16 +116,14 @@ def loss_energy(y_target_3D, pr, loss_type="linear"):
         Log loss value
     """
 
+    E_focus = y_target_3D * pr**2
+    E_sides = (1 - y_target_3D) * pr**2
+
     if loss_type != "linear":
-        E_focus = y_target_3D * pr**2
-        E_sides = (1 - y_target_3D) * pr**2
         # Log loss: maximize focus, minimize sides
         log_loss = dB(E_sides.mean()) - dB(E_focus.mean())
     else:
-        # Energy in focal region
-        E_focus = y_target_3D * pr
         # Energy outside focal region
-        E_sides = (1 - y_target_3D) * pr
         log_loss = (E_sides.mean() + 1e-6) / (E_focus.mean() + 1e-6)
 
     return log_loss
@@ -253,7 +251,7 @@ def optimize_delays_apod_for_pattern(
     sin_init = np.sin(phi_init)
 
     def phase_to_delays_us(delay_cos, delay_sin, tx, device):
-        """Map phasor (cos φ, sin φ) → delay in μs. τ = atan2(sin,cos) / (2π·fc)."""
+        """Map phasor (cos phi, sin phi) → delay in μs. delay = atan2(sin,cos) / (2π·fc)."""
         phi = torch.atan2(delay_sin, delay_cos)
         return phi / (2 * np.pi * tx.fc) * 1e6  # μs
 
@@ -461,10 +459,11 @@ def optimize_delays_apod_for_pattern(
     # Save results
     loss_history_delays = np.array(loss_history_delays)
     loss_history_apod = np.array(loss_history_apod)
-    if loss_history_delays.size != 0:
-        loss_history_delays = loss_history_delays - loss_history_delays.min() + 1
     if loss_history_apod.size != 0:
+        loss_history_delays = loss_history_delays - loss_history_apod.min() + 1
         loss_history_apod = loss_history_apod - loss_history_apod.min() + 1
+    else:
+        loss_history_delays = loss_history_delays - loss_history_delays.min() + 1
 
     results = {
         "delays": delays_final,

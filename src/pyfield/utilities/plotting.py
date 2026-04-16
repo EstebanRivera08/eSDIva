@@ -66,12 +66,13 @@ def plot_pressure_field(
     z,
     pressure_field,
     *,
+    show_fig=True,
+    save_path=None,
     scalars="Pressure",
     plotter=None,
     off_screen=False,
     window_size=[520, 720],
     notebook=False,
-    return_mesh=False,
     plot_focal_spot=False,
     scale=1.0,
     anti_aliasing="ssaa",
@@ -79,6 +80,9 @@ def plot_pressure_field(
     box_color="#b0b0b0",
     box_opacity=0.2,
     contour_levels=11,
+    camera_position=None,
+    camera_elevation=None,
+    camera_azimuth=None,
     **kwargs,
 ):
     """
@@ -94,6 +98,11 @@ def plot_pressure_field(
         Axial coordinates (mm).
     pressure_field : (Nx, Ny, Nz) numpy.ndarray
         Pressure field samples on the grid.
+    save_path : str or Path, optional
+        If given, save a screenshot of the figure to this path. Default is None
+        (no saving).
+    show_fig : bool, optional
+        If True, call ``plotter.show()`` to display the figure. Default is True.
     scalars : str, optional
         Name of the scalar array attached to the volume. Default is
         ``"Pressure"``.
@@ -107,8 +116,6 @@ def plot_pressure_field(
         Default is ``[520, 720]``.
     notebook : bool, optional
         Use notebook-mode rendering. Default is False.
-    return_mesh : bool, optional
-        If True, also return the pressure volume mesh. Default is False.
     plot_focal_spot : bool, optional
         Draw the focal spot as an isosurface. Default is False.
     scale : float, optional
@@ -124,6 +131,12 @@ def plot_pressure_field(
         Bounding-box opacity. Default is 0.2.
     contour_levels : int, optional
         Number of isosurface levels. Default is 11.
+    camera_position : str or list or None, optional
+        Camera position for PyVista. If None, use the default. Default is None.
+    camera_elevation : float or None, optional
+        Camera elevation angle in degrees. If None, use the default. Default is None.
+    camera_azimuth : float or None, optional
+        Camera azimuth angle in degrees. If None, use the default. Default is None.
     **kwargs
         Forwarded to ``plotter.add_mesh()``.
 
@@ -134,6 +147,14 @@ def plot_pressure_field(
         ``return_mesh=True``.
     """
     pv.global_theme.anti_aliasing = anti_aliasing
+
+    if save_path is not None:
+        from pathlib import Path
+
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        scale = 3  # override default scale for high-res screenshots
+        off_screen = True  # render off-screen for saving
+
     # Create the pressure volume mesh
     pressure_vol = create_vol_mesh(x, y, z, pressure_field, scalars=scalars)
     box = pressure_vol.bounding_box()
@@ -157,8 +178,21 @@ def plot_pressure_field(
     _ = plotter.add_mesh(box, opacity=box_opacity, color=box_color)
 
     _set_custom_style(plotter, scale=scale)
-    if return_mesh:
-        return plotter, pressure_vol
+
+    plotter.camera_position = camera_position
+    plotter.camera.elevation = camera_elevation
+    plotter.camera.azimuth = camera_azimuth
+
+    if save_path is not None:
+        from pathlib import Path
+
+        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        plotter.screenshot(str(save_path), transparent_background=True)
+        print(f"\nPlot saved to: {save_path}")
+
+    elif show_fig:
+        plotter.show()
+
     return plotter
 
 

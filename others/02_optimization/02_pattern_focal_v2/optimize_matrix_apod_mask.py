@@ -15,11 +15,19 @@ from plotting import plot_results
 
 from pyfield import PyField
 from pyfield.transducers import Domino, Zeus_Matrix
-from pyfield.utilities import plot_pressure_planes
+from pyfield.utilities import plot_pressure_field, plot_pressure_planes
 
 if __name__ == "__main__":
     print("\nExample 1: Linear Array - Focal Point Pattern")
     print("-" * 70)
+
+    # ----------------- Load target pattern -----------------
+    target_folder = r".\target_masks"
+    target_filename = f"\matrix_customtarget2.npz"
+    print(f"Loading target pattern {target_filename}")
+    target_dic = np.load(target_folder + target_filename)
+    target = target_dic["target"].T
+    nx, ny = target.shape
 
     print(torch.__version__)
 
@@ -29,21 +37,23 @@ if __name__ == "__main__":
         torch.cuda.empty_cache()
 
     # transducer type and saving folder
-    base_path = "./results/initial_conditions/"
+    base_path = "./results/custommask/"
     txarray = "matrixarray"  # "linarray" or "matrixarray"
+    c = 1540  # m/s
+    z_focal = 5  # mm
 
     # Optimization settings
-    Energy_loss_type = "log"  # "linear" or "log"
-    MSE_loss_type = "log"  # "linear" or "log"
-    n_delays = 0  # Skip delay optimization for this example
+    Energy_loss_type = "linear"  # "linear" or "log"
+    MSE_loss_type = "linear"  # "linear" or "log"
+    n_delays = 100  # Skip delay optimization for this example
     n_apod = 200
     lr_delays = 1e-2
     lr_apod = 1e-2
-    init_apod = 0.5
+    init_apod = 1
     alpha = None  # Weight for combining losses (if using combined los)
     optimizer_type = "Adam"  # "Adam" or "SGD"
-    dx_lambdas = 1
-    version = "_v2"
+    dx_lambdas = 1.3
+    version = "col"
 
     # Select transducer
     if txarray == "linarray":
@@ -55,8 +65,6 @@ if __name__ == "__main__":
         resultsfolder = "matrix"
 
     # Field specification
-    c = 1540  # m/s
-    z_focal = 5  # mm
     fc = tx.fc  # Hz
     if txarray == "linarray":
         aperture_mm = tx.n_elements * tx.pitch * 1e3  # mm
@@ -88,26 +96,28 @@ if __name__ == "__main__":
         dx_mm = min_dx_mm
 
     # Define field points around focal region
+
     field_points = {
-        "x_extent": [-dx_mm * 15, dx_mm * 15],
-        "y_extent": [-dx_mm * 15, dx_mm * 15],
+        "x_extent": [-dx_mm * nx / 2, dx_mm * nx / 2],
+        "y_extent": [-dx_mm * ny / 2, dx_mm * ny / 2],
         "z_extent": [z_focal, z_focal],
         "dx": dx_mm,
         "dy": dx_mm,
         "dz": 0.5,
     }
 
+    # -------------- point like target --------------
     # Create target: single focal point
-    Dx = field_points["x_extent"][1] - field_points["x_extent"][0]
-    Dy = field_points["y_extent"][1] - field_points["y_extent"][0]
-    nx, ny = int(Dx / field_points["dx"]), int(Dy / field_points["dy"])
-    if nx % 2 == 0:
-        print(nx, nx % 2)
-        nx += 1
-    if ny % 2 == 0:
-        ny += 1
-    target = np.zeros((nx, ny))
-    target[nx // 2, ny // 2] = 1  # Center point
+    # Dx = field_points["x_extent"][1] - field_points["x_extent"][0]
+    # Dy = field_points["y_extent"][1] - field_points["y_extent"][0]
+    # nx, ny = int(Dx / field_points["dx"]), int(Dy / field_points["dy"])
+    # if nx % 2 == 0:
+    #     print(nx, nx % 2)
+    #     nx += 1
+    # if ny % 2 == 0:
+    #     ny += 1
+    # # target = np.zeros((nx, ny))
+    # target[nx // 2, ny // 2] = 1  # Center point
 
     # Run optimization
     def pH(lr):
@@ -143,32 +153,25 @@ if __name__ == "__main__":
 
     ## Compute a xz slice with results
     plane_xz = {
-        "x_extent": [-2, 2],
-        "y_extent": [0, 0],
+        "x_extent": [-3, 3],
+        "y_extent": [-3, 3],
         "z_extent": [-3 + z_focal, z_focal + 3],
-        "dx": 0.025,
-        "dy": 0.20,
-        "dz": 0.05,
-    }
-    ## Compute a xz slice with results
-    plane_yz = {
-        "y_extent": [-2, 2],
-        "x_extent": [0, 0],
-        "z_extent": [-3 + z_focal, z_focal + 3],
-        "dy": dx_mm / 10,
-        "dx": 0.025,
-        "dz": 0.05,
+        "dx": 0.1,
+        "dy": 0.1,
+        "dz": 0.1,
     }
 
     tx.set_delays(results["delays"])
     tx.set_apodization(results["apodization"])
     pf = PyField(tx)
     x, y, z, pr = pf(plane_xz)
-    plot_pressure_planes(
+    plot_pressure_field(
         x,
         y,
         z,
         pr,
         save_path=save_path.replace(".npz", "_plane.png"),
-        title="Optimized Pressure Field (XZ Plane)",
+        camera_position="yz",
+        camera_elevation=60,
+        camera_azimuth=45,
     )
