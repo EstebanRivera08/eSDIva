@@ -170,3 +170,18 @@ def plot_virtual_source_results(results, output_file=None):
         plt.savefig(output_file)
         print(f"Figure saved to: {output_file}")
     plt.show()
+
+    plt.figure(figsize=(6, 5))
+
+    def sigmoid(x):
+        return 1 / (1 + np.exp(-x))
+
+    pr_cover = sigmoid(20 * (pr_db - (-6)))  # steepness=20, threshold=-6 dB
+    im6 = plt.imshow(
+        pr_cover.T,
+        aspect="auto",
+        origin="upper",
+        extent=extent,
+        cmap="hot",
+    )
+    plt.show()

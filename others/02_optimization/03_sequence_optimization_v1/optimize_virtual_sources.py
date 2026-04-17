@@ -1,14 +1,9 @@
 """
-Optimize Virtual Source Positions for Plane Wave Compounding
+Optimize Virtual Source Positions for Diverging Wave Compounding
 
-This script optimizes virtual source positions for a linear array to:
-1. Maximize energy distribution uniformity in the imaging plane
-2. Minimize the number of active elements (sparse aperture)
-3. Find optimal steering angles/positions for plane wave imaging
-
-The optimization searches for the best virtual source locations behind
-(or in front of) the array that produce the desired field distribution
-with minimal element activation.
+v2: Apodization derived from VS position via F/D=1 (clinical standard).
+Only VS [x, z] positions are optimized (2 params per VS).
+Loss: lateral uniformity + soft coverage + aperture cost + mean energy.
 
 """
 
@@ -23,16 +18,17 @@ print("torch version:", torch.__version__)
 
 
 if __name__ == "__main__":
-    print("\nOptimizing Virtual Sources for Plane Wave Imaging")
+    print("\nOptimizing Virtual Sources for Diverging Wave Imaging")
     print("=" * 70)
 
-    # Optimizer
+    # --- Configuration ---
     data_folder = r"results/domino/"
-    optimizer_type = "Adam"  # Options: "SGD", "Adam"
-    energies = "loss_sparse_uniform_coverage"  # Options: "uniform", "sparse", "coverage", "energy"
-    version = "_v1"
+    optimizer_type = "SGD"  # Adam works better with few params
+    version = "_v4_logcov"
     num_epochs = 300
-    lr = 1e-1
+    lr = 0.1  # log-mean gives stronger gradient → can use higher LR
+    z_behind = -1  # mm behind the array (deeper = wider initial beam)
+    x_spacing = 3  # mm spacing between virtual sources
 
     # Create transducer
     tx = Domino()
@@ -59,19 +55,23 @@ if __name__ == "__main__":
             field_points=field_points,
             num_epochs=num_epochs,
             lr=lr,
-            sparsity_weight=0.1,
-            uniformity_weight=1.0,
-            coverage_weight=0.5,
-            energy_weight=1e-8,
+            uniformity_weight=0,
+            coverage_weight=1.0,
+            aperture_weight=0,
+            energy_weight=0,
             batch_size=2048,
             use_gpu=True,
             optimizer_type=optimizer_type,
+            z_behind=z_behind,
+            x_spacing=x_spacing,
         )
 
         # Save results
-        output_file = f"vsource_{n_vs}vs_{lr}_nepoch{num_epochs}_optim{optimizer_type}{version}.npz"
+        output_file = (
+            f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}"
+            f"_z{z_behind}_Dx_{x_spacing}{version}.npz"
+        )
 
-        # Plot results
         from pathlib import Path
 
         save_path = str(Path(data_folder) / output_file)
@@ -81,3 +81,27 @@ if __name__ == "__main__":
         )
         np.savez(save_path, **results)
         print(f"\nResults saved to: {output_file}")
+
+
+# --- v1 configuration (commented out for reference) ---
+# optimizer_type = "SGD"
+# version = "_apod0.5"
+# lr = 1e-1
+# z_behind = -2
+#
+# results = optimize_virtual_sources(
+#     tx,
+#     n_virtual_sources=n_vs,
+#     field_points=field_points,
+#     num_epochs=num_epochs,
+#     lr=lr,
+#     sparsity_weight=0.1,
+#     uniformity_weight=1.0,
+#     coverage_weight=0.5,
+#     energy_weight=1e-8,
+#     batch_size=2048,
+#     use_gpu=True,
+#     optimizer_type=optimizer_type,
+#     z_behind=z_behind,
+#     x_spacing=x_spacing,
+# )
