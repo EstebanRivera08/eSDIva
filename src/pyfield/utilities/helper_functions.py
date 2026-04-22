@@ -134,7 +134,7 @@ def compute_sub_elem_attributes(transducer):
 
 
 # Spatial grid
-def create_spatial_grid_from_dict(simulation_struct):
+def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
     """Create a simulation mesh for the ultrasound field.
 
     Parameters
@@ -194,20 +194,21 @@ def create_spatial_grid_from_dict(simulation_struct):
     # T is approximated from the z-extent: T ~= z_range_m / c * fs (c=1540, fs=200 MHz).
     P = Nx * Ny * Nz
     z_range_m = max(zf - z0, 1.0) * 1e-3  # at least 1 mm to avoid zero
-    T_est = max(500, int(z_range_m / 1540.0 * 200e6))
+    T_est = max(500, int(z_range_m / c * fs))
     h_sir_gb = P * T_est * 4 / 1e9
     if h_sir_gb >= 2.0:
         print(
             f"\nWARNING: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
-            f"estimated h_sir ~= {h_sir_gb:.1f} GB (T~={T_est} samples). "
+            f"estimated h_sir ~= {h_sir_gb:.1f} GB "
+            f"(T~={T_est} samples with fs = {fs * 1e-6} MHz and c = {c} m/s). "
             "This will likely cause a memory error.\n"
-            "  -> Reduce dx/dy/dz, shrink the extent, or compute a 2-D plane "
-            "(set one extent to [v, v] and its step to 0).\n"
+            "  -> Reduce dx/dy/dz, shrink the extent, or compute a 2-D plane. "
         )
     elif h_sir_gb >= 0.5:
         print(
             f"INFO: grid {Nx}×{Ny}×{Nz} = {P:,} points — "
-            f"estimated h_sir ~= {h_sir_gb * 1e3:.0f} MB (T~={T_est} samples). "
+            f"estimated h_sir ~= {h_sir_gb * 1e3:.0f} MB "
+            f"(T~={T_est} samples with fs = {fs * 1e-6} MHz and c = {c} m/s). "
             "Consider a coarser grid if memory is limited.\n"
         )
     x = np.linspace(x0, xf, Nx)
@@ -444,6 +445,23 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
 
     dt = 1.0 / fs
     T = int(np.ceil((max_time - min_time) * fs))
+
+    # Memory estimate for h_sir (P × T × 4 bytes float32).
+    h_sir_gb = P * T * 4 / 1e9
+    if h_sir_gb >= 2.0:
+        print(
+            f"\nWARNING: grid Nx×Ny×Nz = {P:,} points and T={T}— "
+            f"estimated h_sir ~= {h_sir_gb:.1f} GB "
+            "This will likely cause a memory error.\n"
+            "  -> Reduce dx/dy/dz or, shrink the extent, or compute a 2-D plane. "
+        )
+    elif h_sir_gb >= 0.5:
+        print(
+            f"INFO: grid Nx×Ny×Nz = {P:,} points and T = {T} — "
+            f"estimated h_sir ~= {h_sir_gb * 1e3:.0f} MB "
+            "Consider a coarser grid if memory is limited.\n"
+        )
+
     # next power of two
     t_grid = min_time + np.arange(T, dtype=np.float32) * dt
     if verbose:

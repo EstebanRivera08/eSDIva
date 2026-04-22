@@ -481,6 +481,9 @@ class TorchFieldFlexible(nn.Module):
 
         # Initialize with default transducer parameters
         self._initialize_default_parameters(verbose=False)
+        print(
+            f"Initialized with fs={self.fs / 1e6} MHz, c={self.c} m/s, device={self.device}"
+        )
 
     def _initialize_default_parameters(self, verbose: bool = True):
         """
@@ -976,6 +979,22 @@ class TorchFieldFlexible(nn.Module):
         max_time_us = (max_d + 0.5 * (self.wx + self.wy)) / self.c_unit + max_delay
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
         T = int(math.ceil((max_time_us - min_time_us) / dt_us))
+
+        # Memory estimate for h_sir (P × T × 4 bytes float32).
+        h_sir_gb = P * T * 4 / 1e9
+        if h_sir_gb >= 2.0:
+            print(
+                f"\nWARNING: grid Nx×Ny×Nz = {P:,} points and T={T}— "
+                f"estimated h_sir ~= {h_sir_gb:.1f} GB "
+                "This will likely cause a memory error.\n"
+                "  -> Reduce dx/dy/dz or, shrink the extent, or compute a 2-D plane. "
+            )
+        elif h_sir_gb >= 0.5:
+            print(
+                f"INFO: grid Nx×Ny×Nz = {P:,} points and T = {T} — "
+                f"estimated h_sir ~= {h_sir_gb * 1e3:.0f} MB "
+                "Consider a coarser grid if memory is limited.\n"
+            )
 
         return min_time_us, dt_us, T
 

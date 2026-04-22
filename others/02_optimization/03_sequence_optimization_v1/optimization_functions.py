@@ -2,6 +2,11 @@ from typing import List
 
 import numpy as np
 import torch
+
+# ===================================================================
+# Helper functions for optimization
+# ===================================================================
+import torch.nn.functional as F
 from loss_functions import (
     compute_aperture_cost,
     compute_lateral_uniformity_loss,
@@ -18,6 +23,37 @@ from loss_functions import (
 #     compute_uniformity_loss,
 # )
 from pyfield.future.TorchField_flexible import TorchFieldFlexible
+
+
+def gaussian_kernel1d(sigma, truncate=4.0, device="cpu"):
+    radius = int(truncate * sigma + 0.5)
+    x = torch.arange(-radius, radius + 1, dtype=torch.float32, device=device)
+    kernel = torch.exp(-(x**2) / (2 * sigma**2))
+    kernel /= kernel.sum()
+    return kernel
+
+
+def gaussian_filter_pytorch(pr, sigma_points):
+    device = pr.device
+
+    # Build 1D kernels
+    k = gaussian_kernel1d(sigma_points, device=device)
+    kx = k.view(1, 1, -1, 1)  # vertical
+    ky = k.view(1, 1, 1, -1)  # horizontal
+
+    # Ensure 4D tensor: [B, C, H, W]
+    if pr.dim() == 2:
+        pr = pr.unsqueeze(0).unsqueeze(0)
+    elif pr.dim() == 3:
+        # This means [x, y, z], but we have y = 1. We need [x, y, z] → [B, C, H, W]
+        # with B=1, C=1, H=z, W=x. So we permute and unsqueeze.
+        pr = pr.permute(1, 0, 2).unsqueeze(0)  # [1, 1, z, x]
+
+    # Apply separable convolution
+    pr = F.conv2d(pr, kx, padding=(kx.shape[2] // 2, 0))
+    pr = F.conv2d(pr, ky, padding=(0, ky.shape[3] // 2))
+    return pr.squeeze().unsqueeze(1)  # [x, y, z] → [x, 1, z]
+
 
 # ============================================================================
 # Virtual Source Optimizer
@@ -43,10 +79,12 @@ class VirtualSourceOptimizer:
         Use GPU if available
     c : float
         Speed of sound in m/s
-    z_behind : float
-        Initial z position of virtual sources (mm, negative = behind array)
-    x_spacing : float
-        Initial lateral spacing between virtual sources (mm)
+    x_init_mm : list / array / float
+        Initial lateral position of VS (mm)
+    z_init_mm : list / array / float
+        Initial depth of VS (mm, negative = behind array)
+    fs : float
+        Sampling frequency for SIR simulation (Hz). Higher = more accurate
     """
 
     def __init__(
@@ -56,16 +94,37 @@ class VirtualSourceOptimizer:
         field_points: dict,
         use_gpu: bool = True,
         c: float = 1540.0,
-        z_behind: float = -3,
-        x_spacing: float = 0,
+        x_init_mm=None,
+        z_init_mm=None,
+        fs: float = 100e6,
     ):
         self.transducer = transducer
         self.n_vs = n_virtual_sources
         self.field_points = field_points
         self.use_gpu = use_gpu
         self.c = c  # Speed of sound in m/s
-        self.z_behind = z_behind
-        self.x_spacing = x_spacing
+        self.fs = fs  # Sampling frequency for SIR simulation (Hz)
+
+        if x_init_mm is None:
+            x_init_mm = [0.0] * n_virtual_sources
+        else:
+            # chek if its list or ndarray with length n_virtual_sources
+            if isinstance(x_init_mm, (list, np.ndarray)):
+                if len(x_init_mm) != n_virtual_sources:
+                    raise ValueError(
+                        f"x_init_mm length must match n_virtual_sources ({n_virtual_sources})"
+                    )
+        if z_init_mm is None:
+            z_init_mm = [-10.0] * n_virtual_sources
+        else:
+            if isinstance(z_init_mm, (list, np.ndarray)):
+                if len(z_init_mm) != n_virtual_sources:
+                    raise ValueError(
+                        f"z_init_mm length must match n_virtual_sources ({n_virtual_sources})"
+                    )
+
+        self.x_init_mm = x_init_mm
+        self.z_init_mm = z_init_mm
 
         # Device
         self.device = torch.device(
@@ -92,17 +151,18 @@ class VirtualSourceOptimizer:
         print(f"Setting up {self.n_vs} virtual sources (F/D=1 apodization)...")
 
         for i in range(self.n_vs):
-            x_pos = (i - self.n_vs // 2) * self.x_spacing
+            x_pos = self.x_init_mm[i]
+            z_pos = self.z_init_mm[i]
 
             tf = TorchFieldFlexible(
-                self.transducer, use_gpu=self.use_gpu, verbose=False
+                self.transducer, use_gpu=self.use_gpu, verbose=False, fs=self.fs
             )
 
             # --- Only learnable parameter: VS position [x_mm, z_mm] ---
             vs_name = f"vs_{i}"
             tf.add_optimizable_parameter(
                 vs_name,
-                initial_value=[x_pos, self.z_behind],
+                initial_value=[x_pos, z_pos],
                 level="global",
                 requires_grad=True,
             )
@@ -175,7 +235,7 @@ class VirtualSourceOptimizer:
             self.torch_fields.append(tf)
             self.virtual_sources.append(vs_name)
 
-            print(f"  VS {i}: x={x_pos:.1f}, z={self.z_behind:.1f} mm")
+            print(f"  VS {i}: x={x_pos:.1f}, z={z_pos:.1f} mm")
 
     # ------------------------------------------------------------------
     # v1: free apodization (commented out for reference)
@@ -276,6 +336,8 @@ class VirtualSourceOptimizer:
                     self.field_points, training=training, batch_size=batch_size
                 )
 
+                pr_i = gaussian_filter_pytorch(pr_i, sigma_points=2)
+
                 if pr_combined is None:
                     pr_combined = pr_i
                 else:
@@ -286,6 +348,8 @@ class VirtualSourceOptimizer:
                     x, y, z, pr_i = tf(
                         self.field_points, training=training, batch_size=batch_size
                     )
+
+                    pr_i = gaussian_filter_pytorch(pr_i, sigma_points=2)
 
                     if pr_combined is None:
                         pr_combined = pr_i
@@ -354,8 +418,8 @@ def optimize_virtual_sources(
     batch_size: int = 2048,
     use_gpu: bool = True,
     optimizer_type: str = "Adam",
-    z_behind: float = -3,
-    x_spacing: float = 0,
+    x_init_mm=None,
+    z_init_mm=None,
 ):
     """
     Optimize virtual source positions for diverging wave imaging.
@@ -390,10 +454,12 @@ def optimize_virtual_sources(
         Use GPU
     optimizer_type : str
         "SGD" or "Adam"
-    z_behind : float
-        Initial z of virtual sources (mm, negative = behind array)
-    x_spacing : float
-        Initial lateral spacing (mm)
+    x_init_mm : list / array / float
+        Initial lateral position of VS (mm). If list/array, must match
+        n_virtual_sources.
+    z_init_mm : list / array / float
+        Initial depth of VS (mm, negative = behind array). If list/array, must
+        match n_virtual_sources.
 
     Returns
     -------
@@ -418,8 +484,8 @@ def optimize_virtual_sources(
         n_virtual_sources,
         field_points,
         use_gpu=use_gpu,
-        z_behind=z_behind,
-        x_spacing=x_spacing,
+        x_init_mm=x_init_mm,
+        z_init_mm=z_init_mm,
     )
 
     # Setup torch optimizer
@@ -464,7 +530,8 @@ def optimize_virtual_sources(
 
         # --- v3 losses ---
         loss_uniform = compute_lateral_uniformity_loss(pr_norm)
-        loss_cover = compute_log_coverage_loss(pr_norm, eps=1e-3)
+        # loss_cover = compute_log_coverage_loss(pr_norm, eps=1e-3)
+        loss_cover = compute_soft_coverage_loss(pr_norm, threshold=-10, steepness=1)
         loss_aperture = compute_aperture_cost(apod_list)
         loss_energy = compute_mean_energy_loss(pr_norm)
 
@@ -480,7 +547,7 @@ def optimize_virtual_sources(
         loss.backward()
 
         # Gradient clipping — SIR simulation produces oscillatory gradients
-        torch.nn.utils.clip_grad_norm_(params, max_norm=5.0)
+        # torch.nn.utils.clip_grad_norm_(params, max_norm=5.0)
 
         optimizer.step()
         vs_opt.apply_constraints()

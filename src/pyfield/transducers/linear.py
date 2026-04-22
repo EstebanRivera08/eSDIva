@@ -235,12 +235,7 @@ class LinearArrayTransducer(TransducerBase):
             D = abs(z_foc) / self.FoverD
             # Number of elements spanning aperture D (must match parity of N)
             N_virt = int(round((D / (N * self.pitch)) * N / 2) * 2 + (N % 2))
-            N_virt = max(1, N_virt)
-
-            N_ext = N_virt
-            if N_ext > N:
-                warnings.warn("Focus outside imaging window: using full aperture.")
-                N_ext = N
+            N_ext = max(1, N_virt)
 
             if apodization_type == "rect":
                 wins = np.ones(N_ext)

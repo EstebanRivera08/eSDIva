@@ -176,7 +176,7 @@ def plot_virtual_source_results(results, output_file=None):
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
 
-    pr_cover = sigmoid(20 * (pr_db - (-6)))  # steepness=20, threshold=-6 dB
+    pr_cover = sigmoid(1 * (pr_db - (-10)))  # steepness=20, threshold=-6 dB
     im6 = plt.imshow(
         pr_cover.T,
         aspect="auto",

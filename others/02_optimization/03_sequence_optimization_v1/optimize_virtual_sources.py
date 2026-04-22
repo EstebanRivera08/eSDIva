@@ -22,25 +22,35 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # --- Configuration ---
+    use_gpu = False
     data_folder = r"results/domino/"
     optimizer_type = "SGD"  # Adam works better with few params
-    version = "_v4_logcov"
-    num_epochs = 300
+    version = "_logcov"
+    num_epochs = 50
     lr = 0.1  # log-mean gives stronger gradient → can use higher LR
-    z_behind = -1  # mm behind the array (deeper = wider initial beam)
-    x_spacing = 3  # mm spacing between virtual sources
-
+    x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
+    z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
     # Create transducer
-    tx = Domino()
+
+    tx = LinearArrayTransducer(
+        n_elements=128,
+        element_width_mm=0.198,  # mm
+        element_height_mm=5,  # mm
+        kerf_mm=0.002,  # mm
+        no_sub_x=1,
+        no_sub_y=10,
+        elevation_focus_mm=35,  # mm
+        frequency_Hz=6.4e6,  # MHz
+    )
 
     # Field specification (imaging region)
     field_points = {
-        "x_extent": [-10, 10],  # mm, lateral extent
+        "x_extent": [-20, 20],  # mm, lateral extent
         "y_extent": [0, 0],  # mm, thin slice
-        "z_extent": [0, 15],  # mm, depth range
-        "dx": 0.2,
+        "z_extent": [0, 60],  # mm, depth range
+        "dx": 0.3,
         "dy": 1.0,
-        "dz": 0.2,
+        "dz": 0.3,
     }
 
     # Test with different numbers of virtual sources
@@ -62,14 +72,13 @@ if __name__ == "__main__":
             batch_size=2048,
             use_gpu=True,
             optimizer_type=optimizer_type,
-            z_behind=z_behind,
-            x_spacing=x_spacing,
+            x_init_mm=x_init[:n_vs],
+            z_init_mm=z_init[:n_vs],
         )
 
         # Save results
         output_file = (
-            f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}"
-            f"_z{z_behind}_Dx_{x_spacing}{version}.npz"
+            f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
         )
 
         from pathlib import Path
