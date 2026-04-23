@@ -978,7 +978,8 @@ class TorchFieldFlexible(nn.Module):
         min_time_us = (min_d - 0.5 * (self.wx + self.wy)) / self.c_unit
         max_time_us = (max_d + 0.5 * (self.wx + self.wy)) / self.c_unit + max_delay
         dt_us = (1.0 / self.fs) * self.time_sec_to_unit
-        T = int(math.ceil((max_time_us - min_time_us) / dt_us))
+
+        T = int(max((max_time_us - min_time_us) / dt_us, 1) + 1)
 
         # Memory estimate for h_sir (P × T × 4 bytes float32).
         h_sir_gb = P * T * 4 / 1e9

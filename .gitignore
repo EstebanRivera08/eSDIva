@@ -22,6 +22,7 @@ test_models/
 
 # Coverage reports
 htmlcov/
+nul
 coverage.xml
 *.cover
 .coverage

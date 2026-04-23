@@ -39,9 +39,16 @@ from pyfield.utilities import to_dB
 # ============================================================================
 # v2 Loss Functions (derived apodization, lateral CV, soft coverage)
 # ============================================================================
-def dB(x):
+
+loss_MSE = torch.nn.MSELoss()
+
+
+def dB(x, max_val=None):
     """Convert linear to dB scale."""
-    x_norm = x / x.max()
+    if max_val is None:
+        max_val = x.max()
+
+    x_norm = x / max_val
     return 20 * torch.log10(x_norm + 1e-6)
 
 
@@ -111,7 +118,42 @@ def compute_lateral_uniformity_loss(pr_field):
     return cv_per_depth.mean()
 
 
-def compute_soft_coverage_loss(pr_field, threshold=-6, steepness=20.0):
+def compute_symmetry_loss(pr_field, *, pr_max=None):
+    """
+    Symmetry loss: mean absolute difference between left and right halves.
+
+    Why: encourages symmetric beams, which are often desirable in imaging.
+
+    Parameters
+    ----------
+    pr_field : Tensor [nx, ny, nz]
+        Pressure field (not necessarily normalized)
+
+    Returns
+    -------
+    Tensor (scalar)
+        Mean absolute difference between left and right halves (lower = more symmetric)
+    """
+    # Take the y=0 slice → [nx, nz]
+    pr_2d = pr_field[:, pr_field.shape[1] // 2, :]
+
+    # Split into left and right halves
+    mid_x = pr_2d.shape[0] // 2
+    left_half = pr_2d[:mid_x, :]  # [nx//2, nz]
+    right_half = pr_2d[mid_x + 1 :, :]  # [nx//2, nz]
+
+    # Flip right half for symmetry comparison
+    right_half_flipped = torch.flip(right_half, dims=[0])  # [nx//2, nz]
+
+    # Compute mean absolute difference
+    symmetry_loss = loss_MSE(
+        dB(left_half, max_val=pr_max), dB(right_half_flipped, max_val=pr_max)
+    )
+
+    return symmetry_loss
+
+
+def compute_soft_coverage_loss(pr_field, *, pr_max=None, threshold=-6, steepness=20.0):
     """
     Differentiable coverage using sigmoid instead of hard threshold.
 
@@ -132,7 +174,7 @@ def compute_soft_coverage_loss(pr_field, threshold=-6, steepness=20.0):
     Tensor (scalar)
         Coverage loss (1 - soft_fraction_above_threshold), minimize to 0.
     """
-    pr_dB = dB(pr_field)
+    pr_dB = dB(pr_field, max_val=pr_max)  # Convert to dB scale
 
     soft_above = torch.sigmoid(steepness * (pr_dB - threshold))
 

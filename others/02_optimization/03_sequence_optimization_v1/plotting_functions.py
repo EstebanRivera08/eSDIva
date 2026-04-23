@@ -87,7 +87,6 @@ def plot_virtual_source_results(results, output_file=None):
         ax4.annotate(
             f"VS{i}", (pos[0], pos[1]), xytext=(5, 5), textcoords="offset points"
         )
-    ax4.axhline(0, color="k", linestyle="-", linewidth=2, label="Array")
     ax4.set_xlabel("X (mm)")
     ax4.set_ylabel("Z (mm)")
     ax4.set_title("Virtual Source Positions")

@@ -13,7 +13,9 @@ from loss_functions import (
     compute_log_coverage_loss,
     compute_mean_energy_loss,
     compute_soft_coverage_loss,
+    compute_symmetry_loss,
 )
+from tqdm import tqdm
 
 # v1 imports (kept for reference)
 # from loss_functions import (
@@ -319,7 +321,7 @@ class VirtualSourceOptimizer:
     #         self.virtual_sources.append(vs_name)
     #         print(f"  VS {i}: x={x_pos:.1f}, z={self.z_behind:.1f} mm")
 
-    def get_combined_field(self, batch_size=2048, training=True):
+    def get_combined_field(self, batch_size=2048, training=True, sigma_points=1):
         """
         Compute combined pressure field from all virtual sources.
 
@@ -336,7 +338,7 @@ class VirtualSourceOptimizer:
                     self.field_points, training=training, batch_size=batch_size
                 )
 
-                pr_i = gaussian_filter_pytorch(pr_i, sigma_points=2)
+                pr_i = gaussian_filter_pytorch(pr_i, sigma_points=sigma_points)
 
                 if pr_combined is None:
                     pr_combined = pr_i
@@ -348,8 +350,6 @@ class VirtualSourceOptimizer:
                     x, y, z, pr_i = tf(
                         self.field_points, training=training, batch_size=batch_size
                     )
-
-                    pr_i = gaussian_filter_pytorch(pr_i, sigma_points=2)
 
                     if pr_combined is None:
                         pr_combined = pr_i
@@ -420,6 +420,7 @@ def optimize_virtual_sources(
     optimizer_type: str = "Adam",
     x_init_mm=None,
     z_init_mm=None,
+    fs: float = 100e6,
 ):
     """
     Optimize virtual source positions for diverging wave imaging.
@@ -460,6 +461,8 @@ def optimize_virtual_sources(
     z_init_mm : list / array / float
         Initial depth of VS (mm, negative = behind array). If list/array, must
         match n_virtual_sources.
+    fs : float
+        Sampling frequency for SIR simulation (Hz). Higher = more accurate but slower.
 
     Returns
     -------
@@ -486,6 +489,7 @@ def optimize_virtual_sources(
         use_gpu=use_gpu,
         x_init_mm=x_init_mm,
         z_init_mm=z_init_mm,
+        fs=fs,
     )
 
     # Setup torch optimizer
@@ -510,30 +514,39 @@ def optimize_virtual_sources(
     energy_history = []
     vs_positions_history = np.zeros((num_epochs, n_virtual_sources, 2))
 
+    # Get the max_pr now and keep it fixed during training to prevent oscillatory
+    # gradients from SIR simulation. We can compute it from the initial combined field.
+    with torch.no_grad():
+        x, y, z, pr_init = vs_opt.get_combined_field(
+            batch_size=batch_size, training=False
+        )
+        max_pr = pr_init.max().item()
+        print(f"Initial max pressure: {max_pr:.4f}")
     print(f"Training for {num_epochs} epochs...")
     print()
 
     # ================================================================
     # v3 Training loop — log-coverage (gradient everywhere)
     # ================================================================
-    for epoch in range(num_epochs):
+    # Use tqdm for progress bar (optional)
+    for epoch in tqdm(range(num_epochs), desc="Optimizing VS", unit="epoch"):
         optimizer.zero_grad()
 
         # Forward: compound field from all VS
         x, y, z, pr = vs_opt.get_combined_field(batch_size=batch_size, training=True)
 
         # Normalize compound field
-        pr_norm = pr / (pr.max() + 1e-8)
 
         # Per-VS apodization (derived from F/D=1)
         apod_list = vs_opt.get_per_vs_apodization()
 
         # --- v3 losses ---
-        loss_uniform = compute_lateral_uniformity_loss(pr_norm)
-        # loss_cover = compute_log_coverage_loss(pr_norm, eps=1e-3)
-        loss_cover = compute_soft_coverage_loss(pr_norm, threshold=-10, steepness=1)
+        loss_uniform = compute_symmetry_loss(pr, pr_max=max_pr)
+        loss_cover = compute_soft_coverage_loss(
+            pr, pr_max=max_pr, threshold=-10, steepness=1
+        )
         loss_aperture = compute_aperture_cost(apod_list)
-        loss_energy = compute_mean_energy_loss(pr_norm)
+        loss_energy = compute_mean_energy_loss(pr)
 
         # Combined loss
         loss = (
@@ -546,8 +559,8 @@ def optimize_virtual_sources(
         # Backward + step
         loss.backward()
 
-        # Gradient clipping — SIR simulation produces oscillatory gradients
-        # torch.nn.utils.clip_grad_norm_(params, max_norm=5.0)
+        # Gradient clipping — SIR simulation produces oscillatory gradients with SGD
+        torch.nn.utils.clip_grad_norm_(params, max_norm=5.0)
 
         optimizer.step()
         vs_opt.apply_constraints()
@@ -565,17 +578,17 @@ def optimize_virtual_sources(
             )
             vs_positions_history[epoch, i] = vs_pos
 
-        # Print progress
-        if epoch % 10 == 0 or epoch == num_epochs - 1:
-            print(
-                f"Epoch {epoch:3d}: "
-                f"Loss={loss.item():.4f} "
-                f"(Unif={loss_uniform.item():.4f}, "
-                f"Cover={loss_cover.item():.4f}, "
-                f"Aper={loss_aperture.item():.4f}, "
-                f"Energy={loss_energy.item():.4f})"
-            )
-
+        # # Print progress
+        # if epoch % 10 == 0 or epoch == num_epochs - 1:
+        #     print(
+        #         f"Epoch {epoch:3d}: "
+        #         f"Loss={loss.item():.4f} "
+        #         f"(Unif={loss_uniform.item():.4f}, "
+        #         f"Cover={loss_cover.item():.4f}, "
+        #         f"Aper={loss_aperture.item():.4f}, "
+        #         f"Energy={10 ** (-1 * loss_energy.item()):.4f})"
+        #     )
+        #
     # ================================================================
     # v2 Training loop (sigmoid coverage — commented out)
     # ================================================================

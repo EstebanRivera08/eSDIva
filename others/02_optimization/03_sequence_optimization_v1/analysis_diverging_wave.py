@@ -25,9 +25,9 @@ field_points = {
     "x_extent": [-500 * 0.2, 500 * 0.2],  # mm, lateral extent
     "y_extent": [0, 0],  # mm, thin slice
     "z_extent": [0, 800 * 0.2],  # mm, depth range
-    "dx": 1,
+    "dx": 2,
     "dy": 1.0,
-    "dz": 1,
+    "dz": 2,
 }
 
 
@@ -37,7 +37,7 @@ tx.compute_apodization(focus_mm)
 # tx.plot_delays_apodization()
 
 # Create the PyField instance for transducer
-tx_field = PyField(tx, fs=50e6)
+tx_field = PyField(tx, fs=30e6)
 
 # Compute the field
 x, y, z, pr = tx_field(field_points)
@@ -74,22 +74,25 @@ vs_opt = VirtualSourceOptimizer(
     use_gpu=use_gpu,
     x_init_mm=x_init_mm,
     z_init_mm=z_init_mm,
-    fs=10e6,  # 100 MHz sampling for accurate gradients
+    fs=50e6,  # 100 MHz sampling for accurate gradients
 )
 
-batch_size = 2048
+batch_size = 1024
 # Forward: compound field from all VS
 x_tf, y_tf, z_tf, pr_tf = vs_opt.get_combined_field(
-    batch_size=batch_size, training=True
+    batch_size=batch_size, training=True, sigma_points=1
 )
 
 #
-if isinstance(pr, torch.Tensor):
-    pr = pr_tf.detach().cpu().numpy()
-    x = x_tf.detach().cpu().numpy()
-    y = y_tf.detach().cpu().numpy()
-    z = z_tf.detach().cpu().numpy()
+if isinstance(pr_tf, torch.Tensor):
+    pr_tf = pr_tf.detach().cpu().numpy()
 
-plot_pressure_planes(x, y, z, pr, db_scale=True)
+    x_tf = x_tf.detach().cpu().numpy()
+
+    y_tf = y_tf.detach().cpu().numpy()
+
+    z_tf = z_tf.detach().cpu().numpy()
+
+plot_pressure_planes(x_tf, y_tf, z_tf, pr_tf, db_scale=True)
 
 # lis

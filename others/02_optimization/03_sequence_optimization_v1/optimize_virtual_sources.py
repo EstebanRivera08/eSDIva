@@ -22,14 +22,18 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # --- Configuration ---
-    use_gpu = False
+    n_vs = 1  # Number of virtual sources to optimize
+    use_gpu = True
     data_folder = r"results/domino/"
     optimizer_type = "SGD"  # Adam works better with few params
-    version = "_logcov"
-    num_epochs = 50
-    lr = 0.1  # log-mean gives stronger gradient → can use higher LR
-    x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
-    z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
+    version = "_nonorm_init1"
+    num_epochs = 500
+    lr = 1e-1  # log-mean gives stronger gradient → can use higher LR
+    x_init = [0, 2, 4]  # mm, initial x positions of virtual sources
+    z_init = [-5, -11, -8]  # mm, initial z positions of virtual sources
+    # x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
+    # z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
+    fs = 50e6  # Hz, sampling frequency for field computation
     # Create transducer
 
     tx = LinearArrayTransducer(
@@ -45,51 +49,47 @@ if __name__ == "__main__":
 
     # Field specification (imaging region)
     field_points = {
-        "x_extent": [-20, 20],  # mm, lateral extent
+        "x_extent": [-500 * 0.2, 500 * 0.2],  # mm, lateral extent
         "y_extent": [0, 0],  # mm, thin slice
-        "z_extent": [0, 60],  # mm, depth range
-        "dx": 0.3,
+        "z_extent": [0, 800 * 0.2],  # mm, depth range
+        "dx": 2,
         "dy": 1.0,
-        "dz": 0.3,
+        "dz": 2,
     }
 
     # Test with different numbers of virtual sources
-    for n_vs in [3]:
-        print(f"\n{'=' * 70}")
-        print(f"Testing with {n_vs} virtual sources")
-        print("=" * 70)
+    print(f"\n{'=' * 70}")
+    print(f"Testing with {n_vs} virtual sources")
+    print("=" * 70)
 
-        results = optimize_virtual_sources(
-            tx,
-            n_virtual_sources=n_vs,
-            field_points=field_points,
-            num_epochs=num_epochs,
-            lr=lr,
-            uniformity_weight=0,
-            coverage_weight=1.0,
-            aperture_weight=0,
-            energy_weight=0,
-            batch_size=2048,
-            use_gpu=True,
-            optimizer_type=optimizer_type,
-            x_init_mm=x_init[:n_vs],
-            z_init_mm=z_init[:n_vs],
-        )
+    results = optimize_virtual_sources(
+        tx,
+        n_virtual_sources=n_vs,
+        field_points=field_points,
+        num_epochs=num_epochs,
+        lr=lr,
+        uniformity_weight=10,
+        coverage_weight=10,
+        aperture_weight=0,
+        energy_weight=1,
+        batch_size=2048,
+        use_gpu=use_gpu,
+        optimizer_type=optimizer_type,
+        x_init_mm=x_init[:n_vs],
+        z_init_mm=z_init[:n_vs],
+        fs=fs,
+    )
 
-        # Save results
-        output_file = (
-            f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
-        )
+    # Save results
+    output_file = f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
 
-        from pathlib import Path
+    from pathlib import Path
 
-        save_path = str(Path(data_folder) / output_file)
+    save_path = str(Path(data_folder) / output_file)
 
-        plot_virtual_source_results(
-            results, output_file=save_path.replace(".npz", ".png")
-        )
-        np.savez(save_path, **results)
-        print(f"\nResults saved to: {output_file}")
+    plot_virtual_source_results(results, output_file=save_path.replace(".npz", ".png"))
+    np.savez(save_path, **results)
+    print(f"\nResults saved to: {output_file}")
 
 
 # --- v1 configuration (commented out for reference) ---
