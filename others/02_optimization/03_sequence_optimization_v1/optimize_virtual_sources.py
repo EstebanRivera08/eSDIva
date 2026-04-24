@@ -22,17 +22,17 @@ if __name__ == "__main__":
     print("=" * 70)
 
     # --- Configuration ---
-    n_vs = 1  # Number of virtual sources to optimize
+    n_vs = 3  # Number of virtual sources to optimize
     use_gpu = True
     data_folder = r"results/domino/"
     optimizer_type = "SGD"  # Adam works better with few params
-    version = "_nonorm_init1"
+    version = "_aperweight100_initrandom"
     num_epochs = 500
     lr = 1e-1  # log-mean gives stronger gradient → can use higher LR
-    x_init = [0, 2, 4]  # mm, initial x positions of virtual sources
-    z_init = [-5, -11, -8]  # mm, initial z positions of virtual sources
-    # x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
-    # z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
+    x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
+    z_init = [-10, -10, -10]  # mm, initial z positions of virtual sources
+    x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
+    z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
     fs = 50e6  # Hz, sampling frequency for field computation
     # Create transducer
 
@@ -70,7 +70,7 @@ if __name__ == "__main__":
         lr=lr,
         uniformity_weight=10,
         coverage_weight=10,
-        aperture_weight=0,
+        aperture_weight=100,
         energy_weight=1,
         batch_size=2048,
         use_gpu=use_gpu,

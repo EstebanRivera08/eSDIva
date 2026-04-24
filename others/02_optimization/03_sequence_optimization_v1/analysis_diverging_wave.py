@@ -80,7 +80,7 @@ vs_opt = VirtualSourceOptimizer(
 batch_size = 1024
 # Forward: compound field from all VS
 x_tf, y_tf, z_tf, pr_tf = vs_opt.get_combined_field(
-    batch_size=batch_size, training=True, sigma_points=1
+    batch_size=batch_size, training=True, sigma_points=2
 )
 
 #
