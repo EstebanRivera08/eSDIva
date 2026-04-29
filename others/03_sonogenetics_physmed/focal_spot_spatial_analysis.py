@@ -6,7 +6,7 @@ from pyfield.psimulation import PyField
 from pyfield.transducers import Domino
 
 # Parameters
-FOVERD = 2
+FOVERD = 1.5
 SAVE_RESULTS = True
 FOLDER_NAME = "focal_spot_analysis_results"
 FILE_NAME = f"focal_spot_analysis_data_FD{FOVERD}.npz"
@@ -61,12 +61,14 @@ for x_f in x_focals:
         p_max_vec.append(p_max)
 
 # Save the results to a file
+p_max_array = np.array(p_max_vec).reshape(len(x_focals), len(z_focals))
+
 results_dict = {
     "x_focals": x_focals,
     "z_focals": z_focals,
     "x_max_vec": x_max_vec,
     "z_max_vec": z_max_vec,
-    "p_max_vec": p_max_vec,
+    "p_max_array": p_max_array,
 }
 
 from pathlib import Path
@@ -78,8 +80,7 @@ if SAVE_RESULTS:
     np.savez(File_Path, **results_dict)
 
 
-def plot_pmax_map(x_focals, z_focals, p_max_vec):
-    p_max_array = np.array(p_max_vec).reshape(len(x_focals), len(z_focals))
+def plot_pmax_map(x_focals, z_focals, p_max_array):
     plt.figure(figsize=(8, 6))
     plt.imshow(
         p_max_array.T,
@@ -98,4 +99,4 @@ def plot_pmax_map(x_focals, z_focals, p_max_vec):
 
 
 if __name__ == "__main__":
-    plot_pmax_map(x_focals, z_focals, p_max_vec)
+    plot_pmax_map(x_focals, z_focals, p_max_array)

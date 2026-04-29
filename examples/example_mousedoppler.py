@@ -22,22 +22,40 @@ print("\n --- Example 4: Mouse Brain Atlas + Doppler + Pressure Field --- \n")
 # Make sure to change the paths according to your file structure
 
 # pv.global_theme.anti_aliasing = "ssaa"
+from pathlib import Path
 
 MAIN_FOLDER_PATH = r".\datatype\Silvia"
 
-bps_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps"
-file_scan_3D_PATH = MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan"
-file_scan_2D_PATH = MAIN_FOLDER_PATH + r"\2Dscan.source.scan"
+BPS_PATH = Path(MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps")
+FILE_SCAN_3D_PATH = Path(MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan")
+FILE_SCAN_2D_PATH = Path(MAIN_FOLDER_PATH + r"\2Dscan.source.scan")
 
-save_fig = False  # Set to True to save the figures
-fig_folder = r"tutorials\Draft/Figures/"  # Folder to save the figures
-version = "v1"  # Version of the figure
+SAVE_FIG = True  # Set to True to save the figures
+FIG_FOLDER = r""  # Folder to save the figures
+VERSION = "white"  # Version of the figure
+
+SHOW_REGIONS = True  # Set to True to add brain regions to the plot
+SHOW_3D_SCAN = False  # Set to True to add the 3D scan to the plot
+
+
+BACKGROUND = "white"
+if BACKGROUND == "dark":
+    font_color = "white"
+    pv.global_theme.anti_aliasing = "msaa"
+    ambient_tx = 1
+    ambient_pr = 0.7
+else:
+    font_color = "black"
+    pv.global_theme.anti_aliasing = "ssaa"
+    ambient_tx = 0.7
+    ambient_pr = 0.5
+
 
 # Create the scan objects
-Doppler3D = DopplerScan(scan_PATH=file_scan_3D_PATH, bps_PATH=bps_PATH)
+Doppler3D = DopplerScan(scan_PATH=FILE_SCAN_3D_PATH, bps_PATH=BPS_PATH)
 # Doppler3D.show()
 
-Doppler2D = DopplerScan(scan_PATH=file_scan_2D_PATH)
+Doppler2D = DopplerScan(scan_PATH=FILE_SCAN_2D_PATH)
 # Doppler2D.show(interpolation = 'bilinear')
 
 # ----------------- Get the atlas object --------------------
@@ -47,9 +65,15 @@ print("\n --- Import Brain Atlas --- \n")
 
 atlas_name = "allen_mouse_25um"
 
-region_names = "root"
+if SHOW_REGIONS:
+    region_names = ("root", "MO", "SS")
+else:
+    region_names = "root"
+
 
 Brain_Atlas = BG_Atlas(atlas_name, region_names=region_names)
+
+# print(Brain_Atlas.bg_atlas.structures)  # Print the regions in the atlas
 
 # ------------------- Get the transducer object --------------------
 print("\n --- Import transducer --- \n")
@@ -80,10 +104,10 @@ x, y, z, pressure_field = Domino_field(field_info_mm)
 # The first time you call the function from one script there is
 # an additional deadtime in the simulation for compiling and organize
 # the parallel computing
-x, y, z, pressure_field = Domino_field(field_info_mm)
+x, y, z, pressure_field = Domino_field(field_info_mm, normalize=True)
 
 # Compute the pressure volume mesh
-pressure_vol_mesh = create_vol_mesh(x, y, z, pressure_field, scalars="Pressure (PII)")
+pressure_vol_mesh = create_vol_mesh(x, y, z, pressure_field, scalars="Pressure (a.u.)")
 
 # ------------------ Transform the meshes --------------------
 
@@ -115,40 +139,39 @@ Brain_Atlas.transform(
 
 scale = 1
 off_screen = False
-if save_fig:
+if SAVE_FIG:
     off_screen = True
     scale = 3
 final_plotter = add_regions_mesh(
     Brain_Atlas.pv_mesh,
-    notebook=False,
-    window_size=[800 * scale, 600 * scale],
+    window_size=[600 * scale, 550 * scale],
     off_screen=off_screen,
     kwargs_dict={
-        region_names[0]: {"color": "lightgray", "opacity": 0.1},
-        region_names[1]: {"color": "permanentgreen", "opacity": 0.2},
-        region_names[2]: {"color": "cadmiumlemon", "opacity": 0.2},
+        region_names[0]: {"color": "lightgray", "opacity": 0.4},
+        region_names[1]: {"color": "permanentgreen", "opacity": 0.3},
+        region_names[2]: {"color": "cadmiumlemon", "opacity": 0.3},
     },
     label="Brain Atlas",
 )
-
-final_plotter = add_3D_vol(
-    Doppler3D.pv_mesh,
-    plotter=final_plotter,
-    cmap="hot",
-    opacity="sigmoid",
-    opacity_unit_distance=1,
-    scalar_bar_args={
-        "title": "3D Doppler (dB)",
-        "title_font_size": 16 * scale,
-        "label_font_size": 12 * scale,
-        "color": "white",
-        "vertical": False,
-        "position_x": 0.6,
-        "position_y": 0.1,
-        "width": 0.3,
-    },
-    ambient=1,
-)
+if SHOW_3D_SCAN:
+    final_plotter = add_3D_vol(
+        Doppler3D.pv_mesh,
+        plotter=final_plotter,
+        cmap="hot",
+        opacity="sigmoid",
+        opacity_unit_distance=1,
+        scalar_bar_args={
+            "title": "3D Doppler (dB)",
+            "title_font_size": 16 * scale,
+            "label_font_size": 12 * scale,
+            "color": font_color,
+            "vertical": False,
+            "position_x": 0.6,
+            "position_y": 0.05,
+            "width": 0.3,
+        },
+        ambient=1,
+    )
 
 final_plotter = add_2D_image(
     Doppler2D.pv_mesh,
@@ -162,10 +185,10 @@ final_plotter = add_2D_image(
         "title": "2D Doppler (dB)",
         "title_font_size": 16 * scale,
         "label_font_size": 12 * scale,
-        "color": "white",
+        "color": font_color,
         "vertical": False,
         "position_x": 0.2,
-        "position_y": 0.1,
+        "position_y": 0.05,
         "width": 0.3,
     },
 )
@@ -175,7 +198,7 @@ final_plotter = add_transducer_mesh(
     plotter=final_plotter,
     show_edges=False,
     lighting=True,
-    ambient=1,
+    ambient=ambient_tx,
     scalar_bar_args={
         "title": "Apodization",
         "title_font_size": 16 * scale,
@@ -184,7 +207,7 @@ final_plotter = add_transducer_mesh(
         "position_x": 0.85,
         "position_y": 0.6,
         "height": 0.3,
-        "color": "white",
+        "color": font_color,
     },
 )
 
@@ -193,6 +216,7 @@ final_plotter = add_pressure_vol(
     plotter=final_plotter,
     plot_focal_spot=False,
     lighting=True,
+    ambient=ambient_pr,
     scalar_bar_args={
         "title": "Pressure",
         "title_font_size": 16 * scale,
@@ -201,14 +225,16 @@ final_plotter = add_pressure_vol(
         "position_x": 0.85,
         "position_y": 0.2,
         "height": 0.3,
-        "color": "white",
+        "color": font_color,
     },
 )
+
+final_plotter.add_legend(loc="upper left")
 
 final_plotter.set_background("black")
 final_plotter.show_grid(
     grid="back",
-    color="white",
+    color=font_color,
     font_size=12 * scale,
     location="outer",
     xtitle="X (mm)",
@@ -220,22 +246,36 @@ final_plotter.show_grid(
     use_3d_text=False,
 )  # Show grid with white color and font size 10
 
-final_plotter.add_axes(label_size=(0.1, 0.1), color="white")
-final_plotter.camera_position = [
-    (-35.82464339746701, -19.934674593533888, 6.906725165821046),
-    (-2.316449860794587, -1.1753275901078455, 8.498045099318546),
-    (0.03252715920946665, 0.026652630106333085, -0.9991154193696428),
-]  # Set the camera position
+final_plotter.add_axes(label_size=(0.1, 0.1), color=font_color)
+if SHOW_3D_SCAN:
+    final_plotter.camera_position = [
+        (-35.82464339746701, -19.934674593533888, 6.906725165821046),
+        (-2.316449860794587, -1.1753275901078455, 8.498045099318546),
+        (0.03252715920946665, 0.026652630106333085, -0.9991154193696428),
+    ]  # Set the camera position
+else:
+    final_plotter.camera_position = [
+        (-28.905996435223408, -21.55455925720397, -10.280949744884444),
+        (-1.4180739226092505, -1.611044767106864, 7.716682847783181),
+        (0.4275761737893515, 0.20516655779210669, -0.880389288423818),
+    ]
+
+
 final_plotter.camera.up = (0, 0, -1)  # Set the camera up direction
 
-if save_fig:
-    final_plotter.screenshot(fig_folder + f"mouse_brain_doppler_figure_{version}.png")
+if BACKGROUND == "dark":
+    final_plotter.set_background("black")
+else:
+    final_plotter.set_background("white")
+
+if SAVE_FIG:
+    final_plotter.screenshot(FIG_FOLDER + f"mouse_brain_doppler_figure_{VERSION}.png")
 else:
     final_plotter.show()  # Show the plotter in Jupyter Notebook
 
 
 final_plotter.close()  # for plotters
-# print(final_plotter.camera_position)
+print(final_plotter.camera_position)
 
 # ------------------ Clean up --------------------
 
