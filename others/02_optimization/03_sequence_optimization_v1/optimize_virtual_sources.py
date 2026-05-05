@@ -24,16 +24,52 @@ if __name__ == "__main__":
     # --- Configuration ---
     n_vs = 3  # Number of virtual sources to optimize
     use_gpu = True
-    data_folder = r"results/domino/"
+    data_folder = r"results/energyvsresolution/"
     optimizer_type = "SGD"  # Adam works better with few params
-    version = "_aperweight100_initrandom"
+    use_phase = False  # optimize for energy only (ignore phase)
+
+    energy_weight = 1e-2  # 1e-2
+    resolution_weight = 1e2
+    symmetry_weight = 0  # not used in this version
+    diversity_weight = 0  # coherence factor (CF) — phase-based resolution proxy
+    aperture_weight = 5e-2
+    coverage_weight = 1e2
+    comment2 = "_cov1e2_aperture5eNeg2"
+    # comment2 = ""
+
+    avg_energy_value, avg_resolution_value = 500, 0.3  # for normalization in loss
+
     num_epochs = 500
-    lr = 1e-1  # log-mean gives stronger gradient → can use higher LR
+    lr = 1e-1  # log-mean gives stronger gradient -> can use higher LR
     x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
     z_init = [-10, -10, -10]  # mm, initial z positions of virtual sources
-    x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
-    z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
+    # x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
+    # z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
+    # x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
+    # z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
     fs = 50e6  # Hz, sampling frequency for field computation
+
+    if resolution_weight == 0:
+        ratio = "inf"
+    else:
+        ratio = (
+            round(
+                1000
+                * energy_weight
+                * avg_energy_value
+                / (resolution_weight * avg_resolution_value)
+            )
+            / 1000
+        )
+        ratio = f"{ratio:.3f}"
+
+    ratio += f"_E{round(1000 * energy_weight) / 1000:.3f}"
+    if use_phase:
+        comment = "AmpAndPhase"
+    else:
+        comment = "AmplitudeOnly"
+
+    version = f"_init1_{comment}_EnergyToRes_{ratio}{comment2}"
     # Create transducer
 
     tx = LinearArrayTransducer(
@@ -56,10 +92,13 @@ if __name__ == "__main__":
         "dy": 1.0,
         "dz": 2,
     }
+    # Save results
+    output_file = f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
 
     # Test with different numbers of virtual sources
     print(f"\n{'=' * 70}")
     print(f"Testing with {n_vs} virtual sources")
+    print(f"filename: {output_file}")
     print("=" * 70)
 
     results = optimize_virtual_sources(
@@ -68,20 +107,22 @@ if __name__ == "__main__":
         field_points=field_points,
         num_epochs=num_epochs,
         lr=lr,
-        uniformity_weight=10,
-        coverage_weight=10,
-        aperture_weight=100,
-        energy_weight=1,
+        resolution_weight=resolution_weight,
+        energy_weight=energy_weight,
+        coverage_weight=coverage_weight,
+        aperture_weight=aperture_weight,  # cost apertures
+        uniformity_weight=symmetry_weight,  # symmetry
+        diversity_weight=diversity_weight,  # angle diversity
+        target_fnumber=1.5,
         batch_size=2048,
         use_gpu=use_gpu,
         optimizer_type=optimizer_type,
         x_init_mm=x_init[:n_vs],
         z_init_mm=z_init[:n_vs],
         fs=fs,
+        use_phase=use_phase,
+        coverage_threshold_db=-10,  # for soft coverage loss
     )
-
-    # Save results
-    output_file = f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
 
     from pathlib import Path
 

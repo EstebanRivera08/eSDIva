@@ -24,10 +24,15 @@ def plot_virtual_source_results(results, output_file=None):
         return (arr - arr.min()) / (arr.max() - arr.min() + 1e-8)
 
     ax2 = fig.add_subplot(gs[0, 1])
-    ax2.plot(_norm_btwn_0_and_1(results["uniformity_history"]), label="Uniformity")
-    ax2.plot(_norm_btwn_0_and_1(results["sparsity_history"]), label="Sparsity")
+    ax2.plot(_norm_btwn_0_and_1(results["symmetry_history"]), label="Symmetry")
+    ax2.plot(_norm_btwn_0_and_1(results["resolution_history"]), label="Resolution")
+    ax2.plot(
+        _norm_btwn_0_and_1(results["coherence_factor_history"]),
+        label="Coherence factor",
+    )
     ax2.plot(_norm_btwn_0_and_1(results["coverage_history"]), label="Coverage")
     ax2.plot(_norm_btwn_0_and_1(results["energy_history"]), label="Energy")
+    ax2.plot(_norm_btwn_0_and_1(results["aperture_history"]), label="Aperture usage")
     ax2.set_xlabel("Epoch")
     ax2.set_ylabel("Loss Component")
     ax2.set_title("Loss Components")
@@ -175,7 +180,8 @@ def plot_virtual_source_results(results, output_file=None):
     def sigmoid(x):
         return 1 / (1 + np.exp(-x))
 
-    pr_cover = sigmoid(1 * (pr_db - (-10)))  # steepness=20, threshold=-6 dB
+    threshold_db = results["coverage_threshold_db"]
+    pr_cover = sigmoid(1 * (pr_db - threshold_db))  # steepness=20, threshold=-6 dB
     im6 = plt.imshow(
         pr_cover.T,
         aspect="auto",

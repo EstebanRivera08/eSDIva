@@ -1,7 +1,5 @@
 import torch
 
-from pyfield.utilities import to_dB
-
 # ============================================================================
 # v1 Loss Functions (original — free apodization, global CV, hard threshold)
 # ============================================================================
@@ -55,70 +53,71 @@ def dB(x, max_val=None):
 # ============================================================================
 # v3 Loss — log-mean coverage (replaces sigmoid coverage)
 # ============================================================================
+#
+#
+# def compute_log_coverage_loss(pr_field, eps=1e-3):
+#     """
+#     Log-mean (geometric mean) coverage loss.
+#
+#     Maximizes the geometric mean of the pressure field.  Equivalent to
+#     minimising -mean(log(pr)).
+#
+#     Why this works when sigmoid fails:
+#       - sigmoid gradient at dark regions (pr≈0) is **zero** → optimizer blind
+#       - log gradient at dark regions is **-1/(pr+eps)** → very strong
+#       - dark regions actively "pull" the beam toward them
+#
+#     Think of it as: every field point votes "I want more pressure" with a
+#     voice proportional to 1/pressure.  Quiet points shout the loudest.
+#
+#     Parameters
+#     ----------
+#     pr_field : Tensor [nx, ny, nz]
+#         Pressure field (raw or normalised, both work)
+#     eps : float
+#         Floor preventing log(0).  Smaller = more aggressive pull from dark
+#         regions, but can cause gradient explosion.  1e-3 is a good start.
+#
+#     Returns
+#     -------
+#     Tensor (scalar)
+#         Negative log-mean (minimise this → maximise geometric mean)
+#     """
+#     return -torch.log(pr_field + eps).mean()
+#
+#
+# def compute_lateral_uniformity_loss(pr_field):
+#     """
+#     Lateral uniformity per depth slice, then averaged.
+#
+#     Why better: depth decay is physics (can't fix). What VS positions control
+#     is lateral spread. CV per z-slice isolates that.
+#
+#     Parameters
+#     ----------
+#     pr_field : Tensor [nx, ny, nz]
+#         Pressure field (not necessarily normalized)
+#
+#     Returns
+#     -------
+#     Tensor (scalar)
+#         Mean CV across depth slices (lower = more uniform laterally)
+#     """
+#     # Take the y=0 slice → [nx, nz]
+#     pr_2d = pr_field[:, pr_field.shape[1] // 2, :]
+#
+#     # Per depth-column statistics
+#     col_mean = pr_2d.mean(dim=0)  # [nz]
+#     col_std = pr_2d.std(dim=0)  # [nz]
+#
+#     # CV per depth, only where mean is meaningful (avoid near-zero depth slices)
+#     cv_per_depth = col_std / (col_mean + 1e-6)
+#
+#     return cv_per_depth.mean()
+#
 
 
-def compute_log_coverage_loss(pr_field, eps=1e-3):
-    """
-    Log-mean (geometric mean) coverage loss.
-
-    Maximizes the geometric mean of the pressure field.  Equivalent to
-    minimising -mean(log(pr)).
-
-    Why this works when sigmoid fails:
-      - sigmoid gradient at dark regions (pr≈0) is **zero** → optimizer blind
-      - log gradient at dark regions is **-1/(pr+eps)** → very strong
-      - dark regions actively "pull" the beam toward them
-
-    Think of it as: every field point votes "I want more pressure" with a
-    voice proportional to 1/pressure.  Quiet points shout the loudest.
-
-    Parameters
-    ----------
-    pr_field : Tensor [nx, ny, nz]
-        Pressure field (raw or normalised, both work)
-    eps : float
-        Floor preventing log(0).  Smaller = more aggressive pull from dark
-        regions, but can cause gradient explosion.  1e-3 is a good start.
-
-    Returns
-    -------
-    Tensor (scalar)
-        Negative log-mean (minimise this → maximise geometric mean)
-    """
-    return -torch.log(pr_field + eps).mean()
-
-
-def compute_lateral_uniformity_loss(pr_field):
-    """
-    Lateral uniformity per depth slice, then averaged.
-
-    Why better: depth decay is physics (can't fix). What VS positions control
-    is lateral spread. CV per z-slice isolates that.
-
-    Parameters
-    ----------
-    pr_field : Tensor [nx, ny, nz]
-        Pressure field (not necessarily normalized)
-
-    Returns
-    -------
-    Tensor (scalar)
-        Mean CV across depth slices (lower = more uniform laterally)
-    """
-    # Take the y=0 slice → [nx, nz]
-    pr_2d = pr_field[:, pr_field.shape[1] // 2, :]
-
-    # Per depth-column statistics
-    col_mean = pr_2d.mean(dim=0)  # [nz]
-    col_std = pr_2d.std(dim=0)  # [nz]
-
-    # CV per depth, only where mean is meaningful (avoid near-zero depth slices)
-    cv_per_depth = col_std / (col_mean + 1e-6)
-
-    return cv_per_depth.mean()
-
-
-def compute_symmetry_loss(pr_field, *, pr_max=None):
+def compute_symmetry_loss(pr_field, *, pr_max=None, db_scale=False):
     """
     Symmetry loss: mean absolute difference between left and right halves.
 
@@ -138,17 +137,22 @@ def compute_symmetry_loss(pr_field, *, pr_max=None):
     pr_2d = pr_field[:, pr_field.shape[1] // 2, :]
 
     # Split into left and right halves
+    if pr_max is None:
+        pr_max = pr_2d.max()
+
     mid_x = pr_2d.shape[0] // 2
-    left_half = pr_2d[:mid_x, :]  # [nx//2, nz]
-    right_half = pr_2d[mid_x + 1 :, :]  # [nx//2, nz]
+    left_half = pr_2d[:mid_x, :] / pr_max  # [nx//2, nz]
+    right_half = pr_2d[mid_x + 1 :, :] / pr_max  # [nx//2, nz]
 
     # Flip right half for symmetry comparison
     right_half_flipped = torch.flip(right_half, dims=[0])  # [nx//2, nz]
 
     # Compute mean absolute difference
-    symmetry_loss = loss_MSE(
-        dB(left_half, max_val=pr_max), dB(right_half_flipped, max_val=pr_max)
-    )
+    if db_scale:
+        left_half = dB(left_half)
+        right_half_flipped = dB(right_half_flipped)
+
+    symmetry_loss = loss_MSE(left_half, right_half_flipped)
 
     return symmetry_loss
 
@@ -201,12 +205,10 @@ def compute_aperture_cost(apod_list):
         Normalized total active elements [0, 1]
     """
     total = sum(apod.sum() for apod in apod_list)
-    n_elements = apod_list[0].shape[0]
-    n_vs = len(apod_list)
-    return total / (n_elements * n_vs)
+    return total
 
 
-def compute_mean_energy_loss(pr_field):
+def compute_mean_energy_loss(pr_field, apod_list=1):
     """
     Negative mean pressure — want to maximize field energy.
 
@@ -217,10 +219,129 @@ def compute_mean_energy_loss(pr_field):
     ----------
     pr_field : Tensor [nx, ny, nz]
         Pressure field
+    apod_list : list of Tensor [n_elements]
+        Per-VS apodization vectors (not necessarily normalized)
 
     Returns
     -------
     Tensor (scalar)
-        Negative mean (minimize → maximize energy)
+        - meanprssure/mean(apod), minimize to increase energy per active element.
     """
-    return -pr_field.mean()
+    if isinstance(apod_list, list):
+        mean_apod = sum(apod.mean() for apod in apod_list) / len(apod_list)
+    else:
+        mean_apod = apod_list
+    return -pr_field.mean() / (mean_apod + 1e-6)  # Avoid division by zero
+
+
+# ============================================================================
+# v4 Resolution Losses
+# - compute_resolution_loss: geometric f-number (cheap, no simulation)
+# - Coherence Factor (CF): computed in VirtualSourceOptimizer.get_combined_field
+#   replaces compute_angular_diversity_loss (kept below for reference)
+# ============================================================================
+
+
+def compute_resolution_loss(
+    vs_positions, z_field_range, lambda_m, D_physical_m, target_fnumber=1.5
+):
+    """
+    Effective f-number penalty based on virtual aperture geometry.
+
+    Penalizes configurations where the effective synthetic f-number exceeds
+    a target (poor lateral resolution). Operates on VS geometry only — no
+    forward simulation needed (cheap).
+
+    Physics:
+        D_eff(z) = D_physical + D_virtual * z / |z_vs_mean|
+        F# = z / D_eff
+        FWHM_lateral ~ 1.4 * lambda * F#
+
+    Parameters
+    ----------
+    vs_positions : list of Tensor [2]
+        Virtual source positions [x_mm, z_mm] for each VS.
+    z_field_range : tuple (z_min_mm, z_max_mm)
+        Depth range of imaging region (mm).
+    lambda_m : float
+        Wavelength in metres.
+    D_physical_m : float
+        Physical aperture width in metres.
+    target_fnumber : float
+        Target f-number. Lower = better resolution. F#=1 is clinical standard.
+
+    Returns
+    -------
+    Tensor (scalar)
+        Mean excess f-number (minimize this → better resolution).
+    """
+    vs_pos = torch.stack(vs_positions)  # [N, 2]
+    x_vs = vs_pos[:, 0] * 1e-3  # metres
+    z_vs = torch.abs(vs_pos[:, 1]) * 1e-3  # metres (positive distance behind)
+
+    # Virtual aperture span
+    D_virtual = x_vs.max() - x_vs.min()
+
+    # Mean VS depth behind array
+    z_vs_mean = z_vs.mean()
+
+    # Sample field depths
+    z_min = z_field_range[0] * 1e-3
+    z_max = z_field_range[1] * 1e-3
+    z_points = torch.linspace(z_min, z_max, steps=20, device=vs_pos.device)
+
+    # Effective aperture at each depth: D_eff(z) = D_phys + D_virtual * z / |z_vs|
+    D_eff = D_physical_m + D_virtual * z_points / (z_vs_mean + 1e-6)
+
+    # Effective f-number
+    f_number_eff = z_points / (D_eff + 1e-6)
+
+    # Penalize only when F# exceeds target (softplus = smooth ReLU)
+    excess = torch.nn.functional.softplus(f_number_eff - target_fnumber)
+
+    return excess.mean()
+
+
+def compute_angular_diversity_loss(vs_positions, z_field_center_mm):
+    """
+    Angular diversity (repulsion) loss.
+
+    Penalizes small pairwise angular separations between virtual sources
+    as seen from the field center. Prevents VS collapse to identical positions.
+
+    Strong gradient when angles approach zero (log penalty).
+
+    Parameters
+    ----------
+    vs_positions : list of Tensor [2]
+        Virtual source positions [x_mm, z_mm] for each VS.
+    z_field_center_mm : float
+        Representative depth of field center (mm).
+
+    Returns
+    -------
+    Tensor (scalar)
+        Negative log of mean pairwise angular separation.
+        Minimize → maximize angular diversity.
+    """
+    vs_pos = torch.stack(vs_positions)  # [N, 2]
+    N = vs_pos.shape[0]
+
+    if N < 2:
+        return torch.tensor(0.0, device=vs_pos.device)
+
+    x_vs = vs_pos[:, 0]  # mm
+    z_vs = vs_pos[:, 1]  # mm (negative = behind array)
+
+    # Angle from field center to each VS
+    # Field center at (0, z_field_center), VS at (x_vs, z_vs)
+    angles = torch.atan2(x_vs, z_field_center_mm - z_vs)  # [N] radians
+
+    # Pairwise angular differences (upper triangle only)
+    angle_diffs = (angles.unsqueeze(0) - angles.unsqueeze(1)).abs()  # [N, N]
+    mask = torch.triu(torch.ones(N, N, device=vs_pos.device), diagonal=1).bool()
+    pairwise = angle_diffs[mask]  # [N*(N-1)/2]
+
+    # Negative log: strong gradient when angles collapse
+    mean_separation = pairwise.mean()
+    return -torch.log(mean_separation + 1e-6)

@@ -9,9 +9,8 @@ import torch
 import torch.nn.functional as F
 from loss_functions import (
     compute_aperture_cost,
-    compute_lateral_uniformity_loss,
-    compute_log_coverage_loss,
     compute_mean_energy_loss,
+    compute_resolution_loss,
     compute_soft_coverage_loss,
     compute_symmetry_loss,
 )
@@ -39,6 +38,9 @@ def gaussian_filter_pytorch(pr, sigma_points):
     device = pr.device
 
     # Build 1D kernels
+    # when pr is complex, we apply the filter to the magnitude (abs) and keep the phase
+    # unchanged.
+
     k = gaussian_kernel1d(sigma_points, device=device)
     kx = k.view(1, 1, -1, 1)  # vertical
     ky = k.view(1, 1, 1, -1)  # horizontal
@@ -99,6 +101,7 @@ class VirtualSourceOptimizer:
         x_init_mm=None,
         z_init_mm=None,
         fs: float = 100e6,
+        use_phase: bool = False,
     ):
         self.transducer = transducer
         self.n_vs = n_virtual_sources
@@ -106,6 +109,7 @@ class VirtualSourceOptimizer:
         self.use_gpu = use_gpu
         self.c = c  # Speed of sound in m/s
         self.fs = fs  # Sampling frequency for SIR simulation (Hz)
+        self.use_phase = use_phase
 
         if x_init_mm is None:
             x_init_mm = [0.0] * n_virtual_sources
@@ -325,12 +329,26 @@ class VirtualSourceOptimizer:
         """
         Compute combined pressure field from all virtual sources.
 
+        When use_phase=True, also computes the Coherence Factor (CF):
+            CF = mean(|Σ Pᵢ|²) / mean(Σ |Pᵢ|²)
+
+        CF measures angular diversity via interference:
+            - CF = N → all VS identical (no diversity, bad resolution)
+            - CF → 1 → VS fully decorrelated (max diversity, good resolution)
+
+        No phase unwrapping needed — CF operates on magnitudes only.
+
         Returns
         -------
-        Tensor [nx, ny, nz]
-            Combined pressure field
+        x, y, z : Tensor
+            Grid coordinates
+        pr_combined : Tensor [nx, ny, nz]
+            Combined pressure magnitude field
+        coherence_factor : Tensor (scalar) or None
+            CF value when use_phase=True, None otherwise
         """
         pr_combined = None
+        incoherent_power = None  # Σ |Pᵢ|² for CF computation
 
         if training:
             for i, tf in enumerate(self.torch_fields):
@@ -338,25 +356,61 @@ class VirtualSourceOptimizer:
                     self.field_points, training=training, batch_size=batch_size
                 )
 
-                pr_i = gaussian_filter_pytorch(pr_i, sigma_points=sigma_points)
-
-                if pr_combined is None:
-                    pr_combined = pr_i
+                if self.use_phase:
+                    # Accumulate incoherent power: Σ |Pᵢ|²
+                    pr_i_power = pr_i.abs() ** 2
+                    if incoherent_power is None:
+                        incoherent_power = pr_i_power
+                    else:
+                        incoherent_power = incoherent_power + pr_i_power
+                    # Coherent sum (complex)
+                    if pr_combined is None:
+                        pr_combined = pr_i
+                    else:
+                        pr_combined = pr_combined + pr_i
                 else:
-                    pr_combined = pr_combined + pr_i
+                    pr_i = pr_i.abs()
+                    if pr_combined is None:
+                        pr_combined = pr_i
+                    else:
+                        pr_combined = pr_combined + pr_i
         else:
             with torch.no_grad():
                 for i, tf in enumerate(self.torch_fields):
                     x, y, z, pr_i = tf(
                         self.field_points, training=training, batch_size=batch_size
                     )
+                    pr_i = torch.tensor(pr_i, device=self.device)
 
-                    if pr_combined is None:
-                        pr_combined = pr_i
+                    if self.use_phase:
+                        pr_i_power = pr_i.abs() ** 2
+                        if incoherent_power is None:
+                            incoherent_power = pr_i_power
+                        else:
+                            incoherent_power = incoherent_power + pr_i_power
+                        if pr_combined is None:
+                            pr_combined = pr_i
+                        else:
+                            pr_combined = pr_combined + pr_i
                     else:
-                        pr_combined = pr_combined + pr_i
+                        pr_i = pr_i.abs()
+                        if pr_combined is None:
+                            pr_combined = pr_i
+                        else:
+                            pr_combined = pr_combined + pr_i
 
-        return x, y, z, pr_combined
+        # Compute CF before smoothing (needs raw coherent sum)
+        coherence_factor = None
+        if self.use_phase and incoherent_power is not None:
+            coherent_power = pr_combined.abs() ** 2  # |Σ Pᵢ|²
+            # CF = mean(|Σ Pᵢ|²) / mean(Σ |Pᵢ|²)
+            coherence_factor = coherent_power.mean() / (incoherent_power.mean() + 1e-8)
+
+        # Final output: magnitude + smoothing for coverage/energy metrics
+        pr_combined = gaussian_filter_pytorch(
+            pr_combined.abs(), sigma_points=sigma_points
+        )
+        return x, y, z, pr_combined, coherence_factor
 
     def get_per_vs_apodization(self):
         """
@@ -414,13 +468,17 @@ def optimize_virtual_sources(
     coverage_weight: float = 0.5,
     aperture_weight: float = 0.3,
     energy_weight: float = 0.1,
-    sparsity_weight: float = 0.1,
+    resolution_weight: float = 1.0,
+    diversity_weight: float = 0.5,
+    target_fnumber: float = 1.5,
     batch_size: int = 2048,
     use_gpu: bool = True,
     optimizer_type: str = "Adam",
     x_init_mm=None,
     z_init_mm=None,
     fs: float = 100e6,
+    use_phase: bool = False,
+    coverage_threshold_db: float = -15.0,
 ):
     """
     Optimize virtual source positions for diverging wave imaging.
@@ -477,7 +535,8 @@ def optimize_virtual_sources(
     print(f"Field: X={field_points['x_extent']}, Z={field_points['z_extent']}")
     print(
         f"Weights: unif={uniformity_weight}, cover={coverage_weight}, "
-        f"aper={aperture_weight}, energy={energy_weight}"
+        f"aper={aperture_weight}, energy={energy_weight}, "
+        f"resol={resolution_weight}, divers={diversity_weight}"
     )
     print()
 
@@ -490,6 +549,7 @@ def optimize_virtual_sources(
         x_init_mm=x_init_mm,
         z_init_mm=z_init_mm,
         fs=fs,
+        use_phase=use_phase,
     )
 
     # Setup torch optimizer
@@ -506,22 +566,32 @@ def optimize_virtual_sources(
     else:
         raise ValueError(f"Unsupported optimizer type: {optimizer_type}")
 
+    # Resolution loss constants (geometry-only, computed once)
+    lambda_m = vs_opt.c / transducer.fc  # wavelength [m]
+    D_physical_m = transducer.n_elements * transducer.pitch  # aperture [m]
+    z_field_range = field_points["z_extent"]  # [z_min_mm, z_max_mm]
+    z_field_center_mm = (z_field_range[0] + z_field_range[1]) / 2.0
+
     # History tracking
     loss_history = []
     uniformity_history = []
     coverage_history = []
     aperture_history = []
     energy_history = []
+    resolution_history = []
+    coherencef_history = []
     vs_positions_history = np.zeros((num_epochs, n_virtual_sources, 2))
 
     # Get the max_pr now and keep it fixed during training to prevent oscillatory
     # gradients from SIR simulation. We can compute it from the initial combined field.
     with torch.no_grad():
-        x, y, z, pr_init = vs_opt.get_combined_field(
+        x, y, z, pr_init, cf_init = vs_opt.get_combined_field(
             batch_size=batch_size, training=False
         )
         max_pr = pr_init.max().item()
         print(f"Initial max pressure: {max_pr:.4f}")
+        if cf_init is not None:
+            print(f"Initial coherence factor: {cf_init.item():.4f} (max={vs_opt.n_vs})")
     print(f"Training for {num_epochs} epochs...")
     print()
 
@@ -529,31 +599,56 @@ def optimize_virtual_sources(
     # v3 Training loop — log-coverage (gradient everywhere)
     # ================================================================
     # Use tqdm for progress bar (optional)
-    for epoch in tqdm(range(num_epochs), desc="Optimizing VS", unit="epoch"):
+    pbar = tqdm(range(num_epochs), desc="Optimizing VS", unit="epoch")
+    for epoch in pbar:
         optimizer.zero_grad()
 
         # Forward: compound field from all VS
-        x, y, z, pr = vs_opt.get_combined_field(batch_size=batch_size, training=True)
-
-        # Normalize compound field
+        x, y, z, pr, coherence_factor = vs_opt.get_combined_field(
+            batch_size=batch_size, training=True
+        )
 
         # Per-VS apodization (derived from F/D=1)
         apod_list = vs_opt.get_per_vs_apodization()
 
         # --- v3 losses ---
-        loss_uniform = compute_symmetry_loss(pr, pr_max=max_pr)
+        loss_symm = compute_symmetry_loss(pr, pr_max=max_pr)
         loss_cover = compute_soft_coverage_loss(
-            pr, pr_max=max_pr, threshold=-10, steepness=1
+            pr, pr_max=max_pr, threshold=coverage_threshold_db, steepness=1
         )
         loss_aperture = compute_aperture_cost(apod_list)
         loss_energy = compute_mean_energy_loss(pr)
 
+        # --- v4 resolution losses ---
+        # Geometric f-number penalty (cheap, no simulation)
+        vs_pos_list = [
+            vs_opt.torch_fields[i].get_parameter(f"vs_{i}")
+            for i in range(n_virtual_sources)
+        ]
+        loss_resolution = compute_resolution_loss(
+            vs_pos_list,
+            z_field_range,
+            lambda_m,
+            D_physical_m,
+            target_fnumber=target_fnumber,
+        )
+
+        # Coherence factor loss (from pressure field, replaces angular diversity)
+        # CF ∈ [1, N]. Minimize → maximize phase diversity → better resolution.
+        # Normalized to [0, 1] by dividing by N.
+        if coherence_factor is not None:
+            loss_cf = coherence_factor / n_virtual_sources  # [1/N, 1] → minimize
+        else:
+            loss_cf = torch.tensor(0.0, device=vs_opt.device)
+
         # Combined loss
         loss = (
-            uniformity_weight * loss_uniform
+            uniformity_weight * loss_symm
             + coverage_weight * loss_cover
-            + aperture_weight * loss_aperture
             + energy_weight * loss_energy
+            + resolution_weight * loss_resolution
+            + diversity_weight * loss_cf
+            + aperture_weight * loss_aperture
         )
 
         # Backward + step
@@ -567,10 +662,14 @@ def optimize_virtual_sources(
 
         # --- History ---
         loss_history.append(loss.item())
-        uniformity_history.append(loss_uniform.item())
+        uniformity_history.append(loss_symm.item())
         coverage_history.append(loss_cover.item())
-        aperture_history.append(loss_aperture.item())
         energy_history.append(loss_energy.item())
+        resolution_history.append(loss_resolution.item())
+        coherencef_history.append(
+            loss_cf.item() if isinstance(loss_cf, torch.Tensor) else loss_cf
+        )
+        aperture_history.append(loss_aperture.item())
 
         for i in range(n_virtual_sources):
             vs_pos = (
@@ -578,6 +677,17 @@ def optimize_virtual_sources(
             )
             vs_positions_history[epoch, i] = vs_pos
 
+        # update tqdm description with current loss
+        cf_val = loss_cf.item() if isinstance(loss_cf, torch.Tensor) else loss_cf
+        tqdm_desc = (
+            f"Loss={loss.item():.3f} | "
+            f"Energy={loss_energy.item():.3f} | "
+            f"Resol={loss_resolution.item():.3f} | "
+            f"CF={cf_val:.3f} | "
+            f"Cover={loss_cover.item():.3f} | "
+            f"Aper={loss_aperture.item():.3f}"
+        )
+        pbar.set_description(tqdm_desc)
         # # Print progress
         # if epoch % 10 == 0 or epoch == num_epochs - 1:
         #     print(
@@ -639,8 +749,12 @@ def optimize_virtual_sources(
 
     # Final evaluation
     with torch.no_grad():
-        x, y, z, pr_final = vs_opt.get_combined_field(batch_size=batch_size)
+        x, y, z, pr_final, cf_final = vs_opt.get_combined_field(batch_size=batch_size)
         apod_final = vs_opt.get_total_apodization().cpu().numpy()
+        if cf_final is not None:
+            print(
+                f"Final coherence factor: {cf_final.item():.4f} / {n_virtual_sources}"
+            )
 
     # Print final VS positions
     vs_positions = []
@@ -659,10 +773,24 @@ def optimize_virtual_sources(
         "virtual_source_positions_history": vs_positions_history,
         "apodization_total": apod_final / n_virtual_sources,  # normalize for plotting
         "loss_history": loss_history,
-        "uniformity_history": uniformity_history,
-        "sparsity_history": aperture_history,  # reuse key for plotting compat
+        "symmetry_history": uniformity_history,
+        "aperture_history": aperture_history,
         "coverage_history": coverage_history,
         "energy_history": energy_history,
+        "resolution_history": resolution_history,
+        "coherence_factor_history": coherencef_history,
+        "loss_weights": {
+            "uniformity": uniformity_weight,
+            "coverage": coverage_weight,
+            "aperture": aperture_weight,
+            "energy": energy_weight,
+            "resolution": resolution_weight,
+            "coherence_factor": diversity_weight,
+        },
+        "learning_rate": lr,
+        "use_phase": use_phase,
+        "coverage_threshold_db": coverage_threshold_db,
+        "target_fnumber": target_fnumber,
         "x": x.detach().cpu().numpy(),
         "y": y.detach().cpu().numpy(),
         "z": z.detach().cpu().numpy(),

@@ -870,7 +870,7 @@ class TorchFieldFlexible(nn.Module):
         for i in range(0, n_points, batch_size):
             batch_end = min(i + batch_size, n_points)
             fft_batch = torch.fft.fft(h_sir[:, i:batch_end], dim=0)
-            fft_results.append(fft_batch[idx].abs())
+            fft_results.append(fft_batch[idx])
 
         fft_all = torch.cat(fft_results, dim=0)
         nx, ny, nz = grid_shape

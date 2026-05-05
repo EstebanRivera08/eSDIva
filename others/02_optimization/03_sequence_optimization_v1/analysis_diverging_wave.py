@@ -34,7 +34,7 @@ field_points = {
 tx.compute_delays(focus_mm)
 # tx.set_apodization(np.ones(tx.num_elements))
 tx.compute_apodization(focus_mm)
-# tx.plot_delays_apodization()
+tx.plot_delays_apodization()
 
 # Create the PyField instance for transducer
 tx_field = PyField(tx, fs=30e6)
