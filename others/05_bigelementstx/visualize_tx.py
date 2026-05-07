@@ -5,7 +5,11 @@ import pyvista as pv
 from plotting_functions import create_2D_image_mesh, plot_volume_slices
 
 from pyfield import PyField
-from pyfield.transducers import ConvexCircularTransducer, CustomTransducer
+from pyfield.transducers import (
+    ConcaveCircularTransducer,
+    ConvexCircularTransducer,
+    CustomTransducer,
+)
 from pyfield.utilities import (
     add_2D_image,
     add_transducer_mesh,
@@ -19,7 +23,7 @@ CENTRAL_FREQUENCY_MHz = 1  # MHz
 SPEED_OF_SOUND_MS = 1540  # m/s
 
 lambda_mm = SPEED_OF_SOUND_MS / (CENTRAL_FREQUENCY_MHz * 1e3)  # mm
-element_diameter_mm = 4.5
+element_diameter_mm = 2.9 * lambda_mm
 radius_curvature_mm = element_diameter_mm / 2
 
 pd_dataframe = pd.read_excel(POSITION_MAPPING)
@@ -31,22 +35,24 @@ normal_vectors = np.zeros_like(element_positions_m)
 
 monoelement = ConvexCircularTransducer(
     diameter_mm=element_diameter_mm,
-    focus_mm=1,
+    focus_mm=2,
     frequency_Hz=CENTRAL_FREQUENCY_MHz * 1e6,
     no_sub_diameter=30,
-    ratio_big_patches=0.7,
+    ratio_big_patches=0.80,
     refine_factor=3,
     method="spherical",
+    normalize_patch_size=True,
 )
 
 monoelement.show()
 
+# breakpoint()
 # Check pressure field
-dxyz = 0.3
+dxyz = 0.4
 plane_monoelement = {
-    "x_extent_mm": (-15, 15),
+    "x_extent_mm": (-20, 20),
     "y_extent_mm": (0, 0),
-    "z_extent_mm": (4, 35),
+    "z_extent_mm": (0, 40),
     "dx_mm": dxyz,
     "dy_mm": dxyz,
     "dz_mm": dxyz,
@@ -55,7 +61,7 @@ plane_monoelement = {
 simmono = PyField(monoelement, fs=100e6)
 x, y, z, plane_mono = simmono(plane_monoelement)
 
-plot_pressure_planes(x, y, z, plane_mono)
+plot_pressure_planes(x, y, z, plane_mono, db_scale=True)
 
 
 breakpoint()

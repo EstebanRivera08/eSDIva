@@ -293,6 +293,7 @@ class ConcaveCircularTransducer(TransducerBase):
         method: str = "spherical",
         ratio_big_patches: float = 0.85,
         refine_factor: int = 3,
+        normalize_patch_size: bool = False,
         frequency_Hz: Optional[float] = None,
     ) -> None:
         super().__init__()
@@ -318,6 +319,7 @@ class ConcaveCircularTransducer(TransducerBase):
         self.method = method
         self.ratio_big_patches = ratio_big_patches
         self.refine_factor = refine_factor
+        self.normalize_patch_size = normalize_patch_size
         self.n_elements = 1
 
         # focus_mm = z_depth → R = sqrt(f² + r_ap²)
@@ -385,10 +387,12 @@ class ConcaveCircularTransducer(TransducerBase):
             R_inner = rbp * R_ap
             R_accept = 1.005 * R_ap
 
+            D_flat = np.sqrt(max(R * R - R_ap * R_ap, 0.0))  # = R*cos(theta_max)
+
             def surface_fn(sx: float, sy: float) -> np.ndarray:
                 x = R * np.sin(sx / R)
                 y = R * np.sin(sy / R)
-                z = R - np.sqrt(max(R * R - x * x - y * y, 0.0))
+                z = D_flat - np.sqrt(max(R * R - x * x - y * y, 0.0))  # rim at z=0
                 return np.array([x, y, z])
 
             def inside_fn(sx: float, sy: float) -> bool:
@@ -411,6 +415,7 @@ class ConcaveCircularTransducer(TransducerBase):
                 accept_fn=accept_fn,
                 border_refine=rf,
                 normal_sign=1.0,
+                normalize_patch_size=self.normalize_patch_size,
             )
 
         self._sub_patch_frames = frames
@@ -483,6 +488,7 @@ class ConvexCircularTransducer(TransducerBase):
         method: str = "spherical",
         ratio_big_patches: float = 0.85,
         refine_factor: int = 3,
+        normalize_patch_size: bool = False,
         frequency_Hz: Optional[float] = None,
     ) -> None:
         super().__init__()
@@ -508,6 +514,7 @@ class ConvexCircularTransducer(TransducerBase):
         self.method = method
         self.ratio_big_patches = ratio_big_patches
         self.refine_factor = refine_factor
+        self.normalize_patch_size = normalize_patch_size
         self.n_elements = 1
 
         # focus_mm = z_depth → R = sqrt(f² + r_ap²)
@@ -565,23 +572,41 @@ class ConvexCircularTransducer(TransducerBase):
             rbp = self.ratio_big_patches
             rf = self.refine_factor
 
-            def surface_fn(x: float, y: float) -> np.ndarray:
-                z = sag - (R - np.sqrt(max(R * R - x * x - y * y, 0.0)))
-                return np.array([x, y, z])
-
+            # Arc-length reparameterization: uniform grid in (sx, sy) where
+            # x = R*sin(sx/R). Keeps Jacobian near 1 on-axis and avoids the
+            # singularity (Jacobian → ∞) that the direct (x,y) grid produces
+            # near the rim of high-curvature / hemisphere surfaces.
+            s_max = R * np.arcsin(R_ap / R)
             R_inner = rbp * R_ap
             R_accept = 1.005 * R_ap
 
+            def surface_fn(sx: float, sy: float) -> np.ndarray:
+                x = R * np.sin(sx / R)
+                y = R * np.sin(sy / R)
+                z = sag - (R - np.sqrt(max(R * R - x * x - y * y, 0.0)))
+                return np.array([x, y, z])
+
+            def inside_fn(sx: float, sy: float) -> bool:
+                x = R * np.sin(sx / R)
+                y = R * np.sin(sy / R)
+                return x * x + y * y <= R_inner * R_inner
+
+            def accept_fn(sx: float, sy: float) -> bool:
+                x = R * np.sin(sx / R)
+                y = R * np.sin(sy / R)
+                return x * x + y * y <= R_accept * R_accept
+
             frames = subdivide_parametric_surface(
                 surface_fn,
-                u_range=(-R_ap, R_ap),
-                v_range=(-R_ap, R_ap),
+                u_range=(-s_max, s_max),
+                v_range=(-s_max, s_max),
                 n_u=self.no_sub_diameter,
                 n_v=self.no_sub_diameter,
-                inside_fn=lambda x, y: x * x + y * y <= R_inner * R_inner,
-                accept_fn=lambda x, y: x * x + y * y <= R_accept * R_accept,
+                inside_fn=inside_fn,
+                accept_fn=accept_fn,
                 border_refine=rf,
                 normal_sign=1.0,
+                normalize_patch_size=self.normalize_patch_size,
             )
 
         self._sub_patch_frames = frames
@@ -726,7 +751,9 @@ class FocusedCircularTransducer(TransducerBase):
 
         Surface equation (curved along ``focus_axis``):
 
-            z(x, y) = R - √(R² - val²)   where val = y (or x) for focus_axis
+            z(x, y) = √(R² - R_ap²) - √(R² - val²)   where val = y (or x)
+
+        Rim at z = 0 (at val = ±R_ap), centre at z = -sag.
 
         Uses :func:`subdivide_parametric_surface` so each patch has arc-length
         extents and tangents tangent to the cylindrical surface.
@@ -738,9 +765,15 @@ class FocusedCircularTransducer(TransducerBase):
         rbp = self.ratio_big_patches
         rf = self.refine_factor
 
+        # D_flat: z-coordinate of the sphere at val=±R_ap (the curved-axis rim).
+        # Setting z = D_flat - sqrt(R²-val²) places the curved-axis rim at z=0
+        # and the center at z = D_flat - R = -sag, consistent with focus_mm
+        # measured from the rim plane.
+        D_flat = np.sqrt(max(R * R - R_ap * R_ap, 0.0))
+
         def surface_fn(x: float, y: float) -> np.ndarray:
             val = y if axis == "y" else x
-            z = R - np.sqrt(max(R * R - val * val, 0.0))
+            z = D_flat - np.sqrt(max(R * R - val * val, 0.0))  # rim at z=0
             return np.array([x, y, z])
 
         R_inner = rbp * R_ap

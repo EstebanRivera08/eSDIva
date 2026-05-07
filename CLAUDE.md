@@ -195,6 +195,14 @@ The radius of curvature is derived: `R = sqrt(focus_mm² + (D/2)²)`.
     factor (cartesian / flat).
 - **Overlap warnings**: Spherical method warns if patch/R ratio > 0.3; cartesian method
   warns if coverage exceeds 102%.
+- **`normalize_patch_size`** (bool, default `False`): When `True`, patch `wu`/`wv` are
+  set to the arc-length parameter step (`ddu`, `ddv`) ignoring the local Jacobian stretch.
+  Produces uniform patch sizes across the aperture. Critical for hemispheres where the
+  Jacobian diverges near the rim; also reduces variation for moderate curvatures. Available
+  on `ConcaveCircularTransducer` and `ConvexCircularTransducer` (cartesian method only).
+- **ConvexCircular cartesian parameterization**: uses arc-length reparameterization
+  (`x = R*sin(sx/R)`) matching ConcaveCircular. Previously used direct `(x,y)` which
+  caused Jacobian → ∞ near the hemisphere rim.
 - Old parameters removed: `center_refine`, `border_refine`,
   `filled_radius_with_big_patches`, `subdivision_method`.
 

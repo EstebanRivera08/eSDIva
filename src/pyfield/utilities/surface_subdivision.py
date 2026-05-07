@@ -87,8 +87,8 @@ def subdivide_spherical_cap(
     n_rings : int
         Number of concentric rings from pole to rim.
     concave : bool
-        If ``True`` (default), the bowl opens toward +z (pole at z = 0, rim at
-        z = sag).  If ``False``, the dome bulges toward +z (apex at z = sag,
+        If ``True`` (default), the bowl opens toward +z (pole at z = -sag, rim at
+        z = 0).  If ``False``, the dome bulges toward +z (apex at z = +sag,
         rim at z = 0).
     normal_sign : float
         Multiplier for the outward normal.  Default ``+1.0``.
@@ -100,6 +100,12 @@ def subdivide_spherical_cap(
     refine_factor : int
         Each refined inner ring is replaced by this many thinner sub-rings.
         Default ``3``.
+
+    Notes
+    -----
+    Z-convention: rim is always at z = 0.
+    Concave bowl: pole at z = -sag (below rim), opens toward +z.
+    Convex dome: apex at z = +sag (above rim).
 
     Returns
     -------
@@ -156,9 +162,9 @@ def subdivide_spherical_cap(
             x = R * sin_tc * cos_p
             y = R * sin_tc * sin_p
             if concave:
-                z = R * (1.0 - cos_tc)
+                z = R * (np.cos(theta_max) - cos_tc)  # rim at z=0, pole at z=-sag
             else:
-                z = sag - R * (1.0 - cos_tc)
+                z = sag - R * (1.0 - cos_tc)  # rim at z=0, apex at z=+sag
             cen = np.array([x, y, z])
 
             # --- Analytical tangent vectors (unit length) ---
@@ -244,6 +250,7 @@ def subdivide_parametric_surface(
     accept_fn: Optional[Callable[[float, float], bool]] = None,
     border_refine: int = 3,
     normal_sign: float = 1.0,
+    normalize_patch_size: bool = False,
 ) -> dict:
     """Subdivide a C1 parametric surface into flat rectangular patches.
 
@@ -284,6 +291,11 @@ def subdivide_parametric_surface(
         Multiplier for the outward normal direction (``+1.0`` or ``-1.0``).
         The raw normal is ``∂r/∂u × ∂r/∂v``; flip with ``-1.0`` if it points
         into the medium instead of away from it.  Default ``+1.0``.
+    normalize_patch_size : bool
+        When ``True`` the patch half-extents are set to ``ddu/2`` and ``ddv/2``
+        (the parameter-space step), ignoring the local Jacobian stretch factor.
+        For arc-length parameterisations (where ``u`` is already in metres) this
+        produces uniform patches across the aperture.  Default ``False``.
 
     Returns
     -------
@@ -342,9 +354,13 @@ def subdivide_parametric_surface(
         n_vec = normal_sign * np.cross(tu, tv)
         n_vec /= max(float(np.linalg.norm(n_vec)), 1e-30)
 
-        # --- arc-length half-extents (full size, no scaling) ---
-        wu_half = len_u * (ddu * 0.5)
-        wv_half = len_v * (ddv * 0.5)
+        # --- arc-length half-extents ---
+        if normalize_patch_size:
+            wu_half = ddu * 0.5
+            wv_half = ddv * 0.5
+        else:
+            wu_half = len_u * (ddu * 0.5)
+            wv_half = len_v * (ddv * 0.5)
 
         # --- flat rectangle in the local tangent plane ---
         c00 = cen - wu_half * tu - wv_half * tv
