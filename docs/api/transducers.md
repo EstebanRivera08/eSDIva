@@ -143,13 +143,13 @@ from pyfield.transducers import FlatCircularTransducer
 
 tx = FlatCircularTransducer(
     diameter_mm=25.0,
-    no_sub=30,          # patches across diameter
+    no_sub_diameter=30,          # patches across diameter
     frequency_Hz=1e6,
 )
 ```
 
 The circular aperture is approximated by keeping only patches whose centre
-falls within the disc.  Increasing `no_sub` improves accuracy near the face.
+falls within the disc.  Increasing `no_sub_diameter` improves accuracy near the face.
 
 ### ConvexCircularTransducer — spherical dome
 
@@ -160,15 +160,17 @@ from pyfield.transducers import ConvexCircularTransducer
 
 tx = ConvexCircularTransducer(
     diameter_mm=30.0,
-    radius_of_curvature_mm=25.0,
-    no_sub=30,
+    focus_mm=25.0,        # axial z-depth from rim to virtual focus
+    no_sub_diameter=30,
     frequency_Hz=1.5e6,
 )
 ```
 
-The dome surface is defined by `z(x,y) = sag − (R − √(R² − x² − y²))`,
-placing the apex at `z = sag` and the rim at `z = 0`.  The virtual focus is
-behind the transducer at `z = −R`.
+`focus_mm` is the axial distance (z-depth) from the transducer rim plane to the
+virtual focus.  The radius of curvature is derived as
+`R = sqrt(focus_mm² + (D/2)²)`.  `focus_mm = 0` yields a hemisphere (`R = D/2`).
+The dome surface is defined by `z(x,y) = sag − (R − √(R² − x² − y²))`, placing
+the apex at `z = sag` and the rim at `z = 0`.
 
 ### ConcaveCircularTransducer — spherical bowl (TUS / HIFU)
 
@@ -179,12 +181,15 @@ from pyfield.transducers import ConcaveCircularTransducer
 
 tx = ConcaveCircularTransducer(
     diameter_mm=40.0,
-    radius_of_curvature_mm=60.0,   # geometric focus at 60 mm depth
-    no_sub=30,
+    focus_mm=60.0,   # axial z-depth from rim to geometric focus
+    no_sub_diameter=30,
     frequency_Hz=0.5e6,
 )
 ```
 
+`focus_mm` is the axial distance (z-depth) from the transducer rim plane to the
+geometric focus.  The radius of curvature is derived as
+`R = sqrt(focus_mm² + (D/2)²)`.  `focus_mm = 0` yields a hemisphere (`R = D/2`).
 The curved surface is defined by `z(x,y) = R - sqrt(R² - x² - y²)`, so every
 patch is equidistant from the focus at `(0, 0, R)`.
 
@@ -201,13 +206,16 @@ from pyfield.transducers import FocusedCircularTransducer
 
 tx = FocusedCircularTransducer(
     diameter_mm=20.0,
-    radius_of_curvature_mm=40.0,
-    no_sub=20,
-    focus_axis="y",    # "x" or "y" — axis along which the aperture is curved
+    focus_mm=40.0,       # axial z-depth from rim to line focus
+    no_sub_diameter=20,
+    focus_axis="y",      # "x" or "y" — axis along which the aperture is curved
     frequency_Hz=2e6,
 )
 ```
 
+`focus_mm` is the axial distance (z-depth) from the rim plane to the line focus.
+The radius of curvature is derived as `R = sqrt(focus_mm² + (D/2)²)`.
+`focus_mm = 0` yields a semicircle (`R = D/2`).
 The curvature follows `z(val) = R - sqrt(R² - val²)` where `val` is the x-
 or y-coordinate of each patch corner.  The centre is at z = 0; outer edges
 are lifted toward z > 0.
@@ -229,8 +237,8 @@ import numpy as np
 from pyfield.transducers import ConcaveCircularTransducer, CustomTransducer
 
 # Prototype element
-elem = ConcaveCircularTransducer(diameter_mm=20, radius_of_curvature_mm=40,
-                                  no_sub=20, frequency_Hz=0.5e6)
+elem = ConcaveCircularTransducer(diameter_mm=20, focus_mm=40,
+                                  no_sub_diameter=20, frequency_Hz=0.5e6)
 
 # 8 elements on a hemisphere, all aimed at the origin
 R = 60.0   # mm
@@ -289,7 +297,7 @@ All transducers share the following methods:
 ```python
 from pyfield.transducers import create_transducer
 
-tx = create_transducer("flat_circular", diameter_mm=25.0, no_sub=30, frequency_Hz=1e6)
+tx = create_transducer("flat_circular", diameter_mm=25.0, no_sub_diameter=30, frequency_Hz=1e6)
 ```
 
 Available kind strings: `"linear"`, `"convex"`, `"matrix"`, `"flat_circular"`,
@@ -389,28 +397,29 @@ whose arc-length amplification exceeds `max_patch_scale` are rejected
 entirely, leaving intentional holes at extreme rims rather than producing
 oversized or overlapping patches.
 
-#### Tuning parameters
+#### Subdivision methods
 
-`ConcaveCircularTransducer`, `ConvexCircularTransducer`, and
-`FocusedCircularTransducer` all expose the following tunable parameters:
+**ConcaveCircularTransducer** and **ConvexCircularTransducer** use a
+ring-based spherical-coordinate tiling (`subdivide_spherical_cap`).  This
+method works at any curvature, including full hemispheres (`focus_mm = 0`).
+The only resolution parameter is `no_sub_diameter` (target patches across the
+diameter); the ring count is derived automatically.  Optional parameters
+`ratio_big_patches` and `refine_factor` control patch sizing near the
+pole and rim respectively.
 
-| Parameter | Default | Effect |
-|-----------|---------|--------|
-| `patch_fill` | `1.0` | *High-curvature mode only.* Fraction of the arc-length cell filled by each patch. `1.0` → patches touch along the arc; values below 1 add a uniform gap. See [Choosing `patch_fill`](#choosing-patch_fill). |
-| `max_patch_scale` | `3.0` | Patches whose local arc-length amplification `‖∂r/∂u‖` exceeds this factor are discarded. Lower → more aggressive rejection; higher → keep more rim patches. |
-| `curvature_threshold` | `1.1` | Maximum arc-length amplification allowed before switching from low- to high-curvature mode. Raise to keep more surfaces in low-curvature mode (faster, no gaps); lower to detect and handle curvature earlier. |
-| `filled_radius_with_big_patches` | `0.95` | Fraction of the aperture radius tiled with coarse patches. The outer ring (`1 − filled_radius`) is always subdivided by `border_refine` for a smoother circular boundary. |
+**FocusedCircularTransducer** (cylindrical) and **FlatCircularTransducer**
+keep a Cartesian parameter-space grid with `refine_factor` for the circular
+boundary.  A 1 % area tolerance is applied at the disk edge so that border
+sub-patches slightly outside the circle are retained.
 
 ```python
 from pyfield.transducers import ConcaveCircularTransducer
 
-# Tight hemisphere — rim half-angle ≈ 53° → high-curvature mode triggered
+# Hemisphere — focus_mm = 0
 tx = ConcaveCircularTransducer(
     diameter_mm=60.0,
-    radius_of_curvature_mm=37.5,  # R ≈ D/2 → deep bowl
-    no_sub=30,
-    patch_fill=0.9,         # 10% gap per edge → coverage ≈ 81%
-    max_patch_scale=2.5,    # reject strongly amplified rim patches sooner
+    focus_mm=0,   # hemisphere: focus_mm=0 → R = D/2 = 30 mm
+    no_sub_diameter=30,
     frequency_Hz=0.5e6,
 )
 ```
@@ -418,38 +427,8 @@ tx = ConcaveCircularTransducer(
 At construction PyField prints a coverage summary:
 
 ```
-  Patches: 684 accepted / 706 attempted, 22 rejected (oversized)  |  Coverage: 73.4%
+  Patches: 684  |  Coverage: 97.2%  (patch area ... mm², theoretical ... mm²)
 ```
-
-#### Choosing `patch_fill`
-
-The purpose of `patch_fill` is different depending on the curvature mode.
-
-**Low-curvature mode** — `patch_fill` is ignored.  The function always uses
-the full arc-length cell width so adjacent patches tile seamlessly with
-negligible second-order overlap.  Clinical transducers (large radius of
-curvature relative to aperture diameter) typically fall into this mode.
-
-**High-curvature mode** — on a strongly curved surface, two adjacent flat
-patches each spanning the full arc-length cell physically intersect in 3-D.
-Even though their *centres* are uniformly spaced along the arc, the flat
-rectangles are tilted relative to each other by the surface's dihedral angle,
-and their corners protrude into the neighbouring patch.  `patch_fill` shrinks
-each patch so it stays within its own "lane" on the surface.
-
-The geometric overlap scales quadratically with patch size, so halving
-`patch_fill` reduces the overlap by ~4×.  Coverage scales as `patch_fill²`:
-`0.5` → ~25 %, `0.7` → ~49 %, `0.9` → ~81 %.
-
-Practical starting points:
-
-- Start with `patch_fill = 1.0`.  If the visualisation shows physical patch
-  intersection (corners of one patch protruding into its neighbour), reduce
-  in steps of 0.1 until intersections disappear.
-- **Coarser grids need a smaller `patch_fill`** because each patch subtends
-  a larger angle and the tilt mismatch between neighbours is greater.
-- Use `max_patch_scale` to discard the steepest rim cells rather than
-  compensating with a very small `patch_fill`.
 
 #### Using the subdivision function directly
 

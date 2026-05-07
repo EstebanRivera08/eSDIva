@@ -64,7 +64,7 @@ print("\n--- 1. FlatCircularTransducer (flat piston, D=25 mm) ---")
 
 flat = FlatCircularTransducer(
     diameter_mm=25.0,
-    no_sub=30,
+    no_sub_diameter=30,
     frequency_Hz=FREQ_HZ,
 )
 flat.show()
@@ -91,8 +91,8 @@ print("\n--- 2. ConcaveCircularTransducer (bowl, D=40 mm, R=60 mm) ---")
 
 bowl = ConcaveCircularTransducer(
     diameter_mm=40.0,
-    radius_of_curvature_mm=60.0,
-    no_sub=30,
+    focus_mm=60.0,
+    no_sub_diameter=30,
     frequency_Hz=FREQ_HZ,
 )
 bowl.show()
@@ -119,8 +119,8 @@ print("\n--- 3. FocusedCircularTransducer (line focus, D=20 mm, R=40 mm, axis=y)
 
 cyl = FocusedCircularTransducer(
     diameter_mm=20.0,
-    radius_of_curvature_mm=40.0,
-    no_sub=20,
+    focus_mm=40.0,
+    no_sub_diameter=20,
     focus_axis="y",
     frequency_Hz=FREQ_HZ,
 )
@@ -144,16 +144,13 @@ plot_pressure_planes(
 # ============================================================================
 # STEP 4: CONVEX CIRCULAR TRANSDUCER — DOME LENS
 # ============================================================================
-print("\n--- 4. ConvexCircularTransducer (dome, D=20 mm, R=10 mm) ---")
+print("\n--- 4. ConvexCircularTransducer (dome, D=20 mm, hemisphere) ---")
 
 conv = ConvexCircularTransducer(
     diameter_mm=20.0,
-    radius_of_curvature_mm=10.0,
-    no_sub=30,
+    focus_mm=0,
+    no_sub_diameter=30,
     frequency_Hz=FREQ_HZ,
-    border_refine=3,
-    patch_fill=1,
-    filled_radius_with_big_patches=0.8,
 )
 conv.show()
 

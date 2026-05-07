@@ -24,23 +24,22 @@ if __name__ == "__main__":
     # --- Configuration ---
     n_vs = 3  # Number of virtual sources to optimize
     use_gpu = True
-    data_folder = r"results/energyvsresolution/"
+    data_folder = r"results/newlosses/"
     optimizer_type = "SGD"  # Adam works better with few params
     use_phase = False  # optimize for energy only (ignore phase)
 
     energy_weight = 1e-2  # 1e-2
-    resolution_weight = 1e2
+    resolution_weight = 0
     symmetry_weight = 0  # not used in this version
-    diversity_weight = 0  # coherence factor (CF) — phase-based resolution proxy
-    aperture_weight = 5e-2
+    aperture_weight = 1e2
     coverage_weight = 1e2
-    comment2 = "_cov1e2_aperture5eNeg2"
+    comment2 = "_E_aper_cov"
     # comment2 = ""
 
     avg_energy_value, avg_resolution_value = 500, 0.3  # for normalization in loss
 
-    num_epochs = 500
-    lr = 1e-1  # log-mean gives stronger gradient -> can use higher LR
+    num_epochs = 10
+    lr = 1e-2  # log-mean gives stronger gradient -> can use higher LR
     x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
     z_init = [-10, -10, -10]  # mm, initial z positions of virtual sources
     # x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
@@ -111,8 +110,7 @@ if __name__ == "__main__":
         energy_weight=energy_weight,
         coverage_weight=coverage_weight,
         aperture_weight=aperture_weight,  # cost apertures
-        uniformity_weight=symmetry_weight,  # symmetry
-        diversity_weight=diversity_weight,  # angle diversity
+        symmetry_weight=symmetry_weight,  # symmetry
         target_fnumber=1.5,
         batch_size=2048,
         use_gpu=use_gpu,

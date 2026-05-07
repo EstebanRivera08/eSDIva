@@ -31,8 +31,8 @@ from pyfield.utilities import (
 
 transducer = ConcaveCircularTransducer(
     diameter_mm=0.5 * 25.4,
-    radius_of_curvature_mm=1 * 25.4,
-    no_sub=20,
+    focus_mm=1 * 25.4,
+    no_sub_diameter=20,
     frequency_Hz=5e6,
 )
 

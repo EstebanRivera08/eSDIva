@@ -10,12 +10,12 @@ array that the PyField simulator can process normally.
 
 Usage example — TUS helmet::
 
-    from pyfield.transducers import ConcaveFlatCircularTransducer, CustomTransducer
+    from pyfield.transducers import ConcaveCircularTransducer, CustomTransducer
     import numpy as np
 
     # Ten identical bowl elements, positions and normals defined by the user
-    elem = ConcaveFlatCircularTransducer(diameter_mm=30, radius_of_curvature_mm=60,
-                                 no_sub=20, frequency_Hz=0.5e6)
+    elem = ConcaveCircularTransducer(diameter_mm=30, focus_mm=60,
+                                     no_sub_diameter=20, frequency_Hz=0.5e6)
 
     positions = np.array([...])  # shape (10, 3), in mm
     normals   = np.array([...])  # shape (10, 3), unit vectors toward target
@@ -35,8 +35,8 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from .base import TransducerBase
 from . import geometry_utils
+from .base import TransducerBase
 
 
 class CustomTransducer(TransducerBase):
@@ -44,7 +44,7 @@ class CustomTransducer(TransducerBase):
     Multi-element array assembled from individual mono-element transducers.
 
     Each element can be any ``TransducerBase`` subclass that represents a
-    single physical source (``FlatCircularTransducer``, ``ConcaveFlatCircularTransducer``,
+    single physical source (``FlatCircularTransducer``, ``ConcaveCircularTransducer``,
     ``FocusedCircularTransducer``, or any custom subclass with
     ``n_elements == 1``).  The assembled array supports electronic delays and
     per-element apodization, enabling beam steering and focusing.

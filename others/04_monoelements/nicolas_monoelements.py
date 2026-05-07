@@ -12,21 +12,21 @@ Focal_mm = 25.4  # 1 inch focal length
 # Create the transducer
 tx_5MHz = ConcaveCircularTransducer(
     diameter_mm=Diameter_mm,
-    radius_of_curvature_mm=Focal_mm,
+    focus_mm=Focal_mm,
     frequency_Hz=Frequency_MHz[0] * 1e6,
-    no_sub=30,
+    no_sub_diameter=30,
 )
 tx_10MHz = ConcaveCircularTransducer(
     diameter_mm=Diameter_mm,
-    radius_of_curvature_mm=Focal_mm,
+    focus_mm=Focal_mm,
     frequency_Hz=Frequency_MHz[1] * 1e6,
-    no_sub=50,
+    no_sub_diameter=50,
 )
 tx_15MHz = ConcaveCircularTransducer(
     diameter_mm=Diameter_mm,
-    radius_of_curvature_mm=Focal_mm,
+    focus_mm=Focal_mm,
     frequency_Hz=Frequency_MHz[2] * 1e6,
-    no_sub=75,
+    no_sub_diameter=75,
 )
 
 tx_5MHz.show()

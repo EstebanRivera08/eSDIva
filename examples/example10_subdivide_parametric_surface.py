@@ -7,17 +7,15 @@ rectangles for use by the SIR kernel.
 
 The example uses an **ellipsoidal cap** — a surface with strong curvature
 variation from centre to rim — to show how the arc-length adapted grid keeps
-patch centres equidistant across the aperture, and how ``patch_fill`` and
-``max_patch_scale`` control coverage and hole size at the rim.
+patch centres equidistant across the aperture.
 
 Steps
 -----
 1. Define the ellipsoidal cap parametric function
-2. Subdivide with default parameters (high-curvature mode)
+2. Subdivide with default parameters
 3. Print the ``frames`` dict summary
 4. Visualise with Matplotlib: 3-D patch mosaic + normals, top-down area map
 5. Visualise with PyVista: theoretical surface vs flat patch mosaic
-6. Compare different ``patch_fill`` values (0.5, 0.75, 1.0)
 
 Run with:
     uv run examples/example10_subdivide_parametric_surface.py

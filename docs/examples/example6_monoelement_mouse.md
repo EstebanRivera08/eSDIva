@@ -33,8 +33,8 @@ from pyfield.transducers import ConcaveCircularTransducer
 
 mouse_tx = ConcaveCircularTransducer(
     diameter_mm=10.0,
-    radius_of_curvature_mm=10,
-    no_sub=20,
+    focus_mm=10.0,
+    no_sub_diameter=20,
     frequency_Hz=5e6,
 )
 

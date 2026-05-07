@@ -252,14 +252,14 @@ def plot_pressure_2D(
     extent = [x.min(), x.max(), z.max(), z.min()]
 
     if plane_axis == "y":
-        xlabel = "X (mm)"
-        ylabel = "Z (mm)"
+        xlabel = "X "
+        ylabel = "Z "
     elif plane_axis == "x":
-        xlabel = "Y (mm)"
-        ylabel = "Z (mm)"
+        xlabel = "Y "
+        ylabel = "Z "
     elif plane_axis == "z":
-        xlabel = "X (mm)"
-        ylabel = "Y (mm)"
+        xlabel = "X "
+        ylabel = "Y "
     else:
         raise ValueError("plane_axis must be 'x', 'y', or 'z'.")
 

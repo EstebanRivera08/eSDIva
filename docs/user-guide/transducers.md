@@ -85,4 +85,4 @@ is divided into. More subdivisions:
 - Are especially important for curved surfaces
 
 A good starting point is `no_sub_x=2, no_sub_y=4` for linear arrays and
-`no_sub=20-30` for circular transducers.
+`no_sub_diameter=20-30` for circular transducers.

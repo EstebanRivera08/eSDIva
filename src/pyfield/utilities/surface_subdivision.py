@@ -13,22 +13,17 @@ patch as a rectangle in the **local tangent plane** at the patch centre.
 
 Notes
 -----
-The module uses two grid strategies selected automatically by the maximum
-arc-length amplification measured along the parameter centre lines.
+The module uses a uniform Cartesian parameter-space grid.  Each patch is
+constructed in the local tangent plane with arc-length extents, so it
+correctly represents the physical size on the curved surface.
 
-**Low curvature** (``max ||dr/du|| <= 1.01``):
-    Uniform Cartesian grid with full arc-length patch size.
-
-**High curvature** (``max ||dr/du|| > 1.01``):
-    Arc-length adapted grid where cell boundaries correspond to uniform
-    arc-length intervals on the surface.
+At high curvature, adjacent tangent-plane patches leave small wedge-shaped
+gaps (inherent to the flat-piston approximation).  Gaps shrink quadratically
+with resolution — increase ``n_u``/``n_v`` for better coverage.
 
 **Tuning parameters**:
 
 - ``n_u``, ``n_v`` -- resolution; increase until ``coverage`` is acceptable.
-- ``patch_fill`` -- fraction of arc-length spacing used as patch width
-  (high-curvature mode only).
-- ``max_patch_scale`` -- rejection threshold for steep patches.
 - ``border_refine`` -- subdivision factor for boundary cells.
 
 Examples
@@ -55,51 +50,187 @@ Spherical bowl (concave transducer)::
 
 from __future__ import annotations
 
+import warnings
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
+# ---------------------------------------------------------------------------
+# Spherical-cap subdivision (ring-based tiling)
+# ---------------------------------------------------------------------------
 
-def _arclen_adapted_edges(
-    metric_fn: Callable[[float], float],
-    s0: float,
-    s1: float,
-    n_cells: int,
-) -> Tuple[np.ndarray, float]:
-    """
-    Compute ``n_cells + 1`` parameter edge values uniformly spaced in arc-length.
 
-    Uses a fine numerical quadrature (``max(20 × n_cells, 500)`` intervals)
-    to build the cumulative arc-length, then interpolates the inverse mapping
-    to find parameter values at uniform arc-length targets.
+def subdivide_spherical_cap(
+    R: float,
+    theta_max: float,
+    n_rings: int,
+    *,
+    concave: bool = True,
+    normal_sign: float = 1.0,
+    ratio_big_patches: float = 0.85,
+    refine_factor: int = 3,
+) -> dict:
+    """Tile a spherical cap with flat rectangular patches on concentric rings.
+
+    Each ring at polar angle ``θ_i`` contains a variable number of azimuthal
+    patches chosen so that every patch is approximately square (arc-length
+    aspect ratio ≈ 1).  This avoids the Cartesian-parameterisation singularity
+    ``∂z/∂x → ∞`` that occurs near the rim of deep bowls.
 
     Parameters
     ----------
-    metric_fn : callable
-        ``s -> ||dr/ds||`` — the local arc-length scaling (metric) along the
-        parameter axis at value *s*.
-    s0, s1 : float
-        Parameter-space extent.
-    n_cells : int
-        Number of arc-length-uniform cells desired.
+    R : float
+        Sphere radius in metres.
+    theta_max : float
+        Half-angle from pole to rim in radians.  ``theta_max = π/2`` gives a
+        full hemisphere.
+    n_rings : int
+        Number of concentric rings from pole to rim.
+    concave : bool
+        If ``True`` (default), the bowl opens toward +z (pole at z = 0, rim at
+        z = sag).  If ``False``, the dome bulges toward +z (apex at z = sag,
+        rim at z = 0).
+    normal_sign : float
+        Multiplier for the outward normal.  Default ``+1.0``.
+    ratio_big_patches : float
+        Fraction of rings (from the outer rim inward) that use coarse
+        resolution.  The remaining innermost rings are each replaced by
+        ``refine_factor`` thinner sub-rings, reducing patch overlap at the
+        pole.  ``1.0`` disables refinement.  Default ``0.85``.
+    refine_factor : int
+        Each refined inner ring is replaced by this many thinner sub-rings.
+        Default ``3``.
 
     Returns
     -------
-    edges : ndarray(n_cells + 1,)
-        Parameter values of cell edges.  ``edges[0] == s0``,
-        ``edges[-1] == s1``; spacing is uniform in arc-length.
-    total_arclen : float
-        Total arc-length of the curve from ``s0`` to ``s1``.
+    dict
+        Same keys as :func:`subdivide_parametric_surface`: ``corners``,
+        ``centers``, ``normals``, ``tangents_u``, ``tangents_v``, ``wu``,
+        ``wv``, ``el_idx``, ``coverage``.
     """
-    n_fine = max(n_cells * 20, 500)
-    s_fine = np.linspace(s0, s1, n_fine + 1)
-    cumlen = np.zeros(n_fine + 1)
-    for k in range(n_fine):
-        s_mid = 0.5 * (s_fine[k] + s_fine[k + 1])
-        cumlen[k + 1] = cumlen[k] + metric_fn(s_mid) * (s_fine[k + 1] - s_fine[k])
-    total_arclen = float(cumlen[-1])
-    s_targets = np.linspace(0.0, total_arclen, n_cells + 1)
-    return np.interp(s_targets, cumlen, s_fine), total_arclen
+    sag = R * (1.0 - np.cos(theta_max))
+    dtheta = theta_max / n_rings
+
+    corners_list: List[np.ndarray] = []
+    centers_list: List[np.ndarray] = []
+    normals_list: List[np.ndarray] = []
+    tu_list: List[np.ndarray] = []
+    tv_list: List[np.ndarray] = []
+    wu_list: List[float] = []
+    wv_list: List[float] = []
+
+    # Build ring schedule: (theta_center, dtheta_ring) for each ring.
+    # Outer rings (coarse) + inner rings (refined near the pole).
+    n_coarse = max(1, round(n_rings * ratio_big_patches))
+    n_center = n_rings - n_coarse  # innermost rings to refine
+
+    ring_schedule: List[Tuple[float, float]] = []
+    for i in range(n_rings):
+        if i < n_center and refine_factor > 1:
+            # Refine this inner ring into refine_factor thinner sub-rings
+            dt_fine = dtheta / refine_factor
+            for k in range(refine_factor):
+                theta_c = i * dtheta + (k + 0.5) * dt_fine
+                ring_schedule.append((theta_c, dt_fine))
+        else:
+            ring_schedule.append(((i + 0.5) * dtheta, dtheta))
+
+    for theta_c, dt_ring in ring_schedule:
+        sin_tc = np.sin(theta_c)
+        cos_tc = np.cos(theta_c)
+
+        # Number of azimuthal patches for near-square aspect ratio
+        n_azi = max(3, round(2.0 * np.pi * sin_tc / dt_ring))
+        dphi = 2.0 * np.pi / n_azi
+
+        # Arc-length patch extents
+        wu = R * dt_ring
+        wv = R * sin_tc * dphi
+
+        for j in range(n_azi):
+            phi_j = (j + 0.5) * dphi
+            cos_p = np.cos(phi_j)
+            sin_p = np.sin(phi_j)
+
+            # --- Surface position ---
+            x = R * sin_tc * cos_p
+            y = R * sin_tc * sin_p
+            if concave:
+                z = R * (1.0 - cos_tc)
+            else:
+                z = sag - R * (1.0 - cos_tc)
+            cen = np.array([x, y, z])
+
+            # --- Analytical tangent vectors (unit length) ---
+            if concave:
+                tu = np.array([cos_tc * cos_p, cos_tc * sin_p, sin_tc])
+            else:
+                tu = np.array([cos_tc * cos_p, cos_tc * sin_p, -sin_tc])
+            tv = np.array([-sin_p, cos_p, 0.0])
+
+            # Normal from cross product (already orthogonal)
+            n_vec = normal_sign * np.cross(tu, tv)
+            n_len = float(np.linalg.norm(n_vec))
+            n_vec = n_vec / max(n_len, 1e-30)
+
+            # --- Corners in tangent plane ---
+            wu_half = wu * 0.5
+            wv_half = wv * 0.5
+            c00 = cen - wu_half * tu - wv_half * tv
+            c10 = cen + wu_half * tu - wv_half * tv
+            c11 = cen + wu_half * tu + wv_half * tv
+            c01 = cen - wu_half * tu + wv_half * tv
+            corners_list.append(np.array([c00, c10, c11, c01], dtype=np.float64))
+
+            centers_list.append(cen)
+            normals_list.append(n_vec)
+            tu_list.append(tu)
+            tv_list.append(tv)
+            wu_list.append(wu)
+            wv_list.append(wv)
+
+    M = len(centers_list)
+
+    wu_arr = np.array(wu_list, dtype=np.float32)
+    wv_arr = np.array(wv_list, dtype=np.float32)
+    total_patch_area = float(np.sum(wu_arr * wv_arr)) if M > 0 else 0.0
+
+    # Exact theoretical area of the spherical cap
+    theoretical_area = 2.0 * np.pi * R * R * (1.0 - np.cos(theta_max))
+    coverage = total_patch_area / theoretical_area if theoretical_area > 0.0 else 0.0
+
+    # Overlap warning: check if any patch is too large relative to R
+    if M > 0:
+        max_wu = float(np.max(wu_arr))
+        max_wv = float(np.max(wv_arr))
+        max_ratio = max(max_wu, max_wv) / R
+        if max_ratio > 0.3:
+            warnings.warn(
+                f"Patch overlap detected near the pole (max patch/R ratio = "
+                f"{max_ratio:.2f}). To reduce overlap: increase no_sub, "
+                f"decrease ratio_big_patches, or increase refine_factor.",
+                UserWarning,
+                stacklevel=2,
+            )
+
+    print(
+        f"  Patches: {M}"
+        f"  |  Coverage: {coverage * 100:.1f}%"
+        f"  (patch area {total_patch_area * 1e6:.2f} mm²,"
+        f" theoretical {theoretical_area * 1e6:.2f} mm²)"
+    )
+
+    return {
+        "corners": corners_list,
+        "centers": np.array(centers_list, dtype=np.float64),
+        "normals": np.array(normals_list, dtype=np.float64),
+        "tangents_u": np.array(tu_list, dtype=np.float64),
+        "tangents_v": np.array(tv_list, dtype=np.float64),
+        "wu": wu_arr,
+        "wv": wv_arr,
+        "el_idx": [0] * M,
+        "coverage": coverage,
+    }
 
 
 def subdivide_parametric_surface(
@@ -110,22 +241,16 @@ def subdivide_parametric_surface(
     n_v: int,
     *,
     inside_fn: Optional[Callable[[float, float], bool]] = None,
+    accept_fn: Optional[Callable[[float, float], bool]] = None,
     border_refine: int = 3,
     normal_sign: float = 1.0,
-    max_patch_scale: float = 1.5,
-    patch_fill: float = 1,
-    curvature_threshold: float = 1.1,  # max 10% curvature
 ) -> dict:
     """Subdivide a C1 parametric surface into flat rectangular patches.
 
-    Each accepted patch is a genuine flat rectangle in the local tangent plane
-    at the patch centre.  Patch dimensions ``(wu, wv)`` represent the physical
-    width and height of that piston element in metres; they are used directly
-    by the SIR kernel (``farfield_rect_patch``).
-
-    The function first measures the maximum arc-length amplification along the
-    parameter centre lines and selects either a uniform Cartesian grid
-    (low curvature) or an arc-length adapted grid (high curvature).
+    Each patch is a genuine flat rectangle in the local tangent plane at the
+    patch centre.  Patch dimensions ``(wu, wv)`` represent the physical width
+    and height of that piston element in metres; they are used directly by the
+    SIR kernel (``farfield_rect_patch``).
 
     Parameters
     ----------
@@ -137,16 +262,21 @@ def subdivide_parametric_surface(
     v_range : (float, float)
         Parameter-space extent ``(v_min, v_max)`` for the second axis.
     n_u : int
-        Number of coarse patches along the u-direction.  In high-curvature
-        mode the arc-length adapted grid still uses exactly ``n_u`` cells.
+        Number of coarse patches along the u-direction.
     n_v : int
         Number of coarse patches along the v-direction.
     inside_fn : callable, optional
-        ``(u: float, v: float) -> bool`` — aperture mask. Cells entirely
-        outside are discarded; boundary cells (mixed inside/outside corners)
-        are subdivided into ``border_refine²`` sub-patches and only the
-        sub-patches whose centre is inside are kept.  If ``None`` all cells
-        are accepted.
+        ``(u: float, v: float) -> bool`` — aperture mask used for
+        coarse/boundary/outside classification.  Cells entirely outside are
+        discarded; boundary cells (mixed inside/outside corners) are
+        subdivided into ``border_refine²`` sub-patches.  If ``None`` all
+        cells are accepted.
+    accept_fn : callable, optional
+        ``(u: float, v: float) -> bool`` — acceptance mask for refined
+        sub-patches.  Only sub-patches whose centre satisfies ``accept_fn``
+        are kept.  Defaults to ``inside_fn`` when ``None``.  This allows
+        using a smaller circle for ``inside_fn`` (to force more border
+        cells to be refined) while accepting patches up to a larger boundary.
     border_refine : int
         Subdivision factor for boundary cells.  Default ``3`` (9 sub-patches
         per boundary cell).
@@ -154,89 +284,26 @@ def subdivide_parametric_surface(
         Multiplier for the outward normal direction (``+1.0`` or ``-1.0``).
         The raw normal is ``∂r/∂u × ∂r/∂v``; flip with ``-1.0`` if it points
         into the medium instead of away from it.  Default ``+1.0``.
-    max_patch_scale : float
-        Maximum allowed local arc-length amplification.  Patches where
-        ``||∂r/∂u|| > max_patch_scale × 1`` (measured at the patch centre
-        using the cell size as reference) are rejected and leave holes.
-        Reduce from the default ``3.0`` for cleaner hole edges on strongly
-        curved surfaces; increase to keep more coverage at the cost of larger
-        patch-size variation.
-    patch_fill : float
-        *High-curvature mode only.*  Fraction of the arc-length cell spacing
-        used as the full patch width: ``wu = patch_fill × arc_spacing``, where
-        ``arc_spacing = total_arclen / n_u``.
-
-        - ``1.0`` — patches exactly touch (maximum coverage, zero gap).
-        - ``0.75`` — default; patches cover 75 % of arc-length spacing,
-          leaving a 25 % gap per edge.  Coverage ≈ ``patch_fill²`` for
-          uniformly curved surfaces (≈ 56 % at default).
-        - ``0.5`` — 50 % gap; conservative, no risk of overlap even on very
-          coarse grids.
-
-        Has no effect in low-curvature mode (full arc-length is always used).
-    curvature_threshold : float, optional
-        Maximum metric value below which the surface is considered low
-        curvature.  Default 1.1.
 
     Returns
     -------
     dict
         Patch mosaic with keys ``corners``, ``centers``, ``normals``,
         ``tangents_u``, ``tangents_v``, ``wu``, ``wv``, ``el_idx``,
-        ``coverage``, and ``n_rejected``.
+        and ``coverage``.
     """
+    # Default accept_fn to inside_fn when not provided
+    if accept_fn is None:
+        accept_fn = inside_fn
+
     u0, u1 = u_range
     v0, v1 = v_range
 
-    du_nominal = (u1 - u0) / n_u
-    dv_nominal = (v1 - v0) / n_v
-
     # ------------------------------------------------------------------
-    # Curvature detection — sample metric along the parameter centre lines
+    # Uniform Cartesian parameter-space grid
     # ------------------------------------------------------------------
-    v_center = 0.5 * (v0 + v1)
-    u_center = 0.5 * (u0 + u1)
-    eps_ref = max(u1 - u0, v1 - v0) * 1e-4
-
-    def _metric_u(u: float) -> float:
-        drdu = (
-            surface_fn(u + eps_ref, v_center) - surface_fn(u - eps_ref, v_center)
-        ) / (2.0 * eps_ref)
-        return float(np.linalg.norm(drdu))
-
-    def _metric_v(v: float) -> float:
-        drdv = (
-            surface_fn(u_center, v + eps_ref) - surface_fn(u_center, v - eps_ref)
-        ) / (2.0 * eps_ref)
-        return float(np.linalg.norm(drdv))
-
-    _sample_u = [u0 + (k + 0.5) * du_nominal for k in range(min(n_u, 10))]
-    _sample_v = [v0 + (k + 0.5) * dv_nominal for k in range(min(n_v, 10))]
-    _max_metric = max(
-        max(_metric_u(u) for u in _sample_u),
-        max(_metric_v(v) for v in _sample_v),
-    )
-
-    _high_curvature = _max_metric > curvature_threshold
-
-    # ------------------------------------------------------------------
-    # Build parameter-space grid edges
-    # ------------------------------------------------------------------
-    if _high_curvature:
-        print(
-            "High curvature detected (max ||∂r/∂u|| = {:.2f} > {:.2f})".format(
-                _max_metric, curvature_threshold
-            )
-        )
-        # Arc-length adapted: centres are uniformly spaced on the surface.
-        # Metric sampled along the centre lines is a good 1-D approximation
-        # for rotationally symmetric surfaces (exact at the rim, worst case).
-        u_edges, _ = _arclen_adapted_edges(_metric_u, u0, u1, n_u)
-        v_edges, _ = _arclen_adapted_edges(_metric_v, v0, v1, n_v)
-    else:
-        # Low curvature: uniform Cartesian grid — already optimal.
-        u_edges = np.linspace(u0, u1, n_u + 1)
-        v_edges = np.linspace(v0, v1, n_v + 1)
+    u_edges = np.linspace(u0, u1, n_u + 1)
+    v_edges = np.linspace(v0, v1, n_v + 1)
 
     # ------------------------------------------------------------------
     # Patch accumulation
@@ -248,7 +315,6 @@ def subdivide_parametric_surface(
     tv_list: List[np.ndarray] = []
     wu_list: List[float] = []
     wv_list: List[float] = []
-    rejected_count: List[int] = [0]
 
     def _add_patch(uc: float, vc: float, ddu: float, ddv: float) -> None:
         # --- centre on the curved surface ---
@@ -259,6 +325,10 @@ def subdivide_parametric_surface(
         eps_v = ddv * 0.01
         drdu = (surface_fn(uc + eps_u, vc) - surface_fn(uc - eps_u, vc)) / (2.0 * eps_u)
         drdv = (surface_fn(uc, vc + eps_v) - surface_fn(uc, vc - eps_v)) / (2.0 * eps_v)
+
+        # Limit maximum tangent length to avoid extreme patch overlap at singularities
+        # drdu = np.clip(drdu, 0, 2)
+        # drdv = np.clip(drdv, 0, 2)
 
         len_u = float(np.linalg.norm(drdu))
         len_v = float(np.linalg.norm(drdv))
@@ -272,32 +342,9 @@ def subdivide_parametric_surface(
         n_vec = normal_sign * np.cross(tu, tv)
         n_vec /= max(float(np.linalg.norm(n_vec)), 1e-30)
 
-        # --- arc-length half-extents (used for rejection test only) ---
-        wu_half_arc = len_u * (ddu * 0.5)
-        wv_half_arc = len_v * (ddv * 0.5)
-
-        # reject if local curvature makes the flat-rectangle approximation
-        # too poor (arc-length much larger than the parameter cell)
-        if wu_half_arc > max_patch_scale * (
-            ddu * 0.5
-        ) or wv_half_arc > max_patch_scale * (ddv * 0.5):
-            rejected_count[0] += 1
-            return
-
-        # --- patch half-extents ---
-        # Low-curvature mode: use full arc-length extent so adjacent tilted
-        # rectangles share edges to first order (the second-order overlap from
-        # surface tilt is < 0.01 % at this curvature level).
-        # High-curvature mode: scale by patch_fill so the flat rectangle fits
-        # within the arc-length cell without physically overlapping its
-        # neighbours.  patch_fill = 1.0 -> touching; patch_fill < 1 -> uniform
-        # gap proportional to (1 - patch_fill).
-        if _high_curvature:
-            wu_half = patch_fill * wu_half_arc
-            wv_half = patch_fill * wv_half_arc
-        else:
-            wu_half = wu_half_arc
-            wv_half = wv_half_arc
+        # --- arc-length half-extents (full size, no scaling) ---
+        wu_half = len_u * (ddu * 0.5)
+        wv_half = len_v * (ddv * 0.5)
 
         # --- flat rectangle in the local tangent plane ---
         c00 = cen - wu_half * tu - wv_half * tv
@@ -344,7 +391,26 @@ def subdivide_parametric_surface(
                 # Interior cell — add at coarse resolution
                 _add_patch(uc_c, vc_c, ddu, ddv)
             elif n_in == 0:
-                continue  # entirely outside aperture
+                # All corners outside inside_fn.  Check accept_fn:
+                # if all corners also outside accept_fn → truly exterior.
+                # Otherwise the cell straddles the annulus → refine it.
+                acc_flags = [
+                    accept_fn(u0c, v0c),
+                    accept_fn(u1c, v0c),
+                    accept_fn(u1c, v1c),
+                    accept_fn(u0c, v1c),
+                ]
+                if not any(acc_flags):
+                    continue  # entirely outside aperture
+                # Fall through to refinement below
+                sdu = ddu / border_refine
+                sdv = ddv / border_refine
+                for si in range(border_refine):
+                    for sj in range(border_refine):
+                        suc = u0c + (si + 0.5) * (u1c - u0c) / border_refine
+                        svc = v0c + (sj + 0.5) * (v1c - v0c) / border_refine
+                        if accept_fn(suc, svc):
+                            _add_patch(suc, svc, sdu, sdv)
             else:
                 # Boundary cell — subdivide and keep sub-patches inside
                 sdu = ddu / border_refine
@@ -353,7 +419,7 @@ def subdivide_parametric_surface(
                     for sj in range(border_refine):
                         suc = u0c + (si + 0.5) * (u1c - u0c) / border_refine
                         svc = v0c + (sj + 0.5) * (v1c - v0c) / border_refine
-                        if inside_fn(suc, svc):
+                        if accept_fn(suc, svc):
                             _add_patch(suc, svc, sdu, sdv)
 
     M = len(centers_list)
@@ -388,12 +454,19 @@ def subdivide_parametric_surface(
             )
 
     coverage = total_patch_area / theoretical_area if theoretical_area > 0.0 else 0.0
-    n_rejected = rejected_count[0]
+
+    # Coverage warning: flag if patch area significantly exceeds surface area
+    if coverage > 1.02:
+        warnings.warn(
+            f"Patch coverage is {coverage:.1%} (> 102%).  This may indicate "
+            "patch overlap.  Increase n_u/n_v or decrease ratio_big_patches.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     print(
-        f"  Patches: {M} accepted / {M + n_rejected} attempted"
-        + (f", {n_rejected} rejected (oversized)" if n_rejected > 0 else "")
-        + f"  |  Coverage: {coverage * 100:.1f}%"
+        f"  Patches: {M}"
+        f"  |  Coverage: {coverage * 100:.1f}%"
         f"  (patch area {total_patch_area * 1e6:.2f} mm²,"
         f" theoretical {theoretical_area * 1e6:.2f} mm²)"
     )
@@ -408,5 +481,4 @@ def subdivide_parametric_surface(
         "wv": wv_arr,
         "el_idx": [0] * M,
         "coverage": coverage,
-        "n_rejected": n_rejected,
     }

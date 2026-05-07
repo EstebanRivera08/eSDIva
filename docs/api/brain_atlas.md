@@ -165,7 +165,7 @@ atlas = BG_Atlas("allen_mouse_25um", region_names=region_names)
 
 # ── Transducer & simulation ────────────────────────────────────────────────
 focus_mm = np.array([0, 0, 6])
-tx = FlatCircularTransducer(diameter_mm=10.0, no_sub=20, frequency_Hz=0.5e6)
+tx = FlatCircularTransducer(diameter_mm=10.0, no_sub_diameter=20, frequency_Hz=0.5e6)
 tx.compute_delays(focus_mm=focus_mm)
 tx.compute_apodization(focus_mm=focus_mm, FoverD=1)
 

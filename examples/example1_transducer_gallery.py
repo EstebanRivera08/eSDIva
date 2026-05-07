@@ -188,7 +188,7 @@ _show_or_save(matrix, "gallery_matrix.png")
 print("\n--- 5. FlatCircularTransducer ---")
 circ = FlatCircularTransducer(
     diameter_mm=25.0,
-    no_sub=30,
+    no_sub_diameter=30,
     frequency_Hz=FC_HZ,
 )
 _show_or_save(circ, "gallery_flat_circular.png")
@@ -199,8 +199,8 @@ _show_or_save(circ, "gallery_flat_circular.png")
 print("\n--- 6. ConcaveCircularTransducer ---")
 bowl = ConcaveCircularTransducer(
     diameter_mm=40.0,
-    radius_of_curvature_mm=60.0,
-    no_sub=30,
+    focus_mm=60.0,
+    no_sub_diameter=30,
     frequency_Hz=0.5e6,
 )
 _show_or_save(bowl, "gallery_concave.png")
@@ -211,8 +211,8 @@ _show_or_save(bowl, "gallery_concave.png")
 print("\n--- 7. FocusedCircularTransducer ---")
 cyl = FocusedCircularTransducer(
     diameter_mm=20.0,
-    radius_of_curvature_mm=40.0,
-    no_sub=20,
+    focus_mm=40.0,
+    no_sub_diameter=20,
     focus_axis="y",
     frequency_Hz=FC_HZ,
 )
@@ -225,8 +225,8 @@ print("\n--- 8. CustomTransducer (TUS helmet, 6 elements) ---")
 
 bowl_elem = ConcaveCircularTransducer(
     diameter_mm=20.0,
-    radius_of_curvature_mm=40.0,
-    no_sub=20,
+    focus_mm=40.0,
+    no_sub_diameter=20,
     frequency_Hz=0.5e6,
 )
 

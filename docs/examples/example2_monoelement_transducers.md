@@ -16,7 +16,7 @@ transducer types: flat piston, concave bowl, cylindrical focus, and convex dome.
 | `FlatCircularTransducer` | Flat piston disc (D = 25 mm) |
 | `ConcaveCircularTransducer` | Spherical bowl (D = 40 mm, R = 60 mm) |
 | `FocusedCircularTransducer` | Cylindrical line-focus (D = 20 mm, R = 40 mm) |
-| `ConvexCircularTransducer` | Convex dome (D = 20 mm, R = 10 mm) |
+| `ConvexCircularTransducer` | Convex dome (D = 20 mm, hemisphere (focus_mm=0)) |
 
 ## Output
 
@@ -40,8 +40,8 @@ from pyfield.utilities import plot_pressure_planes
 
 bowl = ConcaveCircularTransducer(
     diameter_mm=40.0,
-    radius_of_curvature_mm=60.0,
-    no_sub=30,
+    focus_mm=60.0,  # z-depth to geometric focus
+    no_sub_diameter=30,
     frequency_Hz=1e6,
 )
 

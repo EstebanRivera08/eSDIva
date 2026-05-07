@@ -63,8 +63,8 @@ print("\n Creating transducer...")
 
 transducer = ConcaveCircularTransducer(
     diameter_mm=0.5 * 25.4,  # 0.5 inch diameter
-    radius_of_curvature_mm=1 * 25.4,  # 1 inch focal length
-    no_sub=20,
+    focus_mm=1 * 25.4,  # 1 inch focal length
+    no_sub_diameter=20,
     frequency_Hz=5e6,
 )
 

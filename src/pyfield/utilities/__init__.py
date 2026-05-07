@@ -5,9 +5,9 @@ from .helper_functions import (
     create_spatial_grid_from_dict,
     to_dB,
 )
-from .surface_subdivision import subdivide_parametric_surface
 from .plotting import (
     plot_deltak_distribution,
+    plot_pressure_2D,
     plot_pressure_field,
     plot_pressure_planes,
     plot_slices_2d,
@@ -24,6 +24,7 @@ from .plotting_pyvista import (
     load_stl_mesh,
     recompute_bounds,
 )
+from .surface_subdivision import subdivide_parametric_surface, subdivide_spherical_cap
 from .transformation_functions import (
     compute_affine_from_markers,
     get_LabToTransducer,
@@ -33,6 +34,7 @@ __all__ = [
     # Matplotlib plotting
     "plot_pressure_field",
     "plot_pressure_planes",
+    "plot_pressure_2D",
     "plot_slices_2d",
     "plot_deltak_distribution",
     # PyVista plotting
@@ -51,6 +53,7 @@ __all__ = [
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",
     "subdivide_parametric_surface",
+    "subdivide_spherical_cap",
     # Transforms
     "get_LabToTransducer",
     "compute_affine_from_markers",

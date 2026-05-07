@@ -192,6 +192,36 @@ def add_3D_vol(
 # ------------- doppler2D_image Mesh -------------
 
 
+def create_2D_image_mesh(data):
+    """
+    Compute a 2D image mesh from a B-mode ultrasound image and a transformation matrix.
+    Args:
+        data (np.ndarray): 2D array of B-mode ultrasound data in dB.
+    Returns:
+        pv.StructuredGrid: A structured grid representing the 2D image in world coordinates.
+    """
+    H, W = data.shape
+
+    # Create grid indices
+    i_grid, j_grid = np.meshgrid(np.arange(W), np.arange(H))
+
+    # Construct homogeneous voxel coordinates [j, 0, i, 1]
+    points_voxel = np.stack(
+        [j_grid, np.zeros_like(j_grid), i_grid, np.ones_like(j_grid)], axis=-1
+    )
+    points_voxel_flat = points_voxel.reshape(-1, 4).T  # Shape (4, H*W)
+
+    # Create structured grid
+    xx = points_voxel_flat[0].reshape(H, W)
+    yy = points_voxel_flat[1].reshape(H, W)
+    zz = points_voxel_flat[2].reshape(H, W)
+    grid = pv.StructuredGrid(xx, yy, zz)
+    grid["doppler"] = data.ravel(order="F").astype(
+        np.float32
+    )  # Add scalar data # FORTRAN ORDER IMPORTANT
+    return grid
+
+
 def add_2D_image(
     image_grid,
     *,
@@ -242,7 +272,6 @@ def add_2D_image(
         "show_edges": False,
         "cmap": "gray",
         "opacity": 1.0,
-        "name": "2D doppler",  # Name for the volume
         "show_scalar_bar": True,
         "scalar_bar_args": {
             "title": cb_title,

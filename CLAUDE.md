@@ -175,6 +175,29 @@ For **mono-element transducers** (all circular types: flat, concave, convex, foc
 - Geometric focusing for mono-element transducers is achieved by the physical curvature
   of the surface, not by electronic delays.
 
+### focus_mm Definition (Concave / Convex / Focused Circular)
+`focus_mm` **equals the axial z-depth from the rim plane to the geometric focus**.
+The radius of curvature is derived: `R = sqrt(focus_mm² + (D/2)²)`.
+- `focus_mm = 0` produces a hemisphere (`R = D/2`).
+- Must satisfy `focus_mm >= 0`.
+- Internal attribute `self.radius_of_curvature` stores R in metres.
+
+### Surface Subdivision Methods
+- **ConcaveCircular / ConvexCircular**: Configurable via `method` parameter:
+  - `"spherical"` (default): Ring-based spherical-coordinate tiling
+    (`subdivide_spherical_cap`).  Works at any curvature including hemispheres.
+  - `"cartesian"`: Cartesian parameter-space grid (`subdivide_parametric_surface`).
+- **All 4 circular types** (Flat, Concave, Convex, Focused) share unified parameters:
+  - `ratio_big_patches` (float 0--1, default 0.85): For spherical method controls inner
+    ring refinement near the pole; for cartesian / `_tile_disk` controls the border
+    refinement zone.
+  - `refine_factor` (int, default 3): Number of sub-rings (spherical) or subdivision
+    factor (cartesian / flat).
+- **Overlap warnings**: Spherical method warns if patch/R ratio > 0.3; cartesian method
+  warns if coverage exceeds 102%.
+- Old parameters removed: `center_refine`, `border_refine`,
+  `filled_radius_with_big_patches`, `subdivision_method`.
+
 ### Brain Atlas Integration
 Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires downloading atlas data (e.g., rat, mouse atlases) on first use.
 

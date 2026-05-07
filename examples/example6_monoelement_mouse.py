@@ -67,8 +67,8 @@ print("Creating transducer and computing pressure field...")
 
 mouse_tx = ConcaveCircularTransducer(
     diameter_mm=DIAMETER_MM,
-    radius_of_curvature_mm=FOCUS_DEPTH_MM,
-    no_sub=20,
+    focus_mm=FOCUS_DEPTH_MM,
+    no_sub_diameter=20,
     frequency_Hz=FREQ_HZ,
 )
 

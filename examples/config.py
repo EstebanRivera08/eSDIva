@@ -8,7 +8,7 @@ examples run interactively or write files.
 from pathlib import Path
 
 # Set to True to save figures to FIG_FOLDER; False to show interactively.
-SAVE_FIG = True
+SAVE_FIG = False
 
 # Destination folder for saved figures.
 # Default: docs/examples/assets — keeps the documentation always up-to-date.

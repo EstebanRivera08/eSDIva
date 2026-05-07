@@ -26,10 +26,6 @@ def plot_virtual_source_results(results, output_file=None):
     ax2 = fig.add_subplot(gs[0, 1])
     ax2.plot(_norm_btwn_0_and_1(results["symmetry_history"]), label="Symmetry")
     ax2.plot(_norm_btwn_0_and_1(results["resolution_history"]), label="Resolution")
-    ax2.plot(
-        _norm_btwn_0_and_1(results["coherence_factor_history"]),
-        label="Coherence factor",
-    )
     ax2.plot(_norm_btwn_0_and_1(results["coverage_history"]), label="Coverage")
     ax2.plot(_norm_btwn_0_and_1(results["energy_history"]), label="Energy")
     ax2.plot(_norm_btwn_0_and_1(results["aperture_history"]), label="Aperture usage")
@@ -182,6 +178,7 @@ def plot_virtual_source_results(results, output_file=None):
 
     threshold_db = results["coverage_threshold_db"]
     pr_cover = sigmoid(1 * (pr_db - threshold_db))  # steepness=20, threshold=-6 dB
+    plt.subplot(1, 2, 1)
     im6 = plt.imshow(
         pr_cover.T,
         aspect="auto",
@@ -189,4 +186,28 @@ def plot_virtual_source_results(results, output_file=None):
         extent=extent,
         cmap="hot",
     )
+    plt.subplot(1, 2, 2)
+
+    for vs_idx in range(vs_history.shape[1]):
+        steepness = vs_history[:, vs_idx, 2].squeeze()
+        width_mm = vs_history[:, vs_idx, 3].squeeze()
+        plt.plot(
+            (steepness - steepness[0]) / steepness[0],
+            "-",
+            label=f"steepness [vs_idx={vs_idx}]",
+            color=colors[vs_idx],
+        )
+        plt.plot(
+            (width_mm - width_mm[0]) / width_mm[0],
+            "--",
+            label=f"width_mm [vs_idx={vs_idx}]",
+            color=colors[vs_idx],
+        )
+
+    plt.xlabel("Epoch")
+    plt.ylabel("Change relative to Initial Value")
+    plt.legend()
+    plt.grid(True)
+
+    plt.tight_layout()
     plt.show()

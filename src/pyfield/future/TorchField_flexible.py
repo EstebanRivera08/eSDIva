@@ -260,17 +260,47 @@ class OptimizableParameter:
         return val
 
     # [TODO] : apply_contraints should be a function to be applied to values (is more general)
+
     def apply_constraints(self):
         """Apply constraints to parameter value."""
         if not self.constraints:
             return
 
         with torch.no_grad():
-            if "min" in self.constraints or "max" in self.constraints:
-                self.value.clamp_(
-                    min=self.constraints.get("min", -float("inf")),
-                    max=self.constraints.get("max", float("inf")),
+            # --- MIN ---
+            min_raw = self.constraints.get("min", None)
+            if min_raw is None:
+                min_val = None
+            elif isinstance(min_raw, (int, float)):
+                min_val = float(min_raw)
+            else:
+                # list/array/tensor-like → replace None with -inf
+                cleaned = [(-float("inf") if v is None else v) for v in min_raw]
+                min_val = torch.as_tensor(cleaned, device=self.value.device)
+
+            # --- MAX ---
+            max_raw = self.constraints.get("max", None)
+            if max_raw is None:
+                max_val = None
+            elif isinstance(max_raw, (int, float)):
+                max_val = float(max_raw)
+            else:
+                # list/array/tensor-like → replace None with -inf
+                cleaned = [(float("inf") if v is None else v) for v in max_raw]
+                max_val = torch.as_tensor(cleaned, device=self.value.device)
+
+            # Optional: shape validation for per‑entry constraints
+            if isinstance(min_val, torch.Tensor) and min_val.shape != self.value.shape:
+                raise ValueError(
+                    f"min constraint shape mismatch: {min_val.shape} vs {self.value.shape}"
                 )
+
+            if isinstance(max_val, torch.Tensor) and max_val.shape != self.value.shape:
+                raise ValueError(
+                    f"max constraint shape mismatch: {max_val.shape} vs {self.value.shape}"
+                )
+                # Apply clamp
+            self.value.clamp_(min=min_val, max=max_val)
 
     def __repr__(self) -> str:
         return (

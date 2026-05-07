@@ -24,7 +24,10 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from pyfield.utilities.surface_subdivision import subdivide_parametric_surface
+from pyfield.utilities.surface_subdivision import (
+    subdivide_parametric_surface,
+    subdivide_spherical_cap,
+)
 
 from . import validators
 from .base import TransducerBase
@@ -36,41 +39,36 @@ from .base import TransducerBase
 
 def _tile_disk(
     radius_m: float,
-    no_sub: int = 25,
-    border_refine: int = 3,
-    filled_radius_with_big_patches: float = 0.95,
+    no_sub_diameter: int = 25,
+    refine_factor: int = 3,
+    ratio_big_patches: float = 0.85,
 ) -> Tuple[List[np.ndarray], float, List[int]]:
     """
     Tile a flat disk with adaptive rectangular patches.
 
     The bounding box ``[-radius, +radius]²`` is divided into a base grid of
-    ``no_sub × no_sub`` coarse patches.  Each patch is classified by its four
-    corner distances from the origin:
+    ``no_sub_diameter × no_sub_diameter`` coarse patches.  Each patch is
+    classified by its four corner distances from the origin:
 
-    * **Interior** — all four corners inside the disk: kept at coarse size
-      ``dx = 2·radius / no_sub``.
-    * **Exterior** — all four corners outside the disk: discarded.
+    * **Interior** — all four corners inside the coarse region: kept at coarse
+      size ``dx = 2·radius / no_sub_diameter``.
+    * **Exterior** — all four corners outside the coarse region: discarded or
+      refined.
     * **Boundary** — any corner straddles the edge: subdivided into
-      ``border_refine × border_refine`` fine patches of size
-      ``dx / border_refine``; only fine patches whose centre is inside the
-      disk are kept.  This smooths the jagged circular edge.
+      ``refine_factor × refine_factor`` fine patches; only fine patches whose
+      centre is inside ``1.005 × radius`` are kept.
 
     Parameters
     ----------
     radius_m : float
         Disc radius in metres.
-    no_sub : int
-        Number of coarse patches across the diameter (controls interior
-        resolution).
-    border_refine : int
-        Subdivision factor applied to boundary patches.  ``border_refine=3``
-        means each boundary patch is replaced by up to 16 smaller patches
-        at 1/4 the coarse size.  Default 4.
-    filled_radius_with_big_patches : float, optional
-        The radius within which big patches are used without refinement.  Defined
-        as a fraction of the disc radius (e.g. 0.9 means big patches are used up to 90%
-        of the radius, and only the outer 10% is refined).  Default 1.0 (no inner
-        cutoff).
+    no_sub_diameter : int
+        Number of coarse patches across the diameter.
+    refine_factor : int
+        Subdivision factor applied to boundary patches.  Default ``3``.
+    ratio_big_patches : float
+        Fraction of the radius filled with coarse patches (0–1).  The outer
+        ``1 - ratio_big_patches`` fraction is refined.  Default ``0.85``.
 
     Returns
     -------
@@ -81,11 +79,11 @@ def _tile_disk(
     el_idx : list of int
         All zeros — every patch belongs to element 0.
     """
-    dx = 2.0 * radius_m / no_sub
+    dx = 2.0 * radius_m / no_sub_diameter
     R2 = radius_m**2
-    half = no_sub // 2
-    base_coords = (np.arange(no_sub) - half + 0.5) * dx
-    filled_radius = filled_radius_with_big_patches
+    half = no_sub_diameter // 2
+    base_coords = (np.arange(no_sub_diameter) - half + 0.5) * dx
+    filled_radius = ratio_big_patches
 
     quads: List[np.ndarray] = []
     total_area = 0.0
@@ -130,12 +128,12 @@ def _tile_disk(
                 continue
             else:
                 # Boundary — straddles the edge, fill with fine patches
-                sdx = dx / border_refine
-                for i in range(border_refine):
-                    for j in range(border_refine):
+                sdx = dx / refine_factor
+                for i in range(refine_factor):
+                    for j in range(refine_factor):
                         scx = x0c + (i + 0.5) * sdx
                         scy = y0c + (j + 0.5) * sdx
-                        if scx**2 + scy**2 <= R2:
+                        if scx**2 + scy**2 <= (1.005 * radius_m) ** 2:
                             _add_patch(x0c + i * sdx, y0c + j * sdx, sdx)
 
     mean_area = total_area / len(quads) if quads else dx * dx
@@ -154,25 +152,24 @@ class FlatCircularTransducer(TransducerBase):
 
     The aperture is approximated by a square grid of rectangular patches; only
     patches whose centre falls within the circle are included.  Increasing
-    ``no_sub`` improves the circular approximation and the spatial accuracy of
-    the SIR simulation.
+    ``no_sub_diameter`` improves the circular approximation and the spatial
+    accuracy of the SIR simulation.
 
     Parameters
     ----------
     diameter_mm : float
         Outer diameter of the active aperture in mm.
-    no_sub : int
+    no_sub_diameter : int
         Number of coarse patches across the diameter.  A value of 20–40 is
         typically sufficient for far-field calculations.
-    border_refine : int, optional
-        Subdivision factor for boundary patches.  Each patch that straddles
-        the circular edge is replaced by ``border_refine²`` smaller patches,
-        smoothing the jagged border.  Default 3.
+    ratio_big_patches : float
+        Fraction of the radius filled with coarse patches (0–1).  The outer
+        ``1 - ratio_big_patches`` fraction is refined.  Default ``0.85``.
+    refine_factor : int
+        Subdivision factor for boundary patches.  Each boundary patch is
+        replaced by ``refine_factor²`` smaller patches.  Default ``3``.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional
-        Fraction of the radius to fill with coarse patches. Defaults to 0.99.
-        The area to be filled is ``filled_radius_with_big_patches * diameter_mm / 2``.
 
     Notes
     -----
@@ -186,10 +183,10 @@ class FlatCircularTransducer(TransducerBase):
         self,
         *,
         diameter_mm: float,
-        no_sub: int = 25,
-        border_refine: int = 3,
+        no_sub_diameter: int = 25,
+        ratio_big_patches: float = 0.85,
+        refine_factor: int = 3,
         frequency_Hz: Optional[float] = None,
-        filled_radius_with_big_patches: float = 0.99,
     ) -> None:
         super().__init__()
         t0 = TIME()
@@ -198,25 +195,20 @@ class FlatCircularTransducer(TransducerBase):
         self.name = "FlatCircularTransducer"
 
         validators.validate_positive(diameter_mm, "diameter_mm", strict=True)
-        validators.validate_integer(no_sub, "no_sub", min_val=4)
-        validators.validate_integer(border_refine, "border_refine", min_val=1)
-        validators.validate_positive(
-            filled_radius_with_big_patches,
-            "filled_radius_with_big_patches",
-            strict=True,
-        )
+        validators.validate_integer(no_sub_diameter, "no_sub_diameter", min_val=4)
+        validators.validate_integer(refine_factor, "refine_factor", min_val=1)
 
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
-        self.no_sub = no_sub
-        self.border_refine = border_refine
+        self.no_sub_diameter = no_sub_diameter
+        self.ratio_big_patches = ratio_big_patches
+        self.refine_factor = refine_factor
         self.n_elements = 1
-        self.filled_radius = filled_radius_with_big_patches
 
         self.elem_width = self.diameter
         self.elem_height = self.diameter
-        self.no_sub_x = no_sub
-        self.no_sub_y = no_sub
+        self.no_sub_x = no_sub_diameter
+        self.no_sub_y = no_sub_diameter
 
         self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
 
@@ -224,8 +216,8 @@ class FlatCircularTransducer(TransducerBase):
         print(
             f"FlatCircularTransducer initialised in {TIME() - t0:.4f} s  "
             f"(diameter={diameter_mm:.2f} mm, {self.n_sub_patches} patches, "
-            f"coarse={self.diameter / no_sub * 1e3:.3f} mm, "
-            f"border={self.diameter / no_sub / border_refine * 1e3:.3f} mm)."
+            f"coarse={self.diameter / no_sub_diameter * 1e3:.3f} mm, "
+            f"border={self.diameter / no_sub_diameter / refine_factor * 1e3:.3f} mm)."
         )
 
     def _compute_element_centers(self) -> np.ndarray:
@@ -236,14 +228,14 @@ class FlatCircularTransducer(TransducerBase):
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
         return _tile_disk(
-            self.radius, self.no_sub, self.border_refine, self.filled_radius
+            self.radius, self.no_sub_diameter, self.refine_factor, self.ratio_big_patches
         )
 
     def __repr__(self) -> str:
         return (
             f"FlatCircularTransducer("
             f"diameter={self.diameter * 1e3:.2f} mm, "
-            f"no_sub={self.no_sub}, "
+            f"no_sub_diameter={self.no_sub_diameter}, "
             f"fc={self.fc / 1e6:.2f} MHz, "
             f"patches={self.n_sub_patches})"
         )
@@ -259,70 +251,49 @@ class ConcaveCircularTransducer(TransducerBase):
     Spherically focused single-element transducer (bowl / concave disc).
 
     The transducer surface is a spherical cap.  All points on the surface are
-    equidistant (distance = ``radius_of_curvature``) from the geometric focus,
-    so the acoustic wave converges at that point without any electronic delays.
-    This geometry is common in HIFU therapy and transcranial ultrasound
-    stimulation (TUS).
+    equidistant from the geometric focus, so the acoustic wave converges at
+    that point without any electronic delays.  Common in HIFU therapy and TUS.
 
-    The coordinate convention follows PyField: the transducer sits at z ≈ 0,
-    and the focus is at z = ``radius_of_curvature`` along the beam axis.
-    Patch vertices are lifted toward positive z according to the spherical cap
-    equation:
-
-        z(r) = R - √(R² - r²),    r = √(x² + y²) ≤ D/2
-
-    so the centre patch is at z = 0 and the rim patches are at z > 0.
+    ``focus_mm`` is the **axial depth** from the rim plane (z = 0) to the
+    geometric focus.  The radius of curvature is derived as
+    ``R = sqrt(focus_mm² + (D/2)²)``.  ``focus_mm = 0`` gives a hemisphere
+    (R = D/2).
 
     Parameters
     ----------
     diameter_mm : float
         Outer diameter of the bowl aperture in mm.
-    radius_of_curvature_mm : float
-        Radius of the spherical cap in mm.  Must satisfy
-        ``radius_of_curvature_mm ≥ diameter_mm / 2`` (the bowl cannot curve
-        more than a hemisphere).
-    no_sub : int
-        Number of coarse patches across the diameter.
-    border_refine : int, optional
-        Subdivision factor for boundary patches.  Default 3.
-    patch_fill : float, optional
-        Fraction of the nominal patch size used in high-curvature mode.
-        1.0 = patches touch; 0.75 gives a small safety gap that prevents
-        physical overlap between tilted flat patches on the curved surface.
-        Default 1.
-    max_patch_scale : float, optional
-        Rejection threshold: patches whose arc-length extent exceeds
-        ``max_patch_scale × du_nominal`` are discarded, leaving intentional
-        holes near the rim rather than overlapping oversized patches.
-        Default 3.0.
-    curvature_threshold : float, optional
-        Ratio ``R / (D/2)`` below which the high-curvature grid strategy is
-        activated.  Default 1.1.
+    focus_mm : float
+        Axial distance from the rim to the geometric focus in mm.
+        Must be ``>= 0``.  ``0`` = hemisphere.
+    no_sub_diameter : int
+        Target number of patches across the diameter.
+    method : {'spherical', 'cartesian'}
+        ``'spherical'`` (default) uses ring-based spherical-coordinate tiling
+        via :func:`subdivide_spherical_cap` — works at any curvature including
+        hemispheres.  ``'cartesian'`` uses the Cartesian parameter-space grid
+        via :func:`subdivide_parametric_surface`.
+    ratio_big_patches : float
+        Fraction of the surface covered by coarse patches (0–1).  The
+        remaining region is refined.  For spherical method, controls inner
+        ring refinement; for cartesian, controls border refinement.
+        Default ``0.85``.
+    refine_factor : int
+        Subdivision factor in the refined region.  Default ``3``.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional
-        Fraction of the radius to fill with coarse patches. Defaults to 0.95.
-        The area to be filled is ``filled_radius_with_big_patches * diameter_mm / 2``.
-
-    Raises
-    ------
-    ValueError
-        If the radius of curvature is smaller than the aperture radius (the
-        focal point would be inside the aperture --- physically impossible).
     """
 
     def __init__(
         self,
         *,
         diameter_mm: float,
-        radius_of_curvature_mm: float,
-        no_sub: int = 25,
-        border_refine: int = 3,
-        patch_fill: float = 1,
-        max_patch_scale: float = 3.0,
-        curvature_threshold: float = 1.1,
+        focus_mm: float,
+        no_sub_diameter: int = 25,
+        method: str = "spherical",
+        ratio_big_patches: float = 0.85,
+        refine_factor: int = 3,
         frequency_Hz: Optional[float] = None,
-        filled_radius_with_big_patches: float = 0.95,
     ) -> None:
         super().__init__()
         t0 = TIME()
@@ -331,47 +302,54 @@ class ConcaveCircularTransducer(TransducerBase):
         self.name = "ConcaveCircularTransducer"
 
         validators.validate_positive(diameter_mm, "diameter_mm", strict=True)
-        validators.validate_positive(
-            radius_of_curvature_mm, "radius_of_curvature_mm", strict=True
-        )
-        validators.validate_integer(no_sub, "no_sub", min_val=4)
-        validators.validate_integer(border_refine, "border_refine", min_val=1)
+        validators.validate_integer(no_sub_diameter, "no_sub_diameter", min_val=4)
 
-        if radius_of_curvature_mm < diameter_mm / 2:
+        if focus_mm < 0:
             raise ValueError(
-                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be >= "
-                f"diameter_mm/2 ({diameter_mm / 2:.2f}).  The focus cannot be inside "
-                "the aperture."
+                f"focus_mm ({focus_mm:.2f}) must be >= 0.  "
+                "Use focus_mm=0 for a hemisphere."
             )
+        if method not in ("spherical", "cartesian"):
+            raise ValueError("method must be 'spherical' or 'cartesian'.")
 
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
-        self.radius_of_curvature = radius_of_curvature_mm * 1e-3
-        self.no_sub = no_sub
-        self.border_refine = border_refine
-        self.patch_fill = patch_fill
-        self.max_patch_scale = max_patch_scale
-        self.curvature_threshold = curvature_threshold
+        self.no_sub_diameter = no_sub_diameter
+        self.method = method
+        self.ratio_big_patches = ratio_big_patches
+        self.refine_factor = refine_factor
         self.n_elements = 1
-        self.filled_radius = filled_radius_with_big_patches
+
+        # focus_mm = z_depth → R = sqrt(f² + r_ap²)
+        r_ap = self.radius
+        f = focus_mm * 1e-3
+        R = np.sqrt(f**2 + r_ap**2)
+        self.radius_of_curvature = R
+        self._sag = R - f  # since sqrt(R² - r_ap²) = f
+
+        # Spherical half-angle from pole to rim
+        self._theta_max = np.arcsin(r_ap / R)
+
+        # Ring count from target patch size
+        target_size = self.diameter / no_sub_diameter
+        dtheta = target_size / R
+        self._n_rings = max(3, round(self._theta_max / dtheta))
 
         self.elem_width = self.diameter
         self.elem_height = self.diameter
-        self.no_sub_x = no_sub
-        self.no_sub_y = no_sub
+        self.no_sub_x = no_sub_diameter
+        self.no_sub_y = no_sub_diameter
 
         self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
-
-        self._sag = self.radius_of_curvature - np.sqrt(
-            self.radius_of_curvature**2 - self.radius**2
-        )
 
         _ = self.sub_quad_verts
         print(
             f"ConcaveCircularTransducer initialised in {TIME() - t0:.4f} s  "
             f"(diameter={diameter_mm:.2f} mm, "
-            f"ROC={radius_of_curvature_mm:.2f} mm, "
+            f"focus_mm={focus_mm:.2f} mm (z-depth), "
+            f"R={R * 1e3:.2f} mm, "
             f"sag={self._sag * 1e3:.3f} mm, "
+            f"method={method}, "
             f"{self.n_sub_patches} patches)."
         )
 
@@ -382,62 +360,60 @@ class ConcaveCircularTransducer(TransducerBase):
     def _build_subdivisions(
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
-        """
-        Subdivide the spherical cap into correctly-framed flat patches.
-
-        Uses :func:`subdivide_parametric_surface` with the surface equation
-
-            z(x, y) = R - √(R² - x² - y²)
-
-        so that each patch has an **arc-length** extent (wu, wv) and a local
-        frame whose tangent axes lie tangent to the sphere.  This replaces the
-        old flat-warp approach (which produced non-rectangular, sheared patches).
-
-        Frames are stored in ``_sub_patch_frames`` as a side-effect so that
-        ``sub_patch_frames`` returns them without recomputation.
-        """
-        R = self.radius_of_curvature
-        R_ap = self.radius
-
-        # Warn when the rim half-angle θ_max > 30° (sin θ = R_ap/R).
-        # At θ_max = 45° the arc-length amplification ||∂r/∂u|| = 1/cos(θ) = √2
-        # and grows rapidly beyond that, causing many border patches to be rejected.
-        rim_factor = R_ap / np.sqrt(max(R * R - R_ap * R_ap, 1e-30))
-        if rim_factor > np.tan(np.radians(45)):
-            print(
-                f"  WARNING: ConcaveCircularTransducer — rim half-angle "
-                f"{np.degrees(np.arctan(rim_factor)):.1f}° > 45°. "
-                f"Arc-length amplification = {np.sqrt(1 + rim_factor**2):.2f}×. "
-                f"Expect significant holes near the rim; increase no_sub for better coverage."
+        """Subdivide the spherical cap using the chosen method."""
+        if self.method == "spherical":
+            frames = subdivide_spherical_cap(
+                self.radius_of_curvature,
+                self._theta_max,
+                self._n_rings,
+                concave=True,
+                normal_sign=1.0,
+                ratio_big_patches=self.ratio_big_patches,
+                refine_factor=self.refine_factor,
             )
-        elif rim_factor > np.tan(np.radians(30)):
-            print(
-                f"  INFO: ConcaveCircularTransducer — rim half-angle "
-                f"{np.degrees(np.arctan(rim_factor)):.1f}° (arc-length factor "
-                f"{np.sqrt(1 + rim_factor**2):.2f}×). Some border patches may be rejected."
+        else:
+            R = self.radius_of_curvature
+            R_ap = self.radius
+            rbp = self.ratio_big_patches
+            rf = self.refine_factor
+
+            # Arc-length reparameterization: uniform grid in (sx, sy)
+            # where x = R*sin(sx/R). This yields uniform patch sizes
+            # even at high curvature (e.g. hemisphere).
+            s_max = R * np.arcsin(R_ap / R)
+
+            R_inner = rbp * R_ap
+            R_accept = 1.005 * R_ap
+
+            def surface_fn(sx: float, sy: float) -> np.ndarray:
+                x = R * np.sin(sx / R)
+                y = R * np.sin(sy / R)
+                z = R - np.sqrt(max(R * R - x * x - y * y, 0.0))
+                return np.array([x, y, z])
+
+            def inside_fn(sx: float, sy: float) -> bool:
+                x = R * np.sin(sx / R)
+                y = R * np.sin(sy / R)
+                return x * x + y * y <= R_inner * R_inner
+
+            def accept_fn(sx: float, sy: float) -> bool:
+                x = R * np.sin(sx / R)
+                y = R * np.sin(sy / R)
+                return x * x + y * y <= R_accept * R_accept
+
+            frames = subdivide_parametric_surface(
+                surface_fn,
+                u_range=(-s_max, s_max),
+                v_range=(-s_max, s_max),
+                n_u=self.no_sub_diameter,
+                n_v=self.no_sub_diameter,
+                inside_fn=inside_fn,
+                accept_fn=accept_fn,
+                border_refine=rf,
+                normal_sign=1.0,
             )
 
-        def surface_fn(x: float, y: float) -> np.ndarray:
-            z = R - np.sqrt(max(R * R - x * x - y * y, 0.0))
-            return np.array([x, y, z])
-
-        frames = subdivide_parametric_surface(
-            surface_fn,
-            u_range=(-R_ap, R_ap),
-            v_range=(-R_ap, R_ap),
-            n_u=self.no_sub,
-            n_v=self.no_sub,
-            inside_fn=lambda x, y: x * x + y * y <= self.filled_radius**2 * R_ap * R_ap,
-            border_refine=self.border_refine,
-            normal_sign=1.0,  # ∂r/∂x × ∂r/∂y gives +z component -> toward medium
-            patch_fill=self.patch_fill,
-            max_patch_scale=self.max_patch_scale,
-            curvature_threshold=self.curvature_threshold,
-        )
-
-        # Cache frames so sub_patch_frames finds them without recomputing
         self._sub_patch_frames = frames
-
         mean_area = float(np.mean(frames["wu"] * frames["wv"]))
         return frames["corners"], mean_area, frames["el_idx"]
 
@@ -451,8 +427,8 @@ class ConcaveCircularTransducer(TransducerBase):
         return (
             f"ConcaveCircularTransducer("
             f"diameter={self.diameter * 1e3:.2f} mm, "
-            f"ROC={self.radius_of_curvature * 1e3:.2f} mm, "
-            f"no_sub={self.no_sub}, "
+            f"R={self.radius_of_curvature * 1e3:.2f} mm, "
+            f"no_sub_diameter={self.no_sub_diameter}, "
             f"fc={self.fc / 1e6:.2f} MHz)"
         )
 
@@ -467,60 +443,47 @@ class ConvexCircularTransducer(TransducerBase):
     Spherically convex single-element transducer (dome / convex disc).
 
     The surface is a spherical dome that **bulges toward the propagation
-    medium** (positive-z direction).  In contrast to
-    :class:`ConcaveCircularTransducer`, which curves inward and converges to a
-    geometric focus at depth ``R``, the convex surface diverges — its virtual
-    focus is at ``z = -R`` (behind the transducer).
+    medium** (positive-z direction).  The convex surface diverges — its
+    virtual focus is at ``z = -R`` (behind the transducer).
 
-    This geometry models transducers that use an **acoustic refractive lens**
-    to achieve focusing: the convex surface widens the natural directivity
-    pattern and the lens refracts the wave to the desired focal depth.  It is
-    also useful when a broad, diverging beam is desired (e.g. wide-field
-    illumination or tissue characterisation).
+    ``focus_mm`` is the **axial depth** from the rim plane to the virtual
+    focus (same convention as :class:`ConcaveCircularTransducer`).
+    ``R = sqrt(focus_mm² + (D/2)²)``.  ``focus_mm = 0`` gives a hemisphere.
 
     Surface z-profile (rim at z = 0, apex at z = sag):
 
-        sag = R - √(R² - (D/2)²)
+        sag = R - √(R² - (D/2)²) = R - focus_mm
         z(r) = sag - (R - √(R² - r²))   r = √(x² + y²) ≤ D/2
 
     Parameters
     ----------
     diameter_mm : float
         Outer diameter of the dome aperture in mm.
-    radius_of_curvature_mm : float
-        Radius of the spherical surface in mm.  Must satisfy
-        ``radius_of_curvature_mm ≥ diameter_mm / 2``.
-    no_sub : int
-        Number of coarse patches across the diameter.
-    border_refine : int, optional
-        Subdivision factor for boundary patches.  Default 3.
-    patch_fill : float, optional
-        Fraction of the nominal patch size used in high-curvature mode.
-        Default 1.  See :class:`ConcaveCircularTransducer` for details.
-    max_patch_scale : float, optional
-        Rejection threshold for oversized patches at the rim.  Default 3.0.
-        See :class:`ConcaveCircularTransducer` for details.
-    curvature_threshold : float, optional
-        Ratio ``R / (D/2)`` below which the high-curvature grid strategy is
-        activated.  Default 1.1.
+    focus_mm : float
+        Axial distance from the rim to the virtual focus in mm.
+        Must be ``>= 0``.  ``0`` = hemisphere.
+    no_sub_diameter : int
+        Target number of patches across the diameter.
+    method : {'spherical', 'cartesian'}
+        ``'spherical'`` (default) or ``'cartesian'``.
+    ratio_big_patches : float
+        Fraction of surface with coarse patches.  Default ``0.85``.
+    refine_factor : int
+        Subdivision factor in the refined region.  Default ``3``.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional
-        Fraction of the radius to fill with coarse patches. Defaults to 0.95.
     """
 
     def __init__(
         self,
         *,
         diameter_mm: float,
-        radius_of_curvature_mm: float,
-        no_sub: int = 25,
-        border_refine: int = 3,
-        patch_fill: float = 1,
-        max_patch_scale: float = 3.0,
-        curvature_threshold: float = 1.1,
+        focus_mm: float,
+        no_sub_diameter: int = 25,
+        method: str = "spherical",
+        ratio_big_patches: float = 0.85,
+        refine_factor: int = 3,
         frequency_Hz: Optional[float] = None,
-        filled_radius_with_big_patches: float = 0.95,
     ) -> None:
         super().__init__()
         t0 = TIME()
@@ -529,47 +492,51 @@ class ConvexCircularTransducer(TransducerBase):
         self.name = "ConvexCircularTransducer"
 
         validators.validate_positive(diameter_mm, "diameter_mm", strict=True)
-        validators.validate_positive(
-            radius_of_curvature_mm, "radius_of_curvature_mm", strict=True
-        )
-        validators.validate_integer(no_sub, "no_sub", min_val=4)
-        validators.validate_integer(border_refine, "border_refine", min_val=1)
+        validators.validate_integer(no_sub_diameter, "no_sub_diameter", min_val=4)
 
-        if radius_of_curvature_mm < diameter_mm / 2:
+        if focus_mm < 0:
             raise ValueError(
-                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be >= "
-                f"diameter_mm/2 ({diameter_mm / 2:.2f}).  The dome cannot curve more "
-                "than a hemisphere."
+                f"focus_mm ({focus_mm:.2f}) must be >= 0.  "
+                "Use focus_mm=0 for a hemisphere."
             )
+        if method not in ("spherical", "cartesian"):
+            raise ValueError("method must be 'spherical' or 'cartesian'.")
 
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
-        self.radius_of_curvature = radius_of_curvature_mm * 1e-3
-        self.no_sub = no_sub
-        self.border_refine = border_refine
-        self.patch_fill = patch_fill
-        self.max_patch_scale = max_patch_scale
-        self.curvature_threshold = curvature_threshold
+        self.no_sub_diameter = no_sub_diameter
+        self.method = method
+        self.ratio_big_patches = ratio_big_patches
+        self.refine_factor = refine_factor
         self.n_elements = 1
-        self.filled_radius = filled_radius_with_big_patches
+
+        # focus_mm = z_depth → R = sqrt(f² + r_ap²)
+        r_ap = self.radius
+        f = focus_mm * 1e-3
+        R = np.sqrt(f**2 + r_ap**2)
+        self.radius_of_curvature = R
+        self._sag = R - f
+
+        self._theta_max = np.arcsin(r_ap / R)
+        target_size = self.diameter / no_sub_diameter
+        dtheta = target_size / R
+        self._n_rings = max(3, round(self._theta_max / dtheta))
 
         self.elem_width = self.diameter
         self.elem_height = self.diameter
-        self.no_sub_x = no_sub
-        self.no_sub_y = no_sub
+        self.no_sub_x = no_sub_diameter
+        self.no_sub_y = no_sub_diameter
 
         self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
-
-        self._sag = self.radius_of_curvature - np.sqrt(
-            self.radius_of_curvature**2 - self.radius**2
-        )
 
         _ = self.sub_quad_verts
         print(
             f"ConvexCircularTransducer initialised in {TIME() - t0:.4f} s  "
             f"(diameter={diameter_mm:.2f} mm, "
-            f"ROC={radius_of_curvature_mm:.2f} mm, "
+            f"focus_mm={focus_mm:.2f} mm (z-depth), "
+            f"R={R * 1e3:.2f} mm, "
             f"sag={self._sag * 1e3:.3f} mm, "
+            f"method={method}, "
             f"{self.n_sub_patches} patches)."
         )
 
@@ -580,53 +547,42 @@ class ConvexCircularTransducer(TransducerBase):
     def _build_subdivisions(
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
-        """
-        Subdivide the convex spherical dome into correctly-framed flat patches.
-
-        Surface equation (apex at z = sag, rim at z = 0):
-
-            z(x, y) = sag - (R - √(R² - x² - y²))
-
-        Uses :func:`subdivide_parametric_surface` so patches have arc-length
-        extents and tangent axes that lie tangent to the dome surface.
-        Frames are stored in ``_sub_patch_frames`` as a side-effect.
-        """
-        R = self.radius_of_curvature
-        R_ap = self.radius
-        sag = self._sag
-
-        rim_factor = R_ap / np.sqrt(max(R * R - R_ap * R_ap, 1e-30))
-        if rim_factor > np.tan(np.radians(45)):
-            print(
-                f"  WARNING: ConvexCircularTransducer — rim half-angle "
-                f"{np.degrees(np.arctan(rim_factor)):.1f}° > 45°. "
-                f"Arc-length amplification = {np.sqrt(1 + rim_factor**2):.2f}×. "
-                f"Expect significant holes near the rim; increase no_sub for better coverage."
+        """Subdivide the convex dome using the chosen method."""
+        if self.method == "spherical":
+            frames = subdivide_spherical_cap(
+                self.radius_of_curvature,
+                self._theta_max,
+                self._n_rings,
+                concave=False,
+                normal_sign=1.0,
+                ratio_big_patches=self.ratio_big_patches,
+                refine_factor=self.refine_factor,
             )
-        elif rim_factor > np.tan(np.radians(30)):
-            print(
-                f"  INFO: ConvexCircularTransducer — rim half-angle "
-                f"{np.degrees(np.arctan(rim_factor)):.1f}° (arc-length factor "
-                f"{np.sqrt(1 + rim_factor**2):.2f}×). Some border patches may be rejected."
+        else:
+            R = self.radius_of_curvature
+            R_ap = self.radius
+            sag = self._sag
+            rbp = self.ratio_big_patches
+            rf = self.refine_factor
+
+            def surface_fn(x: float, y: float) -> np.ndarray:
+                z = sag - (R - np.sqrt(max(R * R - x * x - y * y, 0.0)))
+                return np.array([x, y, z])
+
+            R_inner = rbp * R_ap
+            R_accept = 1.005 * R_ap
+
+            frames = subdivide_parametric_surface(
+                surface_fn,
+                u_range=(-R_ap, R_ap),
+                v_range=(-R_ap, R_ap),
+                n_u=self.no_sub_diameter,
+                n_v=self.no_sub_diameter,
+                inside_fn=lambda x, y: x * x + y * y <= R_inner * R_inner,
+                accept_fn=lambda x, y: x * x + y * y <= R_accept * R_accept,
+                border_refine=rf,
+                normal_sign=1.0,
             )
-
-        def surface_fn(x: float, y: float) -> np.ndarray:
-            z = sag - (R - np.sqrt(max(R * R - x * x - y * y, 0.0)))
-            return np.array([x, y, z])
-
-        frames = subdivide_parametric_surface(
-            surface_fn,
-            u_range=(-R_ap, R_ap),
-            v_range=(-R_ap, R_ap),
-            n_u=self.no_sub,
-            n_v=self.no_sub,
-            inside_fn=lambda x, y: x * x + y * y <= self.filled_radius**2 * R_ap * R_ap,
-            border_refine=self.border_refine,
-            normal_sign=1.0,
-            patch_fill=self.patch_fill,
-            max_patch_scale=self.max_patch_scale,
-            curvature_threshold=self.curvature_threshold,
-        )
 
         self._sub_patch_frames = frames
         mean_area = float(np.mean(frames["wu"] * frames["wv"]))
@@ -642,8 +598,8 @@ class ConvexCircularTransducer(TransducerBase):
         return (
             f"ConvexCircularTransducer("
             f"diameter={self.diameter * 1e3:.2f} mm, "
-            f"ROC={self.radius_of_curvature * 1e3:.2f} mm, "
-            f"no_sub={self.no_sub}, "
+            f"R={self.radius_of_curvature * 1e3:.2f} mm, "
+            f"no_sub_diameter={self.no_sub_diameter}, "
             f"fc={self.fc / 1e6:.2f} MHz)"
         )
 
@@ -660,12 +616,11 @@ class FocusedCircularTransducer(TransducerBase):
     The aperture is a **circular disk** (not rectangular), curved along one
     axis only — either y (elevation, default) or x (lateral) — creating a
     cylindrical surface.  The resulting pressure field is focused along a
-    line perpendicular to the curved axis (a geometric line focus at
-    depth ``radius_of_curvature_mm``).
+    line perpendicular to the curved axis.
 
-    Compared to :class:`ConcaveCircularTransducer` (which curves in *both* axes
-    to produce a point focus), this class curves in only *one* axis, which
-    produces a line focus or a tight focus in one plane only.
+    ``focus_mm`` is the **axial depth** from the rim to the line focus
+    (same convention as :class:`ConcaveCircularTransducer`).
+    ``R = sqrt(focus_mm² + (D/2)²)``.  Must be ``>= 0``.
 
     Typical use cases:
 
@@ -685,44 +640,30 @@ class FocusedCircularTransducer(TransducerBase):
     ----------
     diameter_mm : float
         Outer diameter of the circular aperture in mm.
-    radius_of_curvature_mm : float
-        Cylindrical radius of curvature in mm.  Must be ≥ ``diameter_mm / 2``.
-        The geometric line focus is at this distance from the aperture centre.
-    no_sub : int
+    focus_mm : float
+        Axial distance from the rim to the line focus in mm.  Must be ``>= 0``.
+    no_sub_diameter : int
         Number of coarse patches across the diameter.
-    border_refine : int, optional
-        Subdivision factor for boundary patches.  Default 3.
+    ratio_big_patches : float
+        Fraction of the radius filled with coarse patches.  Default ``0.85``.
+    refine_factor : int
+        Subdivision factor for boundary patches.  Default ``3``.
     focus_axis : {'y', 'x'}
         Which axis carries the curvature.  Default is ``'y'`` (elevation).
-    patch_fill : float, optional
-        Fraction of the nominal patch size used in high-curvature mode.
-        Default 1.  See :class:`ConcaveCircularTransducer` for details.
-    max_patch_scale : float, optional
-        Rejection threshold for oversized patches at the rim.  Default 3.0.
-        See :class:`ConcaveCircularTransducer` for details.
-    curvature_threshold : float, optional
-        Ratio ``R / (D/2)`` below which the high-curvature grid strategy is
-        activated.  Default 1.1.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
-    filled_radius_with_big_patches : float, optional
-        Fraction of the radius to fill with coarse patches. Defaults to 0.95.
-        The area to be filled is ``filled_radius_with_big_patches * diameter_mm / 2``.
     """
 
     def __init__(
         self,
         *,
         diameter_mm: float,
-        radius_of_curvature_mm: float,
-        no_sub: int = 25,
-        border_refine: int = 3,
+        focus_mm: float,
+        no_sub_diameter: int = 25,
+        ratio_big_patches: float = 0.85,
+        refine_factor: int = 3,
         focus_axis: str = "y",
-        patch_fill: float = 1,
-        max_patch_scale: float = 3.0,
-        curvature_threshold: float = 1.1,
         frequency_Hz: Optional[float] = None,
-        filled_radius_with_big_patches: float = 0.95,
     ) -> None:
         super().__init__()
         t0 = TIME()
@@ -731,37 +672,36 @@ class FocusedCircularTransducer(TransducerBase):
         self.name = "FocusedCircularTransducer"
 
         validators.validate_positive(diameter_mm, "diameter_mm", strict=True)
-        validators.validate_positive(
-            radius_of_curvature_mm, "radius_of_curvature_mm", strict=True
-        )
-        validators.validate_integer(no_sub, "no_sub", min_val=4)
-        validators.validate_integer(border_refine, "border_refine", min_val=1)
+        validators.validate_integer(no_sub_diameter, "no_sub_diameter", min_val=4)
+        validators.validate_integer(refine_factor, "refine_factor", min_val=1)
 
         if focus_axis not in ("x", "y"):
             raise ValueError("focus_axis must be 'x' or 'y'.")
 
-        if radius_of_curvature_mm < diameter_mm / 2:
+        if focus_mm < 0:
             raise ValueError(
-                f"radius_of_curvature_mm ({radius_of_curvature_mm:.2f}) must be >= "
-                f"diameter_mm/2 ({diameter_mm / 2:.2f} mm)."
+                f"focus_mm ({focus_mm:.2f}) must be >= 0.  "
+                "Use focus_mm=0 for a semicircular cylinder."
             )
 
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
-        self.radius_of_curvature = radius_of_curvature_mm * 1e-3
         self.focus_axis = focus_axis
-        self.no_sub = no_sub
-        self.border_refine = border_refine
-        self.patch_fill = patch_fill
-        self.max_patch_scale = max_patch_scale
-        self.curvature_threshold = curvature_threshold
+        self.no_sub_diameter = no_sub_diameter
+        self.ratio_big_patches = ratio_big_patches
+        self.refine_factor = refine_factor
         self.n_elements = 1
-        self.filled_radius = filled_radius_with_big_patches
+
+        # focus_mm = z_depth → R = sqrt(f² + r_ap²)
+        r_ap = self.radius
+        f = focus_mm * 1e-3
+        R = np.sqrt(f**2 + r_ap**2)
+        self.radius_of_curvature = R
 
         self.elem_width = self.diameter
         self.elem_height = self.diameter
-        self.no_sub_x = no_sub
-        self.no_sub_y = no_sub
+        self.no_sub_x = no_sub_diameter
+        self.no_sub_y = no_sub_diameter
 
         self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
 
@@ -769,7 +709,8 @@ class FocusedCircularTransducer(TransducerBase):
         print(
             f"FocusedCircularTransducer initialised in {TIME() - t0:.4f} s  "
             f"(diameter={diameter_mm:.2f} mm, "
-            f"ROC={radius_of_curvature_mm:.2f} mm, axis={focus_axis}, "
+            f"focus_mm={focus_mm:.2f} mm (z-depth), "
+            f"R={R * 1e3:.2f} mm, axis={focus_axis}, "
             f"{self.n_sub_patches} patches)."
         )
 
@@ -794,40 +735,27 @@ class FocusedCircularTransducer(TransducerBase):
         R = self.radius_of_curvature
         R_ap = self.radius
         axis = self.focus_axis
-
-        # For cylindrical curvature: amplification only along the curved axis
-        rim_factor = R_ap / np.sqrt(max(R * R - R_ap * R_ap, 1e-30))
-        if rim_factor > np.tan(np.radians(45)):
-            print(
-                f"  WARNING: FocusedCircularTransducer — rim half-angle along {axis}-axis "
-                f"{np.degrees(np.arctan(rim_factor)):.1f}° > 45°. "
-                f"Arc-length amplification = {np.sqrt(1 + rim_factor**2):.2f}×. "
-                f"Expect holes near the rim; increase no_sub for better coverage."
-            )
-        elif rim_factor > np.tan(np.radians(30)):
-            print(
-                f"  INFO: FocusedCircularTransducer — rim half-angle along {axis}-axis "
-                f"{np.degrees(np.arctan(rim_factor)):.1f}° (arc-length factor "
-                f"{np.sqrt(1 + rim_factor**2):.2f}×). Some border patches may be rejected."
-            )
+        rbp = self.ratio_big_patches
+        rf = self.refine_factor
 
         def surface_fn(x: float, y: float) -> np.ndarray:
             val = y if axis == "y" else x
             z = R - np.sqrt(max(R * R - val * val, 0.0))
             return np.array([x, y, z])
 
+        R_inner = rbp * R_ap
+        R_accept = 1.005 * R_ap
+
         frames = subdivide_parametric_surface(
             surface_fn,
             u_range=(-R_ap, R_ap),
             v_range=(-R_ap, R_ap),
-            n_u=self.no_sub,
-            n_v=self.no_sub,
-            inside_fn=lambda x, y: x * x + y * y <= self.filled_radius**2 * R_ap * R_ap,
-            border_refine=self.border_refine,
+            n_u=self.no_sub_diameter,
+            n_v=self.no_sub_diameter,
+            inside_fn=lambda x, y: x * x + y * y <= R_inner * R_inner,
+            accept_fn=lambda x, y: x * x + y * y <= R_accept * R_accept,
+            border_refine=rf,
             normal_sign=1.0,
-            patch_fill=self.patch_fill,
-            max_patch_scale=self.max_patch_scale,
-            curvature_threshold=self.curvature_threshold,
         )
 
         self._sub_patch_frames = frames
@@ -844,8 +772,8 @@ class FocusedCircularTransducer(TransducerBase):
         return (
             f"FocusedCircularTransducer("
             f"diameter={self.diameter * 1e3:.2f} mm, "
-            f"ROC={self.radius_of_curvature * 1e3:.2f} mm, "
+            f"R={self.radius_of_curvature * 1e3:.2f} mm, "
             f"axis={self.focus_axis}, "
-            f"no_sub={self.no_sub}, "
+            f"no_sub_diameter={self.no_sub_diameter}, "
             f"fc={self.fc / 1e6:.2f} MHz)"
         )

@@ -180,7 +180,7 @@ def compute_soft_coverage_loss(pr_field, *, pr_max=None, threshold=-6, steepness
     """
     pr_dB = dB(pr_field, max_val=pr_max)  # Convert to dB scale
 
-    soft_above = torch.sigmoid(steepness * (pr_dB - threshold))
+    soft_above = torch.nn.functional.softplus(pr_dB - threshold)
 
     soft_coverage = soft_above.sum() / soft_above.numel()  # fraction
     return 1.0 - soft_coverage
@@ -204,7 +204,10 @@ def compute_aperture_cost(apod_list):
     Tensor (scalar)
         Normalized total active elements [0, 1]
     """
-    total = sum(apod.sum() for apod in apod_list)
+    n_elements = apod_list[0].shape[0] if apod_list else 1
+    total = (
+        sum(apod.sum() for apod in apod_list) / len(apod_list) / n_elements
+    )  # Average
     return total
 
 
@@ -228,10 +231,10 @@ def compute_mean_energy_loss(pr_field, apod_list=1):
         - meanprssure/mean(apod), minimize to increase energy per active element.
     """
     if isinstance(apod_list, list):
-        mean_apod = sum(apod.mean() for apod in apod_list) / len(apod_list)
+        total_apod = sum(apod.sum() for apod in apod_list)
     else:
-        mean_apod = apod_list
-    return -pr_field.mean() / (mean_apod + 1e-6)  # Avoid division by zero
+        total_apod = apod_list
+    return -pr_field.mean()  # Avoid division by zero
 
 
 # ============================================================================
