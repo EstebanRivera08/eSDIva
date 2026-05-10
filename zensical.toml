@@ -2,27 +2,54 @@
 
 site_name = "PyField"
 site_description = "Acoustic field simulator for ultrasound transducers."
-site_author = "deyve"
+site_author = "Esteban Rivera"
+site_url = "https://estebanrivera08.github.io/PyField/"
+repo_url = "https://github.com/EstebanRivera08/PyField"
+repo_name = "EstebanRivera08/PyField"
+edit_uri = "edit/main/docs/"
+
+copyright = "Copyright &copy; 2026 Esteban Rivera"
+
+extra_css = ["stylesheets/extra.css"]
 
 nav = [
   { "Home" = "index.md" },
-  { "Getting Started" = "user-guide/getting-started.md" },
   { "User Guide" = [
-    { "Transducers" = "user-guide/transducers.md" },
-    { "Simulation" = "user-guide/simulation.md" },
-    { "Visualization" = "user-guide/visualization.md" },
-    { "Examples" = [
-      { "Overview" = "examples/index.md" },
-      { "1. Transducer Gallery" = "examples/example1_transducer_gallery.md" },
-      { "2. Mono-element Fields" = "examples/example2_monoelement_transducers.md" },
-      { "3. Linear Array (CW)" = "examples/example3_lineartx_monochromatic.md" },
-      { "4. Multi-element 3-D" = "examples/example4_multielement_transducers.md" },
-      { "5. Transient Simulation" = "examples/example5_lineartx_transient.md" },
-      { "6. Mouse Brain Atlas" = "examples/example6_monoelement_mouse.md" },
-      { "7. Rat Brain Targeting" = "examples/example7_ratbrainzones_focus.md" },
-      { "8. STL Meshes" = "examples/example8_importstl_petridish.md" },
-      { "9. STL + Simulation" = "examples/example9_monoelement_petridish.md" },
-      { "10. Surface Subdivision" = "examples/example10_subdivide_parametric_surface.md" },
+    { "Overview" = "user-guide/index.md" },
+    { "Getting Started" = "user-guide/getting-started.md" },
+    { "Installation" = "user-guide/installation.md" },
+    { "Transducers" = [
+      { "Overview" = "user-guide/transducers.md" },
+      { "Mono-elements" = "user-guide/mono-elements.md" },
+      { "Multi-elements" = "user-guide/multi-elements.md" },
+      { "Transducer Objects" = "user-guide/transducer-objects.md" },
+    ]},
+    { "Simulation" = [
+      { "Overview" = "user-guide/simulation.md" },
+      { "Monochromatic" = "user-guide/monochromatic.md" },
+      { "Transient Impulse" = "user-guide/transient-impulse.md" },
+      { "Transient + Excitation" = "user-guide/transient-excitation.md" },
+    ]},
+    { "Visualization" = [
+      { "Overview" = "user-guide/visualization.md" },
+      { "2D Planes" = "user-guide/2d-planes.md" },
+      { "3D Volume" = "user-guide/3d-volume.md" },
+      { "3D Planes" = "user-guide/3d-planes.md" },
+    ]},
+    { "Utilities" = [
+      { "Overview" = "user-guide/utilities.md" },
+      { "Geometry Functions" = "user-guide/geometry.md" },
+      { "Brain Atlas" = "user-guide/brain-atlas.md" },
+      { "PyVista Integration" = "user-guide/pyvista.md" },
+    ]},
+    { "Background Theory" = [
+      { "Overview" = "user-guide/theory.md" },
+      { "Spatial Impulse Response" = "user-guide/sir.md" },
+      { "Rectangular Aperture SIR" = "user-guide/rect-aperture.md" },
+      { "Naive and SDI Methods" = "user-guide/methods.md" },
+      { "Patch Subdivision" = "user-guide/subdivision.md" },
+      { "Transducer SIR" = "user-guide/transducer-sir.md" },
+      { "From SIR to Pressure" = "user-guide/pressure.md" },
     ]},
   ]},
   { "API Reference" = [
@@ -31,12 +58,26 @@ nav = [
     { "Simulation" = "api/simulation.md" },
     { "Visualization" = "api/visualization.md" },
     { "Brain Atlas" = "api/brain_atlas.md" },
+    { "Plotting" = "api/plotting.md" },
+  ]},
+  { "Examples" = [
+    { "Overview" = "examples/index.md" },
+    { "1. Transducer Gallery" = "examples/example1_transducer_gallery.md" },
+    { "2. Mono-element Fields" = "examples/example2_monoelement_transducers.md" },
+    { "3. Linear Array (CW)" = "examples/example3_lineartx_monochromatic.md" },
+    { "4. Multi-element 3-D" = "examples/example4_multielement_transducers.md" },
+    { "5. Transient Simulation" = "examples/example5_lineartx_transient.md" },
+    { "6. Mouse Brain Atlas" = "examples/example6_monoelement_mouse.md" },
+    { "7. Rat Brain Targeting" = "examples/example7_ratbrainzones_focus.md" },
+    { "8. STL Meshes" = "examples/example8_importstl_petridish.md" },
+    { "9. STL + Simulation" = "examples/example9_monoelement_petridish.md" },
+    { "10. Surface Subdivision" = "examples/example10_subdivide_parametric_surface.md" },
   ]},
   { "Contributing" = "contributing.md" },
 ]
 
 [project.theme]
-
+variant = "modern"
 language = "en"
 features = [
     "announce.dismiss",
@@ -46,23 +87,51 @@ features = [
     "content.footnote.tooltips",
     "content.tabs.link",
     "content.tooltips",
+    "navigation.tabs",
+    "navigation.tabs.sticky",
     "navigation.footer",
     "navigation.indexes",
     "navigation.instant",
     "navigation.instant.prefetch",
+    "navigation.instant.progress",
     "navigation.path",
     "navigation.sections",
+    "navigation.expand",
     "navigation.top",
     "navigation.tracking",
     "search.highlight",
+    "search.suggest",
+    "toc.follow",
 ]
 
-[[project.theme.palette]]
-scheme = "default"
-toggle.icon = "lucide/sun"
-toggle.name = "Switch to dark mode"
+[project.theme.icon]
+logo = "lucide/waves"
+repo = "fontawesome/brands/github"
+
+[project.theme.font]
+text = "Inter"
+code = "JetBrains Mono"
 
 [[project.theme.palette]]
 scheme = "slate"
+primary = "custom"
+accent = "custom"
 toggle.icon = "lucide/moon"
 toggle.name = "Switch to light mode"
+
+[[project.theme.palette]]
+scheme = "default"
+primary = "custom"
+accent = "custom"
+toggle.icon = "lucide/sun"
+toggle.name = "Switch to dark mode"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/github"
+link = "https://github.com/EstebanRivera08/PyField"
+name = "PyField on GitHub"
+
+[[project.extra.social]]
+icon = "fontawesome/brands/python"
+link = "https://pypi.org/project/pyfield/"
+name = "PyField on PyPI"

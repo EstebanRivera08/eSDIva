@@ -485,6 +485,6 @@ def to_dB(matrix, *, vmin=None, vmax=None):
     if vmin is None:
         vmin = 1e-20  # default minimum magnitude to avoid log(0)
     # avoid log(0) without in-place assignment
-    mag = np.where(mag == 0, 1e-20, mag)
+    mag = np.where(mag == 0, vmin, mag)
 
     return 20 * np.log10(mag)

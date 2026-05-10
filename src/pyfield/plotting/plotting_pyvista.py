@@ -4,44 +4,6 @@ import numpy as np
 import pyvista as pv
 
 
-# -------------------- Plotting Functions --------------------
-def create_vol_mesh(x, y, z, vol_matrix, *, scalars="Values"):
-    """Create a PyVista volume mesh from coordinate arrays and data.
-
-    Parameters
-    ----------
-    x, y, z : ndarray
-        Coordinate arrays.
-    vol_matrix : ndarray
-        Volume data (dim = 3).
-    scalars : str, optional
-        Name for the scalar data array. Default ``'Values'``.
-
-    Returns
-    -------
-    pyvista.ImageData
-        The volume mesh with attached scalar data.
-    """
-    dx = x[1] - x[0] if len(x) > 1 else 1e-6
-    dy = y[1] - y[0] if len(y) > 1 else 1e-6
-    dz = z[1] - z[0] if len(z) > 1 else 1e-6
-
-    nx, ny, nz = vol_matrix.shape
-
-    # Create the 3D UniformGrid
-    pressure_vol = pv.ImageData(
-        dimensions=(nx, ny, nz),
-        spacing=(dx, dy, dz),
-        origin=(x.min(), y.min(), z.min()),
-    )
-
-    # Attach pressure data to the grid
-    pressure_vol.point_data[scalars] = vol_matrix.ravel(
-        order="F"
-    )  # VERY important: Fortran order
-    return pressure_vol
-
-
 # ------------- Brain Regions Mesh -------------
 def add_regions_mesh(
     pv_regions_dict,
@@ -189,37 +151,7 @@ def add_3D_vol(
     return plotter
 
 
-# ------------- doppler2D_image Mesh -------------
-
-
-def create_2D_image_mesh(data):
-    """
-    Compute a 2D image mesh from a B-mode ultrasound image and a transformation matrix.
-    Args:
-        data (np.ndarray): 2D array of B-mode ultrasound data in dB.
-    Returns:
-        pv.StructuredGrid: A structured grid representing the 2D image in world coordinates.
-    """
-    H, W = data.shape
-
-    # Create grid indices
-    i_grid, j_grid = np.meshgrid(np.arange(W), np.arange(H))
-
-    # Construct homogeneous voxel coordinates [j, 0, i, 1]
-    points_voxel = np.stack(
-        [j_grid, np.zeros_like(j_grid), i_grid, np.ones_like(j_grid)], axis=-1
-    )
-    points_voxel_flat = points_voxel.reshape(-1, 4).T  # Shape (4, H*W)
-
-    # Create structured grid
-    xx = points_voxel_flat[0].reshape(H, W)
-    yy = points_voxel_flat[1].reshape(H, W)
-    zz = points_voxel_flat[2].reshape(H, W)
-    grid = pv.StructuredGrid(xx, yy, zz)
-    grid["doppler"] = data.ravel(order="F").astype(
-        np.float32
-    )  # Add scalar data # FORTRAN ORDER IMPORTANT
-    return grid
+# Add image
 
 
 def add_2D_image(
@@ -635,92 +567,6 @@ def add_markers(
     return plotter
 
 
-# ...existing code...
-
-
-# ------------- STL Mesh Loading and Visualization -------------
-
-
-def load_stl_mesh(
-    file_path,
-    *,
-    scale=1.0,
-    translation=(0.0, 0.0, 0.0),
-    rotation_axis=None,
-    rotation_angle=0.0,
-):
-    """
-    Load an STL file and create a PyVista mesh with optional transformations.
-
-    Parameters
-    ----------
-    file_path : str or Path
-        Path to the STL file to load.
-    scale : float, optional
-        Uniform scaling factor to apply to the mesh. Default is 1.0 (no scaling).
-    translation : tuple of float, optional
-        Translation vector (dx, dy, dz) to apply to the mesh. Default is (0, 0, 0).
-    rotation_axis : tuple of float, optional
-        Axis of rotation as a 3D vector (x, y, z). If None, no rotation is applied.
-        Default is None.
-    rotation_angle : float, optional
-        Rotation angle in degrees around the specified axis. Default is 0.0.
-
-    Returns
-    -------
-    pv.PolyData
-        The loaded STL mesh with transformations applied.
-
-    Notes
-    -----
-    STL files are commonly used for 3D printing and CAD models. This function provides
-    a simple interface to load STL files and apply basic transformations to position
-    them correctly in your simulation space.
-
-    Examples
-    --------
-    Load a simple STL file:
-    >>> mesh = load_stl_mesh("my_model.stl")
-
-    Load and scale to millimeters (if STL is in meters):
-    >>> mesh = load_stl_mesh("model.stl", scale=1000.0)
-
-    Load, scale, and translate:
-    >>> mesh = load_stl_mesh("model.stl", scale=10.0, translation=(5, 0, 10))
-
-    Load and rotate 45 degrees around z-axis:
-    >>> mesh = load_stl_mesh(
-    ...     "model.stl",
-    ...     rotation_axis=(0, 0, 1),
-    ...     rotation_angle=45
-    ... )
-    """
-    from pathlib import Path
-
-    import pyvista as pv
-
-    # Load the STL file
-    file_path = Path(file_path)
-    if not file_path.exists():
-        raise FileNotFoundError(f"STL file not found: {file_path}")
-
-    mesh = pv.read(str(file_path))
-
-    # Apply transformations
-    if scale != 1.0:
-        mesh = mesh.scale(scale)
-
-    if rotation_axis is not None and rotation_angle != 0.0:
-        mesh = mesh.rotate_vector(
-            vector=rotation_axis, angle=rotation_angle, point=mesh.center
-        )
-
-    if translation != (0.0, 0.0, 0.0):
-        mesh = mesh.translate(translation)
-
-    return mesh
-
-
 def add_stl_mesh(
     stl_mesh,
     *,
@@ -736,68 +582,40 @@ def add_stl_mesh(
     label=None,
     **kwargs,
 ):
-    """
-    Add an STL mesh to a PyVista plotter for 3D visualization.
+    """Add an STL mesh to a PyVista plotter.
 
     Parameters
     ----------
-    stl_mesh : pv.PolyData or str or Path
-        Either a PyVista mesh object (from load_stl_mesh) or a path to an STL file.
-        If a path is provided, the STL will be loaded automatically.
-    plotter : pv.Plotter, optional
-        An existing PyVista plotter to add the mesh to. If None, a new plotter
-        will be created. Default is None.
+    stl_mesh : pyvista.PolyData or str or Path
+        Mesh object or path to an STL file. If a path is given, the mesh is
+        loaded automatically.
+    plotter : pyvista.Plotter, optional
+        Existing plotter. If None, a new one is created.
     window_size : tuple of int, optional
-        Size of the plot window as (width, height). Default is (800, 800).
+        Render window size ``(width, height)``. Default ``(800, 800)``.
     notebook : bool, optional
-        Whether to use notebook mode for the plotter. Default is False.
+        Enable Jupyter notebook rendering. Default False.
     off_screen : bool, optional
-        Whether to render the plot off-screen. Default is False.
+        Render off-screen. Default False.
     color : str or tuple, optional
-        Color of the mesh. Can be a color name (e.g., 'red', 'lightblue') or
-        RGB tuple. Default is 'lightblue'.
+        Mesh colour. Default ``"lightblue"``.
     opacity : float, optional
-        Opacity of the mesh, ranging from 0.0 (transparent) to 1.0 (opaque).
-        Default is 1.0.
+        Mesh opacity from 0 (transparent) to 1 (opaque). Default 1.0.
     show_edges : bool, optional
-        Whether to show the edges of the mesh. Default is True.
+        Show mesh edges. Default True.
     edge_color : str or tuple, optional
-        Color of the mesh edges if show_edges is True. Default is 'black'.
+        Edge colour when ``show_edges=True``. Default ``"black"``.
     ambient : float, optional
-        Ambient lighting coefficient. Higher values make the mesh brighter in
-        shadowed areas. Default is 0.3.
+        Ambient lighting coefficient. Default 0.3.
     label : str, optional
-        Label for the mesh in the legend. If None, no label is added. Default is None.
+        Legend label. If None, no label is added.
     **kwargs
-        Additional keyword arguments passed to plotter.add_mesh().
+        Forwarded to ``plotter.add_mesh()``.
 
     Returns
     -------
-    pv.Plotter
-        The PyVista plotter with the STL mesh added.
-
-    Notes
-    -----
-    This function provides an easy interface to visualize STL files with sensible
-    defaults. You can customize the appearance by modifying color, opacity, and
-    lighting parameters.
-
-    Examples
-    --------
-    Visualize an STL file directly:
-    >>> plotter = add_stl_mesh("model.stl", color="red")
-    >>> plotter.show()
-
-    Load, transform, then visualize:
-    >>> mesh = load_stl_mesh("model.stl", scale=10.0, translation=(0, 0, 5))
-    >>> plotter = add_stl_mesh(mesh, opacity=0.8, show_edges=False)
-    >>> plotter.show()
-
-    Add to existing plotter with other meshes:
-    >>> plotter = pv.Plotter()
-    >>> plotter = add_stl_mesh("part1.stl", plotter=plotter, color="blue", label="Part 1")
-    >>> plotter = add_stl_mesh("part2.stl", plotter=plotter, color="red", label="Part 2")
-    >>> plotter.show()
+    pyvista.Plotter
+        The plotter with the STL mesh added.
     """
     from pathlib import Path
 
@@ -811,7 +629,9 @@ def add_stl_mesh(
 
     # Load mesh if path is provided
     if isinstance(stl_mesh, (str, Path)):
-        stl_mesh = load_stl_mesh(stl_mesh)
+        from .pyvista_functions import load_mesh_from_stl
+
+        stl_mesh = load_mesh_from_stl(stl_mesh)
 
     # Set up default keyword arguments
     default_kwargs = {
@@ -835,33 +655,3 @@ def add_stl_mesh(
     plotter.add_axes()
 
     return plotter
-
-
-# ------------ helper functions --------------
-
-
-def recompute_bounds(plotter):
-    """Recompute the bounds of a PyVista plotter based on its current meshes.
-
-    Parameters
-    ----------
-    plotter : pyvista.Plotter
-        The plotter whose bounds should be recomputed.
-
-    Returns
-    -------
-    tuple of float
-        ``(x_min, x_max, y_min, y_max, z_min, z_max)``.
-    """
-    if not plotter.meshes:
-        raise ValueError("The plotter has no meshes to compute bounds from.")
-
-    all_bounds = np.array([mesh.bounds for mesh in plotter.meshes])
-    x_min = all_bounds[:, 0].min()
-    x_max = all_bounds[:, 1].max()
-    y_min = all_bounds[:, 2].min()
-    y_max = all_bounds[:, 3].max()
-    z_min = all_bounds[:, 4].min()
-    z_max = all_bounds[:, 5].max()
-
-    return (x_min, x_max, y_min, y_max, z_min, z_max)

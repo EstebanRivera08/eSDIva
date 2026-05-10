@@ -2,18 +2,17 @@ import numpy as np
 import pyvista as pv
 
 import pyfield.transducers as Transducers
-from pyfield.brain_atlas import BG_Atlas
-from pyfield.future import DopplerScan
-from pyfield.psimulation import PyField
-from pyfield.utilities import (
+from pyfield.cache import DopplerScan, get_LabToTransducer
+from pyfield.plotting import (
     add_2D_image,
     add_3D_vol,
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
-    create_vol_mesh,
-    get_LabToTransducer,
+    create_3Dvol_mesh,
 )
+from pyfield.psimulation import PyField
+from pyfield.utilities import BG_Atlas
 
 # ----------------- Get the scan objects --------------------
 print("\n --- Example 4: Mouse Brain Atlas + Doppler + Pressure Field --- \n")
@@ -30,7 +29,7 @@ BPS_PATH = Path(MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.bps")
 FILE_SCAN_3D_PATH = Path(MAIN_FOLDER_PATH + r"\3Dscan_angio3D.source.scan")
 FILE_SCAN_2D_PATH = Path(MAIN_FOLDER_PATH + r"\2Dscan.source.scan")
 
-SAVE_FIG = True  # Set to True to save the figures
+SAVE_FIG = False  # Set to True to save the figures
 FIG_FOLDER = r""  # Folder to save the figures
 VERSION = "white"  # Version of the figure
 
@@ -107,7 +106,9 @@ x, y, z, pressure_field = Domino_field(field_info_mm)
 x, y, z, pressure_field = Domino_field(field_info_mm, normalize=True)
 
 # Compute the pressure volume mesh
-pressure_vol_mesh = create_vol_mesh(x, y, z, pressure_field, scalars="Pressure (a.u.)")
+pressure_vol_mesh = create_3Dvol_mesh(
+    x, y, z, pressure_field, scalars="Pressure (a.u.)"
+)
 
 # ------------------ Transform the meshes --------------------
 

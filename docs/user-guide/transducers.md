@@ -2,87 +2,75 @@
 icon: lucide/container
 ---
 
-# Understanding Transducers
+# Transducers
 
-This guide explains how transducers work in PyField at a conceptual level.
-For parameter details and code examples, see the
-[API reference](../api/transducers.md).
+PyField models every transducer geometry as a collection of small flat rectangular patches. The Spatial Impulse Response (SIR) is computed for each patch independently, then summed with per-element delays and apodization weights to produce the total field.
 
-## The patch-based model
+<div class="grid cards" markdown>
 
-Every transducer in PyField -- regardless of shape -- is decomposed into small
-flat rectangular patches. The Spatial Impulse Response (SIR) is computed for
-each patch independently, then summed with per-element delays and apodization
-weights to produce the total transducer response.
+-   :lucide-circle: **[Mono-elements](mono-elements.md)**
 
-This approach means:
+    ---
 
-- **Any geometry** can be modelled as long as it can be tiled with rectangles
-- **Accuracy** is controlled by subdivision density (`no_sub_x`, `no_sub_y`)
-- **Speed** depends on the total number of patches times field points
+    Flat, concave, convex, and focused circular single-element transducers. Focusing achieved through physical curvature, not electronic delays.
 
-## Transducer categories
+-   :lucide-layout-grid: **[Multi-elements](multi-elements.md)**
 
-### Multi-element arrays
+    ---
 
-These transducers have multiple independently controlled elements. Each element
-can have its own delay and apodization weight, enabling electronic beam
-steering and focusing.
+    Linear, convex, and matrix arrays with independently controlled elements. Electronic beam steering and focusing via delays and apodization.
 
-| Type | Description | Typical use |
-|------|-------------|-------------|
-| `LinearArrayTransducer` | 1D row of elements along x | B-mode imaging |
-| `ConvexArrayTransducer` | Elements on a convex arc in XZ | Abdominal imaging |
-| `MatrixArrayTransducer` | 2D grid of elements | 3D volumetric imaging |
+-   :lucide-box: **[Transducer Objects](transducer-objects.md)**
 
-![LinearArrayTransducer](../examples/assets/gallery_linear.png)
-![ConvexArrayTransducer](../examples/assets/gallery_convex.png)
-![MatrixArrayTransducer](../examples/assets/gallery_matrix.png)
+    ---
 
-### Mono-element transducers
+    How PyField represents transducers as Python objects: geometry properties, patch frames, delays, apodization, and 3-D visualization.
 
-Single-element transducers with `n_elements = 1`. Focusing is purely
-geometric (curved surface). Electronic steering is not available.
+</div>
 
-| Type | Description | Typical use |
-|------|-------------|-------------|
-| `FlatCircularTransducer` | Flat circular piston | Unfocused TUS |
-| `ConcaveCircularTransducer` | Spherical bowl | HIFU, focused TUS |
-| `ConvexCircularTransducer` | Spherical dome | Diverging field |
-| `FocusedCircularTransducer` | Cylindrical focus (one axis) | Line-focused TUS |
+---
 
-![FlatCircularTransducer](../examples/assets/gallery_flat_circular.png)
-![ConcaveCircularTransducer](../examples/assets/gallery_concave.png)
-![FocusedCircularTransducer](../examples/assets/gallery_focused_circular.png)
+## The patch model
 
-### Composite arrays
+Every surface — no matter the shape — is approximated by a mosaic of small flat rectangles. The `no_sub_x` and `no_sub_y` parameters control subdivision density:
 
-`CustomTransducer` lets you place multiple mono-element transducers at
-arbitrary positions and orientations -- useful for TUS helmets, ring arrays,
-or any non-standard layout.
+| Parameter | Effect |
+|-----------|--------|
+| Higher values | Better SIR accuracy, longer computation |
+| Lower values | Faster, sufficient for low-frequency or simple geometries |
 
-![CustomTransducer — TUS helmet](../examples/assets/gallery_custom_helmet.png)
+Good starting points: `no_sub_x=2, no_sub_y=4` for arrays; `no_sub_diameter=20–30` for circular transducers.
+
+## Coordinate system
+
+| Axis | Direction |
+|------|-----------|
+| X | Lateral — across array elements |
+| Y | Elevation — perpendicular to imaging plane |
+| Z | Axial — beam propagation direction, depth |
+
+For curved transducers the **rim is always at z = 0**. The medium and geometric focus lie at z > 0.
 
 ## Delays and apodization
 
-**Delays** control *when* each element fires. By introducing time offsets, the
-wavefronts from different elements can be made to converge at a focal point.
+Both are applied at the element level for multi-element arrays and can be recomputed for any focal point without recreating the transducer:
 
-**Apodization** controls *how much* each element contributes. A rectangular
-window activates a sub-aperture; tapered windows (Hanning, Hamming) reduce
-sidelobes at the cost of a wider main lobe.
+```python
+tx.compute_delays(focus_mm=[0, 0, 30])
+tx.compute_apodization(focus_mm=[0, 0, 30], FoverD=2.0)
+```
 
-Both can be recomputed for different focal points without recreating the
-transducer object.
+For mono-element transducers, `compute_delays()` is ignored — focusing is purely geometric. Patch-wise apodization via `set_apodization()` is still physically meaningful (e.g., apodizing aperture edges).
 
-## Subdivision density
+## Transducer types at a glance
 
-The `no_sub_x` and `no_sub_y` parameters control how many patches each element
-is divided into. More subdivisions:
-
-- Improve accuracy of the SIR computation
-- Increase memory usage and computation time
-- Are especially important for curved surfaces
-
-A good starting point is `no_sub_x=2, no_sub_y=4` for linear arrays and
-`no_sub_diameter=20-30` for circular transducers.
+| Type | Category | Focusing |
+|------|----------|---------|
+| `LinearArrayTransducer` | Multi-element | Electronic |
+| `ConvexArrayTransducer` | Multi-element | Electronic + geometry |
+| `MatrixArrayTransducer` | Multi-element | Electronic (2-D steering) |
+| `FlatCircularTransducer` | Mono-element | None (diverging) |
+| `ConcaveCircularTransducer` | Mono-element | Geometric (bowl) |
+| `ConvexCircularTransducer` | Mono-element | Geometric (dome, diverging) |
+| `FocusedCircularTransducer` | Mono-element | Geometric (line-focus) |
+| `CustomTransducer` | Multi mono-element | Per-element positions |

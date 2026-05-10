@@ -2,81 +2,62 @@
 icon: lucide/square-activity
 ---
 
-# Visualization Guide
+# Visualization
 
-PyField provides two visualization backends for different use cases.
+PyField provides two visualization backends suited for different workflows.
 
-## Matplotlib (2D static plots)
+<div class="grid cards" markdown>
 
-Best for publications, quick inspection, and notebook workflows.
+-   :lucide-chart-area: **[2D Planes](2d-planes.md)**
 
-### Monochromatic fields
+    ---
+
+    Matplotlib-based static plots. Orthogonal slice views (XZ, XY, YZ) for monochromatic fields and animated frame sequences for transient simulations.
+
+-   :lucide-box: **[3D Volume](3d-volume.md)**
+
+    ---
+
+    Interactive PyVista isosurface rendering of the full pressure volume. Compose transducer geometry, pressure, and anatomy in one 3-D scene.
+
+-   :lucide-layers: **[3D Planes](3d-planes.md)**
+
+    ---
+
+    Flat cross-section planes rendered in 3-D with PyVista. Useful for locating focal spots and visualising field cross-sections in anatomical context.
+
+</div>
+
+---
+
+## Quick reference
+
+| Function | Backend | Use case |
+|----------|---------|---------|
+| `plot_pressure_planes` | Matplotlib | Monochromatic 2-D orthogonal slices |
+| `plot_slices_2d` | Matplotlib | Transient field frame animation |
+| `plot_pressure_field` | PyVista | Interactive 3-D isosurfaces |
+| `add_pressure_vol` | PyVista | Composable scene helper |
+| `add_transducer_mesh` | PyVista | Transducer geometry overlay |
+| `create_vol_mesh` | PyVista | Build pressure mesh for composing |
+
+## dB scale
+
+Both backends support logarithmic display:
 
 ```python
-from pyfield.utilities import plot_pressure_planes
-
 plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
 ```
 
-This produces three orthogonal slice views (XZ, XY, YZ) through the pressure
-volume. If one spatial dimension has size 1, a single 2D image is shown instead.
+`vmin=-40` gives a standard 40 dB dynamic range, typical for beam pattern analysis.
 
-![Monochromatic pressure planes — linear array](../examples/assets/lineartx_monochromatic.png)
+## Composing 3-D scenes
 
-### Transient fields
-
-```python
-from pyfield.utilities import plot_slices_2d
-
-plot_slices_2d(x, y, z, p_transient,
-               time_array=t,
-               db_scale=True,
-               video_duration_s=5)
-```
-
-This creates an animated display of time frames. All frames are spread evenly
-over the specified duration.
-
-![Transient wavefront animation](../examples/assets/pressure_field_video.gif)
-
-### Tips
-
-- Use `db_scale=True` with `vmin=-40` for a standard 40 dB dynamic range
-- Set `centered_to_max=True` to center slice planes on the pressure maximum
-- Pass `save_path="path/to/dir"` to export figures
-
-## PyVista (3D interactive)
-
-Best for exploring pressure fields in 3D, composing transducer + anatomy scenes.
-
-### Basic 3D pressure view
-
-```python
-from pyfield.utilities import plot_pressure_field
-
-pl = plot_pressure_field(x, y, z, p, contour_levels=11)
-pl.show()
-```
-
-![3-D pressure field — linear array](../examples/assets/linear_array_pressure_field.png)
-![3-D pressure field — matrix array](../examples/assets/matrix_array_pressure_field.png)
-
-### Transducer visualization
-
-```python
-tx.show(scalars="Apodization")  # Interactive 3D view
-tx.show(scalars="Delays")       # Colour by delay values
-```
-
-### Composing scenes
-
-Multiple PyVista helpers can be chained on the same plotter:
+Multiple PyVista helpers chain on the same plotter:
 
 ```python
 import pyvista as pv
-from pyfield.utilities import (
-    add_pressure_vol, add_transducer_mesh, create_vol_mesh
-)
+from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
 
 pl = pv.Plotter()
 mesh = create_vol_mesh(x, y, z, p)
@@ -85,4 +66,4 @@ pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()
 ```
 
-For brain atlas overlays, see the [Brain Atlas API docs](../api/brain_atlas.md).
+See [Brain Atlas](brain-atlas.md) for adding anatomical overlays to these scenes.

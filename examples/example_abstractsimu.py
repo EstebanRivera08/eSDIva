@@ -1,10 +1,11 @@
 import numpy as np
 import pyvista as pv
 
+from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
+
 # Import pyfield modules
 from pyfield.psimulation import PyField
 from pyfield.transducers import Domino, MatrixArrayTransducer, Zeus_Matrix
-from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
 
 print("\n --- Example 0: Abstract simulation --- \n")
 
@@ -97,7 +98,7 @@ x2, y2, z2, p_matrixfield2 = matrix_field(field_point_mm, method="auto")
 
 # TX + Pressure
 transducer2_mesh = matrix_array_probe.get_mesh()
-pressure2_mesh = create_vol_mesh(
+pressure2_mesh = create_3Dvol_mesh(
     x2, y2, z2, p_matrixfield2 / p_matrixfield2.max(), scalars="Pressure"
 )
 

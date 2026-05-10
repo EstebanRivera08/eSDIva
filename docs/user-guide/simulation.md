@@ -2,79 +2,81 @@
 icon: lucide/audio-lines
 ---
 
-# Simulation Modes
+# Simulation
 
-PyField supports two simulation modes: **monochromatic** (continuous wave) and
-**transient** (pulsed). This guide explains when to use each and what to expect.
+PyField supports two simulation modes — monochromatic and transient — both driven by the same `PyField` simulator class.
 
-## Monochromatic simulation
+<div class="grid cards" markdown>
 
-Computes the steady-state pressure field for a continuous wave at the
-transducer's centre frequency. The output is a 3D spatial pressure field
-`p(x, y, z)`.
+-   :lucide-activity: **[Monochromatic](monochromatic.md)**
+
+    ---
+
+    Steady-state continuous-wave pressure field `p(x, y, z)`. Fast and ideal for beam pattern analysis and transducer design comparison.
+
+-   :lucide-waves: **[Transient Impulse](transient-impulse.md)**
+
+    ---
+
+    Pulsed simulation using only the spatial impulse response (no excitation convolution). Returns `h(t, x, y, z)`.
+
+-   :lucide-radio: **[Transient + Excitation](transient-excitation.md)**
+
+    ---
+
+    Full time-domain simulation: SIR convolved with a user-defined excitation pulse. Returns `p(t, x, y, z)`.
+
+</div>
+
+---
+
+## Common interface
+
+All modes use the same entry point:
 
 ```python
 from pyfield.psimulation import PyField
 
 sim = PyField(tx)
-x, y, z, p = sim(field_points, method="auto")
-# p.shape == (Nx, Ny, Nz)
+x, y, z, p = sim(field_points, method="auto")                # monochromatic
+x, y, z, p = sim(field_points, method="auto", monochromatic=False)  # transient impulse
+x, y, z, t, p = sim(field_points, method="auto", excitation=pulse)  # transient + excitation
 ```
 
-**When to use**: beam pattern analysis, focal spot characterization, comparing
-transducer designs.
+## Method selection
 
-![Monochromatic CW pressure field — linear array](../examples/assets/lineartx_monochromatic.png)
+| Method | Description | When to use |
+|--------|-------------|-------------|
+| `"auto"` | Automatic selection | Always recommended |
+| `"naive"` | Sample-by-sample evaluation | Small grids, reference results |
+| `"sdi"` | Sparse Delta Integration | Large or dense field grids |
 
-## Transient simulation
-
-Computes the time-domain pressure field by convolving the SIR with an
-excitation pulse. The output is a 4D spatio-temporal pressure field
-`p(t, x, y, z)`.
+## Field grid format
 
 ```python
-import numpy as np
-
-# Define excitation pulse
-fs = 200e6
-fc = tx.fc
-n_cycles = 2
-t_pulse = np.arange(0, n_cycles / fc, 1 / fs)
-excitation = np.sin(2 * np.pi * fc * t_pulse)
-
-sim = PyField(tx, fs=fs)
-x, y, z, p = sim(
-    field_points,
-    method="auto",
-    excitation=excitation,
-)
-# p.shape == (Nt, Nx, Ny, Nz)
+field_points = {
+    "x_extent": [-5, 5],    # mm
+    "y_extent": [-0.5, 0.5],
+    "z_extent": [5, 55],
+    "dx": 0.1,
+    "dy": 1.0,
+    "dz": 0.2,
+}
 ```
 
-**When to use**: realistic pulse propagation, tissue heating estimates,
-waveform analysis.
+Set one dimension to a single value with `d=0` to compute a 2-D plane.
 
-![Transient wavefront animation — pulsed linear array](../examples/assets/pressure_field_video.gif)
+## Medium properties
 
-## Choosing a computation method
+Override defaults in the `PyField` constructor:
 
-| Method | Description | Best for |
-|--------|-------------|----------|
-| `"naive"` | Direct sample-by-sample evaluation | Small problems, reference |
-| `"sdi"` | Sparse Delta Integration | Large/dense field grids |
-| `"auto"` | Automatic selection | General use (recommended) |
+```python
+sim = PyField(tx, c=1540, rho=1.0, fs=200e6, alpha0=0)
+```
 
-The `"auto"` method examines the problem size and selects whichever approach
-will be faster. In practice, always use `"auto"` unless you have a specific
-reason to force one method.
-
-## Field grid tips
-
-- Use a **dict** for regular grids (most common):
-  ```python
-  {"x_extent": [-5, 5], "y_extent": [0, 0], "z_extent": [5, 50],
-   "dx": 0.1, "dy": 0, "dz": 0.2}
-  ```
-- Set one extent to `[v, v]` with `d=0` to compute a 2D plane
-- Finer grids give smoother plots but use more memory and time
-- PyField warns if the estimated memory exceeds safe limits
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `c` | 1540 m/s | Speed of sound |
+| `rho` | 1.0 kg/m³ | Medium density |
+| `fs` | 200 MHz | Sampling frequency |
+| `alpha0` | 0 dB/(MHz·cm) | Attenuation coefficient |

@@ -1,30 +1,53 @@
-# PyField Documentation
+---
+icon: lucide/waves
+hide:
+  - toc
+---
 
-PyField is a Python acoustic field simulator based on the Tupholme-Stepanishen
-Spatial Impulse Response (SIR) method.  It models arbitrary transducer geometries
-as collections of rectangular patches and computes pressure fields via convolution.
+<div class="hero-banner" markdown>
 
-## Installation
+# PyField
 
-```bash
-uv add git+https://github.com/EstebanRivera08/PyField.git
-```
+Acoustic field simulator for ultrasound transducers.  
+Built on the Tupholme–Stepanishen Spatial Impulse Response method.
 
-Or, inside the cloned repository:
+[![PyPI](https://img.shields.io/pypi/v/pyfield?color=9575cd&logo=pypi&logoColor=white&label=PyPI)](https://pypi.org/project/pyfield/)
+[![Python](https://img.shields.io/pypi/pyversions/pyfield?color=00897b&logo=python&logoColor=white)](https://pypi.org/project/pyfield/)
+[![License](https://img.shields.io/github/license/EstebanRivera08/PyField?color=9575cd)](https://github.com/EstebanRivera08/PyField/blob/main/LICENSE)
+[![Stars](https://img.shields.io/github/stars/EstebanRivera08/PyField?color=9575cd&logo=github)](https://github.com/EstebanRivera08/PyField/stargazers)
 
-```bash
-uv sync
-```
+[Get Started :lucide-arrow-right:](user-guide/getting-started.md){ .md-button .md-button--primary }
+[GitHub :lucide-github:](https://github.com/EstebanRivera08/PyField){ .md-button }
 
-## Quick start
+</div>
+
+---
+
+## Install
+
+=== "From GitHub"
+
+    ```bash
+    uv add git+https://github.com/EstebanRivera08/PyField.git
+    ```
+
+=== "Development"
+
+    ```bash
+    git clone https://github.com/EstebanRivera08/PyField.git
+    cd PyField && uv sync
+    ```
+
+---
+
+## Quickstart
 
 ```python
-import numpy as np
-from pyfield.psimulation import PyField
 from pyfield.transducers import LinearArrayTransducer
-from pyfield.utilities import plot_slices_2d
+from pyfield.psimulation import PyField
+from pyfield.utilities import plot_pressure_planes
 
-# Define transducer
+# 64-element linear array focused at 30 mm depth
 tx = LinearArrayTransducer(
     n_elements=64,
     element_width_mm=0.25,
@@ -37,7 +60,7 @@ tx = LinearArrayTransducer(
 tx.compute_delays(focus_mm=[0, 0, 30])
 tx.compute_apodization(focus_mm=[0, 0, 30], FoverD=2.0)
 
-# Define field grid (mm)
+# Field grid (all distances in mm)
 field_points = {
     "x_extent": [-5, 5],
     "y_extent": [-0.5, 0.5],
@@ -47,60 +70,52 @@ field_points = {
     "dz": 0.2,
 }
 
-# Run simulation
+# Run monochromatic simulation and visualize
 sim = PyField(tx)
 x, y, z, p = sim(field_points, method="auto")
-
-# Visualize
-plot_slices_2d(x, y, z, p, db_scale=True, vmin=-40)
+plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
 ```
 
-![Monochromatic pressure field -- linear array](examples/assets/linear_array_field.png)
+---
 
-## Documentation sections
+## Features
 
-### User Guide
+<div class="grid cards" markdown>
 
-Conceptual guides to help you understand how PyField works:
+-   :lucide-cpu: **SIR-based computation**
 
-| Page | Content |
-|------|---------|
-| [Getting Started](user-guide/getting-started.md) | Installation, first simulation, key concepts |
-| [Transducers](user-guide/transducers.md) | How transducers work in PyField |
-| [Simulation Modes](user-guide/simulation.md) | Monochromatic vs transient simulations |
-| [Visualization](user-guide/visualization.md) | 2D and 3D plotting guide |
+    ---
 
-### Examples
+    Patch-based Spatial Impulse Response engine derived from the Tupholme–Stepanishen method. Accurate for arbitrary transducer geometries.
 
-Worked examples that progressively introduce PyField's features:
+-   :lucide-radio-tower: **Rich transducer library**
 
-| Page | Content |
-|------|---------|
-| [Examples Overview](examples/index.md) | Learning path from basic geometry to brain-atlas integration |
+    ---
 
-### API Reference
+    Linear, convex, and matrix arrays; flat, concave, convex, and focused circular mono-elements; fully custom multi-element configurations.
 
-Detailed function and class documentation:
+-   :lucide-zap: **Monochromatic & transient**
 
-| Page | Content |
-|------|---------|
-| [Transducers](api/transducers.md) | All transducer types and their parameters |
-| [Simulation](api/simulation.md) | PyField simulator -- methods, excitation, output |
-| [Visualization](api/visualization.md) | Matplotlib and PyVista plotting functions |
-| [Brain Atlas](api/brain_atlas.md) | BG_Atlas -- anatomical atlas registration |
+    ---
 
-### Contributing
+    Compute steady-state continuous-wave fields or full time-domain pulsed simulations with user-defined excitation pulses.
 
-| Page | Content |
-|------|---------|
-| [Contributing Guide](contributing.md) | Development setup, code style, PR workflow |
+-   :lucide-brain: **Brain atlas integration**
 
-## Citation
+    ---
 
-If you use PyField in your research, please cite it using the following reference:
+    Register acoustic fields onto anatomical structures via the BrainGlobe API. Includes rat and mouse atlases out of the box.
 
-<!-- citation text will be added here -->
+-   :lucide-box: **3-D visualization**
 
-```bibtex
-% BibTeX entry will be added here
-```
+    ---
+
+    Interactive 3-D scenes with PyVista: compose transducer geometry, pressure volumes, STL meshes, and brain anatomy in one renderer.
+
+-   :lucide-flask-conical: **Research-grade accuracy**
+
+    ---
+
+    Validated against SIR benchmarks. Naive and SDI methods with automatic selection for optimal speed and numerical accuracy.
+
+</div>

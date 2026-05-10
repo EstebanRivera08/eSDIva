@@ -12,6 +12,50 @@ of rectangular patches and computes pressure fields via convolution with excitat
 
 IMPORTANT: For programming guidelines see @AGENTS.md. !
 
+When the user says **"documentation"** or **"the docs"**, they mean the `docs/` folder (MkDocs site). Update the relevant `.md` file there whenever the corresponding code changes.
+
+## Documentation System
+
+Framework: **Zensical** (MkDocs-based). Config: `zensical.toml` (root).
+
+### Commands
+```bash
+just serve-docs        # build + serve locally (hot-reload)
+just docs              # build only → output in site/
+just clean-docs        # remove site/ and .cache/
+# or directly:
+uv run zensical serve
+uv run zensical build
+```
+
+### Key files
+| File | Purpose |
+|------|---------|
+| `zensical.toml` | Site config: nav, theme, palette, features |
+| `docs/index.md` | Landing page |
+| `docs/user-guide/*.md` | Conceptual guides |
+| `docs/api/*.md` | API reference |
+| `docs/examples/*.md` | Worked examples |
+| `docs/contributing.md` | Contributor guide |
+| `CHANGELOG.md` | Version history (add to nav in `zensical.toml` if needed) |
+
+### Adding a new page
+1. Create `docs/<section>/newpage.md`
+2. Add entry to `nav` in `zensical.toml`
+
+### Page frontmatter
+```yaml
+---
+icon: lucide/<icon-name>   # lucide icon shown in nav
+---
+```
+
+### Theme / styling
+Configured under `[project.theme]` in `zensical.toml`:
+- **Palette**: `[[project.theme.palette]]` blocks — set `primary`, `accent` colors per scheme
+- **Schemes**: `"default"` (light) and `"slate"` (dark)
+- **Features**: list of MkDocs Material feature strings
+
 ## Development Commands
 
 ### Package Management
@@ -38,12 +82,13 @@ The codebase follows a modular architecture with clear separation of concerns.
 
 3) **`src/pyfield/psimulation/`** — Pressure field simulation
 
-4) **`src/pyfield/utilities/`** — Plotting and helper functions
+4) **`src/pyfield/utilities/`** — Helper functions, surface subdivision, brain-atlas integration
 
-5) **`src/pyfield/brain_atlas/`** — Brain atlas integration (Bonus for neuroscience
-applications)
+5) **`src/pyfield/plotting/`** — Visualization (2D Matplotlib and 3D PyVista)
 
-6) **`src/pyfield/scans/`** — Scanning sequence utilities 
+6) **`src/pyfield/cache/`** — Internal/experimental tools (TorchField, DopplerScan, coordinate transforms)
+
+7) **`src/pyfield/scans/`** — Scanning sequence utilities
 
 IMPORTANT NOTES: 
 - The module 1) Is the core computation engine, be careful with modifications. 
@@ -115,8 +160,9 @@ If performing transient simulations and excitation could be given :
 
 5. **Visualize**:
    ```python
-   from pyfield.utilities import plot_pressure_planes #if monochromatic (pressure field is 3D)
-   plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
+   from pyfield.plotting import plot2D_pressure_slices
+   # works for both monochromatic (3D) and transient (4D) pressure fields
+   plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
    ```
 
 ### Key Design Patterns
@@ -182,6 +228,15 @@ The radius of curvature is derived: `R = sqrt(focus_mm² + (D/2)²)`.
 - Must satisfy `focus_mm >= 0`.
 - Internal attribute `self.radius_of_curvature` stores R in metres.
 
+### Z-Convention for Curved Transducers
+Rim is always at z = 0. Focus/medium is in the +z direction.
+- **ConcaveCircular**: bowl pole (deepest point) at z = -sag, rim at z = 0, focus at z = +focus_mm.
+- **ConvexCircular**: dome apex at z = +sag, rim at z = 0.
+- **FocusedCircular**: curved-axis edges at z = 0, center at z = -sag.
+- **FlatCircular**: entire face at z = 0.
+
+`sag = R - sqrt(R² - (D/2)²)`. Both spherical and cartesian methods enforce this convention.
+
 ### Surface Subdivision Methods
 - **ConcaveCircular / ConvexCircular**: Configurable via `method` parameter:
   - `"spherical"` (default): Ring-based spherical-coordinate tiling
@@ -223,6 +278,7 @@ Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires 
 - Parallelized over field points (not patches)
 
 **Adding Visualization Methods**:
-- 2D/Matplotlib: Add to `src/pyfield/utilities/plotting.py`
-- 3D/PyVista: Add to `src/pyfield/utilities/plotting_pyvista.py`
-- Ensure compatibility with both `"dark"` and `"light"` themes
+- 2D/Matplotlib: Add to `src/pyfield/plotting/plotting2D.py`
+- 3D/PyVista helpers: Add to `src/pyfield/plotting/plotting_pyvista.py`
+- 3D/PyVista high-level: Add to `src/pyfield/plotting/plotting3D.py`
+- Export new functions from `src/pyfield/plotting/__init__.py`

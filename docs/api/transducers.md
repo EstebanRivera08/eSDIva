@@ -169,8 +169,11 @@ tx = ConvexCircularTransducer(
 `focus_mm` is the axial distance (z-depth) from the transducer rim plane to the
 virtual focus.  The radius of curvature is derived as
 `R = sqrt(focus_mm² + (D/2)²)`.  `focus_mm = 0` yields a hemisphere (`R = D/2`).
-The dome surface is defined by `z(x,y) = sag − (R − √(R² − x² − y²))`, placing
-the apex at `z = sag` and the rim at `z = 0`.
+**Z-convention:** rim at `z = 0`, dome apex at `z = +sag`.
+Surface: `z(x,y) = sag − (R − √(R² − x² − y²))`.
+
+Supports the same `method`, `normalize_patch_size`, `ratio_big_patches`, and
+`refine_factor` parameters as `ConcaveCircularTransducer` (see below).
 
 ### ConcaveCircularTransducer — spherical bowl (TUS / HIFU)
 
@@ -190,8 +193,20 @@ tx = ConcaveCircularTransducer(
 `focus_mm` is the axial distance (z-depth) from the transducer rim plane to the
 geometric focus.  The radius of curvature is derived as
 `R = sqrt(focus_mm² + (D/2)²)`.  `focus_mm = 0` yields a hemisphere (`R = D/2`).
-The curved surface is defined by `z(x,y) = R - sqrt(R² - x² - y²)`, so every
-patch is equidistant from the focus at `(0, 0, R)`.
+**Z-convention:** rim at `z = 0`, bowl pole at `z = -sag` (behind the rim),
+focus in the medium at `z = +focus_mm`.
+Surface: `z(x,y) = √(R² − R_ap²) − √(R² − x² − y²)`.
+
+The optional `method` parameter selects the patch tiling strategy:
+
+| `method` | Algorithm | Notes |
+|----------|-----------|-------|
+| `"spherical"` (default) | Ring-based spherical tiling (`subdivide_spherical_cap`) | Accurate at any curvature, including hemispheres |
+| `"cartesian"` | Arc-length Cartesian grid (`subdivide_parametric_surface`) | Rectangular grid; supports `normalize_patch_size` |
+
+`normalize_patch_size=True` (cartesian only) forces all patches to the same
+arc-length step size, suppressing Jacobian stretch variation — critical for
+hemispheres where the Jacobian diverges near the rim.
 
 ### FocusedCircularTransducer — line focus (cylindrical)
 
@@ -216,9 +231,9 @@ tx = FocusedCircularTransducer(
 `focus_mm` is the axial distance (z-depth) from the rim plane to the line focus.
 The radius of curvature is derived as `R = sqrt(focus_mm² + (D/2)²)`.
 `focus_mm = 0` yields a semicircle (`R = D/2`).
-The curvature follows `z(val) = R - sqrt(R² - val²)` where `val` is the x-
-or y-coordinate of each patch corner.  The centre is at z = 0; outer edges
-are lifted toward z > 0.
+**Z-convention:** curved-axis edges at `z = 0`, centre at `z = -sag`.
+Surface: `z(val) = √(R² − R_ap²) − √(R² − val²)` where `val` is the
+coordinate along the curved axis.
 
 ---
 
@@ -399,16 +414,26 @@ oversized or overlapping patches.
 
 #### Subdivision methods
 
-**ConcaveCircularTransducer** and **ConvexCircularTransducer** use a
-ring-based spherical-coordinate tiling (`subdivide_spherical_cap`).  This
-method works at any curvature, including full hemispheres (`focus_mm = 0`).
-The only resolution parameter is `no_sub_diameter` (target patches across the
-diameter); the ring count is derived automatically.  Optional parameters
-`ratio_big_patches` and `refine_factor` control patch sizing near the
-pole and rim respectively.
+**ConcaveCircularTransducer** and **ConvexCircularTransducer** support two tiling strategies via the `method` parameter:
+
+| `method` | Description |
+|----------|-------------|
+| `"spherical"` (default) | Ring-based spherical tiling (`subdivide_spherical_cap`). Works at any curvature including hemispheres. Ring count derived from `no_sub_diameter`. |
+| `"cartesian"` | Arc-length Cartesian grid (`subdivide_parametric_surface`). Parameter space uses `sx = R·arcsin(x/R)` reparameterisation for uniform patch sizes. |
+
+Both methods share these optional parameters:
+
+| Parameter | Default | Effect |
+|-----------|---------|--------|
+| `ratio_big_patches` | `0.85` | Fraction of aperture covered by coarse patches (0–1) |
+| `refine_factor` | `3` | Subdivision factor at boundaries / inner rings |
+| `normalize_patch_size` | `False` | (cartesian only) Forces all patches to arc-length step size, ignoring Jacobian stretch. Eliminates size variation near rim singularities (e.g. hemispheres). |
+
+**Z-convention (all curved transducers):** rim is always at `z = 0`; the medium / focus is at `z > 0`.
+Bowl pole (ConcaveCircular) sits at `z = -sag`; dome apex (ConvexCircular) at `z = +sag`.
 
 **FocusedCircularTransducer** (cylindrical) and **FlatCircularTransducer**
-keep a Cartesian parameter-space grid with `refine_factor` for the circular
+use a Cartesian parameter-space grid with `refine_factor` for the circular
 boundary.  A 1 % area tolerance is applied at the disk edge so that border
 sub-patches slightly outside the circle are retained.
 

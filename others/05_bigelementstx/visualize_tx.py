@@ -2,19 +2,19 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 import pyvista as pv
-from plotting_functions import create_2D_image_mesh, plot_volume_slices
 
+# from plotting_functions import create_2D_image_mesh, plot_volume_slices
 from pyfield import PyField
+from pyfield.plotting import (
+    add_2D_image,
+    add_transducer_mesh,
+    create_2Dimage_mesh,
+    plot2D_pressure_slices,
+)
 from pyfield.transducers import (
     ConcaveCircularTransducer,
     ConvexCircularTransducer,
     CustomTransducer,
-)
-from pyfield.utilities import (
-    add_2D_image,
-    add_transducer_mesh,
-    plot_pressure_2D,
-    plot_pressure_planes,
 )
 
 POSITION_MAPPING = "hex_pad_curved_128_3_lambda_v6_corrected.xlsx"
@@ -48,7 +48,7 @@ monoelement.show()
 
 # breakpoint()
 # Check pressure field
-dxyz = 0.4
+dxyz = 0.5
 plane_monoelement = {
     "x_extent_mm": (-20, 20),
     "y_extent_mm": (0, 0),
@@ -61,7 +61,7 @@ plane_monoelement = {
 simmono = PyField(monoelement, fs=100e6)
 x, y, z, plane_mono = simmono(plane_monoelement)
 
-plot_pressure_planes(x, y, z, plane_mono, db_scale=True)
+plot2D_pressure_slices(plane_mono, x, y, z, db_scale=True)
 
 
 breakpoint()
@@ -124,8 +124,6 @@ x, y, z, plane_xz = txsim(plane_xz_dict)
 
 max_pr = plane_xz.max()
 
-planes = {"plane_xz": plane_xz.squeeze() / max_pr}
-
 _, y, z, plane_yz = txsim(plane_yz_dict)
 x, y, _, plane_xy = txsim(plane_xy_dict)
 
@@ -141,35 +139,26 @@ coords = {"x": x, "y": y, "z": z}
 plotter = pv.Plotter(window_size=(800, 800))
 transducer_mesh = transducer.get_mesh()
 
-plane_y_offset_mm = {
-    "plane": "y",
-    "offset_mm": center_mm[1],
-}
-plane_x_offset_mm = {
-    "plane": "x",
-    "offset_mm": center_mm[0],
-}
-plane_z_offset_mm = {
-    "plane": "z",
-    "offset_mm": center_mm[2],
-}
-plane_xz_mesh = create_2D_image_mesh(
+plane_y_offset_mm = {"y": center_mm[1]}
+plane_x_offset_mm = {"x": center_mm[0]}
+plane_z_offset_mm = {"z": center_mm[2]}
+plane_xz_mesh = create_2Dimage_mesh(
     planes["plane_xz"],
     extent=(x.min(), x.max(), z.min(), z.max()),
     plane_offset=plane_y_offset_mm,
-    scalars="pressure (a.u.)",
+    scalars="Pressure (a.u.)",
 )
-plane_yz_mesh = create_2D_image_mesh(
+plane_yz_mesh = create_2Dimage_mesh(
     planes["plane_yz"],
     extent=(y.min(), y.max(), z.min(), z.max()),
     plane_offset=plane_x_offset_mm,
-    scalars="pressure (a.u.)",
+    scalars="Pressure (a.u.)",
 )
-plane_xy_mesh = create_2D_image_mesh(
+plane_xy_mesh = create_2Dimage_mesh(
     planes["plane_xy"],
     extent=(x.min(), x.max(), y.min(), y.max()),
     plane_offset=plane_z_offset_mm,
-    scalars="pressure (a.u.)",
+    scalars="Pressure (a.u.)",
 )
 
 plotter = add_2D_image(

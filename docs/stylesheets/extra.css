@@ -1,0 +1,414 @@
+/* Supplement Google-Fonts JetBrains Mono with box-drawing + block glyphs.
+   Google Fonts ships only latin/cyrillic/greek/vietnamese subsets, so chars in
+   U+2500–25FF (used by Rich tables etc.) otherwise fall back to system mono
+   with mismatched metrics. Pinned to tagged release for reproducibility. */
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.304/fonts/webfonts/JetBrainsMono-Regular.woff2") format("woff2");
+  font-weight: 400;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2500-257F, U+2580-259F, U+25A0-25FF;
+}
+@font-face {
+  font-family: "JetBrains Mono";
+  src: url("https://cdn.jsdelivr.net/gh/JetBrains/JetBrainsMono@v2.304/fonts/webfonts/JetBrainsMono-Bold.woff2") format("woff2");
+  font-weight: 700;
+  font-style: normal;
+  font-display: swap;
+  unicode-range: U+2500-257F, U+2580-259F, U+25A0-25FF;
+}
+
+/* ── Light mode — pale teal background, deep-teal primary, cyan accent ────── */
+[data-md-color-scheme="default"] {
+  --md-primary-fg-color:              #00695c;
+  --md-primary-fg-color--light:       #b2dfdb;
+  --md-primary-fg-color--dark:        #004d40;
+  --md-accent-fg-color:               #0097a7;
+  --md-accent-fg-color--transparent:  rgba(0, 151, 167, 0.1);
+  --md-accent-bg-color:               #fff;
+  --md-accent-bg-color--light:        rgba(255, 255, 255, 0.7);
+  --md-default-bg-color:              #f3fcfb;
+  --md-default-bg-color--light:       #f3fcfb;
+  --md-default-bg-color--lighter:     #e0f2f1;
+  --md-default-bg-color--lightest:    #b2dfdb;
+  --md-code-bg-color:                 #e0f2f1;
+}
+
+/* ── Dark mode — near-black teal tint, teal primary, bright cyan accent ───── */
+[data-md-color-scheme="slate"] {
+  --md-primary-fg-color:              #26a69a;
+  --md-primary-fg-color--light:       #b2dfdb;
+  --md-primary-fg-color--dark:        #00e5ff;
+  --md-accent-fg-color:               #00e5ff;
+  --md-accent-fg-color--transparent:  rgba(0, 229, 255, 0.1);
+  --md-accent-bg-color:               #fff;
+  --md-accent-bg-color--light:        rgba(255, 255, 255, 0.7);
+  --md-default-bg-color:              #07100f;
+  --md-default-bg-color--light:       #07100f;
+  --md-default-bg-color--lighter:     #0e1f1e;
+  --md-default-bg-color--lightest:    #162e2c;
+  --md-code-bg-color:                 #0e1f1e;
+}
+
+/* ── Header ─────────────────────────────────────────────────────────────── */
+
+/* Pin header background to page background for a seamless look. */
+.md-header {
+  background-color: var(--md-default-bg-color);
+}
+
+/* ── Logo ────────────────────────────────────────────────────────────────── */
+
+.md-header__button.md-logo {
+  padding: 0;
+}
+
+.md-header__button.md-logo img,
+.md-header__button.md-logo svg {
+  height: 2rem;
+}
+
+/* ── Links ───────────────────────────────────────────────────────────────── */
+
+.md-typeset a {
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+/* ── Typography ──────────────────────────────────────────────────────────── */
+
+.md-typeset h1,
+.md-typeset h2 {
+  letter-spacing: -0.02em;
+}
+
+/* ── Tables ──────────────────────────────────────────────────────────────── */
+
+.md-typeset table:not([class]) {
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.07);
+  font-size: 0.85rem;
+}
+
+.md-typeset table:not([class]) th {
+  background-color: var(--md-primary-fg-color);
+  color: #fff;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  font-size: 0.74rem;
+  padding: 0.65rem 1rem;
+  border: none;
+}
+
+.md-typeset table:not([class]) td {
+  padding: 0.6rem 1rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  vertical-align: top;
+}
+
+.md-typeset table:not([class]) tr:nth-child(even) td {
+  background-color: var(--md-default-bg-color--lightest);
+}
+
+.md-typeset table:not([class]) tr:hover td {
+  background-color: var(--md-accent-fg-color--transparent);
+}
+
+/* ── Code blocks ─────────────────────────────────────────────────────────── */
+
+.md-typeset pre > code {
+  border-radius: 6px;
+}
+
+.md-typeset code:not(.highlight code) {
+  border-radius: 4px;
+  padding: 0.1em 0.35em;
+  font-size: 0.82em;
+  background-color: var(--md-code-bg-color);
+}
+
+/* ── Admonitions — PyField palette ──────────────────────────────────────── */
+
+/* note / info / todo: teal */
+.md-typeset .admonition.note,
+.md-typeset details.note,
+.md-typeset .admonition.info,
+.md-typeset details.info,
+.md-typeset .admonition.todo,
+.md-typeset details.todo {
+  background-color: rgba(0, 105, 92, 0.08);
+}
+.md-typeset .note > .admonition-title::before,
+.md-typeset .note > summary::before,
+.md-typeset .info > .admonition-title::before,
+.md-typeset .info > summary::before,
+.md-typeset .todo > .admonition-title::before,
+.md-typeset .todo > summary::before {
+  background-color: #00695c;
+}
+.md-typeset .note > .admonition-title::after,
+.md-typeset .note > summary::after,
+.md-typeset .info > .admonition-title::after,
+.md-typeset .info > summary::after,
+.md-typeset .todo > .admonition-title::after,
+.md-typeset .todo > summary::after {
+  color: #00695c;
+}
+
+/* tip / hint / success / check / done: bright cyan */
+.md-typeset .admonition.tip,
+.md-typeset details.tip,
+.md-typeset .admonition.hint,
+.md-typeset details.hint,
+.md-typeset .admonition.success,
+.md-typeset details.success,
+.md-typeset .admonition.check,
+.md-typeset details.check,
+.md-typeset .admonition.done,
+.md-typeset details.done {
+  background-color: rgba(0, 188, 212, 0.1);
+}
+.md-typeset .tip > .admonition-title::before,
+.md-typeset .tip > summary::before,
+.md-typeset .hint > .admonition-title::before,
+.md-typeset .hint > summary::before,
+.md-typeset .success > .admonition-title::before,
+.md-typeset .success > summary::before,
+.md-typeset .check > .admonition-title::before,
+.md-typeset .check > summary::before,
+.md-typeset .done > .admonition-title::before,
+.md-typeset .done > summary::before {
+  background-color: #00bcd4;
+}
+.md-typeset .tip > .admonition-title::after,
+.md-typeset .tip > summary::after,
+.md-typeset .hint > .admonition-title::after,
+.md-typeset .hint > summary::after,
+.md-typeset .success > .admonition-title::after,
+.md-typeset .success > summary::after,
+.md-typeset .check > .admonition-title::after,
+.md-typeset .check > summary::after,
+.md-typeset .done > .admonition-title::after,
+.md-typeset .done > summary::after {
+  color: #00bcd4;
+}
+
+/* warning / caution / attention: amber */
+.md-typeset .admonition.warning,
+.md-typeset details.warning,
+.md-typeset .admonition.caution,
+.md-typeset details.caution,
+.md-typeset .admonition.attention,
+.md-typeset details.attention {
+  background-color: rgba(245, 166, 35, 0.1);
+}
+.md-typeset .warning > .admonition-title::before,
+.md-typeset .warning > summary::before,
+.md-typeset .caution > .admonition-title::before,
+.md-typeset .caution > summary::before,
+.md-typeset .attention > .admonition-title::before,
+.md-typeset .attention > summary::before {
+  background-color: #f5a623;
+}
+.md-typeset .warning > .admonition-title::after,
+.md-typeset .warning > summary::after,
+.md-typeset .caution > .admonition-title::after,
+.md-typeset .caution > summary::after,
+.md-typeset .attention > .admonition-title::after,
+.md-typeset .attention > summary::after {
+  color: #f5a623;
+}
+
+/* danger / error / failure / bug: deep red */
+.md-typeset .admonition.danger,
+.md-typeset details.danger,
+.md-typeset .admonition.error,
+.md-typeset details.error,
+.md-typeset .admonition.failure,
+.md-typeset details.failure,
+.md-typeset .admonition.fail,
+.md-typeset details.fail,
+.md-typeset .admonition.bug,
+.md-typeset details.bug {
+  background-color: rgba(183, 28, 28, 0.1);
+}
+.md-typeset .danger > .admonition-title::before,
+.md-typeset .danger > summary::before,
+.md-typeset .error > .admonition-title::before,
+.md-typeset .error > summary::before,
+.md-typeset .failure > .admonition-title::before,
+.md-typeset .failure > summary::before,
+.md-typeset .fail > .admonition-title::before,
+.md-typeset .fail > summary::before,
+.md-typeset .bug > .admonition-title::before,
+.md-typeset .bug > summary::before {
+  background-color: #b71c1c;
+}
+.md-typeset .danger > .admonition-title::after,
+.md-typeset .danger > summary::after,
+.md-typeset .error > .admonition-title::after,
+.md-typeset .error > summary::after,
+.md-typeset .failure > .admonition-title::after,
+.md-typeset .failure > summary::after,
+.md-typeset .fail > .admonition-title::after,
+.md-typeset .fail > summary::after,
+.md-typeset .bug > .admonition-title::after,
+.md-typeset .bug > summary::after {
+  color: #b71c1c;
+}
+
+/* example: cyan-teal */
+.md-typeset .admonition.example,
+.md-typeset details.example {
+  background-color: rgba(0, 151, 167, 0.1);
+}
+.md-typeset .example > .admonition-title::before,
+.md-typeset .example > summary::before {
+  background-color: #0097a7;
+}
+.md-typeset .example > .admonition-title::after,
+.md-typeset .example > summary::after {
+  color: #0097a7;
+}
+
+/* ── Accessibility ───────────────────────────────────────────────────────── */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Admonitions — rounded + subtle shadow ───────────────────────────────── */
+
+.md-typeset .admonition,
+.md-typeset details {
+  border-radius: 8px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+/* ── Smooth page transitions ─────────────────────────────────────────────── */
+
+[data-md-component="content"] {
+  animation: fade-in 0.15s ease;
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(4px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── Light/dark image switching ──────────────────────────────────────────── */
+
+[data-md-color-scheme="slate"] img[src$="#only-light"] { display: none; }
+[data-md-color-scheme="default"] img[src$="#only-dark"] { display: none; }
+
+/* ── Hero banner ─────────────────────────────────────────────────────────── */
+
+.hero-banner {
+  text-align: center;
+  padding: 4rem 2rem 3rem;
+  max-width: 56rem;
+  margin: 0 auto;
+}
+
+.hero-banner h1 {
+  font-size: 3rem;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  background: linear-gradient(135deg, var(--md-primary-fg-color), var(--md-accent-fg-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.75rem;
+}
+
+.hero-banner p {
+  font-size: 1.15rem;
+  color: var(--md-default-fg-color--light);
+  margin-bottom: 1.5rem;
+  max-width: 40rem;
+  margin-left: auto;
+  margin-right: auto;
+}
+
+.hero-banner .md-button {
+  margin: 0.3rem;
+}
+
+/* ── Grid cards — hover lift ─────────────────────────────────────────────── */
+
+.md-typeset .grid.cards > ul > li {
+  border-radius: 8px;
+  transition: box-shadow 0.2s ease, transform 0.15s ease;
+}
+
+.md-typeset .grid.cards > ul > li:hover {
+  box-shadow: 0 6px 20px rgba(0, 105, 92, 0.18);
+  transform: translateY(-2px);
+}
+
+[data-md-color-scheme="slate"] .md-typeset .grid.cards > ul > li:hover {
+  box-shadow: 0 6px 20px rgba(0, 229, 255, 0.15);
+}
+
+/* ── Tabbed content ──────────────────────────────────────────────────────── */
+
+.md-typeset .tabbed-labels > label {
+  font-weight: 500;
+}
+
+.md-typeset .tabbed-labels > label:hover {
+  color: var(--md-accent-fg-color);
+}
+
+/* ── Navigation tabs — active indicator ─────────────────────────────────── */
+
+.md-tabs__link--active,
+.md-tabs__link:hover {
+  color: var(--md-accent-fg-color);
+}
+
+.md-tabs__indicator {
+  background-color: var(--md-accent-fg-color);
+}
+
+/* ── Sidebar: always expanded, non-collapsible, no animations ────────────── */
+
+/* Kill every transition/animation inside the sidebar */
+.md-nav,
+.md-nav *,
+.md-sidebar,
+.md-sidebar * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Disable smooth scroll on the sidebar scroll container */
+.md-sidebar__scrollwrap {
+  scroll-behavior: auto !important;
+}
+
+/* Force nested nav to show regardless of checkbox toggle state */
+.md-nav__item--nested .md-nav,
+.md-nav__toggle:not(:checked) ~ .md-nav {
+  display: block !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+
+/* Hide the chevron icon so there's no collapse affordance */
+.md-nav__item--nested > label .md-nav__icon,
+.md-nav__item--nested > .md-nav__link .md-nav__icon {
+  display: none !important;
+}
