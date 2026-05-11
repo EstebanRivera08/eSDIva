@@ -28,22 +28,22 @@ if __name__ == "__main__":
     optimizer_type = "SGD"  # Adam works better with few params
     use_phase = False  # optimize for energy only (ignore phase)
 
-    energy_weight = 1e-2  # 1e-2
+    energy_weight = 1  # 1e-2
     resolution_weight = 0
     symmetry_weight = 0  # not used in this version
-    aperture_weight = 1e2
-    coverage_weight = 1e2
-    comment2 = "_E_aper_cov"
+    aperture_weight = 1
+    coverage_weight = 10
+    comment2 = "_init2_E_aper_equiv_cov10_random"
     # comment2 = ""
 
     avg_energy_value, avg_resolution_value = 500, 0.3  # for normalization in loss
 
-    num_epochs = 10
+    num_epochs = 500
     lr = 1e-2  # log-mean gives stronger gradient -> can use higher LR
     x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
     z_init = [-10, -10, -10]  # mm, initial z positions of virtual sources
-    # x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
-    # z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
+    x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
+    z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
     # x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
     # z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
     fs = 50e6  # Hz, sampling frequency for field computation
@@ -117,6 +117,8 @@ if __name__ == "__main__":
         optimizer_type=optimizer_type,
         x_init_mm=x_init[:n_vs],
         z_init_mm=z_init[:n_vs],
+        FD_init=1,
+        n_gauss_init=4,
         fs=fs,
         use_phase=use_phase,
         coverage_threshold_db=-10,  # for soft coverage loss

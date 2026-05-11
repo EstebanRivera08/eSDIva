@@ -13,7 +13,7 @@ transducers.  Five sub-examples illustrate different STL operations:
 
 Steps
 -----
-1. Load an STL file with ``load_stl_mesh`` / ``add_stl_mesh``
+1. Load an STL file with ``load_mesh_from_stl`` / ``add_stl_mesh``
 2. Apply geometric transformations (scale, translation, rotation)
 3. Combine multiple meshes and inspect mesh properties
 4. Explore rendering and lighting options
@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pyvista as pv
 
-from pyfield.utilities import add_stl_mesh, load_stl_mesh
+from pyfield.plotting import add_stl_mesh, load_mesh_from_stl
 
 # ============================================================================
 # CONFIGURATION
@@ -72,9 +72,9 @@ else:
 # ============================================================================
 print("\n8c: Multiple STL objects in one scene")
 
-mesh1 = load_stl_mesh(STL_FILE)
-mesh2 = load_stl_mesh(STL_FILE, translation=(20, 0, 0))
-mesh3 = load_stl_mesh(
+mesh1 = load_mesh_from_stl(STL_FILE)
+mesh2 = load_mesh_from_stl(STL_FILE, translation=(20, 0, 0))
+mesh3 = load_mesh_from_stl(
     STL_FILE,
     translation=(10, 15, 0),
     rotation_axis=(1, 0, 0),

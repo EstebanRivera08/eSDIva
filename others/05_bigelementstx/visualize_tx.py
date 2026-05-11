@@ -59,9 +59,9 @@ plane_monoelement = {
 }
 
 simmono = PyField(monoelement, fs=100e6)
-x, y, z, plane_mono = simmono(plane_monoelement)
+plane_mono, coords_mono = simmono(plane_monoelement)
 
-plot2D_pressure_slices(plane_mono, x, y, z, db_scale=True)
+plot2D_pressure_slices(plane_mono, coords=coords_mono, db_scale=True)
 
 
 breakpoint()
@@ -120,13 +120,16 @@ plane_yz_dict = {
 sampling_frequency_Hz = 50e6
 txsim = PyField(transducer, fs=sampling_frequency_Hz)
 # Dont do a volume but planes
-x, y, z, plane_xz = txsim(plane_xz_dict)
+plane_xz, coords_xz = txsim(plane_xz_dict)
 
 max_pr = plane_xz.max()
 
-_, y, z, plane_yz = txsim(plane_yz_dict)
-x, y, _, plane_xy = txsim(plane_xy_dict)
+plane_yz, coords_yz = txsim(plane_yz_dict)
+plane_xy, coords_xy = txsim(plane_xy_dict)
 
+x = coords_xz["x"]
+y = coords_yz["y"]
+z = coords_xz["z"]
 
 planes = {
     "plane_xz": plane_xz.squeeze() / max_pr,

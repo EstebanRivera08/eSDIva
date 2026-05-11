@@ -127,8 +127,8 @@ def from_sir_to_pressure(
 
     Returns
     -------
-    (Nx, Ny, Nz, T) numpy.ndarray
-        Transient pressure field on the 3D grid across ``T`` time samples.
+    (Nt, Nx, Ny, Nz) numpy.ndarray
+        Transient pressure field on the 3D grid across ``Nt`` time samples.
     """
     # allow excitation to be None (no excitation -> identity)
 

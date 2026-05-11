@@ -45,8 +45,9 @@ class TestMonochromaticSimulation:
     def test_runs_and_returns_correct_shapes(self, focused_transducer, xz_field_grid):
         """Full pipeline: transducer -> PyField -> monochromatic output."""
         sim = PyField(focused_transducer)
-        x, y, z, p = sim(xz_field_grid, method="auto")
+        p, coords = sim(xz_field_grid, method="auto")
 
+        x, y, z = coords["x"], coords["y"], coords["z"]
         assert x.ndim == 1
         assert y.ndim == 1
         assert z.ndim == 1
@@ -56,7 +57,7 @@ class TestMonochromaticSimulation:
     def test_pressure_is_nonzero(self, focused_transducer, xz_field_grid):
         """The pressure field should not be all zeros."""
         sim = PyField(focused_transducer)
-        x, y, z, p = sim(xz_field_grid, method="auto")
+        p, coords = sim(xz_field_grid, method="auto")
         assert np.max(np.abs(p)) > 0
 
     def test_pressure_nonzero_at_focus(self, focused_transducer):
@@ -70,7 +71,8 @@ class TestMonochromaticSimulation:
             "dz": 1.0,
         }
         sim = PyField(focused_transducer)
-        x, y, z, p = sim(grid, method="auto")
+        p, coords = sim(grid, method="auto")
+        x, z = coords["x"], coords["z"]
 
         # Find the index of the maximum pressure
         max_idx = np.unravel_index(np.argmax(np.abs(p)), p.shape)
@@ -84,5 +86,5 @@ class TestMonochromaticSimulation:
     def test_normalize_option(self, focused_transducer, xz_field_grid):
         """normalize=True should scale max to 1."""
         sim = PyField(focused_transducer)
-        x, y, z, p = sim(xz_field_grid, method="auto", normalize=True)
+        p, coords = sim(xz_field_grid, method="auto", normalize=True)
         assert np.max(np.abs(p)) == pytest.approx(1.0)

@@ -8,7 +8,7 @@ Demonstrates pulsed ultrasound simulation with two emission modes: focused
 - Difference between monochromatic and transient simulation modes
 - Defining a Hanning-windowed excitation pulse
 - Computing 4-D spatio-temporal pressure fields
-- Animating propagating wavefronts with `plot_slices_2d`
+- Animating propagating wavefronts with `plot2D_pressure_slices`
 
 ## Emission modes
 

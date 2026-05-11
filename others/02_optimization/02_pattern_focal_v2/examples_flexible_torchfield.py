@@ -20,7 +20,8 @@ import torch.nn as nn
 
 from pyfield.psimulation.TorchField_flexible import TorchFieldFlexible
 from pyfield.transducers import LinearArrayTransducer, Domino
-from pyfield.utilities import plot_slices_2d, to_dB
+from pyfield.plotting import plot2D_pressure_slices
+from pyfield.utilities import to_dB
 
 # ============================================================================
 # Example 1: Direct Delay Optimization

@@ -1,7 +1,7 @@
 # Example 8: STL Mesh Loading and Visualisation
 
 Shows how to load and visualise STL files (experimental setup components)
-using `load_stl_mesh` and `add_stl_mesh`.  Five sub-examples cover
+using `load_mesh_from_stl` and `add_stl_mesh`.  Five sub-examples cover
 progressively more advanced operations.
 
 ## What you will learn
@@ -41,9 +41,9 @@ uv run examples/example8_importstl_petridish.py
 ## Key code
 
 ```python
-from pyfield.utilities import load_stl_mesh, add_stl_mesh
+from pyfield.plotting import load_mesh_from_stl, add_stl_mesh
 
-mesh = load_stl_mesh("Petri_dish.stl", scale=2.0, translation=(10, 5, 0))
+mesh = load_mesh_from_stl("Petri_dish.stl", scale=2.0, translation=(10, 5, 0))
 plotter = add_stl_mesh(mesh, color="coral", opacity=0.9)
 plotter.show()
 ```

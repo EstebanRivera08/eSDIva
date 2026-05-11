@@ -2,7 +2,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from pyfield.future.TorchField_flexible import TorchFieldFlexible
+from pyfield.cache.TorchField_flexible import TorchFieldFlexible
 
 # Helper function to create Gaussian weights along z-axis for integration
 

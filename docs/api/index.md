@@ -56,24 +56,24 @@ x, y, z, t, p = sim(field_points, method="auto", excitation=pulse)
 
 ---
 
-## `pyfield.utilities` — Visualization
+## `pyfield.plotting` — Visualization
 
 Matplotlib (2-D static) and PyVista (3-D interactive) helpers. All PyVista functions accept `plotter=` to compose multiple objects in one scene.
 
-**Matplotlib** — `plot_pressure_planes` · `plot_slices_2d` · `plot_deltak_distribution`
+**Matplotlib** — `plot2D_pressure_slices` · `plot2D_planes` · `plot2D_pressure_plane`
 
-**PyVista** — `plot_pressure_field` · `add_pressure_vol` · `add_transducer_mesh` · `create_vol_mesh` · `add_regions_mesh` · `add_markers`
+**PyVista** — `plot3D_pressure_vol` · `plot3D_pressure_slices` · `add_pressure_vol` · `add_transducer_mesh` · `create_3Dvol_mesh` · `add_regions_mesh` · `add_markers`
 
 ```python
-from pyfield.utilities import plot_pressure_planes, add_pressure_vol, create_vol_mesh
+from pyfield.plotting import plot2D_pressure_slices, add_pressure_vol, create_3Dvol_mesh
 
 # 2-D orthogonal slices (monochromatic)
-plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 
 # Compose a 3-D scene
 import pyvista as pv
 pl = pv.Plotter()
-pl = add_pressure_vol(create_vol_mesh(x, y, z, p), plotter=pl)
+pl = add_pressure_vol(create_3Dvol_mesh(x, y, z, p), plotter=pl)
 pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()
 ```
@@ -82,7 +82,7 @@ pl.show()
 
 ---
 
-## `pyfield.brain_atlas`
+## `pyfield.utilities` — Brain Atlas
 
 BrainGlobe-based atlas integration. Downloads atlas data on first use and registers it into the lab coordinate frame.
 
@@ -93,24 +93,16 @@ BrainGlobe-based atlas integration. Downloads atlas data on first use and regist
 **Key attributes** — `pv_mesh` · `bgatlasToBrain`
 
 ```python
-from pyfield.brain_atlas import BG_Atlas
+from pyfield.utilities import BG_Atlas
 
 atlas = BG_Atlas("whs_sd_rat_39um", region_names=["root", "M1", "S1-hl"])
 atlas.transform(T_matrix=T, inplace=True)
 
 # pv_mesh is a dict of region_name → pv.PolyData
+from pyfield.plotting import add_regions_mesh
 pl = add_regions_mesh(atlas.pv_mesh, plotter=pl, opacity=0.35)
 ```
 
 **Supported atlases** — `whs_sd_rat_39um` (rat, 39 µm) · `allen_mouse_25um` (mouse, 25 µm)
 
 [Full reference →](brain_atlas.md){ .md-button }
-
----
-
-## `pyfield.utilities.plotting`
-
-!!! warning "Under development — coming soon"
-    Not yet released. Core visualization functions are in [`pyfield.utilities`](visualization.md).
-
-[Stub →](plotting.md){ .md-button }

@@ -16,9 +16,9 @@ The Matplotlib backend produces static 2-D pressure plots suitable for publicati
 ### Monochromatic fields
 
 ```python
-from pyfield.utilities import plot_pressure_planes
+from pyfield.plotting import plot2D_pressure_slices
 
-plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 ```
 
 Renders three orthogonal slice views (XZ, XY, YZ). If one spatial dimension has size 1, a single 2-D image is shown.
@@ -26,9 +26,9 @@ Renders three orthogonal slice views (XZ, XY, YZ). If one spatial dimension has 
 ### Transient fields
 
 ```python
-from pyfield.utilities import plot_slices_2d
+from pyfield.plotting import plot2D_pressure_slices
 
-plot_slices_2d(x, y, z, p_transient, time_array=t, db_scale=True, video_duration_s=5)
+plot2D_pressure_slices(p_transient, x=x, y=y, z=z, time_array=t, db_scale=True, video_duration_s=5)
 ```
 
 Creates an animated display of time frames spread evenly over the specified duration.

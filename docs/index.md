@@ -45,7 +45,7 @@ Built on the Tupholme–Stepanishen Spatial Impulse Response method.
 ```python
 from pyfield.transducers import LinearArrayTransducer
 from pyfield.psimulation import PyField
-from pyfield.utilities import plot_pressure_planes
+from pyfield.plotting import plot2D_pressure_slices
 
 # 64-element linear array focused at 30 mm depth
 tx = LinearArrayTransducer(
@@ -73,7 +73,7 @@ field_points = {
 # Run monochromatic simulation and visualize
 sim = PyField(tx)
 x, y, z, p = sim(field_points, method="auto")
-plot_pressure_planes(x, y, z, p, db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 ```
 
 ---

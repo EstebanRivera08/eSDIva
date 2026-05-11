@@ -26,7 +26,7 @@ import numpy as np
 
 import pyfield.transducers as transducers
 from pyfield.psimulation import PyField
-from pyfield.utilities import plot_slices_2d
+from pyfield.plotting import plot2D_pressure_slices
 
 # ============================================================================
 # CONFIGURATION
@@ -108,7 +108,7 @@ excitation_signal = np.sin(2 * np.pi * center_freq_hz * time_array_s) * window
 # ============================================================================
 if EMISSION_TYPE == 1:
     print("Simulating pulsed focused emission...")
-    x, y, z, p_field = simulator(plane_config, monochromatic=False)
+    p_field, coords = simulator(plane_config, monochromatic=False)
 else:
     print("Simulating steered emission with excitation signal...")
     # Show the excitation signal
@@ -123,7 +123,7 @@ else:
         plt.savefig(str(FIG_FOLDER / "transient_excitation.png"), dpi=100 * SCALE)
     plt.show()
 
-    x, y, z, p_field = simulator(plane_config, excitation=excitation_signal)
+    p_field, coords = simulator(plane_config, excitation=excitation_signal)
 
 # ============================================================================
 # STEP 5: ANIMATE THE PROPAGATING WAVEFRONT
@@ -131,11 +131,9 @@ else:
 n_frames = p_field.shape[0]
 time_array_s = np.linspace(0, n_frames / sampling_freq_hz, n_frames)
 
-plot_slices_2d(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_field,
+    coords=coords,
     time_array=time_array_s,
     db_scale=True,
     figsize=FIGURE_SIZE,

@@ -57,9 +57,9 @@ pf_15MHz = PyField(transducer=tx_15MHz)
 
 
 # Simulate the acoustic field
-x, y, z, p_5MHz = pf_5MHz(field_dict)
-x, y, z, p_10MHz = pf_10MHz(field_dict)
-x, y, z, p_15MHz = pf_15MHz(field_dict)
+p_5MHz, coords = pf_5MHz(field_dict)
+p_10MHz, _ = pf_10MHz(field_dict)
+p_15MHz, _ = pf_15MHz(field_dict)
 
 # Plot the results
 plt.figure(figsize=(12, 8))

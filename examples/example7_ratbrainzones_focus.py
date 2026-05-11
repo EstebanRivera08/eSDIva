@@ -25,13 +25,13 @@ import numpy as np
 import pyvista as pv
 
 import pyfield.transducers as Transducers
-from pyfield.brain_atlas import BG_Atlas
 from pyfield.psimulation import PyField
-from pyfield.utilities import (
+from pyfield.utilities import BG_Atlas
+from pyfield.plotting import (
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
-    create_vol_mesh,
+    create_3Dvol_mesh,
 )
 
 # ============================================================================
@@ -104,8 +104,10 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-x, y, z, pr = sim(field_info_mm)
-pressure_vol_mesh = create_vol_mesh(x, y, z, pr / pr.max(), scalars="Pressure")
+pr, coords = sim(field_info_mm)
+pressure_vol_mesh = create_3Dvol_mesh(
+    coords["x"], coords["y"], coords["z"], pr / pr.max(), scalars="Pressure"
+)
 
 # ============================================================================
 # STEP 3: TRANSFORM ATLAS INTO TRANSDUCER COORDINATE FRAME

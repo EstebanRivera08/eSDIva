@@ -72,7 +72,7 @@ If no error is raised, you have installed PyField correctly.
 import numpy as np
 from pyfield.psimulation import PyField
 from pyfield.transducers import LinearArrayTransducer
-from pyfield.utilities import plot_slices_2d
+from pyfield.plotting import plot2D_pressure_slices
 
 # Define transducer
 tx = LinearArrayTransducer(
@@ -102,7 +102,7 @@ sim = PyField(tx)
 x, y, z, p = sim(field_points, method="auto")
 
 # Visualize
-plot_slices_2d(x, y, z, p, db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 ```
 
 From the project folder you can also run the bundled examples directly:

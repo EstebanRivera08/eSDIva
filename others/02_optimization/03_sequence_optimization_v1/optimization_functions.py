@@ -23,7 +23,7 @@ from tqdm import tqdm
 #     compute_transmit_energy,
 #     compute_uniformity_loss,
 # )
-from pyfield.future.TorchField_flexible import TorchFieldFlexible
+from pyfield.cache.TorchField_flexible import TorchFieldFlexible
 
 
 def gaussian_kernel1d(sigma, truncate=4.0, device="cpu"):
@@ -100,7 +100,8 @@ class VirtualSourceOptimizer:
         c: float = 1540.0,
         x_init_mm=None,
         z_init_mm=None,
-        FD=2.0,
+        FD_init=2.0,
+        n_gauss_init=4.0,
         fs: float = 100e6,
         use_phase: bool = False,
     ):
@@ -132,7 +133,7 @@ class VirtualSourceOptimizer:
 
         self.x_init_mm = x_init_mm
         self.z_init_mm = z_init_mm
-        self.FD_init = FD
+        self.FD_init = FD_init
 
         # Device
         self.device = torch.device(
@@ -145,8 +146,8 @@ class VirtualSourceOptimizer:
         )  # [n_elements, 3]
         self.pitch = self.transducer.pitch  # metres
 
-        self.steepness_init = 10 / self.pitch
-        # for sigmoid apodization transition, scaled to element spacing
+        self.n_steepness_init = n_gauss_init
+        # super-Gaussian order: n=1 → Gaussian, n→∞ → rect
 
         # Create TorchField for each virtual source
         self.torch_fields = []
@@ -166,7 +167,7 @@ class VirtualSourceOptimizer:
             z_pos = abs(self.z_init_mm[i])
 
             # F/D = 1 -> aperture diameter D = |z_vs|
-            D_mm = self.FD_init * z_pos
+            FD = self.FD_init
 
             tf = TorchFieldFlexible(
                 self.transducer, use_gpu=self.use_gpu, verbose=False, fs=self.fs
@@ -174,12 +175,16 @@ class VirtualSourceOptimizer:
 
             # --- Only learnable parameter: VS position [x_mm, z_mm] ---
             vs_name = f"vs_{i}"
+            # [x_mm, z_mm, n, FD]
             tf.add_optimizable_parameter(
                 vs_name,
-                initial_value=[x_pos, z_pos, self.steepness_init, D_mm],
+                initial_value=[x_pos, z_pos, self.n_steepness_init, FD],
                 level="global",
                 requires_grad=True,
-                constraints={"min": [None, 0, 0, 0], "max": [None, None, None, None]},
+                constraints={
+                    "min": [None, None, 1.0, 0.1],
+                    "max": [None, None, None, 5.0],
+                },
             )
 
             # --- Mapping: VS → delays (same as v1, works fine) ---
@@ -213,26 +218,27 @@ class VirtualSourceOptimizer:
                 level="element",
             )
 
-            # --- Mapping: VS → apodization (F/D=1, differentiable) ---
-            # Smooth rect window: sigmoid transition over ~1 pitch
+            # --- Mapping: VS → apodization (super-Gaussian, differentiable) ---
+            # n=1 → Gaussian, n→∞ → rect. Gradient w.r.t. n exists everywhere.
             def make_vs_to_apodization(vs_name):
                 def vs_to_apod(**kwargs):
-                    vs = kwargs[vs_name]  # [x_mm, z_mm]
+                    vs = kwargs[vs_name]  # [x_mm, z_mm, n, FD]
                     x_vs_m = vs[0] * 1e-3
-                    # z_vs_m = torch.abs(vs[1]) * 1e-3
-                    steepness = vs[2]
-                    half_aperture_m = vs[3] / 2 * 1e-3
+                    z_vs_m = torch.abs(vs[1]) * 1e-3
+                    n = vs[2]  # super-Gaussian order
+                    FD = vs[3]  # F/D ratio
+                    half_aperture_m = z_vs_m / FD / 2
 
                     # Lateral distance of each element to VS
                     dx = torch.abs(self.element_centers[:, 0] - x_vs_m)
 
-                    # Sigmoid-smoothed rect: 1 inside aperture, 0 outside
-                    apod = torch.sigmoid(steepness * (half_aperture_m - dx))
+                    # Normalized distance, clamped to avoid 0^n gradient NaN
+                    r = (dx / (half_aperture_m + 1e-8)).clamp(min=1e-6)
 
-                    # Rectangular window with hard cutoff (non-differentiable, but
-                    # simpler)
+                    # Super-Gaussian: apod = exp(-0.5 * r^(2n))
+                    apod = torch.exp(-0.5 * r.pow(2 * n))
 
-                    return apod  # [n_elements]
+                    return apod  # [n_elements], naturally in [0, 1]
 
                 return vs_to_apod
 
@@ -249,7 +255,7 @@ class VirtualSourceOptimizer:
 
             print(
                 f"  VS {i}: x={x_pos:.1f}, z={z_pos:.1f} mm, "
-                f"steep={self.steepness_init:.1f}, aperture={D_mm:.1f} mm"
+                f"n={self.n_steepness_init:.1f}, FD={FD:.1f}"
             )
 
     # ------------------------------------------------------------------
@@ -466,6 +472,8 @@ def optimize_virtual_sources(
     optimizer_type: str = "Adam",
     x_init_mm=None,
     z_init_mm=None,
+    FD_init=1,
+    n_gauss_init=4,
     fs: float = 100e6,
     use_phase: bool = False,
     coverage_threshold_db: float = -15.0,
@@ -538,6 +546,8 @@ def optimize_virtual_sources(
         use_gpu=use_gpu,
         x_init_mm=x_init_mm,
         z_init_mm=z_init_mm,
+        FD_init=FD_init,
+        n_gauss_init=n_gauss_init,
         fs=fs,
         use_phase=use_phase,
     )
@@ -577,6 +587,8 @@ def optimize_virtual_sources(
             batch_size=batch_size, training=False
         )
         max_pr = pr_init.max().item()
+        mean_init_logpr = torch.log(pr_init + 1e-20).mean().item()
+
         print(f"Initial max pressure: {max_pr:.4f}")
     print(f"Training for {num_epochs} epochs...")
     print()
@@ -598,10 +610,12 @@ def optimize_virtual_sources(
         # --- v3 losses ---
         loss_symm = compute_symmetry_loss(pr, pr_max=max_pr)
         loss_cover = compute_soft_coverage_loss(
-            pr, pr_max=max_pr, threshold=coverage_threshold_db, steepness=1
+            pr,
+            pr_max=max_pr,
+            threshold=coverage_threshold_db,
         )
         loss_aperture = compute_aperture_cost(apod_list)
-        loss_energy = compute_mean_energy_loss(pr, apod_list=apod_list)
+        loss_energy = compute_mean_energy_loss(pr)
 
         # --- v4 resolution losses ---
         # Geometric f-number penalty (cheap, no simulation)
@@ -620,6 +634,9 @@ def optimize_virtual_sources(
         # Coherence factor loss (from pressure field, replaces angular diversity)
         # CF ∈ [1, N]. Minimize → maximize phase diversity → better resolution.
         # Normalized to [0, 1] by dividing by N.
+
+        energy_weight = aperture_weight * loss_aperture.item() / loss_energy.item()
+        # coverage_weight = aperture_weight * loss_aperture.item() / loss_cover.item()
 
         # Combined loss
         loss = (
@@ -733,8 +750,8 @@ def optimize_virtual_sources(
         vs_pos = tf.get_parameter(f"vs_{i}").detach().cpu().numpy()
         vs_positions.append(vs_pos)
         print(
-            f"VS {i}: position = [x={vs_pos[0]:6.2f}, z={vs_pos[1]:6.2f}] mm and"
-            f"steepness={vs_pos[2]:.2f}, aperture={vs_pos[3]:.1f} mm"
+            f"VS {i}: position = [x={vs_pos[0]:6.2f}, z={vs_pos[1]:6.2f}] mm, "
+            f"n={vs_pos[2]:.2f}, FD={vs_pos[3]:.2f}"
         )
 
     print()
@@ -746,6 +763,7 @@ def optimize_virtual_sources(
         "virtual_source_positions": np.array(vs_positions),
         "virtual_source_positions_history": vs_positions_history,
         "apodization_total": apod_final / n_virtual_sources,  # normalize for plotting
+        "apodization_per_vs": [apod.detach().cpu().numpy() for apod in apod_list],
         "loss_history": loss_history,
         "symmetry_history": uniformity_history,
         "aperture_history": aperture_history,

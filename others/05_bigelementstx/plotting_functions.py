@@ -2,7 +2,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 
-from pyfield.utilities import plot_pressure_2D
+from pyfield.plotting import plot2D_pressure_plane
 
 
 def plot_volume_slices(
@@ -75,7 +75,7 @@ def plot_volume_slices(
     gs = fig.add_gridspec(1, 4, width_ratios=width_ratios, wspace=0.3)
 
     ax0 = fig.add_subplot(gs[0, 0])
-    ax0 = plot_pressure_2D(
+    ax0 = plot2D_pressure_plane(
         x,
         z,
         plane_xz,
@@ -85,7 +85,7 @@ def plot_volume_slices(
         **kwargs,
     )
     ax1 = fig.add_subplot(gs[0, 1])
-    ax1 = plot_pressure_2D(
+    ax1 = plot2D_pressure_plane(
         x,
         y,
         plane_xy,
@@ -95,7 +95,7 @@ def plot_volume_slices(
         **kwargs,
     )
     ax2 = fig.add_subplot(gs[0, 2])
-    ax2 = plot_pressure_2D(
+    ax2 = plot2D_pressure_plane(
         y,
         z,
         plane_yz,

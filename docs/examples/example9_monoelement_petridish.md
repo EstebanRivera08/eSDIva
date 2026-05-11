@@ -24,9 +24,9 @@ uv run examples/example9_monoelement_petridish.py
 ```python
 from pyfield.psimulation import PyField
 from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.utilities import (
+from pyfield.plotting import (
     add_pressure_vol, add_stl_mesh, add_transducer_mesh,
-    create_vol_mesh, load_stl_mesh,
+    create_3Dvol_mesh, load_mesh_from_stl,
 )
 
 transducer = ConcaveCircularTransducer(
@@ -39,7 +39,7 @@ transducer = ConcaveCircularTransducer(
 sim = PyField(transducer, verbose=False)
 x, y, z, p = sim(field_points, method="auto")
 
-petri_dish = load_stl_mesh("Petri_dish.stl", translation=(0, -10, 25))
+petri_dish = load_mesh_from_stl("Petri_dish.stl", translation=(0, -10, 25))
 
 # Compose scene
 plotter = pv.Plotter()

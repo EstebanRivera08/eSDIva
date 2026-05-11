@@ -760,6 +760,19 @@ wheels = [
 ]
 
 [[package]]
+name = "imageio"
+version = "2.37.3"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "numpy" },
+    { name = "pillow" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/b1/84/93bcd1300216ea50811cee96873b84a1bebf8d0489ffaf7f2a3756bab866/imageio-2.37.3.tar.gz", hash = "sha256:bbb37efbfc4c400fcd534b367b91fcd66d5da639aaa138034431a1c5e0a41451", size = 389673, upload-time = "2026-03-09T11:31:12.573Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/49/fa/391e437a34e55095173dca5f24070d89cbc233ff85bf1c29c93248c6588d/imageio-2.37.3-py3-none-any.whl", hash = "sha256:46f5bb8522cd421c0f5ae104d8268f569d856b29eb1a13b92829d1970f32c9f0", size = 317646, upload-time = "2026-03-09T11:31:10.771Z" },
+]
+
+[[package]]
 name = "imagesize"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2186,6 +2199,7 @@ dependencies = [
     { name = "brainglobe-atlasapi" },
     { name = "brainglobe-space" },
     { name = "h5py" },
+    { name = "imageio" },
     { name = "matplotlib" },
     { name = "numba" },
     { name = "numpy" },
@@ -2223,6 +2237,7 @@ requires-dist = [
     { name = "brainglobe-atlasapi", specifier = ">=2.2.1" },
     { name = "brainglobe-space", specifier = ">=1.0.3" },
     { name = "h5py", specifier = ">=3.13.0" },
+    { name = "imageio", specifier = ">=2.37.3" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numba", specifier = ">=0.65.0" },
     { name = "numpy", specifier = "<=2.1.2" },

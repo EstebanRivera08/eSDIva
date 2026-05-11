@@ -13,7 +13,7 @@ normalised brain space (BPS) used by PyField's coordinate system.
 ## Loading an atlas
 
 ```python
-from pyfield.brain_atlas.bg_atlas import BG_Atlas
+from pyfield.utilities.bg_atlas import BG_Atlas
 
 # Show all available atlases
 BG_Atlas()
@@ -94,11 +94,11 @@ interactive scene by chaining the PyVista helper functions.
 ```python
 import numpy as np
 import pyvista as pv
-from pyfield.brain_atlas import BG_Atlas
+from pyfield.utilities import BG_Atlas
 from pyfield.psimulation import PyField
 from pyfield.transducers import Domino
-from pyfield.utilities import (
-    add_pressure_vol, add_regions_mesh, add_transducer_mesh, create_vol_mesh,
+from pyfield.plotting import (
+    add_pressure_vol, add_regions_mesh, add_transducer_mesh, create_3Dvol_mesh,
 )
 
 # ── Atlas ──────────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ x, y, z, p = sim({
     "z_extent": [-1.0 + focus_mm[2], 1.0 + focus_mm[2]],
     "dx": 0.0125, "dy": 0.025, "dz": 0.05,
 }, method="auto")
-pressure_vol = create_vol_mesh(x, y, z, p / p.max(), scalars="Pressure")
+pressure_vol = create_3Dvol_mesh(x, y, z, p / p.max(), scalars="Pressure")
 
 # ── Registration (atlas → lab frame) ──────────────────────────────────────
 lambda_bregma_mm = 8.0       # rat bregma-lambda distance
@@ -152,11 +152,11 @@ pl.show()
 ```python
 import numpy as np
 import pyvista as pv
-from pyfield.brain_atlas import BG_Atlas
+from pyfield.utilities import BG_Atlas
 from pyfield.psimulation import PyField
 from pyfield.transducers import FlatCircularTransducer
-from pyfield.utilities import (
-    add_pressure_vol, add_regions_mesh, add_transducer_mesh, create_vol_mesh,
+from pyfield.plotting import (
+    add_pressure_vol, add_regions_mesh, add_transducer_mesh, create_3Dvol_mesh,
 )
 
 # ── Atlas ──────────────────────────────────────────────────────────────────
@@ -174,7 +174,7 @@ x, y, z, p = sim({
     "x_extent": [-3, 3], "y_extent": [-3, 3], "z_extent": [2, 10],
     "dx": 0.1, "dy": 0.1, "dz": 0.1,
 }, method="auto")
-pressure_vol = create_vol_mesh(x, y, z, p / p.max(), scalars="Pressure")
+pressure_vol = create_3Dvol_mesh(x, y, z, p / p.max(), scalars="Pressure")
 
 # ── Registration (atlas → lab frame) ──────────────────────────────────────
 lambda_bregma_mm = 4.0       # mouse bregma-lambda distance

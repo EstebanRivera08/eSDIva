@@ -281,27 +281,44 @@ class PyField:
         Parameters
         ----------
         field_points_mm : array-like or dict
-            Points where the pressure field is to be computed. Can be a dict with grid parameters or an array of points.
+            Points where the pressure field is to be computed. Can be a dict
+            with grid parameters or an array of points.
         method : str, optional
-            Method for SIR computation. Options are 'auto', 'naive', or 'sdi'. Default is 'auto'.
+            Method for SIR computation. Options are 'auto', 'naive', or 'sdi'.
+            Default is 'auto'.
         normalize : bool, optional
-            If True, normalize the pressure field to its maximum value. Default is False.
-        sort_meshgrid : bool, optional
-            If True, organize the field points into a sorted meshgrid with no repetition
-            of points. Default is True.
+            If True, normalize the pressure field to its maximum value. Default
+            is False.
+        monochromatic : bool, optional
+            If True, compute monochromatic (CW) field. If False, compute
+            transient field. Default is the instance setting.
+        excitation : array-like, optional
+            Excitation pulse for transient simulation. If provided,
+            ``monochromatic`` is forced to False.
+        create_meshgrid : bool, optional
+            If True, rebuild the full meshgrid from unique coordinates. Default
+            is False.
 
         Returns
         -------
-        x, y, z : 1D arrays
-            Coordinates of the grid points in mm.
-        pressure_field : 3D array
-            Computed pressure field at the specified points.
+        pressure_field : ndarray
+            Computed pressure field.
+
+            - Monochromatic: shape ``(Nx, Ny, Nz)``.
+            - Transient: shape ``(Nt, Nx, Ny, Nz)``.
+        coords : dict
+            Coordinate metadata. Keys depend on the input and mode:
+
+            - ``"x"``, ``"y"``, ``"z"`` (ndarray, mm): present when
+              *field_points_mm* is a dict (structured grid).
+            - ``"t0"`` (float, s): start time, present in transient mode.
+            - ``"dt"`` (float, s): time step ``1/fs``, present in transient
+              mode.
 
         Examples
         --------
         >>> import numpy as np
         >>> from pyfield import PyField
-        >>> # Create a transducer (example parameters)
         >>> transducer = LinearArrayTransducer(
         ...     n_elements=128,
         ...     element_width_mm=0.108,
@@ -312,41 +329,31 @@ class PyField:
         ...     no_sub_y=10,
         ...     frequency_Hz=12.5e6,
         ... )
-        >>> # Initialize PyField with the transducer
         >>> field = PyField(transducer)
-        >>> # Define field points (as a dict for grid parameters)
         >>> field_points_mm = {
-        ...     'x_extent_mm': [-0.5, 0.5],
-        ...     'y_extent_mm': [-0.5, 0.5],
-        ...     'z_extent_mm': [0, 1.5],
-        ...     'dx_mm': 0.1,
-        ...     'dy_mm': 0.1,
-        ...     'dz_mm': 0.1,
+        ...     'x_extent': [-0.5, 0.5],
+        ...     'y_extent': [-0.5, 0.5],
+        ...     'z_extent': [0, 1.5],
+        ...     'dx': 0.1,
+        ...     'dy': 0.1,
+        ...     'dz': 0.1,
         ... }
-        >>> # Compute pressure field
-        >>> x, y, z, pressure_field = field(
-        ...     field_points_mm,
-        ...     method='auto',
-        ...     normalize=True,
-        ...     monochromatic=True)
-        >>> # Pulsed excitation example (plane xz wave with 2 cycles at fc)
-        >>> time_excitation = np.arange(0, 2 / field.fc, 1 / field.fs)
-        >>> excitation = np.sin(2 * np.pi * field.fc * time_excitation)
-        >>> plane_points_mm - {
-        ...     'x_extent_mm': [-0.5, 0.5],
-        ...     'y_extent_mm': [0, 0],
-        ...     'z_extent_mm': [0, 1.5],
-        ...     'dx_mm': 0.1,
-        ...     'dy_mm': 0,
-        ...     'dz_mm': 0.1,
-        ... }
-        >>> x_plane, y_plane, z_plane, pressure_field_plane = field(
-        ...     plane_points_mm, excitation=excitation)
+        >>> # Monochromatic
+        >>> p, coords = field(field_points_mm, method='auto')
+        >>> # p.shape = (Nx, Ny, Nz), coords has "x", "y", "z"
+        >>> # Transient with excitation
+        >>> time_exc = np.arange(0, 2 / field.fc, 1 / field.fs)
+        >>> excitation = np.sin(2 * np.pi * field.fc * time_exc)
+        >>> p, coords = field(field_points_mm, excitation=excitation)
+        >>> # p.shape = (Nt, Nx, Ny, Nz), coords has "x","y","z","t0","dt"
+        >>> # Reconstruct time: t = coords["t0"] + np.arange(Nt) * coords["dt"]
         """
         if monochromatic is None:
             monochromatic = self.monochromatic
         if excitation is not None:
             monochromatic = False
+
+        is_structured = isinstance(field_points_mm, dict)
 
         x, y, z, field_points_mm = create_3D_spatial_grid_from_points(
             field_points_mm, create_meshgrid=create_meshgrid
@@ -370,14 +377,20 @@ class PyField:
             f"Pressure field computed in {self.pressure_calculation_time_log[-1]:.2f} seconds... \n"
         )
 
-        # Clean numerical errors
-        # pr_max = np.max(np.abs(pressure_field))
-        # pressure_field = np.clip(pressure_field, a_min=pr_max * 0.0001, a_max=None)
-
         if normalize:
             pressure_field = pressure_field / pressure_field.max()
 
-        return x, y, z, pressure_field
+        # Build coords dict
+        coords = {}
+        if is_structured:
+            coords["x"] = x
+            coords["y"] = y
+            coords["z"] = z
+        if not monochromatic:
+            coords["t0"] = self.t0
+            coords["dt"] = 1.0 / self.fs
+
+        return pressure_field, coords
 
     def set_field(self, attribute_name, value):
         """Set the value of a specified attribute of the PyField object.

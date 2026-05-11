@@ -183,6 +183,7 @@ def plot2D_pressure_slices(
     y=None,
     z=None,
     *,
+    coords=None,
     time_array=None,
     db_scale=True,
     figsize=None,
@@ -258,6 +259,15 @@ def plot2D_pressure_slices(
     None
     """
     import pathlib
+
+    # --- unpack coords dict ---
+    if coords is not None:
+        x = coords.get("x", x)
+        y = coords.get("y", y)
+        z = coords.get("z", z)
+        if time_array is None and "t0" in coords:
+            nt = pressure_field.shape[0]
+            time_array = coords["t0"] + np.arange(nt) * coords["dt"]
 
     if label is None:
         label = "Pressure (dB)" if db_scale else "Pressure (a.u.)"
@@ -600,4 +610,313 @@ def plot2D_pressure_slices(
     plt.close(fig)
     print(
         f"Done — {n_display}/{nt} frames displayed at {fps} fps ({video_duration_s:.1f} s)."
+    )
+
+
+def plot2D_transient_slices(
+    pressure_field,
+    x=None,
+    y=None,
+    z=None,
+    *,
+    coords=None,
+    time_array=None,
+    center_mm=None,
+    center_to_max=False,
+    db_scale=True,
+    figsize=None,
+    save_path=None,
+    file_name="transient_slices",
+    video_duration_s=5,
+    fps=30,
+    title=None,
+    label=None,
+    p_max=None,
+    **kwargs,
+):
+    """Animate orthogonal pressure slices of transient data with Matplotlib.
+
+    Accepts either a full 4D volume (slices computed internally) or a dict of
+    pre-computed 3D planes (up to 3).
+
+    Parameters
+    ----------
+    pressure_field : numpy.ndarray or dict
+        - ``(Nt, Nx, Ny, Nz)`` ndarray: full transient volume. Orthogonal
+          slices are extracted automatically.
+        - ``dict`` with keys from ``{"xz", "xy", "yz"}``: pre-computed planes,
+          each ``(Nt, N1, N2)``.
+    x, y, z : numpy.ndarray, optional
+        Coordinate arrays in mm. Default: index arrays.
+    time_array : numpy.ndarray, optional
+        Physical time values (length Nt). If None, frame indices are used.
+    center_mm : tuple of float, optional
+        ``(x0, y0, z0)`` in mm.  For volume input this selects the slice
+        position; for planes input it sets the subplot titles.
+        Default: geometric centre (volume) or coordinate midpoints (planes).
+    center_to_max : bool, optional
+        If True and input is a volume, slice through the global pressure
+        maximum instead of *center_mm*. Default False.
+    db_scale : bool, optional
+        Convert to dB before display. Default True.
+    figsize : tuple of float, optional
+        Figure size in inches.
+    save_path : str or Path, optional
+        Output directory. Saves MP4 (or GIF fallback).
+    file_name : str, optional
+        Base file name for saved video. Default ``"transient_slices"``.
+    video_duration_s : float, optional
+        Target video duration in seconds. Default 5.
+    fps : int, optional
+        Frame rate. Default 30.
+    title : str, optional
+        Override time-stamp text in each frame.
+    label : str, optional
+        Colorbar label.
+    p_max : float, optional
+        Reference peak for normalisation / dB conversion.
+    **kwargs
+        Forwarded to ``imshow`` (e.g. ``cmap``, ``vmin``, ``vmax``,
+        ``interpolation``).
+    """
+    import pathlib
+
+    from matplotlib.animation import FuncAnimation
+
+    # --- unpack coords dict ---
+    if coords is not None:
+        x = coords.get("x", x)
+        y = coords.get("y", y)
+        z = coords.get("z", z)
+        if time_array is None and "t0" in coords:
+            if isinstance(pressure_field, np.ndarray):
+                nt = pressure_field.shape[0]
+            else:
+                nt = next(iter(pressure_field.values())).shape[0]
+            time_array = coords["t0"] + np.arange(nt) * coords["dt"]
+
+    # Plane metadata: axes pair, offset key, index into center_mm
+    _PLANE_META = {
+        "xz": {"axes": ("x", "z"), "ci": 1, "off": "Y",
+                "xlabel": "X (mm)", "ylabel": "Z (mm)"},
+        "xy": {"axes": ("x", "y"), "ci": 2, "off": "Z",
+                "xlabel": "X (mm)", "ylabel": "Y (mm)"},
+        "yz": {"axes": ("y", "z"), "ci": 0, "off": "X",
+                "xlabel": "Y (mm)", "ylabel": "Z (mm)"},
+    }
+
+    if label is None:
+        label = "Pressure (dB)" if db_scale else "Pressure (a.u.)"
+    kwargs.setdefault("cmap", "jet")
+
+    # ------------------------------------------------------------------
+    # Resolve input: 4D volume → planes dict
+    # ------------------------------------------------------------------
+    if isinstance(pressure_field, dict):
+        planes = dict(pressure_field)
+        valid = {"xz", "xy", "yz"}
+        bad = set(planes.keys()) - valid
+        if bad or not planes:
+            raise ValueError(
+                f"Plane keys must be a non-empty subset of {valid}, "
+                f"got {set(planes.keys())}"
+            )
+        for k, v in planes.items():
+            if v.ndim != 3:
+                raise ValueError(
+                    f"Plane '{k}' must be 3D (Nt, N1, N2), got shape {v.shape}"
+                )
+        nt = next(iter(planes.values())).shape[0]
+
+        _src = {"x": [("xz", 1), ("xy", 1)], "y": [("xy", 2), ("yz", 1)],
+                "z": [("xz", 2), ("yz", 2)]}
+        _c = {"x": x, "y": y, "z": z}
+        for cname, sources in _src.items():
+            if _c[cname] is None:
+                for pk, ax in sources:
+                    if pk in planes:
+                        _c[cname] = np.arange(planes[pk].shape[ax], dtype=float)
+                        break
+                else:
+                    _c[cname] = np.array([0.0])
+        x, y, z = _c["x"], _c["y"], _c["z"]
+
+        if center_mm is None:
+            center_mm = (float(x[len(x) // 2]), float(y[len(y) // 2]),
+                         float(z[len(z) // 2]))
+
+    elif isinstance(pressure_field, np.ndarray) and pressure_field.ndim == 4:
+        nt, nx, ny, nz = pressure_field.shape
+        if x is None:
+            x = np.arange(nx, dtype=float)
+        if y is None:
+            y = np.arange(ny, dtype=float)
+        if z is None:
+            z = np.arange(nz, dtype=float)
+
+        if center_to_max:
+            idx = np.unravel_index(
+                np.nanargmax(np.abs(pressure_field)), pressure_field.shape
+            )
+            _, xi, yi, zi = idx
+        elif center_mm is not None:
+            xi = int(np.argmin(np.abs(x - center_mm[0])))
+            yi = int(np.argmin(np.abs(y - center_mm[1])))
+            zi = int(np.argmin(np.abs(z - center_mm[2])))
+        else:
+            xi, yi, zi = nx // 2, ny // 2, nz // 2
+
+        center_mm = (float(x[xi]), float(y[yi]), float(z[zi]))
+
+        planes = {}
+        if nx > 1 and nz > 1:
+            planes["xz"] = pressure_field[:, :, yi, :]
+        if nx > 1 and ny > 1:
+            planes["xy"] = pressure_field[:, :, :, zi]
+        if ny > 1 and nz > 1:
+            planes["yz"] = pressure_field[:, xi, :, :]
+        if not planes:
+            raise ValueError("No non-degenerate 2D slices in the given 4D field.")
+    else:
+        raise ValueError(
+            "pressure_field must be a 4D ndarray (Nt,Nx,Ny,Nz) or a dict of "
+            "planes with keys from {'xz', 'xy', 'yz'}."
+        )
+
+    coords = {"x": x, "y": y, "z": z}
+    plane_order = [k for k in ("xz", "xy", "yz") if k in planes]
+
+    # Truncate to the minimum common frame count across planes
+    min_nt = min(v.shape[0] for v in planes.values())
+    if min_nt < nt:
+        planes = {k: v[:min_nt] for k, v in planes.items()}
+        nt = min_nt
+
+    # ------------------------------------------------------------------
+    # Global reference for dB / normalisation (computed before decimation)
+    # ------------------------------------------------------------------
+    if p_max is None:
+        p_max = max(float(np.nanmax(np.abs(v))) for v in planes.values())
+    if p_max == 0:
+        p_max = 1.0
+
+    # ------------------------------------------------------------------
+    # Frame decimation
+    # ------------------------------------------------------------------
+    step = max(1.0, nt / (video_duration_s * fps))
+    frame_indices = np.unique(np.arange(0, nt, step).astype(int))
+    n_display = len(frame_indices)
+    interval_ms = 1000.0 / fps
+
+    disp = {k: v[frame_indices] for k, v in planes.items()}
+
+    if db_scale:
+        disp = {k: to_dB(v, vmax=p_max) for k, v in disp.items()}
+        vmin = kwargs.pop("vmin", -40)
+        vmax = kwargs.pop("vmax", 0)
+    else:
+        disp = {k: v / p_max for k, v in disp.items()}
+        vmin = kwargs.pop("vmin", min(float(np.nanmin(v)) for v in disp.values()))
+        vmax = kwargs.pop("vmax", max(float(np.nanmax(v)) for v in disp.values()))
+
+    # ------------------------------------------------------------------
+    # Time display
+    # ------------------------------------------------------------------
+    if time_array is None:
+        time_display = np.arange(nt, dtype=float)
+        time_unit = "frame"
+    elif np.max(time_array) < 1e-3:
+        time_display = np.asarray(time_array) * 1e6
+        time_unit = "µs"
+    else:
+        time_display = np.asarray(time_array, dtype=float)
+        time_unit = "s"
+
+    # ------------------------------------------------------------------
+    # Layout: adaptive to number of planes (1-3)
+    # ------------------------------------------------------------------
+    n_planes = len(plane_order)
+
+    ratios = []
+    for key in plane_order:
+        meta = _PLANE_META[key]
+        c1, c2 = coords[meta["axes"][0]], coords[meta["axes"][1]]
+        D1 = float(c1.max() - c1.min()) or 1.0
+        D2 = float(c2.max() - c2.min()) or 1.0
+        ratios.append(D1 / D2)
+    ratios = np.array(ratios)
+    ratios /= ratios.sum()
+
+    fig = plt.figure(figsize=figsize)
+    gs = GridSpec(
+        1, n_planes + 1,
+        width_ratios=[*ratios, 0.05 * ratios.max()],
+    )
+
+    ims = []
+    axes = []
+    for i, key in enumerate(plane_order):
+        meta = _PLANE_META[key]
+        c1, c2 = coords[meta["axes"][0]], coords[meta["axes"][1]]
+        extent = [c1.min(), c1.max(), c2.max(), c2.min()]
+        off_val = center_mm[meta["ci"]]
+
+        ax = fig.add_subplot(gs[0, i])
+        im = ax.imshow(
+            disp[key][0].T, origin="upper", extent=extent,
+            vmin=vmin, vmax=vmax, **kwargs,
+        )
+        ax.set_xlabel(meta["xlabel"])
+        ax.set_ylabel(meta["ylabel"])
+        ax.set_title(f"{key.upper()} ({meta['off']}={off_val:.2f} mm)")
+        ims.append(im)
+        axes.append(ax)
+
+    cbar_ax = fig.add_subplot(gs[0, n_planes])
+    fig.colorbar(ims[-1], cax=cbar_ax, label=label)
+    plt.tight_layout()
+
+    # Time text on the middle axis
+    mid_ax = axes[len(axes) // 2]
+    time_text = mid_ax.text(
+        0.5, 0.97, "t = 0",
+        transform=mid_ax.transAxes, ha="center", va="top", fontsize=11,
+        color="white",
+        bbox=dict(boxstyle="round,pad=0.2", facecolor="black", alpha=0.5),
+    )
+
+    def _update(i):
+        for j, key in enumerate(plane_order):
+            ims[j].set_data(disp[key][i].T)
+        t_val = time_display[frame_indices[i]]
+        time_text.set_text(
+            title if title
+            else f"t = {t_val:.3f} {time_unit}  ({frame_indices[i] + 1}/{nt})"
+        )
+        return [*ims, time_text]
+
+    ani = FuncAnimation(
+        fig, _update, frames=n_display, interval=interval_ms,
+        blit=True, repeat=False,
+    )
+
+    if save_path:
+        save_path = pathlib.Path(save_path)
+        save_path.mkdir(parents=True, exist_ok=True)
+        video_path = save_path / f"{file_name}_video.mp4"
+        try:
+            ani.save(str(video_path), writer="ffmpeg", fps=fps, dpi=150)
+            print(f"Video saved: {video_path.resolve()}")
+        except Exception as e:
+            gif_path = save_path / f"{file_name}_video.gif"
+            try:
+                ani.save(str(gif_path), writer="pillow", fps=fps)
+                print(f"GIF saved: {gif_path.resolve()}")
+            except Exception as e2:
+                print(f"Export failed: {e} | {e2}")
+
+    plt.show()
+    plt.close(fig)
+    print(
+        f"Done — {n_display}/{nt} frames at {fps} fps ({video_duration_s:.1f} s)."
     )

@@ -21,12 +21,12 @@ import pyvista as pv
 
 from pyfield.psimulation import PyField
 from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.utilities import (
+from pyfield.plotting import (
     add_pressure_vol,
     add_stl_mesh,
     add_transducer_mesh,
-    create_vol_mesh,
-    load_stl_mesh,
+    create_3Dvol_mesh,
+    load_mesh_from_stl,
 )
 
 # ============================================================================
@@ -83,7 +83,7 @@ field_points = {
 }
 
 sim = PyField(transducer, monochromatic=True, verbose=False)
-x, y, z, p = sim(field_points, method="auto")
+p, coords = sim(field_points, method="auto")
 p_norm = p / p.max()
 
 # ============================================================================
@@ -93,7 +93,7 @@ print(" Loading STL mesh...")
 
 has_stl = STL_FILE.exists()
 if has_stl:
-    petri_dish = load_stl_mesh(
+    petri_dish = load_mesh_from_stl(
         STL_FILE,
         scale=1,
         translation=(0, -10, 25),
@@ -111,7 +111,9 @@ else:
 # ============================================================================
 print(" Creating 3-D visualisation...")
 
-pressure_vol = create_vol_mesh(x, y, z, p_norm, scalars="Pressure")
+pressure_vol = create_3Dvol_mesh(
+    coords["x"], coords["y"], coords["z"], p_norm, scalars="Pressure"
+)
 tx_mesh = transducer.get_mesh()
 
 if SAVE_FIG:

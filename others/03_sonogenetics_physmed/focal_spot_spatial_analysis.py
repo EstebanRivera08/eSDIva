@@ -46,13 +46,13 @@ for x_f in x_focals:
         sim = PyField(tx, verbose=False)
 
         # Run the simulation
-        x, y, z, p = sim(field_dict)
+        p, coords = sim(field_dict)
 
         # Pick the highest pressure point
         max_idx = np.unravel_index(np.argmax(p), p.shape)
         x_idx, z_idx = max_idx[0], max_idx[2]
-        x_max = x[x_idx]
-        z_max = z[z_idx]
+        x_max = coords["x"][x_idx]
+        z_max = coords["z"][z_idx]
         p_max = p[max_idx]
 
         # Store the results

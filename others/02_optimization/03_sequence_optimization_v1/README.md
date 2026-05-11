@@ -6,7 +6,8 @@ Optimize positions `[x, z]` of N virtual sources (VS) for diverging wave compoun
 Goal: uniform coverage across imaging region using summed pressure fields.
 Only 2 params per VS. Apodization derived from position via F/D=1 rule.
 
-Total params: **6** (for 3 VS). This is tiny.
+Each VS has 4 learnable params: `[x_vs, z_vs, n_steepness, D_aperture]`.
+Total params: **12** (for 3 VS). Still small.
 
 ## What's Broken Right Now
 
@@ -50,6 +51,44 @@ symmetry_loss = loss_MSE(dB(left_half), dB(right_half_flipped))
 `dB = 20*log10(x)` → gradient ∝ 1/x. Near-zero pressure regions produce
 huge gradients. These noisy outliers dominate the MSE, drowning the useful
 signal from moderate-pressure regions.
+
+### 5. Sigmoid apodization causes steepness gradient vanishing (FIXED)
+
+**Problem:** Original apodization used sigmoid with steepness ~33,000 (= 10/pitch):
+
+```python
+apod = sigmoid(steepness * (half_aperture - dx))
+```
+
+At steepness=33,333 the transition zone is ~0.15mm (< 1 element). All elements
+are in saturated zone (sigmoid ≈ 0 or 1). Gradient of sigmoid `σ(z)(1-σ(z)) ≈ 0`
+everywhere → steepness parameter frozen during optimization.
+
+Additionally, sigmoid gradient only exists at aperture **edge** — elements
+inside/outside contribute nothing to steepness gradient. Scale mismatch:
+steepness ~33,000 vs x_mm/z_mm ~10 breaks Adam's per-parameter scaling.
+
+**Fix:** Replaced with **super-Gaussian** profile:
+
+```python
+r = dx / half_aperture        # normalized distance from VS center
+apod = exp(-0.5 * r^(2n))     # n = super-Gaussian order
+```
+
+| Parameter | Behavior |
+|-----------|----------|
+| `n = 1`   | Gaussian taper |
+| `n = 2-4` | Clinical compromise (smooth transition) |
+| `n → ∞`   | Hard rect window |
+
+Why this works:
+- **Gradient w.r.t. n exists at every element** (not just edge):
+  `d/dn = apod * -(r^(2n)) * ln(r²)` — all elements within aperture contribute
+- **n ∈ [1, ~10]**: same scale as x_mm/z_mm/D_mm, no Adam scale mismatch
+- **Naturally in [0, 1]**: exp() guarantees valid apodization, no clamping needed
+- **Physically meaningful**: super-Gaussian apodization is used clinically
+
+Constraint: `n ≥ 1` (Gaussian is the softest allowed profile).
 
 ## Why Gradient Descent Struggles Here
 
@@ -126,11 +165,10 @@ optimization with 2-100 parameters. Library: `cma` (pip install cma).
 If you want gradient descent to work (e.g., as a proof-of-concept for
 higher-dimensional problems later), fix these things:
 
-1. **Fix momentum**: `momentum=0.9`, not 2
+1. ~~**Fix momentum**~~: Done. `momentum=0.9`, not 2
 2. **Remove max-normalization**: Use `pr / pr.mean()` or raw pressure in loss
-3. **Use gradient clipping**: Uncomment `clip_grad_norm_(params, max_norm=1.0)`
-4. **Replace symmetry loss**: Use lateral CV (`compute_lateral_uniformity_loss`)
-   instead of dB-domain MSE. Less noisy gradients.
+3. **Use gradient clipping**: Done. `clip_grad_norm_(params, max_norm=5.0)`
+4. ~~**Fix steepness gradient**~~: Done. Super-Gaussian replaces sigmoid.
 5. **Learning rate schedule**: Cosine annealing or reduce-on-plateau
 6. **Multi-start**: Run 10-20 times from random initializations, keep best
 7. **Simplify loss**: Start with just coverage + energy. Add terms one by one.
@@ -171,8 +209,14 @@ For that future use case:
 
 ## Summary
 
-Problem: non-convex, multi-modal, 6 params. Gradient descent = wrong tool.
-NaN from SGD: momentum=2 bug. Adam stuck near init: flat Pareto plateau.
-Solution: derivative-free global search (Bayesian opt or CMA-ES), then
-optionally polish with gradients. Save gradient methods for when you scale
-to higher-dimensional parameter spaces where brute force is impossible.
+Problem: non-convex, multi-modal, 12 params (4 per VS). Gradient descent alone
+is insufficient for global exploration but viable for local refinement.
+
+**Fixed issues:**
+- SGD momentum=2 → NaN (fixed: momentum=0.9)
+- Sigmoid apodization → steepness gradient vanishing (fixed: super-Gaussian profile)
+- Steepness ~33,000 scale mismatch with mm-scale params (fixed: n ∈ [1, ~10])
+
+**Remaining:** non-convex landscape, multi-objective Pareto plateau.
+Best approach: derivative-free global search (Bayesian opt or CMA-ES),
+then gradient fine-tune from best candidate.

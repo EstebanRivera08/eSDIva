@@ -20,7 +20,7 @@ import pyvista as pv
 
 from pyfield.psimulation import PyField
 from pyfield.transducers import Domino, Zeus_Matrix
-from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
+from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 # ============================================================================
 # CONFIGURATION
@@ -98,12 +98,13 @@ if RUN_LINEAR_ARRAY:
     linear_probe.plot_delays_apodization()
 
     linear_sim = PyField(linear_probe)
-    x_l, y_l, z_l, p_linear = linear_sim(field_point_mm, method="auto")
+    p_linear, coords_l = linear_sim(field_point_mm, method="auto")
 
     # Build PyVista meshes
     tx_mesh_l = linear_probe.get_mesh()
-    pr_mesh_l = create_vol_mesh(
-        x_l, y_l, z_l, p_linear / p_linear.max(), scalars="Pressure "
+    pr_mesh_l = create_3Dvol_mesh(
+        coords_l["x"], coords_l["y"], coords_l["z"],
+        p_linear / p_linear.max(), scalars="Pressure "
     )
 
     # --- TX + Pressure scene ---
@@ -190,11 +191,12 @@ if RUN_MATRIX_ARRAY:
     matrix_probe.plot_delays_apodization()
 
     matrix_sim = PyField(matrix_probe)
-    x_m, y_m, z_m, p_matrix = matrix_sim(field_point_mm, method="auto")
+    p_matrix, coords_m = matrix_sim(field_point_mm, method="auto")
 
     tx_mesh_m = matrix_probe.get_mesh()
-    pr_mesh_m = create_vol_mesh(
-        x_m, y_m, z_m, p_matrix / p_matrix.max(), scalars="Pressure"
+    pr_mesh_m = create_3Dvol_mesh(
+        coords_m["x"], coords_m["y"], coords_m["z"],
+        p_matrix / p_matrix.max(), scalars="Pressure"
     )
 
     # --- TX + Pressure scene ---

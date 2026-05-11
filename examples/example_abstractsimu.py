@@ -92,14 +92,15 @@ _ = matrix_array_probe.plot_delays_apodization()
 # Perform simulation
 
 matrix_field = PyField(matrix_array_probe)
-x2, y2, z2, p_matrixfield2 = matrix_field(field_point_mm, method="auto")
+p_matrixfield2, coords2 = matrix_field(field_point_mm, method="auto")
 
 # Visualize the results
 
 # TX + Pressure
 transducer2_mesh = matrix_array_probe.get_mesh()
 pressure2_mesh = create_3Dvol_mesh(
-    x2, y2, z2, p_matrixfield2 / p_matrixfield2.max(), scalars="Pressure"
+    coords2["x"], coords2["y"], coords2["z"],
+    p_matrixfield2 / p_matrixfield2.max(), scalars="Pressure"
 )
 
 if save_fig:

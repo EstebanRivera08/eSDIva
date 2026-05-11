@@ -13,7 +13,7 @@ icon: lucide/brain
 
 PyField integrates with the [BrainGlobe Atlas API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html) to map acoustic pressure fields onto anatomical brain structures.
 
-The `BG_Atlas` class in `pyfield.brain_atlas` wraps the BrainGlobe API and provides:
+The `BG_Atlas` class in `pyfield.utilities` wraps the BrainGlobe API and provides:
 
 - Loading and querying rat and mouse brain atlases
 - Coordinate registration between the transducer frame and atlas space

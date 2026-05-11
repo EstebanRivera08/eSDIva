@@ -14,9 +14,9 @@ icon: lucide/box
 The PyVista backend renders the full 3-D pressure volume as isosurfaces, enabling interactive exploration of the focal region.
 
 ```python
-from pyfield.utilities import plot_pressure_field
+from pyfield.plotting import plot3D_pressure_vol
 
-pl = plot_pressure_field(x, y, z, p, contour_levels=11)
+pl = plot3D_pressure_vol(p, x=x, y=y, z=z, contour_levels=11)
 pl.show()
 ```
 
@@ -24,10 +24,10 @@ pl.show()
 
 ```python
 import pyvista as pv
-from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
+from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 pl = pv.Plotter()
-mesh = create_vol_mesh(x, y, z, p)
+mesh = create_3Dvol_mesh(x, y, z, p)
 pl = add_pressure_vol(mesh, plotter=pl)
 pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()

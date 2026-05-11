@@ -8,10 +8,11 @@ import pyfield.transducers as transducers
 import pyfield.utilities as utilities
 from pyfield.plotting import plot2D_pressure_slices
 from pyfield.psimulation import PyField
-from pyfield.utilities import to_dB
+from pyfield.utilities import align_to_common_time, to_dB
 
-# backward-compat alias
-plot_pressure_planes = plot2D_pressure_slices
+# backward-compat alias (old signature was x, y, z, p; new is p, x, y, z)
+def plot_pressure_planes(x, y, z, pressure_field, **kwargs):
+    return plot2D_pressure_slices(pressure_field, x=x, y=y, z=z, **kwargs)
 
 __all__ = [
     "PyField",
@@ -20,6 +21,7 @@ __all__ = [
     "utilities",
     "plotting",
     "plot2D_pressure_slices",
+    "align_to_common_time",
     "plot_pressure_planes",
     "to_dB",
 ]

@@ -15,7 +15,7 @@ from plotting import plot_results
 
 from pyfield import PyField
 from pyfield.transducers import Domino, Zeus_Matrix
-from pyfield.utilities import plot_pressure_field, plot_pressure_planes
+from pyfield.plotting import plot2D_pressure_slices, plot3D_pressure_vol
 
 if __name__ == "__main__":
     print("\nExample 1: Linear Array - Focal Point Pattern")
@@ -164,12 +164,10 @@ if __name__ == "__main__":
     tx.set_delays(results["delays"])
     tx.set_apodization(results["apodization"])
     pf = PyField(tx)
-    x, y, z, pr = pf(plane_xz)
-    plot_pressure_field(
-        x,
-        y,
-        z,
+    pr, coords = pf(plane_xz)
+    plot3D_pressure_vol(
         pr,
+        coords=coords,
         save_path=save_path.replace(".npz", "_plane.png"),
         camera_position="yz",
         camera_elevation=60,

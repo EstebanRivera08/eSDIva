@@ -4,7 +4,7 @@ import torch
 
 from pyfield.psimulation import PyField
 from pyfield.transducers import Domino, LinearArrayTransducer
-from pyfield.utilities import plot_pressure_planes
+from pyfield.plotting import plot2D_pressure_slices
 
 # Create a PyField simulation
 focus_mm = (0, -16)  # Focus at (0, -10) mm
@@ -40,7 +40,8 @@ tx.plot_delays_apodization()
 tx_field = PyField(tx, fs=30e6)
 
 # Compute the field
-x, y, z, pr = tx_field(field_points)
+pr, coords = tx_field(field_points)
+x, y, z = coords["x"], coords["y"], coords["z"]
 
 
 # Gaussian smoothing
@@ -50,7 +51,7 @@ sigma_points = 1  # Convert to points
 pr = gaussian_filter(pr, sigma=sigma_points)
 
 # Plot the field
-plot_pressure_planes(x, y, z, pr, db_scale=True)
+plot2D_pressure_slices(pr, coords=coords, db_scale=True)
 
 # Test of the Virtual Source Optimization
 from optimization_functions import VirtualSourceOptimizer, compute_soft_coverage_loss
@@ -93,6 +94,6 @@ if isinstance(pr_tf, torch.Tensor):
 
     z_tf = z_tf.detach().cpu().numpy()
 
-plot_pressure_planes(x_tf, y_tf, z_tf, pr_tf, db_scale=True)
+plot2D_pressure_slices(pr_tf, x=x_tf, y=y_tf, z=z_tf, db_scale=True)
 
 # lis

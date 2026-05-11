@@ -5,8 +5,9 @@ from .plotting2D import (
     plot2D_planes,
     plot2D_pressure_plane,
     plot2D_pressure_slices,
+    plot2D_transient_slices,
 )
-from .plotting3D import plot3D_pressure_slices, plot3D_pressure_vol
+from .plotting3D import plot3D_pressure_slices, plot3D_pressure_vol, plot3D_transient_slices
 from .plotting_pyvista import (
     add_2D_image,
     add_3D_vol,
@@ -19,6 +20,7 @@ from .plotting_pyvista import (
 from .pyvista_functions import (
     create_2Dimage_mesh,
     create_3Dvol_mesh,
+    load_mesh_from_stl,
 )
 
 __all__ = [
@@ -26,9 +28,11 @@ __all__ = [
     "plot2D_planes",
     "plot2D_pressure_plane",
     "plot2D_pressure_slices",
+    "plot2D_transient_slices",
     # 3D pyvista plotting functions
     "plot3D_pressure_slices",
     "plot3D_pressure_vol",
+    "plot3D_transient_slices",
     # pyvista helper functions
     "add_2D_image",
     "add_3D_vol",
@@ -40,4 +44,5 @@ __all__ = [
     # pyvista mesh creation functions
     "create_2Dimage_mesh",
     "create_3Dvol_mesh",
+    "load_mesh_from_stl",
 ]

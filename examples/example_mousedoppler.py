@@ -99,15 +99,16 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
-x, y, z, pressure_field = Domino_field(field_info_mm)
+pressure_field, coords = Domino_field(field_info_mm)
 # The first time you call the function from one script there is
 # an additional deadtime in the simulation for compiling and organize
 # the parallel computing
-x, y, z, pressure_field = Domino_field(field_info_mm, normalize=True)
+pressure_field, coords = Domino_field(field_info_mm, normalize=True)
 
 # Compute the pressure volume mesh
 pressure_vol_mesh = create_3Dvol_mesh(
-    x, y, z, pressure_field, scalars="Pressure (a.u.)"
+    coords["x"], coords["y"], coords["z"], pressure_field,
+    scalars="Pressure (a.u.)"
 )
 
 # ------------------ Transform the meshes --------------------

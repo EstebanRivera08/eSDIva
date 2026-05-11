@@ -7,7 +7,7 @@ geometry and pressure volume together in 3-D using PyVista.
 ## What you will learn
 
 - Simulating focused fields for linear and matrix arrays side by side
-- Building volumetric pressure meshes with `create_vol_mesh`
+- Building volumetric pressure meshes with `create_3Dvol_mesh`
 - Composing 3-D scenes with `add_transducer_mesh` and `add_pressure_vol`
 - Controlling PyVista camera positions and grid annotations
 
@@ -29,7 +29,7 @@ uv run examples/example4_multielement_transducers.py
 ```python
 from pyfield.transducers import Domino
 from pyfield.psimulation import PyField
-from pyfield.utilities import add_pressure_vol, add_transducer_mesh, create_vol_mesh
+from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 probe = Domino()
 probe.compute_delays(focus_mm=[-2, 0, 8])
@@ -40,7 +40,7 @@ x, y, z, p = sim(field_point_mm, method="auto")
 
 # Build PyVista meshes
 tx_mesh = probe.get_mesh()
-pr_mesh = create_vol_mesh(x, y, z, p / p.max(), scalars="Pressure")
+pr_mesh = create_3Dvol_mesh(x, y, z, p / p.max(), scalars="Pressure")
 
 # Render
 plotter = pv.Plotter()

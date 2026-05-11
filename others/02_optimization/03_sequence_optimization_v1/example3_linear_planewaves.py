@@ -15,7 +15,8 @@ import numpy as np
 import pyfield
 import pyfield.transducers as transducers
 from pyfield.psimulation import PyField
-from pyfield.utilities import plot_pressure_planes, to_dB
+from pyfield.plotting import plot2D_pressure_slices
+from pyfield.utilities import to_dB
 
 print("\n --- Example 5: Linear Array — Plane Waves --- \n")
 
@@ -125,7 +126,7 @@ for i, angle_deg in enumerate(STEERING_ANGLES_X_DEG):
 
     # Mode 1: MONOCHROMATIC (CW) - Continuous wave at center frequency
     # This computes the steady-state field without time variation
-    x, y, z, p_field_mono = simulator(plane_config)
+    p_field_mono, coords = simulator(plane_config)
     # Shape: (Nx, Ny, Nz) - 3D spatial field
     if i != 0 or i != len(STEERING_ANGLES_X_DEG) - 1:
         max_p = np.max(p_field_mono)
@@ -143,11 +144,9 @@ max_p_global = np.max(
 FIGURE_SIZE = (5, 3)
 
 for angle_deg, p_field_mono in zip(STEERING_ANGLES_X_DEG, pressure_fields):
-    plot_pressure_planes(
-        x,
-        y,
-        z,
+    plot2D_pressure_slices(
         p_field_mono / max_p_global,
+        coords=coords,
         db_scale=False,
         figsize=FIGURE_SIZE,
         vmin=0,
@@ -160,11 +159,9 @@ for angle_deg, p_field_mono in zip(STEERING_ANGLES_X_DEG, pressure_fields):
 # Summed field
 p_field_sum = np.sum(pressure_fields, axis=0)
 
-plot_pressure_planes(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_field_sum / np.max(p_field_sum),
+    coords=coords,
     db_scale=False,
     figsize=FIGURE_SIZE,
     vmin=0,

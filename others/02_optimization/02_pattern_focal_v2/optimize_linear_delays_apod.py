@@ -22,9 +22,10 @@ import torch
 import torch.nn as nn
 
 from pyfield import PyField
-from pyfield.future.TorchField_flexible import TorchFieldFlexible
+from pyfield.cache.TorchField_flexible import TorchFieldFlexible
 from pyfield.transducers import Domino, LinearArrayTransducer, Zeus_Matrix
-from pyfield.utilities import plot_pressure_planes, to_dB
+from pyfield.plotting import plot2D_pressure_slices
+from pyfield.utilities import to_dB
 
 # ============================================================================
 # Helper Functions (from original learning code)
@@ -751,12 +752,10 @@ if __name__ == "__main__":
     tx.set_delays(results["delays"])
     tx.set_apodization(results["apodization"])
     pf = PyField(tx)
-    x, y, z, pr = pf(plane_xz)
-    plot_pressure_planes(
-        x,
-        y,
-        z,
+    pr, coords = pf(plane_xz)
+    plot2D_pressure_slices(
         pr,
+        coords=coords,
         save_path=save_path.replace(".npz", "_plane.png"),
         title="Optimized Pressure Field (XZ Plane)",
     )

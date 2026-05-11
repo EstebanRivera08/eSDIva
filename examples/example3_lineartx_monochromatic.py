@@ -23,7 +23,7 @@ import numpy as np
 
 import pyfield.transducers as transducers
 from pyfield.psimulation import PyField
-from pyfield.utilities import plot_slices_2d
+from pyfield.plotting import plot2D_pressure_slices
 
 # ============================================================================
 # CONFIGURATION
@@ -68,19 +68,17 @@ plane_config = {
 # STEP 3: COMPUTE MONOCHROMATIC PRESSURE FIELD
 # ============================================================================
 simulator = PyField(tx)
-x, y, z, p_field = simulator(plane_config)
+p_field, coords = simulator(plane_config)
 
 # ============================================================================
 # STEP 4: VISUALISE
 # ============================================================================
-plot_slices_2d(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_field,
+    coords=coords,
     db_scale=True,
     figsize=FIGURE_SIZE,
     vmin=-30,
     save_path=str(FIG_FOLDER) if SAVE_FIG else None,
-    file_name=f"lineartx_monochromatic",
+    file_name="lineartx_monochromatic",
 )

@@ -2,18 +2,17 @@ import h5py
 import numpy as np
 
 import pyfield.transducers as Transducers
-from pyfield.brain_atlas import BG_Atlas
-from pyfield.future import DopplerScan
+from pyfield.cache import DopplerScan
 from pyfield.psimulation import PyField
-from pyfield.utilities import (
+from pyfield.utilities import BG_Atlas, compute_affine_from_markers
+from pyfield.plotting import (
     add_2D_image,
     add_3D_vol,
     add_markers,
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
-    compute_affine_from_markers,
-    create_vol_mesh,
+    create_3Dvol_mesh,
 )
 
 # ----------------- Get the scan objects --------------------
@@ -130,12 +129,13 @@ if plot_tx_pr:
         "dy": 0.025,
         "dz": 0.05,
     }
-    x, y, z, pressure_field = Domino_field(field_info_mm)
+    pressure_field, coords = Domino_field(field_info_mm)
 
     # # Compute the pressure volume mesh
     # Compute the pressure volume mesh
-    pressure_vol_mesh = create_vol_mesh(
-        x, y, z, pressure_field, scalars="Pressure (PII)"
+    pressure_vol_mesh = create_3Dvol_mesh(
+        coords["x"], coords["y"], coords["z"], pressure_field,
+        scalars="Pressure (PII)"
     )
 # ------------------ Code for plotting --------------------
 

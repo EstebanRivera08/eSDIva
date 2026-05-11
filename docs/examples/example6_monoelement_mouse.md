@@ -28,7 +28,7 @@ uv run examples/example6_monoelement_mouse.py
 ## Key code
 
 ```python
-from pyfield.brain_atlas import BG_Atlas
+from pyfield.utilities import BG_Atlas
 from pyfield.transducers import ConcaveCircularTransducer
 
 mouse_tx = ConcaveCircularTransducer(

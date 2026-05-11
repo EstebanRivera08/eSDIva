@@ -2,6 +2,7 @@
 
 from .bg_atlas import BG_Atlas
 from .helper_functions import (
+    align_to_common_time,
     compute_sub_elem_attributes,
     create_spatial_grid_from_dict,
     to_dB,
@@ -16,6 +17,7 @@ __all__ = [
     # Brain Atlas
     "BG_Atlas",
     # Helpers
+    "align_to_common_time",
     "to_dB",
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",

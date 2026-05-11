@@ -485,6 +485,93 @@ def to_dB(matrix, *, vmin=None, vmax=None):
     if vmin is None:
         vmin = 1e-20  # default minimum magnitude to avoid log(0)
     # avoid log(0) without in-place assignment
-    mag = np.where(mag == 0, vmin, mag)
 
-    return 20 * np.log10(mag)
+    return 20 * np.log10(mag + vmin)
+
+
+def align_to_common_time(fields_and_coords):
+    """Interpolate multiple transient fields to a common time grid.
+
+    When simulating separate planes, each call to ``PyField`` may produce a
+    different ``t0`` and number of time samples ``Nt``.  This function
+    reconstructs the individual time vectors, finds the overlapping interval,
+    and interpolates every field onto a single shared time axis.
+
+    Parameters
+    ----------
+    fields_and_coords : list of (pressure, coords) tuples
+        Each element is a ``(pressure, coords)`` pair as returned by
+        ``PyField.__call__`` in transient mode.  ``coords`` must contain
+        ``"t0"`` (float) and ``"dt"`` (float).
+
+    Returns
+    -------
+    common_time : ndarray
+        Shared time vector in seconds.
+    aligned_fields : list of ndarray
+        Each field interpolated along axis 0 (time) to *common_time*.
+
+    Raises
+    ------
+    ValueError
+        If any ``coords`` dict is missing ``"t0"`` or ``"dt"``, or if there
+        is no overlapping time interval.
+
+    Examples
+    --------
+    >>> pxz, cxz = sim(plane_xz, monochromatic=False)
+    >>> pyz, cyz = sim(plane_yz, monochromatic=False)
+    >>> common_t, [pxz_a, pyz_a] = align_to_common_time(
+    ...     [(pxz, cxz), (pyz, cyz)]
+    ... )
+    """
+    from scipy.interpolate import interp1d
+
+    if not fields_and_coords:
+        raise ValueError("fields_and_coords must be a non-empty list.")
+
+    # Reconstruct individual time vectors
+    time_vectors = []
+    for p, c in fields_and_coords:
+        if "t0" not in c or "dt" not in c:
+            raise ValueError(
+                "Each coords dict must contain 't0' and 'dt' keys "
+                "(transient mode output)."
+            )
+        nt = p.shape[0]
+        t = c["t0"] + np.arange(nt) * c["dt"]
+        time_vectors.append(t)
+
+    # Common overlapping range
+    t_start = max(t[0] for t in time_vectors)
+    t_end = min(t[-1] for t in time_vectors)
+    if t_start >= t_end:
+        raise ValueError(
+            f"No overlapping time interval: max(t_start)={t_start:.3e}, "
+            f"min(t_end)={t_end:.3e}."
+        )
+
+    # Use finest resolution
+    dt_common = min(c["dt"] for _, c in fields_and_coords)
+    common_time = np.arange(t_start, t_end, dt_common)
+
+    # Interpolate each field along time axis (axis 0)
+    aligned_fields = []
+    for (p, _), t in zip(fields_and_coords, time_vectors):
+        # Flatten spatial dims for interpolation, then reshape back
+        orig_shape = p.shape  # (Nt, ...)
+        spatial_shape = orig_shape[1:]
+        p_flat = p.reshape(orig_shape[0], -1)  # (Nt, N_spatial)
+
+        interp_fn = interp1d(
+            t,
+            p_flat,
+            axis=0,
+            kind="linear",
+            bounds_error=False,
+            fill_value=0.0,
+        )
+        p_interp = interp_fn(common_time)  # (Nt_common, N_spatial)
+        aligned_fields.append(p_interp.reshape(len(common_time), *spatial_shape))
+
+    return common_time, aligned_fields

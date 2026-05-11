@@ -7,7 +7,7 @@ transducer types: flat piston, concave bowl, cylindrical focus, and convex dome.
 
 - Creating mono-element (single-element) circular transducers
 - Running a CW simulation with `PyField`
-- Visualising XZ pressure planes with `plot_pressure_planes`
+- Visualising XZ pressure planes with `plot2D_pressure_slices`
 
 ## Transducers covered
 
@@ -36,7 +36,7 @@ uv run examples/example2_monoelement_transducers.py
 ```python
 from pyfield.psimulation import PyField
 from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.utilities import plot_pressure_planes
+from pyfield.plotting import plot2D_pressure_slices
 
 bowl = ConcaveCircularTransducer(
     diameter_mm=40.0,
@@ -47,7 +47,7 @@ bowl = ConcaveCircularTransducer(
 
 sim = PyField(bowl, c=1540.0, fs=100e6)
 x, y, z, p = sim(xz_grid, method="auto")
-plot_pressure_planes(x, y, z, p / p.max())
+plot2D_pressure_slices(p / p.max(), x=x, y=y, z=z)
 ```
 
 [View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example2_monoelement_transducers.py)

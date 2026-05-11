@@ -28,7 +28,7 @@ uv run examples/example7_ratbrainzones_focus.py
 ## Key code
 
 ```python
-from pyfield.brain_atlas import BG_Atlas
+from pyfield.utilities import BG_Atlas
 
 brain_atlas = BG_Atlas("whs_sd_rat_39um", region_names=("root", "M1", "S1-hl"))
 

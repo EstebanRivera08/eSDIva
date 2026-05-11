@@ -28,7 +28,7 @@ from pyfield.transducers import (
     FlatCircularTransducer,
     FocusedCircularTransducer,
 )
-from pyfield.utilities import plot_pressure_planes
+from pyfield.plotting import plot2D_pressure_slices
 
 # ============================================================================
 # CONFIGURATION
@@ -70,13 +70,11 @@ flat = FlatCircularTransducer(
 flat.show()
 
 sim_flat = PyField(flat, c=C, fs=FREQ_SAMPLING_HZ)
-x, y, z, p_flat = sim_flat(XZ_GRID, method="auto")
+p_flat, coords = sim_flat(XZ_GRID, method="auto")
 
-plot_pressure_planes(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_flat / p_flat.max(),
+    coords=coords,
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
@@ -98,13 +96,11 @@ bowl = ConcaveCircularTransducer(
 bowl.show()
 
 sim_bowl = PyField(bowl, c=C, fs=FREQ_SAMPLING_HZ)
-x, y, z, p_bowl = sim_bowl(XZ_GRID, method="auto")
+p_bowl, coords = sim_bowl(XZ_GRID, method="auto")
 
-plot_pressure_planes(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_bowl / p_bowl.max(),
+    coords=coords,
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
@@ -127,13 +123,11 @@ cyl = FocusedCircularTransducer(
 cyl.show()
 
 sim_cyl = PyField(cyl, c=C, fs=FREQ_SAMPLING_HZ)
-x, y, z, p_cyl = sim_cyl(XZ_GRID, method="auto")
+p_cyl, coords = sim_cyl(XZ_GRID, method="auto")
 
-plot_pressure_planes(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_cyl / p_cyl.max(),
+    coords=coords,
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
@@ -155,13 +149,11 @@ conv = ConvexCircularTransducer(
 conv.show()
 
 sim_conv = PyField(conv, c=C, fs=FREQ_SAMPLING_HZ)
-x, y, z, p_conv = sim_conv(XZ_GRID, method="auto")
+p_conv, coords = sim_conv(XZ_GRID, method="auto")
 
-plot_pressure_planes(
-    x,
-    y,
-    z,
+plot2D_pressure_slices(
     p_conv / p_conv.max(),
+    coords=coords,
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,

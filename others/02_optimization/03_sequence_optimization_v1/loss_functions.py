@@ -41,13 +41,13 @@ import torch
 loss_MSE = torch.nn.MSELoss()
 
 
-def dB(x, max_val=None):
+def dB(x, max_val=None, min_val=1e-20):
     """Convert linear to dB scale."""
     if max_val is None:
         max_val = x.max()
 
     x_norm = x / max_val
-    return 20 * torch.log10(x_norm + 1e-6)
+    return 20 * torch.log10(x_norm + min_val)
 
 
 # ============================================================================
@@ -157,32 +157,34 @@ def compute_symmetry_loss(pr_field, *, pr_max=None, db_scale=False):
     return symmetry_loss
 
 
-def compute_soft_coverage_loss(pr_field, *, pr_max=None, threshold=-6, steepness=20.0):
+def compute_soft_coverage_loss(pr_field, *, pr_max=None, threshold=-6, steepness=5.0):
     """
-    Differentiable coverage using sigmoid instead of hard threshold.
+    Differentiable coverage using sigmoid.
 
-    Why better: hard threshold ``(pr > t)`` has zero gradient → optimizer
-    blind.  Sigmoid provides smooth gradient everywhere.
+    Each field point contributes sigmoid(steepness * (pr_dB - threshold)) ∈ [0, 1].
+    Mean over field gives fraction above threshold. Bounded by construction.
 
     Parameters
     ----------
     pr_field : Tensor [nx, ny, nz]
-        Normalized pressure field [0, 1]
+        Pressure field
+    pr_max : float or Tensor
+        Reference max pressure for dB conversion
     threshold : float
-        Target level (0.5 ≈ -6 dB)
+        Coverage threshold in dB (e.g., -6, -15)
     steepness : float
-        Sigmoid sharpness (higher = closer to hard threshold but noisier grad)
+        Sigmoid sharpness. 5-10 = good compromise (gradient within ±2-4 dB of threshold)
 
     Returns
     -------
     Tensor (scalar)
-        Coverage loss (1 - soft_fraction_above_threshold), minimize to 0.
+        Coverage loss: 1 - mean(sigmoid), in [0, 1]. Minimize → maximize coverage.
     """
-    pr_dB = dB(pr_field, max_val=pr_max)  # Convert to dB scale
+    pr_dB = dB(pr_field, max_val=pr_max)
 
-    soft_above = torch.nn.functional.softplus(pr_dB - threshold)
+    soft_above = torch.sigmoid(steepness * (pr_dB - threshold))
+    soft_coverage = soft_above.mean()  # fraction in [0, 1]
 
-    soft_coverage = soft_above.sum() / soft_above.numel()  # fraction
     return 1.0 - soft_coverage
 
 
@@ -211,7 +213,7 @@ def compute_aperture_cost(apod_list):
     return total
 
 
-def compute_mean_energy_loss(pr_field, apod_list=1):
+def compute_mean_energy_loss(pr_field, pr_max=1, apod_list=1):
     """
     Negative mean pressure — want to maximize field energy.
 
@@ -234,7 +236,9 @@ def compute_mean_energy_loss(pr_field, apod_list=1):
         total_apod = sum(apod.sum() for apod in apod_list)
     else:
         total_apod = apod_list
-    return -pr_field.mean()  # Avoid division by zero
+
+    log_mean_pr = torch.log(pr_field + 1e-20).mean()  # Avoid log(0)
+    return 1 - log_mean_pr / pr_max  # Avoid division by zero
 
 
 # ============================================================================
