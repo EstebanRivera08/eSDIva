@@ -199,7 +199,7 @@ def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
     return x, y, z, grid_points
 
 
-def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
+def create_3D_spatial_grid_from_points(field_points_mm):
     """Extract or build a 3-D coordinate grid from user-supplied field points.
 
     Accepts either a dict of grid parameters (delegated to
@@ -210,8 +210,6 @@ def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
     ----------
     field_points_mm : dict or ndarray
         Grid-parameter dict or ``(N, 3)`` point array in mm.
-    create_meshgrid : bool, optional
-        If True, rebuild the full meshgrid. Default False.
 
     Returns
     -------
@@ -239,10 +237,7 @@ def create_3D_spatial_grid_from_points(field_points_mm, create_meshgrid=False):
                 "If you intended to provide a grid, please check the points or set `create_meshgrid=True` to automatically recompute the grid."
             )
 
-        if create_meshgrid:
-            spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
-        else:
-            spatial_grid = field_points_mm
+        spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
 
     return x, y, z, spatial_grid * 1e-3  # convert to meters
 
@@ -489,13 +484,13 @@ def to_dB(matrix, *, vmin=None, vmax=None):
     return 20 * np.log10(mag + vmin)
 
 
-def align_to_common_time(fields_and_coords):
+def align_to_common_time(fields_and_coords, *, align_to_shorter=False):
     """Interpolate multiple transient fields to a common time grid.
 
     When simulating separate planes, each call to ``PyField`` may produce a
     different ``t0`` and number of time samples ``Nt``.  This function
-    reconstructs the individual time vectors, finds the overlapping interval,
-    and interpolates every field onto a single shared time axis.
+    reconstructs the individual time vectors, computes a shared time axis,
+    and interpolates every field onto it.
 
     Parameters
     ----------
@@ -503,6 +498,14 @@ def align_to_common_time(fields_and_coords):
         Each element is a ``(pressure, coords)`` pair as returned by
         ``PyField.__call__`` in transient mode.  ``coords`` must contain
         ``"t0"`` (float) and ``"dt"`` (float).
+    align_to_shorter : bool, optional
+        If ``False`` (default), the common time grid spans the full range
+        from the earliest start to the latest end across all fields.
+        Regions where a field has no data are zero-padded.
+
+        If ``True``, the common time grid is restricted to the overlapping
+        interval (latest start to earliest end).  This preserves the old
+        behavior and raises ``ValueError`` if there is no overlap.
 
     Returns
     -------
@@ -514,8 +517,8 @@ def align_to_common_time(fields_and_coords):
     Raises
     ------
     ValueError
-        If any ``coords`` dict is missing ``"t0"`` or ``"dt"``, or if there
-        is no overlapping time interval.
+        If any ``coords`` dict is missing ``"t0"`` or ``"dt"``, or if
+        ``align_to_shorter=True`` and there is no overlapping time interval.
 
     Examples
     --------
@@ -542,14 +545,19 @@ def align_to_common_time(fields_and_coords):
         t = c["t0"] + np.arange(nt) * c["dt"]
         time_vectors.append(t)
 
-    # Common overlapping range
-    t_start = max(t[0] for t in time_vectors)
-    t_end = min(t[-1] for t in time_vectors)
-    if t_start >= t_end:
-        raise ValueError(
-            f"No overlapping time interval: max(t_start)={t_start:.3e}, "
-            f"min(t_end)={t_end:.3e}."
-        )
+    if align_to_shorter:
+        # Old behavior: overlapping interval only
+        t_start = max(t[0] for t in time_vectors)
+        t_end = min(t[-1] for t in time_vectors)
+        if t_start >= t_end:
+            raise ValueError(
+                f"No overlapping time interval: max(t_start)={t_start:.3e}, "
+                f"min(t_end)={t_end:.3e}."
+            )
+    else:
+        # New default: full range, zero-padded
+        t_start = min(t[0] for t in time_vectors)
+        t_end = max(t[-1] for t in time_vectors)
 
     # Use finest resolution
     dt_common = min(c["dt"] for _, c in fields_and_coords)

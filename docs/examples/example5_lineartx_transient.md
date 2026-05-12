@@ -39,10 +39,10 @@ tx.compute_delays(focus_mm=[0, 0, 8])
 sim = PyField(tx)
 
 # Transient (pulsed) simulation — no explicit excitation
-x, y, z, p_field = sim(plane_config, monochromatic=False)
+p_field, coords = sim(plane_config, monochromatic=False)
 
 # Or with explicit excitation:
-# x, y, z, p_field = sim(plane_config, excitation=excitation_signal)
+# p_field, coords = sim(plane_config, excitation=excitation_signal)
 ```
 
 [View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example5_lineartx_transient.py)

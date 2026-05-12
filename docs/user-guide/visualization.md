@@ -60,7 +60,7 @@ import pyvista as pv
 from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 pl = pv.Plotter()
-mesh = create_3Dvol_mesh(x, y, z, p)
+mesh = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p)
 pl = add_pressure_vol(mesh, plotter=pl)
 pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()

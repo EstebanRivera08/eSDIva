@@ -43,11 +43,11 @@ from pyfield.psimulation import PyField
 
 sim = PyField(tx)
 
-# Monochromatic — returns (x, y, z, p) with p.shape == (Nx, Ny, Nz)
-x, y, z, p = sim(field_points, method="auto")
+# Monochromatic — dict input: p.shape == (Nx, Ny, Nz); raw array: (N_points,)
+p, coords = sim(field_points, method="auto")
 
-# Transient + excitation — returns (x, y, z, t, p) with p.shape == (Nt, Nx, Ny, Nz)
-x, y, z, t, p = sim(field_points, method="auto", excitation=pulse)
+# Transient + excitation — dict input: p.shape == (Nt, Nx, Ny, Nz); raw array: (Nt, N_points)
+p, coords = sim(field_points, method="auto", excitation=pulse)
 ```
 
 **`__call__` parameters** — `field_points_mm` · `method` (`"auto"` / `"naive"` / `"sdi"`) · `excitation` · `monochromatic`
@@ -73,7 +73,7 @@ plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 # Compose a 3-D scene
 import pyvista as pv
 pl = pv.Plotter()
-pl = add_pressure_vol(create_3Dvol_mesh(x, y, z, p), plotter=pl)
+pl = add_pressure_vol(create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p), plotter=pl)
 pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()
 ```

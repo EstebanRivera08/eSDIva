@@ -77,7 +77,8 @@ field_points = {
 from pyfield.psimulation import PyField
 
 sim = PyField(tx)
-x, y, z, p = sim(field_points, method="auto")
+p, coords = sim(field_points, method="auto")
+x, y, z = coords["x"], coords["y"], coords["z"]
 ```
 
 ### 5. Visualize results

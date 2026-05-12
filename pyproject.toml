@@ -19,6 +19,7 @@ dependencies = [
     "brainglobe-space>=1.0.3",
     "h5py>=3.13.0",
     "imageio>=2.37.3",
+    "imageio-ffmpeg>=0.6.0",
     "matplotlib>=3.10.1",
     "numba>=0.65.0",
     "numpy<=2.1.2",

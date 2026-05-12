@@ -5,6 +5,7 @@ import pyvista as pv
 
 import pyfield as pf
 
+from .plane_utils import AXIS_IDX, PLANE_META, compute_plane_extents, parse_planes
 from .plotting_pyvista import add_2D_image, add_pressure_vol
 from .pyvista_functions import (
     _normalize_window_size,
@@ -353,7 +354,7 @@ def plot3D_transient_slices(
     show_fig=True,
     db_scale=False,
     save_path=None,
-    file_name="3D_pressure_slices.mp4",
+    file_name=None,
     video_duration_s=5,
     fps=30,
     scalars="Pressure",
@@ -369,6 +370,8 @@ def plot3D_transient_slices(
     camera_azimuth=None,
     vmin=None,
     vmax=None,
+    theme="white",
+    show_grid_kwargs=None,
     **kwargs,
 ):
     """Plot orthogonal pressure slices of transient data with a PyVista time
@@ -398,8 +401,10 @@ def plot3D_transient_slices(
     show_fig : bool, optional
         Call ``plotter.show()``. Default True.
     save_path : str or Path, optional
-        ``.gif`` or ``.mp4`` path for video export. If None, interactive
-        slider is shown.
+        Directory for video export. If None, interactive slider is shown.
+    file_name : str, optional
+        Video file name with extension (e.g. ``"slices.mp4"``, ``"slices.gif"``).
+        Default: ``"3D_pressure_slices.mp4"`` if `save_path` is not None.
     video_duration_s : float, optional
         Target video duration in seconds. Default 5.
     fps : int, optional
@@ -441,98 +446,24 @@ def plot3D_transient_slices(
             else:
                 nt_hint = next(iter(pressure_field.values())).shape[0]
             time_array = coords["t0"] + np.arange(nt_hint) * coords["dt"]
-
-    # Plane metadata: axes pair, offset key, index into center_mm
-    _PLANE_META = {
-        "xz": {"axes": ("x", "z"), "offset_key": "y", "ci": 1},
-        "xy": {"axes": ("x", "y"), "offset_key": "z", "ci": 2},
-        "yz": {"axes": ("y", "z"), "offset_key": "x", "ci": 0},
-    }
-
+    if file_name is None:
+        file_name = "3D_pressure_slices.mp4" if save_path is not None else None
+    # -----------------------------------------------------------------
+    # Resolve input: 4D volume / dict / list-of-dicts → PlaneSpec list
     # ------------------------------------------------------------------
-    # Resolve input: 4D volume → planes dict
-    # ------------------------------------------------------------------
-    if isinstance(pressure_field, dict):
-        planes = dict(pressure_field)
-        valid = {"xz", "xy", "yz"}
-        bad = set(planes.keys()) - valid
-        if bad or not planes:
-            raise ValueError(
-                f"Plane keys must be a non-empty subset of {valid}, got {set(planes.keys())}"
-            )
-        for k, v in planes.items():
-            if v.ndim != 3:
-                raise ValueError(
-                    f"Plane '{k}' must be 3D (Nt, N1, N2), got shape {v.shape}"
-                )
-        nt = next(iter(planes.values())).shape[0]
+    plane_specs, center_mm, coords = parse_planes(
+        pressure_field,
+        expected_ndim=3,
+        coords={"x": x, "y": y, "z": z},
+        center_mm=center_mm,
+        center_to_max=center_to_max,
+    )
+    compute_plane_extents(plane_specs, coords)
+    x, y, z = coords["x"], coords["y"], coords["z"]
 
-        # Default coords from plane shapes
-        _src = {
-            "x": [("xz", 1), ("xy", 1)],
-            "y": [("xy", 2), ("yz", 1)],
-            "z": [("xz", 2), ("yz", 2)],
-        }
-        _coords = {"x": x, "y": y, "z": z}
-        for cname, sources in _src.items():
-            if _coords[cname] is None:
-                for pk, ax in sources:
-                    if pk in planes:
-                        _coords[cname] = np.arange(planes[pk].shape[ax], dtype=float)
-                        break
-                else:
-                    _coords[cname] = np.array([0.0])
-        x, y, z = _coords["x"], _coords["y"], _coords["z"]
-
-        if center_mm is None:
-            center_mm = (
-                float(x[len(x) // 2]),
-                float(y[len(y) // 2]),
-                float(z[len(z) // 2]),
-            )
-
-    elif isinstance(pressure_field, np.ndarray) and pressure_field.ndim == 4:
-        nt, nx, ny, nz = pressure_field.shape
-        if x is None:
-            x = np.arange(nx, dtype=float)
-        if y is None:
-            y = np.arange(ny, dtype=float)
-        if z is None:
-            z = np.arange(nz, dtype=float)
-
-        # Determine slice indices
-        if center_to_max:
-            idx = np.unravel_index(
-                np.nanargmax(np.abs(pressure_field)), pressure_field.shape
-            )
-            _, xi, yi, zi = idx
-        elif center_mm is not None:
-            xi = int(np.argmin(np.abs(x - center_mm[0])))
-            yi = int(np.argmin(np.abs(y - center_mm[1])))
-            zi = int(np.argmin(np.abs(z - center_mm[2])))
-        else:
-            xi, yi, zi = nx // 2, ny // 2, nz // 2
-
-        center_mm = (float(x[xi]), float(y[yi]), float(z[zi]))
-
-        # Only create planes for non-degenerate dimensions
-        planes = {}
-        if nx > 1 and nz > 1:
-            planes["xz"] = pressure_field[:, :, yi, :]
-        if nx > 1 and ny > 1:
-            planes["xy"] = pressure_field[:, :, :, zi]
-        if ny > 1 and nz > 1:
-            planes["yz"] = pressure_field[:, xi, :, :]
-        if not planes:
-            raise ValueError("No non-degenerate 2D slices in the given 4D field.")
-    else:
-        raise ValueError(
-            "pressure_field must be a 4D ndarray (Nt,Nx,Ny,Nz) or a dict of "
-            "planes with keys from {'xz', 'xy', 'yz'}."
-        )
-
-    coords = {"x": x, "y": y, "z": z}
-    plane_order = [k for k in ("xz", "xy", "yz") if k in planes]
+    plane_order = [ps.name for ps in plane_specs]
+    planes = {ps.name: ps.data for ps in plane_specs}
+    nt = next(iter(planes.values())).shape[0]
 
     # Truncate to the minimum common frame count across planes
     min_nt = min(v.shape[0] for v in planes.values())
@@ -583,11 +514,14 @@ def plot3D_transient_slices(
     # Create PyVista meshes (frame 0)
     # ------------------------------------------------------------------
     meshes = {}
+    plane_spec_map = {ps.name: ps for ps in plane_specs}
     for key in plane_order:
-        meta = _PLANE_META[key]
-        c1, c2 = coords[meta["axes"][0]], coords[meta["axes"][1]]
-        extent = [c1[0], c1[-1], c2[0], c2[-1]]
-        offset = {meta["offset_key"]: center_mm[meta["ci"]]}
+        meta = PLANE_META[key]
+        ps = plane_spec_map[key]
+        ext = ps.extent  # (c1_min, c1_max, c2_min, c2_max)
+        extent = [ext[0], ext[1], ext[2], ext[3]]
+        normal_val = ps.translation[AXIS_IDX[meta["normal"]]]
+        offset = {meta["normal"]: normal_val}
         meshes[key] = create_2Dimage_mesh(
             planes[key][0], extent=extent, plane_offset=offset, scalars=scalars
         )
@@ -596,10 +530,20 @@ def plot3D_transient_slices(
     # Plotter setup
     # ------------------------------------------------------------------
     pv.global_theme.anti_aliasing = anti_aliasing
+    if theme == "dark":
+        font_color = "white"
+        background_color = "black"
+    elif theme == "white":
+        font_color = "black"
+        background_color = "white"
+    else:
+        raise ValueError(f"Unsupported theme: {theme}")
+
+    pv.global_theme.background = background_color
 
     if save_path is not None:
-        save_path = str(save_path + file_name)
-        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
+        video_path = str(Path(save_path) / file_name)
+        Path(video_path).parent.mkdir(parents=True, exist_ok=True)
         off_screen = True
 
     kwargs.setdefault("clim", clim)
@@ -625,8 +569,7 @@ def plot3D_transient_slices(
                 **kwargs,
             )
 
-    _set_custom_style(plotter, scale=scale)
-
+    plotter.camera.up = (0, 0, -1)  # Ensure Z is down
     if camera_position is not None:
         plotter.camera_position = camera_position
     if camera_elevation is not None:
@@ -634,11 +577,33 @@ def plot3D_transient_slices(
     if camera_azimuth is not None:
         plotter.camera.azimuth = camera_azimuth
 
+    default_show_grid_kwargs = {
+        "grid": "back",
+        "font_size": 12 * scale,
+        "color": font_color,
+        "location": "outer",
+        "xtitle": "X (mm)",
+        "ytitle": "Y (mm)",
+        "ztitle": "Z (mm)",
+        "n_xlabels": 5,
+        "n_ylabels": 5,
+        "n_zlabels": 6,
+        "use_3d_text": False,
+    }
+
+    if show_grid_kwargs is not None:
+        default_show_grid_kwargs.update(show_grid_kwargs)
+
+    plotter.show_grid(**default_show_grid_kwargs)
+
     # ------------------------------------------------------------------
     # Time overlay + update callback
     # ------------------------------------------------------------------
     text_actor = plotter.add_text(
-        _format_time(0), position="upper_right", font_size=int(12 * scale)
+        _format_time(0),
+        position="upper_right",
+        font_size=int(12 * scale),
+        color=font_color,
     )
 
     def _update_time(value):
@@ -669,16 +634,16 @@ def plot3D_transient_slices(
         step = max(1.0, nt / total_frames)
         frame_indices = np.unique(np.arange(0, nt, step).astype(int))
 
-        if save_path.endswith(".gif"):
-            plotter.open_gif(save_path)
+        if video_path.endswith(".gif"):
+            plotter.open_gif(video_path)
         else:
-            plotter.open_movie(save_path, framerate=fps)
+            plotter.open_movie(video_path, framerate=fps)
 
         for t_idx in frame_indices:
             _update_time(t_idx)
             plotter.write_frame()
 
         plotter.close()
-        print(f"\nVideo saved to: {save_path}")
+        print(f"\nVideo saved to: {video_path}")
 
     return plotter

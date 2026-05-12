@@ -162,37 +162,44 @@ class VirtualSourceOptimizer:
         """Initialize virtual sources. Apodization derived from VS via F/D=1."""
         print(f"Setting up {self.n_vs} virtual sources (F/D=1 apodization)...")
 
+        self.vs_pos_names = []
+        self.vs_apod_names = []
+
         for i in range(self.n_vs):
             x_pos = self.x_init_mm[i]
             z_pos = abs(self.z_init_mm[i])
 
-            # F/D = 1 -> aperture diameter D = |z_vs|
             FD = self.FD_init
 
             tf = TorchFieldFlexible(
                 self.transducer, use_gpu=self.use_gpu, verbose=False, fs=self.fs
             )
 
-            # --- Only learnable parameter: VS position [x_mm, z_mm] ---
-            vs_name = f"vs_{i}"
-            # [x_mm, z_mm, n, FD]
+            # --- Learnable params: split into position and apodization ---
+            pos_name = f"vs_pos_{i}"
+            apod_name = f"vs_apod_{i}"
+
             tf.add_optimizable_parameter(
-                vs_name,
-                initial_value=[x_pos, z_pos, self.n_steepness_init, FD],
+                pos_name,
+                initial_value=[x_pos, z_pos],
                 level="global",
                 requires_grad=True,
-                constraints={
-                    "min": [None, None, 1.0, 0.1],
-                    "max": [None, None, None, 5.0],
-                },
             )
 
-            # --- Mapping: VS → delays (same as v1, works fine) ---
-            def make_vs_to_delays(vs_name):
+            tf.add_optimizable_parameter(
+                apod_name,
+                initial_value=[self.n_steepness_init, FD],
+                level="global",
+                requires_grad=True,
+                constraints={"min": [1.0, 0.1], "max": [None, 5.0]},
+            )
+
+            # --- Mapping: VS position → delays ---
+            def make_vs_to_delays(pos_name):
                 def vs_to_delays(**kwargs):
-                    vs = kwargs[vs_name]
-                    focus_x_m = vs[0] * 1e-3
-                    focus_z_m = torch.abs(vs[1]) * 1e-3
+                    pos = kwargs[pos_name]  # [x_mm, z_mm]
+                    focus_x_m = pos[0] * 1e-3
+                    focus_z_m = torch.abs(pos[1]) * 1e-3
 
                     ec = self.element_centers
                     dx = ec[:, 0] - focus_x_m
@@ -201,10 +208,7 @@ class VirtualSourceOptimizer:
                     distances = torch.sqrt(dx * dx + dy * dy + dz * dz)
                     delays_s = distances / self.c
 
-                    # if vs[1].detach().item() <= 0:
                     delays = delays_s - delays_s.min()
-                    # else:
-                    #     delays = delays_s.max() - delays_s
 
                     return delays * 1e6  # µs
 
@@ -212,21 +216,22 @@ class VirtualSourceOptimizer:
 
             tf.add_parameter_mapping(
                 name=f"vs_to_delays_{i}",
-                function=make_vs_to_delays(vs_name),
-                inputs=[vs_name],
+                function=make_vs_to_delays(pos_name),
+                inputs=[pos_name],
                 output="delays",
                 level="element",
             )
 
-            # --- Mapping: VS → apodization (super-Gaussian, differentiable) ---
-            # n=1 → Gaussian, n→∞ → rect. Gradient w.r.t. n exists everywhere.
-            def make_vs_to_apodization(vs_name):
+            # --- Mapping: VS position + apod params → apodization ---
+            # Super-Gaussian: n=1 → Gaussian, n→∞ → rect.
+            def make_vs_to_apodization(pos_name, apod_name):
                 def vs_to_apod(**kwargs):
-                    vs = kwargs[vs_name]  # [x_mm, z_mm, n, FD]
-                    x_vs_m = vs[0] * 1e-3
-                    z_vs_m = torch.abs(vs[1]) * 1e-3
-                    n = vs[2]  # super-Gaussian order
-                    FD = vs[3]  # F/D ratio
+                    pos = kwargs[pos_name]  # [x_mm, z_mm]
+                    apod_p = kwargs[apod_name]  # [n, FD]
+                    x_vs_m = pos[0] * 1e-3
+                    z_vs_m = torch.abs(pos[1]) * 1e-3
+                    n = apod_p[0]  # super-Gaussian order
+                    FD = apod_p[1]  # F/D ratio
                     half_aperture_m = z_vs_m / FD / 2
 
                     # Lateral distance of each element to VS
@@ -244,14 +249,15 @@ class VirtualSourceOptimizer:
 
             tf.add_parameter_mapping(
                 name=f"vs_to_apod_{i}",
-                function=make_vs_to_apodization(vs_name),
-                inputs=[vs_name],
+                function=make_vs_to_apodization(pos_name, apod_name),
+                inputs=[pos_name, apod_name],
                 output="apodization",
                 level="element",
             )
 
             self.torch_fields.append(tf)
-            self.virtual_sources.append(vs_name)
+            self.vs_pos_names.append(pos_name)
+            self.vs_apod_names.append(apod_name)
 
             print(
                 f"  VS {i}: x={x_pos:.1f}, z={z_pos:.1f} mm, "
@@ -443,6 +449,23 @@ class VirtualSourceOptimizer:
             params.extend(tf.get_optimizable_parameters())
         return params
 
+    def get_param_groups(self, lr_pos: float, lr_apod: float) -> list:
+        """Get parameter groups with separate learning rates.
+
+        Returns list of dicts for torch optimizer param groups:
+          [{"params": [pos tensors], "lr": lr_pos},
+           {"params": [apod tensors], "lr": lr_apod}]
+        """
+        pos_params = []
+        apod_params = []
+        for i, tf in enumerate(self.torch_fields):
+            pos_params.append(tf._optimizable_params[self.vs_pos_names[i]].value)
+            apod_params.append(tf._optimizable_params[self.vs_apod_names[i]].value)
+        return [
+            {"params": pos_params, "lr": lr_pos},
+            {"params": apod_params, "lr": lr_apod},
+        ]
+
     def apply_constraints(self):
         """Apply constraints to all parameters."""
         for tf in self.torch_fields:
@@ -461,6 +484,7 @@ def optimize_virtual_sources(
     *,
     num_epochs: int = 100,
     lr: float = 0.01,
+    lr_apod: float = 0.01,
     symmetry_weight: float = 1.0,
     coverage_weight: float = 0.5,
     aperture_weight: float = 0.3,
@@ -552,17 +576,21 @@ def optimize_virtual_sources(
         use_phase=use_phase,
     )
 
-    # Setup torch optimizer
-    params = vs_opt.get_optimizable_parameters()
+    # Setup torch optimizer with separate lr for position and apodization params
+    if lr_apod is None:
+        lr_apod = lr  # same lr for both if not specified
+
+    param_groups = vs_opt.get_param_groups(lr_pos=lr, lr_apod=lr_apod)
+    all_params = [p for g in param_groups for p in g["params"]]
     print(
-        f"Optimizable parameters: {sum(p.numel() for p in params)} "
-        f"({len(params)} tensors — only VS positions)"
+        f"Optimizable parameters: {sum(p.numel() for p in all_params)} "
+        f"({len(all_params)} tensors, lr_pos={lr}, lr_apod={lr_apod})"
     )
 
     if optimizer_type == "SGD":
-        optimizer = torch.optim.SGD(params, lr=lr)
+        optimizer = torch.optim.SGD(param_groups)
     elif optimizer_type == "Adam":
-        optimizer = torch.optim.Adam(params, lr=lr)
+        optimizer = torch.optim.Adam(param_groups)
     else:
         raise ValueError(f"Unsupported optimizer type: {optimizer_type}")
 
@@ -620,7 +648,7 @@ def optimize_virtual_sources(
         # --- v4 resolution losses ---
         # Geometric f-number penalty (cheap, no simulation)
         vs_pos_list = [
-            vs_opt.torch_fields[i].get_parameter(f"vs_{i}")
+            vs_opt.torch_fields[i].get_parameter(vs_opt.vs_pos_names[i])
             for i in range(n_virtual_sources)
         ]
         loss_resolution = compute_resolution_loss(
@@ -650,8 +678,8 @@ def optimize_virtual_sources(
         # Backward + step
         loss.backward()
 
-        # Gradient clipping — SIR simulation produces oscillatory gradients with SGD
-        torch.nn.utils.clip_grad_norm_(params, max_norm=5.0)
+        # Gradient clipping — SIR simulation produces oscillatory gradients
+        torch.nn.utils.clip_grad_norm_(all_params, max_norm=10)
 
         optimizer.step()
         vs_opt.apply_constraints()
@@ -665,10 +693,21 @@ def optimize_virtual_sources(
         aperture_history.append(loss_aperture.item())
 
         for i in range(n_virtual_sources):
-            vs_pos = (
-                vs_opt.torch_fields[i].get_parameter(f"vs_{i}").detach().cpu().numpy()
+            pos = (
+                vs_opt.torch_fields[i]
+                .get_parameter(vs_opt.vs_pos_names[i])
+                .detach()
+                .cpu()
+                .numpy()
             )
-            vs_positions_history[epoch, i, :] = vs_pos
+            apod_p = (
+                vs_opt.torch_fields[i]
+                .get_parameter(vs_opt.vs_apod_names[i])
+                .detach()
+                .cpu()
+                .numpy()
+            )
+            vs_positions_history[epoch, i, :] = np.concatenate([pos, apod_p])
 
         # update tqdm description with current loss
         tqdm_desc = (
@@ -747,11 +786,13 @@ def optimize_virtual_sources(
     # Print final VS positions
     vs_positions = []
     for i, tf in enumerate(vs_opt.torch_fields):
-        vs_pos = tf.get_parameter(f"vs_{i}").detach().cpu().numpy()
-        vs_positions.append(vs_pos)
+        pos = tf.get_parameter(vs_opt.vs_pos_names[i]).detach().cpu().numpy()
+        apod_p = tf.get_parameter(vs_opt.vs_apod_names[i]).detach().cpu().numpy()
+        vs_all = np.concatenate([pos, apod_p])
+        vs_positions.append(vs_all)
         print(
-            f"VS {i}: position = [x={vs_pos[0]:6.2f}, z={vs_pos[1]:6.2f}] mm, "
-            f"n={vs_pos[2]:.2f}, FD={vs_pos[3]:.2f}"
+            f"VS {i}: position = [x={pos[0]:6.2f}, z={pos[1]:6.2f}] mm, "
+            f"n={apod_p[0]:.2f}, FD={apod_p[1]:.2f}"
         )
 
     print()

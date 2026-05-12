@@ -17,8 +17,9 @@ Monochromatic simulation computes the steady-state pressure field for a continuo
 from pyfield.psimulation import PyField
 
 sim = PyField(tx)
-x, y, z, p = sim(field_points, method="auto")
-# p.shape == (Nx, Ny, Nz)
+p, coords = sim(field_points, method="auto")
+# Structured (dict): p.shape == (Nx, Ny, Nz), coords has "x", "y", "z"
+# Raw array:         p.shape == (N_points,), user reshapes
 ```
 
 Internally, the SIR is evaluated at each field point and the monochromatic response is computed as the Fourier transform of the SIR at the centre frequency.

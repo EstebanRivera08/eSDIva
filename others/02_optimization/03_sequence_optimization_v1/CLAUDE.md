@@ -8,10 +8,11 @@ fields from N virtual sources.
 
 ## Parameter Vector
 
-Each VS has 4 learnable parameters stored as a single tensor `vs_i`:
+Each VS has 4 learnable parameters split into **2 tensors** (for separate learning rates):
 
 ```
-[x_vs, z_vs, n, FD]
+vs_pos_i  = [x_vs, z_vs]    # position params (lr = lr)
+vs_apod_i = [n, FD]          # apodization params (lr = lr_apod)
 ```
 
 | Index | Name | Unit | Description | Constraints |
@@ -73,7 +74,7 @@ All losses in `loss_functions.py`:
 | Loss | What it does | Weight param |
 |------|-------------|--------------|
 | `compute_symmetry_loss` | MSE between left/right halves of pressure field | `symmetry_weight` |
-| `compute_soft_coverage_loss` | Sigmoid-based fraction above dB threshold, output in [0,1] | `coverage_weight` |
+| `compute_soft_coverage_loss` | Sigmoid-based fraction above dB threshold, output in [0,1]. `steepness=5.0` default | `coverage_weight` |
 | `compute_aperture_cost` | Mean active elements across VS (discourages wide apertures) | `aperture_weight` |
 | `compute_mean_energy_loss` | Negative mean pressure (prevents collapse to zero) | `energy_weight` |
 | `compute_resolution_loss` | Effective f-number penalty from VS geometry | `resolution_weight` |
@@ -81,17 +82,23 @@ All losses in `loss_functions.py`:
 `max_pr` is computed once from initial field and kept fixed during training to prevent
 oscillatory gradients from SIR simulation normalization.
 
-**Dynamic weight balancing:** `energy_weight` and `coverage_weight` are recomputed each
-epoch relative to `aperture_weight * loss_aperture` to keep loss terms on similar scale.
+**Dynamic weight balancing:** `energy_weight` is recomputed each epoch relative to
+`aperture_weight * loss_aperture` to keep loss terms on similar scale.
+
+**Dual learning rates:** Position params (`x_vs, z_vs`) and apodization params (`n, FD`)
+use separate lr via optimizer param groups. Set `lr` for positions, `lr_apod` for
+apodization. If `lr_apod=None` (default), both use same `lr`.
 
 ## Architecture
 
 ```
 VirtualSourceOptimizer
   ├── n TorchFieldFlexible instances (one per VS)
-  │     ├── Parameter: vs_i = [x_vs, z_vs, n, FD]
-  │     ├── Mapping: vs_i -> delays (element-level)
-  │     └── Mapping: vs_i -> apodization (element-level, super-Gaussian)
+  │     ├── Parameter: vs_pos_i = [x_vs, z_vs]       (lr = lr)
+  │     ├── Parameter: vs_apod_i = [n, FD]            (lr = lr_apod)
+  │     ├── Mapping: vs_pos_i -> delays (element-level)
+  │     └── Mapping: vs_pos_i + vs_apod_i -> apodization (element-level, super-Gaussian)
+  ├── get_param_groups(lr_pos, lr_apod) -> optimizer param groups
   └── get_combined_field() -> sum of |P_i| across VS
 ```
 
@@ -134,7 +141,8 @@ results = optimize_virtual_sources(
     n_virtual_sources=3,
     field_points=field_points,
     num_epochs=200,
-    lr=0.01,
+    lr=0.05,          # position params learning rate
+    lr_apod=0.01,     # apodization params (n, FD) learning rate
     symmetry_weight=1.0,
     coverage_weight=0.5,
     aperture_weight=0.3,

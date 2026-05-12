@@ -71,12 +71,25 @@ def from_sir_to_monochromatic_pressure(
             Hsir[start:end] = vals
 
     # Reshape back to 3D grid
-    Pressure_at_fc = reshape_to_mapped_points(x, y, z, Hsir)
-    if verbose:
+    if x is None or y is None or z is None:
+        if verbose:
+            print(
+                f"Monochromatic pressure with shape {Hsir.shape} (no meshgrid)"
+                f"computed from SIR in {time.time() - start_time:.2f} seconds..."
+            )
+
         print(
-            f"Monochromatic pressure with shape {Pressure_at_fc.shape} computed from SIR in {time.time() - start_time:.2f} seconds..."
+            "No structured grid provided, returning 1D array of pressure values at mapped points."
         )
-    return Pressure_at_fc[0, :, :, :]
+        return Hsir
+    else:
+        Pressure_at_fc = reshape_to_mapped_points(x, y, z, Hsir)
+        if verbose:
+            print(
+                f"Monochromatic pressure with shape {Hsir.shape} computed from SIR in"
+                f" {time.time() - start_time:.2f} seconds..."
+            )
+    return Pressure_at_fc[0]
 
 
 def from_sir_to_pressure(
@@ -184,12 +197,21 @@ def from_sir_to_pressure(
         raise ValueError(f"Error FFT processing: {e}")
 
     # Reshape back to mapped points and scale by rho
-    try:
-        pressure_field = reshape_to_mapped_points(x, y, z, Pressure_flat) * rho
-    except Exception as e:
-        raise ValueError(f"Error reshaping pressure field: {e}")
-    if verbose:
+    if x is None or y is None or z is None:
+        if verbose:
+            print(
+                f"Pressure with shape {Pressure_flat.shape} (no meshgrid) computed from SIR in"
+                f" {time.time() - start_time:.2f} seconds..."
+            )
         print(
-            f"Pressure with shape {pressure_field.shape} computed from SIR in {time.time() - start_time:.2f} seconds..."
+            "No structured grid provided, returning 2D array [nt,npoints] of pressure values at mapped points."
         )
-    return pressure_field
+        return Pressure_flat
+    else:
+        pressure_field = reshape_to_mapped_points(x, y, z, Pressure_flat) * rho
+        if verbose:
+            print(
+                f"Pressure with shape {pressure_field.shape} computed from SIR"
+                f" in {time.time() - start_time:.2f} seconds..."
+            )
+        return pressure_field

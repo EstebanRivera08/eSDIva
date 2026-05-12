@@ -24,8 +24,9 @@ t_pulse = np.arange(0, n_cycles / fc, 1 / fs)
 excitation = np.hanning(len(t_pulse)) * np.sin(2 * np.pi * fc * t_pulse)
 
 sim = PyField(tx, fs=fs)
-x, y, z, t, p = sim(field_points, method="auto", excitation=excitation)
-# p.shape == (Nt, Nx, Ny, Nz)
+p, coords = sim(field_points, method="auto", excitation=excitation)
+# Structured (dict): p.shape == (Nt, Nx, Ny, Nz), coords has "x", "y", "z", "t0", "dt"
+# Raw array:         p.shape == (Nt, N_points), user reshapes
 ```
 
 ## When to use

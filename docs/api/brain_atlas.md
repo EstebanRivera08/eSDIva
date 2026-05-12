@@ -112,13 +112,13 @@ tx.compute_delays(focus_mm=focus_mm)
 tx.compute_apodization(focus_mm=focus_mm, FoverD=1, apodization_type="rect")
 
 sim = PyField(tx)
-x, y, z, p = sim({
+p, coords = sim({
     "x_extent": [-0.25 + focus_mm[0], 0.25 + focus_mm[0]],
     "y_extent": [-0.5,  0.5],
     "z_extent": [-1.0 + focus_mm[2], 1.0 + focus_mm[2]],
     "dx": 0.0125, "dy": 0.025, "dz": 0.05,
 }, method="auto")
-pressure_vol = create_3Dvol_mesh(x, y, z, p / p.max(), scalars="Pressure")
+pressure_vol = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p / p.max(), scalars="Pressure")
 
 # ── Registration (atlas → lab frame) ──────────────────────────────────────
 lambda_bregma_mm = 8.0       # rat bregma-lambda distance
@@ -170,11 +170,11 @@ tx.compute_delays(focus_mm=focus_mm)
 tx.compute_apodization(focus_mm=focus_mm, FoverD=1)
 
 sim = PyField(tx)
-x, y, z, p = sim({
+p, coords = sim({
     "x_extent": [-3, 3], "y_extent": [-3, 3], "z_extent": [2, 10],
     "dx": 0.1, "dy": 0.1, "dz": 0.1,
 }, method="auto")
-pressure_vol = create_3Dvol_mesh(x, y, z, p / p.max(), scalars="Pressure")
+pressure_vol = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p / p.max(), scalars="Pressure")
 
 # ── Registration (atlas → lab frame) ──────────────────────────────────────
 lambda_bregma_mm = 4.0       # mouse bregma-lambda distance

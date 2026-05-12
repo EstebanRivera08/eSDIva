@@ -37,7 +37,7 @@ transducer = ConcaveCircularTransducer(
 )
 
 sim = PyField(transducer, verbose=False)
-x, y, z, p = sim(field_points, method="auto")
+p, coords = sim(field_points, method="auto")
 
 petri_dish = load_mesh_from_stl("Petri_dish.stl", translation=(0, -10, 25))
 

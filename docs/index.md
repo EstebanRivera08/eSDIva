@@ -8,8 +8,7 @@ hide:
 
 # PyField
 
-Acoustic field simulator for ultrasound transducers.  
-Built on the Tupholme–Stepanishen Spatial Impulse Response method.
+Acoustic field simulator for ultrasound transducers, based on the Tupholme–Stepanishen Spatial Impulse Response formulation and accelerated by the Sparse Delta Integration (SDI) method.
 
 [![PyPI](https://img.shields.io/pypi/v/pyfield?color=9575cd&logo=pypi&logoColor=white&label=PyPI)](https://pypi.org/project/pyfield/)
 [![Python](https://img.shields.io/pypi/pyversions/pyfield?color=00897b&logo=python&logoColor=white)](https://pypi.org/project/pyfield/)
@@ -72,8 +71,8 @@ field_points = {
 
 # Run monochromatic simulation and visualize
 sim = PyField(tx)
-x, y, z, p = sim(field_points, method="auto")
-plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
+p, coords = sim(field_points, method="auto")
+plot2D_pressure_slices(p, x=coords["x"], y=coords["y"], z=coords["z"], db_scale=True, vmin=-40)
 ```
 
 ---

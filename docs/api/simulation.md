@@ -12,7 +12,7 @@ icon: lucide/audio-lines
 from pyfield.psimulation import PyField
 
 sim = PyField(transducer)
-x_out, y_out, z_out, pressure = sim(field_points_mm, method="auto")
+pressure, coords = sim(field_points_mm, method="auto")
 ```
 
 ### Arguments
@@ -25,7 +25,7 @@ x_out, y_out, z_out, pressure = sim(field_points_mm, method="auto")
 
 | Parameter | Type | Description |
 |-----------|------|-------------|
-| `field_points_mm` | `(N,3) ndarray` | Field point coordinates in mm |
+| `field_points_mm` | `dict` or `(N,3) ndarray` | Structured grid dict or raw point coordinates in mm |
 | `method` | `str` | `"naive"`, `"SDI"`, or `"auto"` |
 | `excitation` | `ndarray or None` | Excitation pulse for transient simulation |
 
@@ -33,8 +33,20 @@ x_out, y_out, z_out, pressure = sim(field_points_mm, method="auto")
 
 | Symbol | Shape | Description |
 |--------|-------|-------------|
-| `x_out, y_out, z_out` | 1-D | Unique coordinate axes extracted from `field_points_mm` |
-| `pressure` | `(Nx,Ny,Nz)` or `(Nt,Nx,Ny,Nz)` | Pressure field |
+| `pressure` | see below | Pressure field |
+| `coords` | `dict` | Coordinate metadata (see below) |
+
+**Structured grid** (dict input):
+
+- Monochromatic: `p.shape = (Nx, Ny, Nz)`, `coords = {"x", "y", "z"}`
+- Transient: `p.shape = (Nt, Nx, Ny, Nz)`, `coords = {"x", "y", "z", "t0", "dt"}`
+
+**Raw point array** (`(N,3)` ndarray input):
+
+- Monochromatic: `p.shape = (N_points,)`, `coords = {}`
+- Transient: `p.shape = (Nt, N_points)`, `coords = {"t0", "dt"}`
+
+User handles reshaping for raw input. Use dict input or `compute_mesh=True` for automatic grid construction.
 
 ### Methods
 
@@ -112,8 +124,9 @@ Set up the transducer and call without an excitation signal.  The output is a
 
 ```python
 sim = PyField(tx)
-x, y, z, p = sim(pts_mm, method="auto")
-# p.shape == (Nx, Ny, Nz)
+p, coords = sim(pts_mm, method="auto")
+# Structured (dict): p.shape == (Nx, Ny, Nz)
+# Raw array:         p.shape == (N_points,)
 ```
 
 **Linear array — XZ plane (Domino probe)**
@@ -144,8 +157,9 @@ n_cycles = 3
 t_pulse = np.arange(0, n_cycles / fc, 1 / fs)
 excitation = np.sin(2 * np.pi * fc * t_pulse) * np.hanning(len(t_pulse))
 
-x, y, z, p = sim(pts_mm, method="auto", excitation=excitation)
-# p.shape == (Nt, Nx, Ny, Nz)
+p, coords = sim(pts_mm, method="auto", excitation=excitation)
+# Structured (dict): p.shape == (Nt, Nx, Ny, Nz)
+# Raw array:         p.shape == (Nt, N_points)
 ```
 
 ---

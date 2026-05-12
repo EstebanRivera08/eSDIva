@@ -32,7 +32,8 @@ tx.compute_delays(focus_mm=[0, 0, -1])       # virtual source → diverging wave
 tx.compute_apodization(focus_mm=[0, 0, -1], FoverD=1)
 
 sim = PyField(tx)
-x, y, z, p = sim(plane_config)
+p, coords = sim(plane_config)
+x, y, z = coords["x"], coords["y"], coords["z"]
 
 plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-30)
 ```

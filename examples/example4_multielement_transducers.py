@@ -18,18 +18,20 @@ Run with:
 import numpy as np
 import pyvista as pv
 
-from pyfield.psimulation import PyField
-from pyfield.transducers import Domino, Zeus_Matrix
-from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
-
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
+from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
+from pyfield.psimulation import PyField
+from pyfield.transducers import Domino, Zeus_Matrix
+from pyfield.utilities import reshape_to_mapped_points
+
+# SAVE_FIG = True
 RUN_LINEAR_ARRAY = True
 RUN_MATRIX_ARRAY = True
-THEME = "dark"
+THEME = "white"
 
 # Focus and F/D
 FOCUS_MM = np.array([-2, 0, 8])
@@ -70,21 +72,15 @@ x_extent_mm = [-X_HALF_MM + FOCUS_MM[0], X_HALF_MM + FOCUS_MM[0]]
 y_extent_mm = [-Y_HALF_MM + FOCUS_MM[1], Y_HALF_MM + FOCUS_MM[1]]
 z_extent_mm = [-Z_HALF_MM + FOCUS_MM[2], Z_HALF_MM + FOCUS_MM[2]]
 
-x = np.linspace(
-    x_extent_mm[0], x_extent_mm[1], int((x_extent_mm[1] - x_extent_mm[0]) / DX_MM) + 1
-)
-y = np.linspace(
-    y_extent_mm[0], y_extent_mm[1], int((y_extent_mm[1] - y_extent_mm[0]) / DY_MM) + 1
-)
-z = np.linspace(
-    z_extent_mm[0], z_extent_mm[1], int((z_extent_mm[1] - z_extent_mm[0]) / DZ_MM) + 1
-)
-field_point_mm = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
+field_point_mm = {
+    "x_extent_mm": x_extent_mm,
+    "y_extent_mm": y_extent_mm,
+    "z_extent_mm": z_extent_mm,
+    "dx_mm": DX_MM,
+    "dy_mm": DY_MM,
+    "dz_mm": DZ_MM,
+}
 
-print(f"Number of field points: {field_point_mm.shape[0]}")
-print(
-    f"Field points from {field_point_mm.min(axis=0)} mm to {field_point_mm.max(axis=0)} mm"
-)
 
 # ============================================================================
 # STEP 2: LINEAR ARRAY (DOMINO)
@@ -103,8 +99,11 @@ if RUN_LINEAR_ARRAY:
     # Build PyVista meshes
     tx_mesh_l = linear_probe.get_mesh()
     pr_mesh_l = create_3Dvol_mesh(
-        coords_l["x"], coords_l["y"], coords_l["z"],
-        p_linear / p_linear.max(), scalars="Pressure "
+        p_linear / p_linear.max(),
+        coords_l["x"],
+        coords_l["y"],
+        coords_l["z"],
+        scalars="Pressure ",
     )
 
     # --- TX + Pressure scene ---
@@ -138,7 +137,7 @@ if RUN_LINEAR_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl.screenshot(str(FIG_FOLDER / "linear_array_field.png"))
+        pl.screenshot(str(FIG_FOLDER / f"linear_array_field_{THEME}.png"))
     else:
         pl.show()
     pl.close()
@@ -172,7 +171,7 @@ if RUN_LINEAR_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl2.screenshot(str(FIG_FOLDER / "linear_array_pressure_field.png"))
+        pl2.screenshot(str(FIG_FOLDER / f"linear_array_pressure_field_{THEME}.png"))
     else:
         pl2.show()
     pl2.close()
@@ -195,8 +194,11 @@ if RUN_MATRIX_ARRAY:
 
     tx_mesh_m = matrix_probe.get_mesh()
     pr_mesh_m = create_3Dvol_mesh(
-        coords_m["x"], coords_m["y"], coords_m["z"],
-        p_matrix / p_matrix.max(), scalars="Pressure"
+        p_matrix / p_matrix.max(),
+        coords_m["x"],
+        coords_m["y"],
+        coords_m["z"],
+        scalars="Pressure",
     )
 
     # --- TX + Pressure scene ---
@@ -230,7 +232,7 @@ if RUN_MATRIX_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl.screenshot(str(FIG_FOLDER / "matrix_array_field.png"))
+        pl.screenshot(str(FIG_FOLDER / f"matrix_array_field_{THEME}.png"))
     else:
         pl.show()
     pl.close()
@@ -264,7 +266,7 @@ if RUN_MATRIX_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl2.screenshot(str(FIG_FOLDER / "matrix_array_pressure_field.png"))
+        pl2.screenshot(str(FIG_FOLDER / f"matrix_array_pressure_field_{THEME}.png"))
     else:
         pl2.show()
     pl2.close()

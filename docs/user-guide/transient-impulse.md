@@ -15,8 +15,9 @@ Transient impulse simulation returns the spatial impulse response `h(t, x, y, z)
 
 ```python
 sim = PyField(tx, fs=200e6)
-x, y, z, p = sim(field_points, method="auto", monochromatic=False)
-# p.shape == (Nt, Nx, Ny, Nz)
+p, coords = sim(field_points, method="auto", monochromatic=False)
+# Structured (dict): p.shape == (Nt, Nx, Ny, Nz), coords has "x", "y", "z", "t0", "dt"
+# Raw array:         p.shape == (Nt, N_points), user reshapes
 ```
 
 ## When to use

@@ -73,7 +73,7 @@ rendering).
 
 ```python
 from pyfield.plotting import create_3Dvol_mesh
-mesh = create_3Dvol_mesh(x, y, z, pressure_field, scalars="Pressure")
+mesh = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], pressure_field, scalars="Pressure")
 ```
 
 ### `plot3D_pressure_vol`
@@ -95,7 +95,7 @@ Add a pressure mesh (contour isosurfaces) to an existing plotter.
 
 ```python
 from pyfield.plotting import add_pressure_vol, create_3Dvol_mesh
-mesh = create_3Dvol_mesh(x, y, z, p)
+mesh = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p)
 pl = add_pressure_vol(mesh, colorbar_title="Pressure")
 ```
 
@@ -176,7 +176,7 @@ from pyfield.plotting import (
 
 pl = pv.Plotter(window_size=[900, 700])
 pl = add_regions_mesh(atlas.pv_mesh, plotter=pl, opacity=0.25)
-pl = add_pressure_vol(create_3Dvol_mesh(x, y, z, p), plotter=pl)
+pl = add_pressure_vol(create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p), plotter=pl)
 pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()
 ```

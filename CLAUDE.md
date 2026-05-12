@@ -139,30 +139,75 @@ soon, so keep independent and secret.
    ```python
    from pyfield.psimulation import PyField
    sim = PyField(tx)
-   x, y, z, p = sim(field_points, method="auto")
+   p, coords = sim(field_points, method="auto")
+   # coords = {"x": array, "y": array, "z": array}
    ```
-if no excitation is given, the transient simulation is pulsed and `monochromatic =
-    False` needs to me added to sim(). 
+   If no excitation is given, the transient simulation is pulsed and `monochromatic =
+   False` needs to be added to `sim()`.
 
-If performing transient simulations and excitation could be given :
-  ```python
-  import numpy as np
-  from pyfield.psimulation import PyField
+   For transient simulations with excitation:
+   ```python
+   import numpy as np
+   from pyfield.psimulation import PyField
 
-  f_s = 200e6  # Sampling frequency
-  fc = 5e6  # Center frequency of the pulse
-  n_cycles = 2  # Number of cycles in the pulse
-  time = np.arange(0, n_cycles/fc, 1/f_s)  # Time vector for the pulse
-  excitation = np.sin(2*pi*fc*time)  # Example pulse
-    sim = PyField(tx, fs=f_s)
-    x, y, z, t, p = sim(field_points, method="auto", excitation=excitation)
-  ```
+   f_s = 200e6  # Sampling frequency
+   fc = 5e6  # Center frequency of the pulse
+   n_cycles = 2  # Number of cycles in the pulse
+   time = np.arange(0, n_cycles/fc, 1/f_s)
+   excitation = np.sin(2*np.pi*fc*time)
+   sim = PyField(tx, fs=f_s)
+   p, coords = sim(field_points, method="auto", excitation=excitation)
+   # coords = {"x": array, "y": array, "z": array, "t0": float, "dt": float}
+   # Reconstruct time vector: t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]
+   ```
+
+   **Return convention**: `PyField.__call__` always returns `(pressure, coords)`.
+   - `coords` is a dict with keys `"x"`, `"y"`, `"z"` for structured grid input (dict),
+     plus `"t0"` and `"dt"` for transient mode.
+   - **Structured grid (dict input)**: Monochromatic `p.shape = (Nx, Ny, Nz)`,
+     Transient `p.shape = (Nt, Nx, Ny, Nz)`.
+   - **Raw point array input**: Monochromatic `p.shape = (N_points,)`,
+     Transient `p.shape = (Nt, N_points)`. User handles reshaping.
+     To get structured output from raw points, use `compute_mesh=True` in the
+     simulator instance or pass a dict instead.
+   - Raw point array input: coords omits x/y/z (only t0/dt if transient).
+
+   **Time alignment** for multiple transient simulations:
+   ```python
+   from pyfield.utilities import align_to_common_time
+   pxz, cxz = sim(plane_xz_dict, monochromatic=False)
+   pyz, cyz = sim(plane_yz_dict, monochromatic=False)
+   # Default: pads shorter fields with zeros to cover full time range
+   common_t, [pxz_a, pyz_a] = align_to_common_time([(pxz, cxz), (pyz, cyz)])
+   # Old behavior: truncate to overlapping interval only
+   common_t, [pxz_a, pyz_a] = align_to_common_time(
+       [(pxz, cxz), (pyz, cyz)], align_to_shorter=True
+   )
+   ```
 
 5. **Visualize**:
    ```python
    from pyfield.plotting import plot2D_pressure_slices
    # works for both monochromatic (3D) and transient (4D) pressure fields
-   plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
+   plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
+   # or explicit: plot2D_pressure_slices(p, x=coords["x"], y=coords["y"], z=coords["z"])
+   ```
+
+   **Transient plane plotting** accepts three input formats:
+   ```python
+   from pyfield.plotting import plot2D_transient_slices
+
+   # Format 1: old dict (backward compatible)
+   plot2D_transient_slices({"xz": pxz_a, "yz": pyz_a}, coords=coords)
+
+   # Format 2: list of dicts with translation (new primary format)
+   plot2D_transient_slices([
+       {"plane": "xz", "data": pxz_a, "translation": (0, 5.0, 0)},
+       {"plane": "yz", "data": pyz_a, "translation": (0, 0, 0)},
+   ], coords=coords)
+
+   # Format 3: full 4D volume (slices extracted at center)
+   plot2D_transient_slices(p_4d, coords=coords)
    ```
 
 ### Key Design Patterns
@@ -183,8 +228,8 @@ density and simulation accuracy.
 **Unit Convention**: User-facing APIs use millimeters (`_mm` suffix), but internal computations use SI units (meters, seconds).
 
 **Monochromatic vs Transient**:
-- Monochromatic: Returns spatial pressure field `p(x,y,z)` for continuous wave
-- Transient: Returns spatio-temporal pressure `p(x,y,z,t)` with defined excitation pulse
+- Monochromatic: Returns `(p, coords)` where `p.shape = (Nx, Ny, Nz)` for continuous wave
+- Transient: Returns `(p, coords)` where `p.shape = (Nt, Nx, Ny, Nz)` with time info in `coords["t0"]` and `coords["dt"]`
 
 ## Important Implementation Details
 
@@ -278,7 +323,14 @@ Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires 
 - Parallelized over field points (not patches)
 
 **Adding Visualization Methods**:
+- Plane metadata & parsing: `src/pyfield/plotting/plane_utils.py` (`PLANE_META`, `PlaneSpec`, `parse_planes`)
 - 2D/Matplotlib: Add to `src/pyfield/plotting/plotting2D.py`
 - 3D/PyVista helpers: Add to `src/pyfield/plotting/plotting_pyvista.py`
 - 3D/PyVista high-level: Add to `src/pyfield/plotting/plotting3D.py`
 - Export new functions from `src/pyfield/plotting/__init__.py`
+
+**Save/Export Convention** (defined in `src/pyfield/plotting/export_utils.py`):
+- `save_path` = **always a directory** (or `None` to skip saving)
+- `file_name` = **always includes extension** (e.g. `"field.png"`, `"slices.mp4"`)
+- Use helpers: `save_matplotlib_animation`, `save_pyvista_screenshot`, `save_pyvista_movie`
+- Directory creation handled by helpers via `_resolve_export_path`, not by callers

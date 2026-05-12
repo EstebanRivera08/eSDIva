@@ -6,6 +6,14 @@ from matplotlib.gridspec import GridSpec
 
 from pyfield.utilities import to_dB
 
+from .export_utils import _resolve_export_path, save_matplotlib_animation
+from .plane_utils import (
+    AXIS_IDX,
+    PLANE_META,
+    PlaneSpec,
+    compute_plane_extents,
+    parse_planes,
+)
 from .validators import check_coords, check_planes_shape
 
 
@@ -188,7 +196,7 @@ def plot2D_pressure_slices(
     db_scale=True,
     figsize=None,
     save_path=None,
-    file_name="pressure_field",
+    file_name="pressure_field.png",
     video_duration_s=5,
     fps=30,
     centered_to_max=False,
@@ -231,7 +239,8 @@ def plot2D_pressure_slices(
         - 4D: saves one image per frame and attempts to assemble an mp4 via
           ffmpeg (falls back to GIF via pillow).
     file_name : str, optional
-        Base name for saved files (without extension). Default ``"pressure_field"``.
+        File name with extension. Default ``"pressure_field.png"``.
+        For 4D data, image extensions are auto-swapped to ``.mp4``.
     video_duration_s : float, optional
         Total display duration in seconds for 4D data. All frames are spread
         evenly over this duration. Default 5.
@@ -296,7 +305,6 @@ def plot2D_pressure_slices(
     # --- save directory ---
     if save_path is not None:
         save_path = pathlib.Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
         print(f"Output will be saved to: {save_path.resolve()}")
 
     # ==========================================================================
@@ -420,7 +428,7 @@ def plot2D_pressure_slices(
         plt.tight_layout()
 
         if save_path is not None:
-            sp = save_path / f"{file_name}.png"
+            sp = _resolve_export_path(save_path, file_name)
             plt.savefig(sp)
             print(f"\nPlot saved to: {sp}")
 
@@ -594,17 +602,11 @@ def plot2D_pressure_slices(
     )
 
     if save_path:
-        video_path = save_path / f"{file_name}_video.mp4"
-        try:
-            ani.save(str(video_path), writer="ffmpeg", fps=fps, dpi=150)
-            print(f"Video saved: {video_path.resolve()}")
-        except Exception as e:
-            gif_path = save_path / f"{file_name}_video.gif"
-            try:
-                ani.save(str(gif_path), writer="pillow", fps=fps)
-                print(f"GIF saved (ffmpeg unavailable): {gif_path.resolve()}")
-            except Exception as e2:
-                print(f"Video/GIF export failed: {e} | {e2}")
+        # Derive video filename: swap image extensions to .mp4
+        vname = file_name
+        if pathlib.Path(vname).suffix.lower() in {".png", ".jpg", ".jpeg", ".bmp"}:
+            vname = str(pathlib.Path(vname).with_suffix(".mp4"))
+        save_matplotlib_animation(ani, save_path, vname, fps=fps)
 
     plt.show()
     plt.close(fig)
@@ -626,7 +628,7 @@ def plot2D_transient_slices(
     db_scale=True,
     figsize=None,
     save_path=None,
-    file_name="transient_slices",
+    file_name="transient_2Dslices.gif",
     video_duration_s=5,
     fps=30,
     title=None,
@@ -695,96 +697,27 @@ def plot2D_transient_slices(
                 nt = next(iter(pressure_field.values())).shape[0]
             time_array = coords["t0"] + np.arange(nt) * coords["dt"]
 
-    # Plane metadata: axes pair, offset key, index into center_mm
-    _PLANE_META = {
-        "xz": {"axes": ("x", "z"), "ci": 1, "off": "Y",
-                "xlabel": "X (mm)", "ylabel": "Z (mm)"},
-        "xy": {"axes": ("x", "y"), "ci": 2, "off": "Z",
-                "xlabel": "X (mm)", "ylabel": "Y (mm)"},
-        "yz": {"axes": ("y", "z"), "ci": 0, "off": "X",
-                "xlabel": "Y (mm)", "ylabel": "Z (mm)"},
-    }
-
     if label is None:
         label = "Pressure (dB)" if db_scale else "Pressure (a.u.)"
     kwargs.setdefault("cmap", "jet")
 
     # ------------------------------------------------------------------
-    # Resolve input: 4D volume → planes dict
+    # Resolve input: 4D volume / dict / list-of-dicts → PlaneSpec list
     # ------------------------------------------------------------------
-    if isinstance(pressure_field, dict):
-        planes = dict(pressure_field)
-        valid = {"xz", "xy", "yz"}
-        bad = set(planes.keys()) - valid
-        if bad or not planes:
-            raise ValueError(
-                f"Plane keys must be a non-empty subset of {valid}, "
-                f"got {set(planes.keys())}"
-            )
-        for k, v in planes.items():
-            if v.ndim != 3:
-                raise ValueError(
-                    f"Plane '{k}' must be 3D (Nt, N1, N2), got shape {v.shape}"
-                )
-        nt = next(iter(planes.values())).shape[0]
+    plane_specs, center_mm, coords = parse_planes(
+        pressure_field,
+        expected_ndim=3,
+        coords={"x": x, "y": y, "z": z},
+        center_mm=center_mm,
+        center_to_max=center_to_max,
+    )
+    compute_plane_extents(plane_specs, coords)
+    x, y, z = coords["x"], coords["y"], coords["z"]
 
-        _src = {"x": [("xz", 1), ("xy", 1)], "y": [("xy", 2), ("yz", 1)],
-                "z": [("xz", 2), ("yz", 2)]}
-        _c = {"x": x, "y": y, "z": z}
-        for cname, sources in _src.items():
-            if _c[cname] is None:
-                for pk, ax in sources:
-                    if pk in planes:
-                        _c[cname] = np.arange(planes[pk].shape[ax], dtype=float)
-                        break
-                else:
-                    _c[cname] = np.array([0.0])
-        x, y, z = _c["x"], _c["y"], _c["z"]
-
-        if center_mm is None:
-            center_mm = (float(x[len(x) // 2]), float(y[len(y) // 2]),
-                         float(z[len(z) // 2]))
-
-    elif isinstance(pressure_field, np.ndarray) and pressure_field.ndim == 4:
-        nt, nx, ny, nz = pressure_field.shape
-        if x is None:
-            x = np.arange(nx, dtype=float)
-        if y is None:
-            y = np.arange(ny, dtype=float)
-        if z is None:
-            z = np.arange(nz, dtype=float)
-
-        if center_to_max:
-            idx = np.unravel_index(
-                np.nanargmax(np.abs(pressure_field)), pressure_field.shape
-            )
-            _, xi, yi, zi = idx
-        elif center_mm is not None:
-            xi = int(np.argmin(np.abs(x - center_mm[0])))
-            yi = int(np.argmin(np.abs(y - center_mm[1])))
-            zi = int(np.argmin(np.abs(z - center_mm[2])))
-        else:
-            xi, yi, zi = nx // 2, ny // 2, nz // 2
-
-        center_mm = (float(x[xi]), float(y[yi]), float(z[zi]))
-
-        planes = {}
-        if nx > 1 and nz > 1:
-            planes["xz"] = pressure_field[:, :, yi, :]
-        if nx > 1 and ny > 1:
-            planes["xy"] = pressure_field[:, :, :, zi]
-        if ny > 1 and nz > 1:
-            planes["yz"] = pressure_field[:, xi, :, :]
-        if not planes:
-            raise ValueError("No non-degenerate 2D slices in the given 4D field.")
-    else:
-        raise ValueError(
-            "pressure_field must be a 4D ndarray (Nt,Nx,Ny,Nz) or a dict of "
-            "planes with keys from {'xz', 'xy', 'yz'}."
-        )
-
-    coords = {"x": x, "y": y, "z": z}
-    plane_order = [k for k in ("xz", "xy", "yz") if k in planes]
+    # Build ordered dict for frame access
+    plane_order = [ps.name for ps in plane_specs]
+    planes = {ps.name: ps.data for ps in plane_specs}
+    nt = next(iter(planes.values())).shape[0]
 
     # Truncate to the minimum common frame count across planes
     min_nt = min(v.shape[0] for v in planes.values())
@@ -838,37 +771,45 @@ def plot2D_transient_slices(
     n_planes = len(plane_order)
 
     ratios = []
+    plane_spec_map = {ps.name: ps for ps in plane_specs}
     for key in plane_order:
-        meta = _PLANE_META[key]
-        c1, c2 = coords[meta["axes"][0]], coords[meta["axes"][1]]
-        D1 = float(c1.max() - c1.min()) or 1.0
-        D2 = float(c2.max() - c2.min()) or 1.0
+        ps = plane_spec_map[key]
+        # Use per-plane extent (c1_min, c1_max, c2_min, c2_max)
+        ext = ps.extent
+        D1 = (ext[1] - ext[0]) or 1.0
+        D2 = (ext[3] - ext[2]) or 1.0
         ratios.append(D1 / D2)
     ratios = np.array(ratios)
     ratios /= ratios.sum()
 
     fig = plt.figure(figsize=figsize)
     gs = GridSpec(
-        1, n_planes + 1,
+        1,
+        n_planes + 1,
         width_ratios=[*ratios, 0.05 * ratios.max()],
     )
 
     ims = []
     axes = []
     for i, key in enumerate(plane_order):
-        meta = _PLANE_META[key]
-        c1, c2 = coords[meta["axes"][0]], coords[meta["axes"][1]]
-        extent = [c1.min(), c1.max(), c2.max(), c2.min()]
-        off_val = center_mm[meta["ci"]]
+        meta = PLANE_META[key]
+        ps = plane_spec_map[key]
+        ext = ps.extent  # (c1_min, c1_max, c2_min, c2_max)
+        extent = [ext[0], ext[1], ext[3], ext[2]]  # imshow: [left, right, bottom, top]
+        normal_val = ps.translation[AXIS_IDX[meta["normal"]]]
 
         ax = fig.add_subplot(gs[0, i])
         im = ax.imshow(
-            disp[key][0].T, origin="upper", extent=extent,
-            vmin=vmin, vmax=vmax, **kwargs,
+            disp[key][0].T,
+            origin="upper",
+            extent=extent,
+            vmin=vmin,
+            vmax=vmax,
+            **kwargs,
         )
         ax.set_xlabel(meta["xlabel"])
         ax.set_ylabel(meta["ylabel"])
-        ax.set_title(f"{key.upper()} ({meta['off']}={off_val:.2f} mm)")
+        ax.set_title(f"{key.upper()} ({meta['normal'].upper()}={normal_val:.2f} mm)")
         ims.append(im)
         axes.append(ax)
 
@@ -879,8 +820,13 @@ def plot2D_transient_slices(
     # Time text on the middle axis
     mid_ax = axes[len(axes) // 2]
     time_text = mid_ax.text(
-        0.5, 0.97, "t = 0",
-        transform=mid_ax.transAxes, ha="center", va="top", fontsize=11,
+        0.5,
+        0.97,
+        "t = 0",
+        transform=mid_ax.transAxes,
+        ha="center",
+        va="top",
+        fontsize=11,
         color="white",
         bbox=dict(boxstyle="round,pad=0.2", facecolor="black", alpha=0.5),
     )
@@ -890,33 +836,24 @@ def plot2D_transient_slices(
             ims[j].set_data(disp[key][i].T)
         t_val = time_display[frame_indices[i]]
         time_text.set_text(
-            title if title
+            title
+            if title
             else f"t = {t_val:.3f} {time_unit}  ({frame_indices[i] + 1}/{nt})"
         )
         return [*ims, time_text]
 
     ani = FuncAnimation(
-        fig, _update, frames=n_display, interval=interval_ms,
-        blit=True, repeat=False,
+        fig,
+        _update,
+        frames=n_display,
+        interval=interval_ms,
+        blit=True,
+        repeat=False,
     )
 
     if save_path:
-        save_path = pathlib.Path(save_path)
-        save_path.mkdir(parents=True, exist_ok=True)
-        video_path = save_path / f"{file_name}_video.mp4"
-        try:
-            ani.save(str(video_path), writer="ffmpeg", fps=fps, dpi=150)
-            print(f"Video saved: {video_path.resolve()}")
-        except Exception as e:
-            gif_path = save_path / f"{file_name}_video.gif"
-            try:
-                ani.save(str(gif_path), writer="pillow", fps=fps)
-                print(f"GIF saved: {gif_path.resolve()}")
-            except Exception as e2:
-                print(f"Export failed: {e} | {e2}")
+        save_matplotlib_animation(ani, save_path, file_name, fps=fps)
 
     plt.show()
     plt.close(fig)
-    print(
-        f"Done — {n_display}/{nt} frames at {fps} fps ({video_duration_s:.1f} s)."
-    )
+    print(f"Done — {n_display}/{nt} frames at {fps} fps ({video_duration_s:.1f} s).")

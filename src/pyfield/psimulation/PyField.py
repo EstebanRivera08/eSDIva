@@ -355,9 +355,12 @@ class PyField:
 
         is_structured = isinstance(field_points_mm, dict)
 
-        x, y, z, field_points_mm = create_3D_spatial_grid_from_points(
-            field_points_mm, create_meshgrid=create_meshgrid
-        )
+        if is_structured or create_meshgrid:
+            x, y, z, field_points_mm = create_3D_spatial_grid_from_points(
+                field_points_mm
+            )
+        else:
+            x, y, z = None, None, None
 
         start = time.time()
         h_sir, self.t0 = self.compute_sir(

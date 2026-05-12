@@ -46,7 +46,8 @@ bowl = ConcaveCircularTransducer(
 )
 
 sim = PyField(bowl, c=1540.0, fs=100e6)
-x, y, z, p = sim(xz_grid, method="auto")
+p, coords = sim(xz_grid, method="auto")
+x, y, z = coords["x"], coords["y"], coords["z"]
 plot2D_pressure_slices(p / p.max(), x=x, y=y, z=z)
 ```
 

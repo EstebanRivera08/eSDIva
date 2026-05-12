@@ -24,45 +24,48 @@ if __name__ == "__main__":
     # --- Configuration ---
     n_vs = 3  # Number of virtual sources to optimize
     use_gpu = True
-    data_folder = r"results/newlosses/"
+    data_folder = r"results/twolearnings/"
     optimizer_type = "SGD"  # Adam works better with few params
     use_phase = False  # optimize for energy only (ignore phase)
 
     energy_weight = 1  # 1e-2
-    resolution_weight = 0
-    symmetry_weight = 0  # not used in this version
+    resolution_weight = 1
+    symmetry_weight = 10  # not used in this version
     aperture_weight = 1
-    coverage_weight = 10
-    comment2 = "_init2_E_aper_equiv_cov10_random"
+    coverage_weight = 5
+    comment2 = "init1_E_aper_1equiv_cov5_sym10_res1"
     # comment2 = ""
 
     avg_energy_value, avg_resolution_value = 500, 0.3  # for normalization in loss
 
     num_epochs = 500
-    lr = 1e-2  # log-mean gives stronger gradient -> can use higher LR
+    lr_pos = 1e-1
+    lr_apod = 1e-2  # log-mean gives stronger gradient -> can use higher LR
     x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
     z_init = [-10, -10, -10]  # mm, initial z positions of virtual sources
-    x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
-    z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
+    # x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
+    # z_init = [-15, -15, -15]  # mm, initial z positions of virtual sources
     # x_init = np.random.uniform(-10, 10, size=n_vs)  # Random initial x positions
     # z_init = np.random.uniform(-15, 0, size=n_vs)  # Random initial z positions
     fs = 50e6  # Hz, sampling frequency for field computation
 
-    if resolution_weight == 0:
-        ratio = "inf"
-    else:
-        ratio = (
-            round(
-                1000
-                * energy_weight
-                * avg_energy_value
-                / (resolution_weight * avg_resolution_value)
-            )
-            / 1000
-        )
-        ratio = f"{ratio:.3f}"
+    # if resolution_weight == 0:
+    #     ratio = "inf"
+    # else:
+    #     ratio = (
+    #         round(
+    #             1000
+    #             * energy_weight
+    #             * avg_energy_value
+    #             / (resolution_weight * avg_resolution_value)
+    #         )
+    #         / 1000
+    #     )
+    #     ratio = f"{ratio:.3f}"
+    #
+    # ratio += f"_E{round(1000 * energy_weight) / 1000:.3f}"
 
-    ratio += f"_E{round(1000 * energy_weight) / 1000:.3f}"
+    ratio = "fd2_n1"
     if use_phase:
         comment = "AmpAndPhase"
     else:
@@ -92,7 +95,7 @@ if __name__ == "__main__":
         "dz": 2,
     }
     # Save results
-    output_file = f"vs{n_vs}_lr{lr}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
+    output_file = f"vs{n_vs}_lrpos{lr_pos}_lrapod{lr_apod}_nepoch{num_epochs}_{optimizer_type}{version}.npz"
 
     # Test with different numbers of virtual sources
     print(f"\n{'=' * 70}")
@@ -105,7 +108,8 @@ if __name__ == "__main__":
         n_virtual_sources=n_vs,
         field_points=field_points,
         num_epochs=num_epochs,
-        lr=lr,
+        lr=lr_pos,
+        lr_apod=lr_apod,
         resolution_weight=resolution_weight,
         energy_weight=energy_weight,
         coverage_weight=coverage_weight,
@@ -117,8 +121,8 @@ if __name__ == "__main__":
         optimizer_type=optimizer_type,
         x_init_mm=x_init[:n_vs],
         z_init_mm=z_init[:n_vs],
-        FD_init=1,
-        n_gauss_init=4,
+        FD_init=2,
+        n_gauss_init=1,
         fs=fs,
         use_phase=use_phase,
         coverage_threshold_db=-10,  # for soft coverage loss

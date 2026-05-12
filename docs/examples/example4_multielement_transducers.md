@@ -36,11 +36,11 @@ probe.compute_delays(focus_mm=[-2, 0, 8])
 probe.compute_apodization(focus_mm=[-2, 0, 8], FoverD=1)
 
 sim = PyField(probe)
-x, y, z, p = sim(field_point_mm, method="auto")
+p, coords = sim(field_point_mm, method="auto")
 
 # Build PyVista meshes
 tx_mesh = probe.get_mesh()
-pr_mesh = create_3Dvol_mesh(x, y, z, p / p.max(), scalars="Pressure")
+pr_mesh = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p / p.max(), scalars="Pressure")
 
 # Render
 plotter = pv.Plotter()

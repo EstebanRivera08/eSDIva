@@ -38,9 +38,9 @@ All modes use the same entry point:
 from pyfield.psimulation import PyField
 
 sim = PyField(tx)
-x, y, z, p = sim(field_points, method="auto")                # monochromatic
-x, y, z, p = sim(field_points, method="auto", monochromatic=False)  # transient impulse
-x, y, z, t, p = sim(field_points, method="auto", excitation=pulse)  # transient + excitation
+p, coords = sim(field_points, method="auto")                # monochromatic
+p, coords = sim(field_points, method="auto", monochromatic=False)  # transient impulse
+p, coords = sim(field_points, method="auto", excitation=pulse)  # transient + excitation
 ```
 
 ## Method selection
@@ -51,7 +51,9 @@ x, y, z, t, p = sim(field_points, method="auto", excitation=pulse)  # transient 
 | `"naive"` | Sample-by-sample evaluation | Small grids, reference results |
 | `"sdi"` | Sparse Delta Integration | Large or dense field grids |
 
-## Field grid format
+## Field input format
+
+### Structured grid (dict)
 
 ```python
 field_points = {
@@ -65,6 +67,19 @@ field_points = {
 ```
 
 Set one dimension to a single value with `d=0` to compute a 2-D plane.
+
+Returns `p.shape = (Nx, Ny, Nz)` (monochromatic) or `(Nt, Nx, Ny, Nz)` (transient), with `coords` containing `"x"`, `"y"`, `"z"` arrays.
+
+### Raw point array
+
+```python
+pts = np.array([[x1, y1, z1], [x2, y2, z2], ...])  # (N, 3) in mm
+p, coords = sim(pts, method="auto")
+# p.shape == (N_points,)  — monochromatic
+# p.shape == (Nt, N_points)  — transient
+```
+
+Raw input returns a flat pressure array. User handles reshaping. `coords` omits `"x"`, `"y"`, `"z"` (only `"t0"`, `"dt"` for transient). Use dict input or `compute_mesh=True` for automatic grid construction.
 
 ## Medium properties
 

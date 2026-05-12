@@ -19,6 +19,10 @@ CENTRAL_FREQUENCY_MHz = 1  # MHz
 SPEED_OF_SOUND_MS = 1540  # m/s
 FIG_NAME = "zeus_pad_transient"
 FOLDER_NAME = "./figures/"
+DB_SCALE = False
+PLANE_WAVE = True
+PLOT_2D = True
+PLOT_3D = False
 
 lambda_mm = SPEED_OF_SOUND_MS / (CENTRAL_FREQUENCY_MHz * 1e3)  # mm
 element_diameter_mm = 2.9 * lambda_mm
@@ -50,30 +54,33 @@ list_of_elements = []
 for i in range(num_elements):
     list_of_elements.append(monoelement)
 
+
 transducer = CustomTransducer(
     elements=list_of_elements,
     positions_mm=element_positions_m * 1e3,
     normals=element_normal_vectors_m,
 )
 
-zmax_elements = np.max(element_positions_m[:, 2])
-virtual_plane_array = np.concatenate(
-    [element_positions_m[:, :2], np.ones((num_elements, 1)) * zmax_elements], axis=1
-)
-distance_to_virtual_plane_m = np.linalg.norm(
-    geometric_focus_m - virtual_plane_array, axis=1
-)
-delay_s = distance_to_virtual_plane_m / (SPEED_OF_SOUND_MS)  # s
-# delay_s = np.max(delay_s) - delay_s  # invert to get delays for plane wave
-transducer.set_delays(delay_s)
+
+if PLANE_WAVE:
+    zmax_elements = np.max(element_positions_m[:, 2])
+    virtual_plane_array = np.concatenate(
+        [element_positions_m[:, :2], np.ones((num_elements, 1)) * zmax_elements], axis=1
+    )
+    distance_to_virtual_plane_m = np.linalg.norm(
+        geometric_focus_m - virtual_plane_array, axis=1
+    )
+    delay_s = distance_to_virtual_plane_m / (SPEED_OF_SOUND_MS)  # s
+    # delay_s = np.max(delay_s) - delay_s  # invert to get delays for plane wave
+    transducer.set_delays(delay_s)
 
 transducer.show(scalars="Delays", show_edges=False)
-breakpoint()
+# breakpoint()
 # compute field
 center_mm = (0, 0, 100)
-x_extent_mm = (-40, 40)
-z_extent_mm = (50, 150)
-y_extent_mm = (-40, 40)
+x_extent_mm = (-50, 50)
+z_extent_mm = (10, 150)
+y_extent_mm = (-50, 50)
 dx_mm = 1
 dy_mm = 1
 dz_mm = 1
@@ -108,61 +115,70 @@ txsim = PyField(transducer, fs=sampling_frequency_Hz)
 # Transient simulation — each plane returns (p, coords) with p=(Nt, Nx, Ny, Nz)
 pxz, coords_xz = txsim(plane_xz_dict, monochromatic=False)
 pyz, coords_yz = txsim(plane_yz_dict, monochromatic=False)
-pxy, coords_xy = txsim(plane_xy_dict, monochromatic=False)
+# pxy, coords_xy = txsim(plane_xy_dict, monochromatic=False)
 
-common_t, [pxz_a, pyz_a, pxy_a] = align_to_common_time(
-    [(pxz, coords_xz), (pyz, coords_yz), (pxy, coords_xy)]
+common_t, [pxz_a, pyz_a] = align_to_common_time(
+    [(pxz, coords_xz), (pyz, coords_yz)],
+    align_to_shorter=True,
+    # (pxy, coords_xy)]
 )
 
-x = coords_xz["x"]
-y = coords_yz["y"]
-z = coords_xz["z"]
-
-# Build planes dict — squeeze singleton spatial dims → (Nt, N1, N2)
-planes = {
-    "xz": pxz_a.squeeze(),
-    "xy": pxy_a.squeeze(),
-    "yz": pyz_a.squeeze(),
+coords = {
+    "x": coords_xz["x"],
+    "y": coords_yz["y"],
+    "z": coords_xz["z"],
 }
+
+# Build planes list with offset tracking — squeeze singleton spatial dims → (Nt, N1, N2)
+planes = [
+    {"plane": "xz", "data": pxz_a.squeeze(), "translation": (0, center_mm[1], 0)},
+    {"plane": "yz", "data": pyz_a.squeeze(), "translation": (center_mm[0], 0, 0)},
+    # {"plane": "xy", "data": pxy_a.squeeze(), "translation": (0, 0, center_mm[2])},
+]
 
 # --- 2D transient animation (matplotlib) ---
 save_path = FOLDER_NAME
-file_name = FIG_NAME + "_2D.gif"
-# plot2D_transient_slices(
-#     planes,
-#     x,
-#     y,
-#     z,
-#     time_array=common_t,
-#     center_mm=center_mm,
-#     db_scale=True,
-#     # save_path=save_path,
-#     file_name=file_name,
-#     cmap="jet",
-#     vmin=-40,
-#     vmax=0,
-#     figsize=(18, 6),
-# )
-#
+comment1 = "dB" if DB_SCALE else "linear"
+comment2 = "plane_wave" if PLANE_WAVE else "focused"
+file2D_name = FIG_NAME + f"_{comment1}_{comment2}_2D.gif"
+file3D_name = FIG_NAME + f"_{comment1}_{comment2}_3D.gif"
+
+
+if PLOT_2D:
+    plot2D_transient_slices(
+        planes,
+        coords=coords,
+        time_array=common_t,
+        db_scale=DB_SCALE,
+        save_path=save_path,
+        file_name=file2D_name,
+        cmap="jet",
+        # vmin=-20,
+        # vmax=0,
+        figsize=(12, 6),
+    )
+
 # --- 3D transient with transducer (PyVista) ---
-transducer_mesh = transducer.get_mesh()
 
+if PLOT_3D:
+    transducer_mesh = transducer.get_mesh()
 
-plotter = add_transducer_mesh(transducer_mesh, window_size=(800, 800), show_edges=False)
+    plotter = add_transducer_mesh(
+        transducer_mesh, window_size=(800, 800), show_edges=False
+    )
 
-plotter = plot3D_transient_slices(
-    planes,
-    x,
-    y,
-    z,
-    db_scale=True,
-    # save_path=save_path,
-    time_array=common_t,
-    center_mm=center_mm,
-    plotter=plotter,
-    vmin=-40,
-    vmax=0,
-    cmap="jet",
-)
+    plotter = plot3D_transient_slices(
+        planes,
+        coords=coords,
+        db_scale=DB_SCALE,
+        save_path=save_path,
+        file_name=file3D_name,
+        time_array=common_t,
+        center_mm=center_mm,
+        plotter=plotter,
+        # vmin=-20,
+        # vmax=0,
+        cmap="jet",
+    )
 
-del plotter, transducer_mesh
+    del plotter, transducer_mesh

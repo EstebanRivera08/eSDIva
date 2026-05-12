@@ -1,6 +1,11 @@
 # plotting module for 2D and 3D representations
 
-
+from .export_utils import (
+    save_matplotlib_animation,
+    save_pyvista_movie,
+    save_pyvista_screenshot,
+)
+from .plane_utils import AXIS_IDX, PLANE_META, PlaneSpec, parse_planes
 from .plotting2D import (
     plot2D_planes,
     plot2D_pressure_plane,
@@ -24,6 +29,15 @@ from .pyvista_functions import (
 )
 
 __all__ = [
+    # Export utilities
+    "save_matplotlib_animation",
+    "save_pyvista_screenshot",
+    "save_pyvista_movie",
+    # Plane utilities
+    "AXIS_IDX",
+    "PLANE_META",
+    "PlaneSpec",
+    "parse_planes",
     # 2D matplotlib plotting functions
     "plot2D_planes",
     "plot2D_pressure_plane",

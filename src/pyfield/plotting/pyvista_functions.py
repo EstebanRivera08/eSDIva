@@ -58,7 +58,7 @@ def _set_custom_style(plotter, *, scale=1.0):
     cube_actor = plotter.show_bounds(
         grid="back",
         color="black",
-        font_size=int(18 * scale),
+        font_size=int(12 * scale),
         location="outer",
         xtitle="X (mm)",
         ytitle="Y (mm)",
@@ -101,7 +101,22 @@ def create_3Dvol_mesh(vol_matrix, x=None, y=None, z=None, *, scalars="Values"):
     pyvista.ImageData
         The volume mesh with attached scalar data.
     """
-    nx, ny, nz = vol_matrix.shape
+
+    if vol_matrix.ndim == 3:
+        nx, ny, nz = vol_matrix.shape
+    elif vol_matrix.ndim == 4:
+        nt, nx, ny, nz = vol_matrix.shape
+
+        if nt != 1:
+            raise ValueError(
+                f"Expected vol_matrix to have shape (1, nx, ny, nz) or (nx, ny, nz), but got {vol_matrix.shape}"
+            )
+        else:
+            vol_matrix = vol_matrix[0]  # Remove the time dimension
+    else:
+        raise ValueError(
+            f"Expected vol_matrix to have 3 dimensions (1, nx, ny, nz) or (nx, ny, nz), but got {vol_matrix.ndim}"
+        )
 
     if x is None or y is None or z is None:
         # Create default coordinate arrays based on the shape of vol_matrix

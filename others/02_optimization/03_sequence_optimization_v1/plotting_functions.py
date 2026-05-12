@@ -193,25 +193,25 @@ def plot_virtual_source_results(results, output_file=None):
         steepness = vs_history[:, vs_idx, 2].squeeze()
         FD = vs_history[:, vs_idx, 3].squeeze()
         ax1.plot(
-            (steepness - steepness[0]),
+            steepness,
             "-",
             label=f"steepness [vs_idx={vs_idx}]",
             color=colors[vs_idx],
         )
         ax2.plot(
-            (FD - FD[0]),
+            FD,
             "--",
             label=f"FD [vs_idx={vs_idx}]",
             color=colors[vs_idx],
         )
 
     ax1.set_xlabel("Epoch")
-    ax1.set_ylabel("\Delta Steepness")
-    ax2.set_ylabel("\Delta FD (mm)")
+    ax1.set_ylabel("n_gauss")
+    ax2.set_ylabel("FD (mm)")
     plt.legend()
     plt.grid(True)
-
     plt.tight_layout()
+
     if output_file is not None:
         # create path
         from pathlib import Path
