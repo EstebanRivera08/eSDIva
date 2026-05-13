@@ -1,0 +1,35 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "Bash(move \"src\\\\pyfield\\\\h_sir\\\\_init_.py\" \"src\\\\pyfield\\\\h_sir\\\\__init__.py\")",
+      "Bash(uv sync:*)",
+      "Bash(uv run python:*)",
+      "Bash(python:*)",
+      "Bash(pwsh -c \"$env:PYTHONUTF8=''1''; uv run prek run numpydoc-validation --all-files\")",
+      "Bash(pwsh -c:*)",
+      "Bash(bash -c 'JQ=\"\"/c/Users/INSERM/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe/jq.exe\"\"; echo \"\"{\\\\\"\"model\\\\\"\":\\\\\"\"claude-opus-4-6\\\\\"\"}\"\" | \"\"$JQ\"\" -r \"\".model // \\\\\"\"Claude\\\\\"\"\"\" 2>&1')",
+      "Bash(JQ=\"/c/Users/INSERM/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe/jq.exe\")",
+      "Bash(\"$JQ\" -r '.model // \"\"Claude\"\"')",
+      "Bash(echo:*)",
+      "Bash(\"/c/Users/INSERM/AppData/Local/Microsoft/WinGet/Packages/jqlang.jq_Microsoft.Winget.Source_8wekyb3d8bbwe/jq.exe\" -r '.model')",
+      "Bash(printf:*)",
+      "Bash(bash:*)",
+      "WebSearch",
+      "WebFetch(domain:journals.plos.org)",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
+      "WebFetch(domain:www.mdpi.com)",
+      "Bash(ls -la \"C:\\\\Users\\\\INSERM\\\\Documents\\\\Esteban\\\\Agents\\\\outputs\"\" && ls -la \"C:UsersINSERMDocumentsEstebanAgentsoutputs.plans\"\")",
+      "Bash(ls -la \"C:\\\\Users\\\\INSERM\\\\Documents\\\\Esteban\\\\PyField\\\\src\\\\pyfield\\\\plotting\"\" 2>/dev/null && ls -la \"C:UsersINSERMDocumentsEstebanPyFieldsrcpyfieldutilities\"\")",
+      "Bash(find:*)",
+      "Bash(python3:*)",
+      "Bash(uv run pytest:*)",
+      "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import inspect, pyvista; print\\(inspect.getsource\\(pyvista.Plotter.open_gif\\)\\)\")",
+      "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import imageio; print\\(imageio.plugins.ffmpeg.get_exe\\(\\)\\)\")",
+      "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import imageio; w = imageio.get_writer\\(''test.mp4''\\); print\\(dir\\(w\\)\\)\")",
+      "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import imageio; w = imageio.get_writer\\(''test.mp4''\\); print\\(type\\(w.instance\\)\\); print\\(w.format\\)\")",
+      "Bash(uv pip show:*)"
+    ]
+  }
+}

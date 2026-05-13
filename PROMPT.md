@@ -1,44 +1,32 @@
+Looking at the .claude/rules/physical-context I have one hypothesis:
 
-I want to standardize the saving logic across all plotting functions.  
-The following structure is close to what I want (it would need to be modified for 3D and
-pyvista):
+# Hypothesis: Receive signal (simulation of RF) with the SDI is faster
 
-```python
-if save_path:
-    save_path = pathlib.Path(save_path)
-    save_path.mkdir(parents=True, exist_ok=True)
-    video_path = save_path / file_name
+From the development of the SDI, we see that the implementation computes directly a
+sparse distribution of deltas that represents the second derivative of the spatial
+impulse response, And the, to retrieve the SIR, we perform two integrations. This is how 
+PyField works to compute transmitted pressure fields, for instance.
 
-    if video_path.suffix.lower() not in {".mp4", ".avi", ".mov"}:
-        try:
-            ani.save(str(video_path), writer="ffmpeg", fps=fps, dpi=150)
-            print(f"Video saved: {video_path.resolve()}")
-        except Exception as e:
-            gif_path = video_path.with_suffix(".gif")
-            try:
-                ani.save(str(gif_path), writer="pillow", fps=fps)
-                print(f"GIF saved: {gif_path.resolve()}")
-            except Exception as e2:
-                print(f"Export failed: {e} | {e2}")
-    else:
-        try:
-            ani.save(str(video_path), writer="ffmpeg", fps=fps, dpi=150)
-            print(f"Video saved: {video_path.resolve()}")
-        except Exception as e:
-            print(f"Video export failed: {e}")
-```
+However, I am now interested in receive pressure fields (or simulation of RF data). By
+looking at the alternative form in section 7 of the equation derived by Jensen, we can
+compute this received pressure field with using the second and the first time derivative
+of the SIR. Interestingly, the SDI method computes the second derivative directly, and
+then after one integration it will find the first derivative. So this computation can be
+higher speed up using the SDI method.
 
-The idea is:
+# Goal: implement the receiving signal computation in PyField using the SDI method
 
-- If the user provides a filename with a supported video extension (`.mp4`, `.avi`, `.mov`), try saving directly with ffmpeg.
-- If the extension is missing or unsupported, attempt saving as a video first, and if that fails, fall back to GIF (which is less error‑prone).
-- This logic should be **shared by all plotting functions**, so consider implementing a **single (or 2 if not integrable between matplot and pyvista) reusable helper function** that handles:
-  - path creation  
-  - extension detection  
-  - ffmpeg save attempt  
-  - GIF fallback  
-  - consistent error reporting  
+I'm thinking in this organization, if you find a better way suggest it:
 
-The goal is to avoid duplicated save logic and ensure all plotting functions behave consistently.
+1) in pyfield\h_sir\ we can implement the methods for computing the dh/dt and d2h/dt2
+using the SDI method. This will be the core of the implementation, and we can test it
+with some simple cases. This just needs to replicate numba the far_field_sir.py file but
+truncating the integrations. 
 
+2) the RF_simulation is going to be a class located at pyfield\psimulation\ that will be
+responsible for simulating the RF data. This class will use the methods implemented in
+step 1 to compute the received pressure fields and maybe common helper_functions of
+PyFields class.
+
+3) API, we create the instance 
 

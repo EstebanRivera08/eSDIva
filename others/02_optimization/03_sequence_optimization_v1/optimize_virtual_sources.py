@@ -40,7 +40,7 @@ if __name__ == "__main__":
 
     num_epochs = 500
     lr_pos = 1e-1
-    lr_apod = 1e-2  # log-mean gives stronger gradient -> can use higher LR
+    lr_apod = 1e-1  # log-mean gives stronger gradient -> can use higher LR
     x_init = [-5, 0, 5]  # mm, initial x positions of virtual sources
     z_init = [-10, -10, -10]  # mm, initial z positions of virtual sources
     # x_init = [-10, 0, 10]  # mm, initial x positions of virtual sources
@@ -65,7 +65,7 @@ if __name__ == "__main__":
     #
     # ratio += f"_E{round(1000 * energy_weight) / 1000:.3f}"
 
-    ratio = "fd2_n1"
+    ratio = "fd2_n10"
     if use_phase:
         comment = "AmpAndPhase"
     else:

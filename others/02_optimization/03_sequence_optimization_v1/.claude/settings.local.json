@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+      "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:svetoslavnikolov.wordpress.com)",
+      "WebFetch(domain:www.nature.com)",
+      "WebFetch(domain:www.biomecardio.com)",
+      "WebFetch(domain:www.mdpi.com)",
+      "WebFetch(domain:en.wikipedia.org)",
+      "WebFetch(domain:link.springer.com)",
+      "WebFetch(domain:www.ecei.tohoku.ac.jp)"
+    ]
+  }
+}

@@ -10,7 +10,10 @@ PyField is a Python acoustic field simulator based on the Tupholme–Stepanishen
 Impulse Response (SIR) method. It models arbitrary transducer geometries as collections 
 of rectangular patches and computes pressure fields via convolution with excitation pulses.
 
-IMPORTANT: For programming guidelines see @AGENTS.md. !
+Guidelines are loaded automatically from `.claude/rules/`:
+- **coding-guidelines** — code style, testing, commits (always loaded)
+- **physics-context** — SIR/SDI theory (loaded when touching `h_sir/`, `psimulation/`, `transducers/`)
+- **transducers** — geometry conventions, subdivision, z-convention (loaded when touching `transducers/`)
 
 When the user says **"documentation"** or **"the docs"**, they mean the `docs/` folder (MkDocs site). Update the relevant `.md` file there whenever the corresponding code changes.
 
@@ -253,58 +256,9 @@ Each transducer stores:
 
 Delays and apodization can be recomputed for different focal points without recreating the transducer.
 
-### Mono-Element vs Multi-Element Transducers
-`compute_delays()` and `compute_apodization()` are designed for element-level
-beamforming (multi-element arrays like linear, convex, and matrix transducers).
-
-For **mono-element transducers** (all circular types: flat, concave, convex, focused):
-- `compute_delays()` is ignored with a warning — the entire aperture surface acts
-  simultaneously, so element-level delays do not apply.
-- `compute_apodization()` returns uniform weights with a warning. However, **patch-wise
-  apodization** is physically meaningful (e.g. apodizing the aperture edge) and can be
-  set directly via `set_apodization()`.
-- Geometric focusing for mono-element transducers is achieved by the physical curvature
-  of the surface, not by electronic delays.
-
-### focus_mm Definition (Concave / Convex / Focused Circular)
-`focus_mm` **equals the axial z-depth from the rim plane to the geometric focus**.
-The radius of curvature is derived: `R = sqrt(focus_mm² + (D/2)²)`.
-- `focus_mm = 0` produces a hemisphere (`R = D/2`).
-- Must satisfy `focus_mm >= 0`.
-- Internal attribute `self.radius_of_curvature` stores R in metres.
-
-### Z-Convention for Curved Transducers
-Rim is always at z = 0. Focus/medium is in the +z direction.
-- **ConcaveCircular**: bowl pole (deepest point) at z = -sag, rim at z = 0, focus at z = +focus_mm.
-- **ConvexCircular**: dome apex at z = +sag, rim at z = 0.
-- **FocusedCircular**: curved-axis edges at z = 0, center at z = -sag.
-- **FlatCircular**: entire face at z = 0.
-
-`sag = R - sqrt(R² - (D/2)²)`. Both spherical and cartesian methods enforce this convention.
-
-### Surface Subdivision Methods
-- **ConcaveCircular / ConvexCircular**: Configurable via `method` parameter:
-  - `"spherical"` (default): Ring-based spherical-coordinate tiling
-    (`subdivide_spherical_cap`).  Works at any curvature including hemispheres.
-  - `"cartesian"`: Cartesian parameter-space grid (`subdivide_parametric_surface`).
-- **All 4 circular types** (Flat, Concave, Convex, Focused) share unified parameters:
-  - `ratio_big_patches` (float 0--1, default 0.85): For spherical method controls inner
-    ring refinement near the pole; for cartesian / `_tile_disk` controls the border
-    refinement zone.
-  - `refine_factor` (int, default 3): Number of sub-rings (spherical) or subdivision
-    factor (cartesian / flat).
-- **Overlap warnings**: Spherical method warns if patch/R ratio > 0.3; cartesian method
-  warns if coverage exceeds 102%.
-- **`normalize_patch_size`** (bool, default `False`): When `True`, patch `wu`/`wv` are
-  set to the arc-length parameter step (`ddu`, `ddv`) ignoring the local Jacobian stretch.
-  Produces uniform patch sizes across the aperture. Critical for hemispheres where the
-  Jacobian diverges near the rim; also reduces variation for moderate curvatures. Available
-  on `ConcaveCircularTransducer` and `ConvexCircularTransducer` (cartesian method only).
-- **ConvexCircular cartesian parameterization**: uses arc-length reparameterization
-  (`x = R*sin(sx/R)`) matching ConcaveCircular. Previously used direct `(x,y)` which
-  caused Jacobian → ∞ near the hemisphere rim.
-- Old parameters removed: `center_refine`, `border_refine`,
-  `filled_radius_with_big_patches`, `subdivision_method`.
+### Transducer Details
+See `.claude/rules/transducers.md` — loaded automatically when touching transducer code.
+Covers: mono vs multi-element, focus_mm, z-convention, subdivision methods.
 
 ### Brain Atlas Integration
 Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires downloading atlas data (e.g., rat, mouse atlases) on first use.
