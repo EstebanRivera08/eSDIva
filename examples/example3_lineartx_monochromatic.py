@@ -21,14 +21,14 @@ Run with:
 
 import numpy as np
 
-import pyfield.transducers as transducers
-from pyfield.psimulation import PyField
-from pyfield.plotting import plot2D_pressure_slices
-
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
+
+import pyfield.transducers as transducers
+from pyfield.plotting import plot2D_pressure_slices
+from pyfield.psimulation import PyField
 
 # Steering configuration
 VIRTUAL_FOCUS_MM = [0, 0, -1]  # Behind the array → diverging wave

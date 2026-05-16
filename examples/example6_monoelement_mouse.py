@@ -25,20 +25,20 @@ import gc
 import numpy as np
 import pyvista as pv
 
-from pyfield.psimulation import PyField
-from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.utilities import BG_Atlas
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+from config import FIG_FOLDER, SAVE_FIG, SCALE
+
 from pyfield.plotting import (
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
     create_3Dvol_mesh,
 )
-
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-from config import FIG_FOLDER, SAVE_FIG, SCALE
+from pyfield.psimulation import PyField
+from pyfield.transducers import ConcaveCircularTransducer
+from pyfield.utilities import BG_Atlas
 
 WIN_W, WIN_H = 800, 600
 
@@ -86,7 +86,7 @@ p, coords = mouse_sim(
 )
 
 pressure_vol = create_3Dvol_mesh(
-    coords["x"], coords["y"], coords["z"], p / p.max(), scalars="Pressure"
+    p / p.max(), coords["x"], coords["y"], coords["z"], scalars="Pressure"
 )
 del p, coords, mouse_sim
 gc.collect()

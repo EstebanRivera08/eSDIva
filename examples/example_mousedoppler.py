@@ -107,8 +107,7 @@ pressure_field, coords = Domino_field(field_info_mm, normalize=True)
 
 # Compute the pressure volume mesh
 pressure_vol_mesh = create_3Dvol_mesh(
-    coords["x"], coords["y"], coords["z"], pressure_field,
-    scalars="Pressure (a.u.)"
+    pressure_field, coords["x"], coords["y"], coords["z"], scalars="Pressure (a.u.)"
 )
 
 # ------------------ Transform the meshes --------------------

@@ -105,8 +105,8 @@ field_info_mm = {
     "dz": 0.05,
 }
 pr, coords = sim(field_info_mm)
-pressure_vol_mesh = create_3Dvol_mesh(
-    coords["x"], coords["y"], coords["z"], pr / pr.max(), scalars="Pressure"
+pressure_vol_mesh = create_3Dvol_mesh(pr/pr.max())
+    coords["x"], coords["y"], coords["z"],  scalars="Pressure"
 )
 
 # ============================================================================

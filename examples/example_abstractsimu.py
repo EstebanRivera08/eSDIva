@@ -99,8 +99,11 @@ p_matrixfield2, coords2 = matrix_field(field_point_mm, method="auto")
 # TX + Pressure
 transducer2_mesh = matrix_array_probe.get_mesh()
 pressure2_mesh = create_3Dvol_mesh(
-    coords2["x"], coords2["y"], coords2["z"],
-    p_matrixfield2 / p_matrixfield2.max(), scalars="Pressure"
+    p_matrixfield2 / p_matrixfield2.max(),
+    coords2["x"],
+    coords2["y"],
+    coords2["z"],
+    scalars="Pressure",
 )
 
 if save_fig:

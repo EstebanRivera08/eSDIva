@@ -19,8 +19,11 @@ from pathlib import Path
 
 import pyvista as pv
 
-from pyfield.psimulation import PyField
-from pyfield.transducers import ConcaveCircularTransducer
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+from config import FIG_FOLDER, SAVE_FIG, SCALE
+
 from pyfield.plotting import (
     add_pressure_vol,
     add_stl_mesh,
@@ -28,11 +31,8 @@ from pyfield.plotting import (
     create_3Dvol_mesh,
     load_mesh_from_stl,
 )
-
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-from config import FIG_FOLDER, SAVE_FIG, SCALE
+from pyfield.psimulation import PyField
+from pyfield.transducers import ConcaveCircularTransducer
 
 WIN_W, WIN_H = 500, 600
 
@@ -112,7 +112,7 @@ else:
 print(" Creating 3-D visualisation...")
 
 pressure_vol = create_3Dvol_mesh(
-    coords["x"], coords["y"], coords["z"], p_norm, scalars="Pressure"
+    p_norm, coords["x"], coords["y"], coords["z"], scalars="Pressure"
 )
 tx_mesh = transducer.get_mesh()
 

@@ -3,8 +3,6 @@ import numpy as np
 
 import pyfield.transducers as Transducers
 from pyfield.cache import DopplerScan
-from pyfield.psimulation import PyField
-from pyfield.utilities import BG_Atlas, compute_affine_from_markers
 from pyfield.plotting import (
     add_2D_image,
     add_3D_vol,
@@ -14,6 +12,8 @@ from pyfield.plotting import (
     add_transducer_mesh,
     create_3Dvol_mesh,
 )
+from pyfield.psimulation import PyField
+from pyfield.utilities import BG_Atlas, compute_affine_from_markers
 
 # ----------------- Get the scan objects --------------------
 print("\n --- Example 4: BPS with brain markers --- \n")
@@ -134,8 +134,7 @@ if plot_tx_pr:
     # # Compute the pressure volume mesh
     # Compute the pressure volume mesh
     pressure_vol_mesh = create_3Dvol_mesh(
-        coords["x"], coords["y"], coords["z"], pressure_field,
-        scalars="Pressure (PII)"
+        pressure_field, coords["x"], coords["y"], coords["z"], scalars="Pressure (PII)"
     )
 # ------------------ Code for plotting --------------------
 
