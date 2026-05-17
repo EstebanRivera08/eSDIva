@@ -99,6 +99,7 @@ field_info_mm = {
     "dy": 0.025,
     "dz": 0.05,
 }
+
 pressure_field, coords = Domino_field(field_info_mm)
 # The first time you call the function from one script there is
 # an additional deadtime in the simulation for compiling and organize
