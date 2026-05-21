@@ -148,58 +148,96 @@ Alternative form (derivatives on SIRs, used in SDI):
 | tau_m | delay array | Per-patch delay (s) |
 | M | `n_patches` | Total number of patches |
 
-## 8. Attenuation in SIR Simulations
+## 8. Emitted Pressure Field
 
-**Critical constraint**: Full dispersive attenuation inside SIR integral is
-theoretically correct but computationally intractable. Each aperture point has
-different propagation distance → each ray needs different attenuation kernel →
-breaks SIR closed-form solution.
+For pulsed excitation v_n(t) = delta(t), emitted pressure ∝ SIR:
 
-**Full model** (correct physics, not tractable):
+    p_e,delta(r, t) ∝ h(r, t)
 
-    h_att(t, r) = integral_S a(t - tau, |r + r1|) * delta(tau - |r + r1|/c) / |r + r1| dS dtau
+Monochromatic pressure amplitude at center frequency omega_c:
 
-Each ray from aperture surface S has its own attenuation kernel a(t, |r|).
+    p_e,wc(r) = |P_e(r, omega_c)| ∝ |H(r, omega_c)|
 
-**Attenuation transfer function** (homogeneous medium):
+Spatial distribution determined by magnitude of SIR Fourier transform at omega_c.
 
-    |A(f, |r|)| = exp(-alpha * |r|) * exp(-beta * (f - f0) * |r|)
+For arbitrary excitation (same or per-element):
 
-- alpha: frequency-independent amplitude decay
-- beta: frequency-dependent decay slope (dB/MHz/cm → Np/m/Hz conversion needed)
-- f0: center frequency
+    p_e(r, t) = rho_0 * v_n(t) *_t dh(r, t)/dt
 
-Split into frequency-independent term exp(-alpha * |r|) and frequency-dependent
-term exp(-beta * (f - f0) * |r|).
+**SDI benefit**: truncate after first integration step (skip one cumsum).
+Convolution done in frequency domain. Additional transfer functions
+(attenuation, bandwidth, dispersion) multiply in same domain. Inverse FFT
+recovers time-domain pressure.
 
-**Phase and causality**: Linear phase (Kak & Dines) → non-causal.
-Minimum-phase model (Gurumurthy & Arthur):
+## 9. Receive Signals (Born Approximation)
 
-    A(f, |r|) = exp(-alpha |r|) exp(-beta(f-f0)|r|)
-                * exp(-j2pi f (tau_b + tau_m beta/pi^2)|r|)
-                * exp(j (2f/pi) beta |r| ln(2pi f))
+Received pressure at element position r_m:
 
-Gives causal dispersive attenuation impulse response.
+    p_r(r_m, t) = E_e(t) *_t integral_S p_s(r_p, t) dS
 
-**Far-field approximation**: When field point far from aperture, all rays arrive
-at nearly same time with similar propagation distance:
+Compact form (Angelsen 1980, Jensen 1991):
 
-    h_att(t, r) ≈ h(t, r) *_t a(t, |r|)
+    p_r(r_m, t) = v_pe(t) *_t f_m(r_p) *_r h_pe(r_m,p, t)
 
-Simple temporal convolution of SIR with single attenuation kernel.
+Where:
+- f_m(r) = d_rho/rho_0 - 2*d_c/c_0           (scattering function)
+- h_pe(r, t) = d2/dt2 [h_tx(r, t) *_t h_rx(r, t)]  (pulse-echo SIR)
+- v_pe(t) = (rho_0 / 2c_0^2) * E_e(t) *_t dv/dt     (pulse-echo waveform)
 
-**Mean-distance approximation**: Compute mean propagation distance |r_mid| over
-aperture, use single attenuation kernel a_mid(t) for all rays. Non-stationary
-convolution approximated as stationary. Accuracy depends on SIR duration,
-aperture curvature, attenuation strength.
+Redistributing derivatives onto SIRs (associativity of convolution):
 
-**Practical rule** (empirically validated, Jensen): For typical clinical parameters
-(0.5 dB/MHz/cm, concave transducer, focal depths 60–100 mm), applying attenuation
-to 1-D pulse only and keeping SIR unchanged reproduces PSF almost as well as
-full model.
+    p_r(r_m, t) = (rho_0/2c_0^2) * f_m(r_p) *_r
+                  [(E_m * v) *_t (dh_tx/dt *_t d2h_rx/dt2)]
 
-**When approximation breaks down**:
-- Strong attenuation + large aperture (rays differ significantly in path length)
-- Near-field of large curved transducers
-- Heterogeneous media (attenuation varies spatially)
-- Nonlinear propagation → requires k-Wave, FDTD, or pseudo-spectral solvers
+**SDI benefit for receive**: first- and second-order temporal derivatives of SIR
+mean SDI can be truncated before integration stage. Saves O(T) operations per
+truncation, where T = temporal sampling length.
+
+## 10. Attenuation in SIR Simulations
+
+**Core approach**: Post-hoc frequency-domain transfer function. SIR stays lossless.
+
+    P_att(r, f) = P_lossless(r, f) * H_att(f, d)
+
+One complex multiply per field point per frequency bin. Fits into existing
+freq-domain convolution step.
+
+### Causal Power-Law Model (recommended)
+
+General case (y != 1), from Szabo (1994), Holm (2019):
+
+    H_att(omega, d) = exp(-alpha0 * |omega|^y * d)                    [absorption]
+                    * exp(-j * alpha0 * |omega|^y * tan(y*pi/2) * d)  [K-K dispersion]
+
+Special case (y = 1), O'Donnell (1981):
+
+    H_att(omega, d) = exp(-alpha0 * |omega| * d)
+                    * exp(-j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
+
+Parameters: alpha0 [Np/m/Hz^y], y (tissue: 1.0–1.3), d [m], omega0 = 2*pi*f0.
+
+Always use causal (both terms). Non-causal (amplitude-only, Jensen 1993) produces
+acausal precursors. Causal correction cost = zero.
+
+### Distance for H_att
+
+Two options:
+1. Per field point: d = |r| from transducer center (fast, approximate)
+2. Per subaperture: d_i = |r - r_i| per patch (accurate near-field)
+
+### Historical context
+
+**Full model** (correct physics, not tractable): attenuation inside SIR integral,
+each ray different kernel. Breaks closed-form solution.
+
+**Far-field approximation** (Jensen): apply attenuation to 1-D pulse only.
+For typical clinical parameters (0.5 dB/MHz/cm, 60–100 mm depth), reproduces
+PSF almost as well as full model.
+
+**When SIR insufficient** (need full-wave solvers):
+- Nonlinear propagation
+- Spatially heterogeneous attenuation
+- Strongly scattering media (Born breaks down)
+
+Key refs: Holm 2019 (theory), Kelly & McGough 2013/2022 (SIR-specific).
+See attenuation.md for implementation rules.
