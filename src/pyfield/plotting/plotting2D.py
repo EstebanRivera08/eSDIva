@@ -10,7 +10,6 @@ from .export_utils import _resolve_export_path, save_matplotlib_animation
 from .plane_utils import (
     AXIS_IDX,
     PLANE_META,
-    PlaneSpec,
     compute_plane_extents,
     parse_planes,
 )
@@ -460,9 +459,21 @@ def plot2D_pressure_slices(
     n_display = len(frame_indices)
     interval_ms = 1000.0 / fps
 
+    # Global reference across all frames so the colour scale is consistent.
+    if p_max is None:
+        p_max = float(np.nanmax(np.abs(pressure_field)))
+        if p_max == 0:
+            p_max = 1.0
+
     display_frames = pressure_field[frame_indices]  # (n_display, Nx, Ny, Nz)
     if db_scale:
-        display_frames = to_dB(display_frames)
+        display_frames = to_dB(display_frames, vmax=p_max)
+        vmin = kwargs.pop("vmin", -40)
+        vmax_plot = kwargs.pop("vmax", 0)
+    else:
+        display_frames = display_frames / p_max
+        vmin = kwargs.pop("vmin", float(np.nanmin(display_frames)))
+        vmax_plot = kwargs.pop("vmax", float(np.nanmax(display_frames)))
 
     is_plane_xz = ny == 1
     is_plane_xy = nz == 1
@@ -471,7 +482,8 @@ def plot2D_pressure_slices(
 
     if centered_to_max:
         xi, yi, zi = np.unravel_index(
-            np.nanargmax(np.abs(display_frames[0])), display_frames[0].shape
+            np.nanargmax(np.abs(pressure_field[frame_indices[0]])),
+            pressure_field.shape[1:],
         )
     else:
         xi, yi, zi = len(x) // 2, len(y) // 2, len(z) // 2
@@ -492,7 +504,9 @@ def plot2D_pressure_slices(
             extent = [y.min(), y.max(), z.max(), z.min()]
             xlabel, ylabel = "Y (mm)", "Z (mm)"
 
-        im_main = ax_main.imshow(init_data, origin="upper", extent=extent, **kwargs)
+        im_main = ax_main.imshow(
+            init_data, origin="upper", extent=extent, vmin=vmin, vmax=vmax_plot, **kwargs
+        )
         ax_main.set_xlabel(xlabel)
         ax_main.set_ylabel(ylabel)
         fig.colorbar(im_main, ax=ax_main, label=label)
@@ -550,18 +564,24 @@ def plot2D_pressure_slices(
             f0[:, yi, :].T,
             origin="upper",
             extent=[x.min(), x.max(), z.max(), z.min()],
+            vmin=vmin,
+            vmax=vmax_plot,
             **kwargs,
         )
         im1 = ax1.imshow(
             f0[:, :, zi].T,
             origin="upper",
             extent=[x.min(), x.max(), y.max(), y.min()],
+            vmin=vmin,
+            vmax=vmax_plot,
             **kwargs,
         )
         im2 = ax2.imshow(
             f0[xi, :, :].T,
             origin="upper",
             extent=[y.min(), y.max(), z.max(), z.min()],
+            vmin=vmin,
+            vmax=vmax_plot,
             **kwargs,
         )
 
@@ -681,7 +701,6 @@ def plot2D_transient_slices(
         Forwarded to ``imshow`` (e.g. ``cmap``, ``vmin``, ``vmax``,
         ``interpolation``).
     """
-    import pathlib
 
     from matplotlib.animation import FuncAnimation
 

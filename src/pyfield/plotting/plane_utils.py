@@ -3,7 +3,7 @@
 Single source of truth for plane metadata, validation, and coordinate inference.
 """
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import numpy as np
 
@@ -67,8 +67,9 @@ class PlaneSpec:
     c2: np.ndarray | None = None
 
 
-def parse_planes(pressure_field, *, expected_ndim=3, coords=None,
-                 center_mm=None, center_to_max=False):
+def parse_planes(
+    pressure_field, *, expected_ndim=3, coords=None, center_mm=None, center_to_max=False
+):
     """Parse pressure input into a list of PlaneSpec objects.
 
     Accepts three input formats:
@@ -111,8 +112,10 @@ def parse_planes(pressure_field, *, expected_ndim=3, coords=None,
     z = coords.get("z")
 
     # --- Format 2: list of dicts ---
-    if isinstance(pressure_field, list) and len(pressure_field) > 0 and isinstance(
-        pressure_field[0], dict
+    if (
+        isinstance(pressure_field, list)
+        and len(pressure_field) > 0
+        and isinstance(pressure_field[0], dict)
     ):
         planes = []
         for item in pressure_field:
@@ -144,10 +147,16 @@ def parse_planes(pressure_field, *, expected_ndim=3, coords=None,
                 c1 = np.asarray(c1, dtype=float)
             if c2 is not None:
                 c2 = np.asarray(c2, dtype=float)
-            planes.append(PlaneSpec(
-                name=name, data=data, translation=translation,
-                extent=extent, c1=c1, c2=c2,
-            ))
+            planes.append(
+                PlaneSpec(
+                    name=name,
+                    data=data,
+                    translation=translation,
+                    extent=extent,
+                    c1=c1,
+                    c2=c2,
+                )
+            )
 
         x, y, z = _infer_coords_from_planes(planes, x, y, z)
         if center_mm is None:
@@ -221,20 +230,29 @@ def parse_planes(pressure_field, *, expected_ndim=3, coords=None,
 
         planes = []
         if nx > 1 and nz > 1:
-            planes.append(PlaneSpec(
-                name="xz", data=pressure_field[:, :, yi, :],
-                translation=(0.0, float(y[yi]), 0.0),
-            ))
+            planes.append(
+                PlaneSpec(
+                    name="xz",
+                    data=pressure_field[:, :, yi, :],
+                    translation=(0.0, float(y[yi]), 0.0),
+                )
+            )
         if nx > 1 and ny > 1:
-            planes.append(PlaneSpec(
-                name="xy", data=pressure_field[:, :, :, zi],
-                translation=(0.0, 0.0, float(z[zi])),
-            ))
+            planes.append(
+                PlaneSpec(
+                    name="xy",
+                    data=pressure_field[:, :, :, zi],
+                    translation=(0.0, 0.0, float(z[zi])),
+                )
+            )
         if ny > 1 and nz > 1:
-            planes.append(PlaneSpec(
-                name="yz", data=pressure_field[:, xi, :, :],
-                translation=(float(x[xi]), 0.0, 0.0),
-            ))
+            planes.append(
+                PlaneSpec(
+                    name="yz",
+                    data=pressure_field[:, xi, :, :],
+                    translation=(float(x[xi]), 0.0, 0.0),
+                )
+            )
         if not planes:
             raise ValueError("No non-degenerate 2D slices in the given 4D field.")
 
@@ -290,13 +308,18 @@ def compute_plane_extents(planes, coords):
         c2 = ps.c2 if ps.c2 is not None else coords[meta["axes"][1]]
         t1 = ps.translation[AXIS_IDX[meta["axes"][0]]]
         t2 = ps.translation[AXIS_IDX[meta["axes"][1]]]
-        ps.extent = (float(c1.min()) + t1, float(c1.max()) + t1,
-                     float(c2.min()) + t2, float(c2.max()) + t2)
+        ps.extent = (
+            float(c1.min()) + t1,
+            float(c1.max()) + t1,
+            float(c2.min()) + t2,
+            float(c2.max()) + t2,
+        )
 
 
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
+
 
 def _validate_plane_name(name):
     valid = {"xz", "xy", "yz"}

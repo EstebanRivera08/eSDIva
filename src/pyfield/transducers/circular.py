@@ -228,7 +228,10 @@ class FlatCircularTransducer(TransducerBase):
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
         return _tile_disk(
-            self.radius, self.no_sub_diameter, self.refine_factor, self.ratio_big_patches
+            self.radius,
+            self.no_sub_diameter,
+            self.refine_factor,
+            self.ratio_big_patches,
         )
 
     def __repr__(self) -> str:

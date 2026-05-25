@@ -138,51 +138,84 @@ soon, so keep independent and secret.
    }
    ```
 
-4. **Run Simulation (Default is monochromatic)**:
+4. **Run Simulation**:
+
+   `Emission` is the primary simulation class. `PyField` is a deprecated alias
+   (emits `DeprecationWarning`, defaults `monochromatic=True` for backward compat).
+
    ```python
-   from pyfield.psimulation import PyField
-   sim = PyField(tx)
+   from pyfield.psimulation import Emission
+
+   # Mode 1 — Monochromatic CW (returns spatial amplitude at fc)
+   sim = Emission(tx, monochromatic=True)
    p, coords = sim(field_points, method="auto")
-   # coords = {"x": array, "y": array, "z": array}
-   ```
-   If no excitation is given, the transient simulation is pulsed and `monochromatic =
-   False` needs to be added to `sim()`.
+   # p.shape = (Nx, Ny, Nz), coords = {"x": ..., "y": ..., "z": ...}
 
-   For transient simulations with excitation:
-   ```python
+   # Mode 2 — Pulsed transient (raw SIR, no excitation)
+   sim = Emission(tx)
+   p, coords = sim(field_points)
+   # p.shape = (Nt, Nx, Ny, Nz), coords includes "t0", "dt"
+
+   # Mode 3 — Global excitation (same pulse for all elements)
    import numpy as np
-   from pyfield.psimulation import PyField
+   f_s = 200e6
+   fc = 5e6
+   t_exc = np.arange(0, 2 / fc, 1 / f_s)
+   excitation = np.sin(2 * np.pi * fc * t_exc)
+   sim = Emission(tx, fs=f_s, excitation=excitation)
+   p, coords = sim(field_points)
 
-   f_s = 200e6  # Sampling frequency
-   fc = 5e6  # Center frequency of the pulse
-   n_cycles = 2  # Number of cycles in the pulse
-   time = np.arange(0, n_cycles/fc, 1/f_s)
-   excitation = np.sin(2*np.pi*fc*time)
-   sim = PyField(tx, fs=f_s)
-   p, coords = sim(field_points, method="auto", excitation=excitation)
-   # coords = {"x": array, "y": array, "z": array, "t0": float, "dt": float}
-   # Reconstruct time vector: t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]
+   # Mode 4 — Per-element excitation (shape (L, E))
+   exc_per_elem = np.stack([excitation * w for w in weights], axis=1)  # (L, E)
+   sim = Emission(tx, fs=f_s, excitation=exc_per_elem)
+   p, coords = sim(field_points)
    ```
 
-   **Return convention**: `PyField.__call__` always returns `(pressure, coords)`.
-   - `coords` is a dict with keys `"x"`, `"y"`, `"z"` for structured grid input (dict),
-     plus `"t0"` and `"dt"` for transient mode.
-   - **Structured grid (dict input)**: Monochromatic `p.shape = (Nx, Ny, Nz)`,
+   **Constructor parameters** (keyword-only after transducer):
+   - `c=1540.0` — speed of sound (m/s)
+   - `rho=1.0` — medium density (kg/m³)
+   - `fs=200e6` — sampling frequency (Hz)
+   - `alpha0=None` — attenuation in dB/(MHz^y·cm). `None` = no attenuation.
+   - `freq_power=1.0` — power-law exponent y
+   - `excitation=None` — `None` / `(L,)` / `(L, E)` float32 array
+   - `transfer_function=None` — callable `TF(freq) -> array`, applied in freq domain
+     multiplicatively alongside excitation in modes 3 and 4
+   - `monochromatic=False` — if True, return CW amplitude at fc
+   - `fast_attenuation=False` — if True with alpha0 set, use TX-center distance
+     (fast approximation); if False (default), per-element loop uses element-center
+     distances (accurate near-field model)
+   - `verbose=True`
+
+   **Per-element loop trigger**: activated when
+   `(alpha0 is not None and not fast_attenuation) or excitation.ndim == 2`.
+   Per-element loop computes h_sir independently per element and accumulates
+   in freq domain. Peak memory is O(batch_P × nfft) independent of E.
+
+   **Reconstruct time vector**: `t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]`
+
+   **Runtime update**:
+   ```python
+   sim.set("alpha0", 0.5)        # enable attenuation
+   sim.set("excitation", pulse)  # change excitation
+   sim.set("monochromatic", True)
+   ```
+
+   **Return convention**: `Emission.__call__` always returns `(pressure, coords)`.
+   - `coords` keys `"x"`, `"y"`, `"z"` for structured grid (dict input); also
+     `"t0"`, `"dt"` for transient modes.
+   - Structured grid: Monochromatic `p.shape = (Nx, Ny, Nz)`,
      Transient `p.shape = (Nt, Nx, Ny, Nz)`.
-   - **Raw point array input**: Monochromatic `p.shape = (N_points,)`,
-     Transient `p.shape = (Nt, N_points)`. User handles reshaping.
-     To get structured output from raw points, use `compute_mesh=True` in the
-     simulator instance or pass a dict instead.
-   - Raw point array input: coords omits x/y/z (only t0/dt if transient).
+   - Raw point array input: Monochromatic `p.shape = (N_points,)`,
+     Transient `p.shape = (Nt, N_points)`.
 
    **Time alignment** for multiple transient simulations:
    ```python
    from pyfield.utilities import align_to_common_time
-   pxz, cxz = sim(plane_xz_dict, monochromatic=False)
-   pyz, cyz = sim(plane_yz_dict, monochromatic=False)
+   pxz, cxz = sim(plane_xz_dict)
+   pyz, cyz = sim(plane_yz_dict)
    # Default: pads shorter fields with zeros to cover full time range
    common_t, [pxz_a, pyz_a] = align_to_common_time([(pxz, cxz), (pyz, cyz)])
-   # Old behavior: truncate to overlapping interval only
+   # Truncate to overlapping interval only
    common_t, [pxz_a, pyz_a] = align_to_common_time(
        [(pxz, cxz), (pyz, cyz)], align_to_shorter=True
    )
@@ -242,11 +275,11 @@ density and simulation accuracy.
 - Z-axis: Axial (beam propagation direction, depth)
 
 ### Medium Properties
-Default physical parameters (can be overridden in `PyField` constructor):
+Default physical parameters (can be overridden in `Emission` constructor):
 - Speed of sound `c`: 1540 m/s
 - Density `rho`: 1.0 kg/m³
 - Sampling frequency `fs`: 200 MHz
-- Attenuation `alpha0`: 0 dB/(MHz cm)
+- Attenuation `alpha0`: `None` (disabled by default; set to a float to enable)
 
 ### Transducer State Management
 Each transducer stores:

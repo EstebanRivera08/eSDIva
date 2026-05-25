@@ -8,6 +8,7 @@ from pyfield.utilities.helper_functions import (
     check_valid_field_points as check_field_points,
     compute_sub_elem_attributes,
     compute_time_grid,
+    create_3D_spatial_grid_from_points,
 )
 
 from .farfield_rect_patch import compute_h_sir
@@ -41,6 +42,7 @@ class h_sir:
             self.range_k,
             self.wx_arr,
             self.wy_arr,
+            self.sub_el_idx_arr,
         ) = compute_sub_elem_attributes(transducer)
 
         self.wx = float(self.wx_arr.max())
@@ -123,6 +125,142 @@ class h_sir:
         print(f"Transducer SIR computed in {runtime_sir:.2f} seconds...")
         return t0, h_sir.T
 
+    def compute_derivative(
+        self,
+        field_points_mm,
+        *,
+        derivative="h",
+        per_element=False,
+        parallel_axis="points",
+    ):
+        """Compute SIR or temporal derivative at given field points.
+
+        Parameters
+        ----------
+        field_points_mm : dict or (P, 3) array_like
+            Field points in mm.  Accepts dict (grid spec) or numeric array.
+        derivative : {"h", "dh", "d2h"}, optional
+            Quantity to compute.  Default ``"h"``.
+
+            * ``"h"`` — spatial impulse response (existing kernel, auto-method).
+            * ``"dh"`` — first time derivative (SDI-based, 1 integration).
+            * ``"d2h"`` — raw SDI delta events (no integration).
+
+        per_element : bool, optional
+            Return per-element result ``(T, P, E)`` instead of summed ``(T, P)``.
+            Applies only to ``"dh"`` and ``"d2h"``; ignored for ``"h"``.
+        parallel_axis : {"points", "patches"}, optional
+            Numba parallelism axis.  Default ``"points"`` (prange over P).
+            Use ``"patches"`` when P < n_threads (few scatterers).
+
+        Returns
+        -------
+        t0 : float
+            Start of the time window in seconds.
+        result : float32 ndarray
+            Shape ``(T, P)`` when ``per_element=False``, or ``(T, P, E)`` when
+            ``per_element=True``.
+        """
+        from .sir_derivatives import (
+            compute_d2h,
+            compute_d2h_per_element,
+            compute_dh,
+            compute_dh_per_element,
+        )
+
+        if derivative not in ("h", "dh", "d2h"):
+            raise ValueError(
+                f"derivative must be 'h', 'dh', or 'd2h', got '{derivative}'."
+            )
+
+        if isinstance(field_points_mm, dict):
+            self.x, self.y, self.z, points = create_3D_spatial_grid_from_points(
+                field_points_mm
+            )
+        else:
+            self.x = self.y = self.z = None
+            pts = np.asarray(field_points_mm, dtype=np.float32)
+            if pts.ndim == 1 and pts.shape[0] == 3:
+                pts = pts.reshape(1, 3)
+            points = pts * np.float32(1e-3)  # mm → m
+
+        P = points.shape[0]
+        time_grid, t0, dt, T = compute_time_grid(
+            P,
+            self.M,
+            points,
+            self.centers_sub_elem,
+            self.wx,
+            self.wy,
+            self.c,
+            self.fs,
+            self.delays,
+        )
+
+        if derivative == "h":
+            h, info_struct = compute_h_sir(
+                P,
+                self.M,
+                T,
+                dt,
+                time_grid,
+                points,
+                self.centers_sub_elem,
+                self.wx_arr,
+                self.wy_arr,
+                1.0 / self.c,
+                self.fs,
+                self.apodization_sub_elem,
+                self.delays_sub_elem,
+                None,  # auto method
+            )
+            self.range_k = info_struct["range_k_matrix"]
+            return t0, h.T  # (T, P)
+
+        inv_c = float(1.0 / self.c)
+        n_elements = int(self.delays.shape[0])
+
+        if per_element:
+            fn = (
+                compute_d2h_per_element
+                if derivative == "d2h"
+                else compute_dh_per_element
+            )
+            result = fn(
+                points,
+                self.centers_sub_elem,
+                self.wx_arr,
+                self.wy_arr,
+                inv_c,
+                self.apodization_sub_elem,
+                self.delays_sub_elem,
+                t0,
+                T,
+                self.fs,
+                dt,
+                self.sub_el_idx_arr,
+                n_elements,
+                parallel_axis=parallel_axis,
+            )
+            return t0, result.transpose(2, 0, 1)  # (P, E, T) → (T, P, E)
+        else:
+            fn = compute_d2h if derivative == "d2h" else compute_dh
+            result = fn(
+                points,
+                self.centers_sub_elem,
+                self.wx_arr,
+                self.wy_arr,
+                inv_c,
+                self.apodization_sub_elem,
+                self.delays_sub_elem,
+                t0,
+                T,
+                self.fs,
+                dt,
+                parallel_axis=parallel_axis,
+            )
+            return t0, result.T  # (P, T) → (T, P)
+
     def set_field(self, attribute_name, value):
         """Set an attribute value by name.
 
@@ -158,6 +296,7 @@ class h_sir:
             self.range_k,
             self.wx_arr,
             self.wy_arr,
+            self.sub_el_idx_arr,
         ) = compute_sub_elem_attributes(self.tx)
         self.wx = float(self.wx_arr.max())
         self.wy = float(self.wy_arr.max())
@@ -185,6 +324,7 @@ class h_sir:
             self.range_k,
             self.wx_arr,
             self.wy_arr,
+            self.sub_el_idx_arr,
         ) = compute_sub_elem_attributes(self.tx)
         self.wx = float(self.wx_arr.max())
         self.wy = float(self.wy_arr.max())

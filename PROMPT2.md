@@ -28,12 +28,12 @@ Design informed by Field II API (Jensen 1996). Key mapping:
 | Field II | PyField | Notes |
 |----------|---------|-------|
 | `xdc_impulse(Th, ir)` | `transducer.impulse_response = ir` | Electromechanical IR, per transducer |
-| `xdc_excitation(Th, exc)` | `Emission.excitation` / `Reception.excitation` | TX only |
+| `xdc_excitation(Th, exc)` | `transducer.excitation = ex / Emission.excitation` / `Reception.excitation` | can be input to the TX or to the class (in Emission/Reception class is to be taken from or set to TX only) |
 | `xdc_focus(Th, ...)` | `transducer.compute_delays(focus_mm=...)` | Already exists |
 | `xdc_apodization(Th, ...)` | `transducer.compute_apodization(...)` | Already exists |
 | `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure |
 | `calc_scat_multi(tx, rx, pos, amp)` | `Reception(tx, rx)(pos, amp)` | Per-element RF data |
-| `calc_scat_all(tx, rx, pos, amp)` | `Reception.compute_all_lines(...)` | Full matrix capture |
+| `calc_scat_all(tx, rx, pos, amp)` | `Reception.compute_all(...)` | Full matrix capture |
 | `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
 | `set_field('use_att', 1)` | `alpha0` not None → auto-enabled | Simpler toggle |
 | `xdc_baffle(Th, soft)` | Future extension | Not in this iteration |
@@ -98,6 +98,50 @@ to chunk P. Numba kernel processes full P; batching at Python level.
 | Function | Description | Output |
 |----------|------------|--------|
 | `compute_h_sir_patch_parallel` | Like `farfield_rect_patch.py` but `prange` over M. | `(P, T)` |
+
+### 1.6 Parallelism modes
+
+All kernels in `sir_derivatives.py` support two parallelism axes:
+
+| `parallel_axis` | `prange` over | When to use | Notes |
+|-----------------|--------------|-------------|-------|
+| `"points"` (default) | P (field points) | P >> n_threads | No race conditions. Current approach. |
+| `"patches"` | M (patches) | P < n_threads (e.g. single scatterer in Reception) | Thread-local reduction needed. |
+
+**Patches-parallel implementation** (avoids race conditions):
+1. Pre-allocate thread-local buffer: `thread_out (n_threads, P, T)` or `(n_threads, P, E, T)`.
+2. Each thread accumulates its patch subset into `thread_out[thread_id]`.
+3. Final serial reduce: `out = thread_out.sum(axis=0)`.
+
+```python
+# Numba pattern for patches-parallel (thread-local reduction):
+@njit(parallel=True, fastmath=True)
+def compute_d2h_mpar(pts, centers, wx, wy, apod, delays, dt, c, n_threads):
+    P, T = pts.shape[0], <T>
+    thread_out = np.zeros((n_threads, P, T), dtype=np.float32)
+    for m in prange(len(centers)):
+        tid = numba.get_thread_id()
+        # accumulate patch m into thread_out[tid, p, k]
+        ...
+    # reduce
+    out = np.zeros((P, T), dtype=np.float32)
+    for t in range(n_threads):
+        out += thread_out[t]
+    return out
+```
+
+Python wrapper signature:
+```python
+def compute_d2h(pts, transducer_data, ..., parallel_axis="points"):
+    if parallel_axis == "points":
+        return _compute_d2h_ppar(...)   # prange over P
+    else:
+        return _compute_d2h_mpar(...)   # prange over M, thread-local reduce
+```
+
+Applies to: `compute_d2h`, `compute_dh`, `compute_d2h_per_element`,
+`compute_dh_per_element`, `compute_h_sir_patch_parallel`.
+Default always `"points"` — patches mode opt-in only.
 
 ### 1.3 Integration helpers (`sir_derivatives.py` or separate `sir_integration.py`)
 
@@ -185,7 +229,63 @@ def compute_attenuation_distances(
     per_point: d = |r - r_tx_center|, shape (P,). Fast, approximate.
     per_patch: d = |r - r_patch_m|, shape (P, M). Accurate near-field.
     """
+
+def reduce_patch_distances_to_element(
+    distances_pm: ndarray,  # (P, M) from compute_attenuation_distances per_patch
+    sub_el_idx: ndarray,    # int32 (M,) — patch-to-element map from compute_sub_elem_attributes
+    n_elements: int,
+    reduce: str = "mean",   # "mean" | "min" | "max"
+) -> ndarray:
+    """Reduce per-patch distances to per-element representative distances.
+
+    Returns (P, E) — one distance per field-point/element pair.
+    Used to build H_att (P, E, N_freq) for per-element attenuation in Reception.
+
+    reduce="mean": average distances of all patches in each element.
+                   Good when patches cluster tightly (near-field, uniform patch size).
+    reduce="min":  minimum distance per element. Conservative (least attenuation).
+    reduce="max":  maximum distance per element. Opposite of conservative (most attenuation).
+    """
 ```
+
+**H_att shapes and where each applies:**
+
+| Context | Distance shape | H_att shape | Notes |
+|---------|---------------|-------------|-------|
+| Emission, `per_point` | `(P,)` — `\|r_p - r_tx_center\|` | `(P, N_freq)` | Applied to summed h_sir `(P, T)` |
+| Emission, `per_patch` | average all M patches → `(P,)` | `(P, N_freq)` | Reduces to same shape as per_point |
+| Emission, per-element excitation | `(P, E_tx)` — per-element TX distances | `(P, E_tx, N_freq)` | Applied to `dh_per_element (P, E_tx, T)` before element sum |
+| Reception, `per_point` | `(P,)` — total scalar round-trip | `(P, 1, N_freq)` | Broadcast over E_rx. Ignores element separation — inaccurate for large apertures |
+| Reception, `per_element` (default) | `(P, E_rx)` — `d_tx_s + d_rx_se` | `(P, E_rx, N_freq)` | Correct model: TX center-to-scatterer + scatterer-to-each-RX-element |
+| Reception, `per_patch` | `reduce_patch_distances_to_element` → `(P, E_rx)` | `(P, E_rx, N_freq)` | More accurate RX distances via patch averaging |
+
+**Reception distance calculation** — two-path model:
+
+```
+d_total(s, e) = d_tx(s) + d_rx(s, e)
+             = |r_s - r_tx_center| + |r_s - r_rx_element_e|
+```
+
+Add dedicated helper:
+
+```python
+def compute_reception_distances(
+    scatterer_positions_m: ndarray,   # (P, 3)
+    tx_center_m: ndarray,             # (3,) — TX transducer center
+    rx_element_centers_m: ndarray,    # (E_rx, 3) — one center per RX element
+) -> ndarray:
+    """Round-trip distances for per-element Reception attenuation.
+
+    Returns (P, E_rx): d_total[p, e] = |r_s_p - r_tx| + |r_s_p - r_rx_e|
+
+    TX path is isotropic (same for all elements). RX path is per-element
+    (each element receives from a different direction/distance).
+    Feed result directly into causal_attenuation_tf to get H_att (P, E_rx, N_freq).
+    """
+```
+
+`causal_attenuation_tf` accepts any leading shape — pass `(P,)`, `(P, E_rx)`, etc.,
+returns `(..., N_freq)` complex array. Broadcasting handles the rest.
 
 ### 2.2 Rules (from `attenuation.md`)
 
@@ -237,7 +337,10 @@ class Emission:
         self, transducer, *,
         c=1540.0, rho=1.0, fs=200e6,
         alpha0=None, freq_power=1.0,
-        excitation=None, monochromatic=False,
+        excitation=None,
+        transfer_function=None,   # callable TF(freq) -> array, applied in freq domain
+        monochromatic=False,
+        fast_attenuation=False,   # True = TX-center distance, no E-loop (fast approx)
         verbose=True,
     ):
         ...
@@ -307,35 +410,70 @@ class Emission:
 
 ### 3.3 Excitation shape dispatch logic
 
+**Per-element loop trigger:**
+```python
+per_elem_exc = exc is not None and exc.ndim == 2
+use_per_element = (self.alpha0 is not None and not self.fast_attenuation) or per_elem_exc
+```
+
+Modes 2 (pulsed) and 3 (global exc) also enter the per-element path when
+`alpha0 is not None` and `fast_attenuation=False` (default), so element-center
+distances are used for attenuation (accurate near-field model).
+
 ```python
 # Inside __call__:
 exc = self.excitation
 if self.monochromatic:
-    # CW path: compute h_sir (summed), extract |H(fc)|
-    h, t0 = self._compute_sir(points, method=method)
-    p = from_sir_to_monochromatic_pressure(h, x, y, z, self.fc, self.fs)
-    if self.alpha0 is not None:
-        p = _apply_monochromatic_attenuation(p, distances, self.alpha0, ...)
+    if use_per_element:
+        pressure_flat = self._mono_per_element(points_m, T, dt, time_grid, method_flag)
+    else:
+        pressure_flat = self._mono_global(points_m, distances_m, method)
+    # reshape via reshape_to_mapped_points(x, y, z, flat)[0] — NOT flat.reshape(Nx,Ny,Nz)
+    # (meshgrid is z-outer, x-middle, y-inner, so direct reshape is wrong)
 
-elif exc is None:
-    # Pulsed: return h_sir directly (current monochromatic=False, no excitation)
-    h, t0 = self._compute_sir(points, method=method)
-    p = h  # raw SIR is the pulsed response
+elif use_per_element:
+    # Per-element loop: pulsed (exc=None), global (L,), or per-element (L, E).
+    Pressure_flat = self._transient_per_element(
+        points_m, t0, T, dt, time_grid, method_flag, exc
+    )
 
-elif exc.ndim == 1:
-    # Global excitation: (L,) → same for all elements
-    h, t0 = self._compute_sir(points, method=method)  # (T, P) summed
-    p = from_sir_to_pressure(h, x, y, z, self.fs, rho=self.rho,
-                             excitation=exc, alpha0=self.alpha0, ...)
+elif exc is None and self.alpha0 is None:
+    # Pure pulsed: legacy path via _compute_sir + from_sir_to_pressure
+    h, t0 = self._compute_sir(points_m, method=method)
+    h[idx_e_h:, :] = 0.0
+    Pressure_flat = from_sir_to_pressure(h, ...)
 
-elif exc.ndim == 2:
-    # Per-element: (L, E) → need dh per element
-    assert exc.shape[1] == self.tx.n_elements
-    dh, t0 = self._compute_sir_derivative(points, derivative="dh",
-                                           per_element=True, method=method)
-    p = from_sir_to_pressure_per_element(dh, x, y, z, self.fs, rho=self.rho,
-                                          excitations=exc, alpha0=self.alpha0, ...)
+else:
+    # Global excitation (L,) or pulsed + fast_attenuation with alpha0 → global FFT path
+    Pressure_flat = self._transient_global(
+        points_m, t0, T, dt, time_grid, distances_m, method, exc
+    )
 ```
+
+**Per-element path** (`_transient_per_element`): P-outer, E-inner.
+Uses `compute_h_sir` (not `compute_dh_per_element`) with element-filtered patches.
+Pre-allocates one `h_pad_buf = zeros((batch_P, nfft), float32)` outside all loops.
+All E elements accumulate into `acc_H (cols, N_freq)` complex64.
+One `irfft + abs` per P-batch preserves inter-element interference.
+
+```python
+# Core inner structure (E-inner, P-outer):
+h_pad_buf = np.zeros((batch_P, nfft), dtype=np.float32)  # pre-allocated once
+for p_start in range(0, P, batch_P):
+    h_pad = h_pad_buf[:cols]   # view, no copy; tail stays zero
+    acc_H = np.zeros((cols, N_freq), dtype=np.complex64)
+    for e in range(n_elements):
+        h_e_b = _compute_h_sir_batch(..., patch_slices[e])  # (cols, T) float32
+        h_pad[:, :T] = h_e_b                                 # write; tail stays 0
+        H_e = rfft(h_pad, axis=1, workers=-1)                # (cols, N_freq) complex64
+        H_e *= fft_exc_list[e]    # derivative of excitation
+        H_e *= TF                 # optional transfer function
+        H_e *= H_att_e            # optional per-element attenuation
+        acc_H += H_e
+    Pressure_flat[:, p_start:p_end] = abs(irfft(acc_H, ...))[:, :T].T
+```
+
+Peak memory per P-batch: `O(batch_P × nfft)` — E-independent.
 
 ### 3.4 SIR computation methods (private)
 
@@ -392,10 +530,15 @@ Field II provides three scattering functions at different output granularity:
 |----------|---------|-------------------|
 | `calc_scat(tx, rx, pos, amp)` | Beamformed A-line (1D) | **Not implemented** — beamforming is user's responsibility |
 | `calc_scat_multi(tx, rx, pos, amp)` | Per-element RF `(Nt, E_rx)` | `Reception.__call__` — primary use case |
-| `calc_scat_all(tx, rx, pos, amp)` | Full matrix `(E_tx, Nt, E_rx)` | `Reception.compute_all_lines` |
+| `calc_scat_all(tx, rx, pos, amp)` | Full matrix `(E_tx, Nt, E_rx)` | `Reception.compute_all` |
 
 PyField returns raw channel data. User applies beamforming externally (delay-and-sum,
 MVDR, etc.). This is the research-oriented approach.
+
+Every Reception option is defaulted with downsampling: int |None = None, which means that the
+return is with all Nt. Since memory use can be high, a downsampling option is good to
+reduce the Nt length. A downsampling = 10, means the result is going to be returned with
+temporal size of Nt/10.
 
 Key Field II design choices preserved:
 - **TX and RX are separate transducer instances** — can differ in type, geometry, IR, focus
@@ -403,7 +546,7 @@ Key Field II design choices preserved:
 - **Impulse response is per-transducer** — set on TX and/or RX independently
 - **Every result includes `t0`** — start time for alignment across lines
 
-### 4.2 Transducer attribute addition: `impulse_response`
+### 4.2 Transducer attribute addition: `impulse_response`, and `excitation`
 
 Add to `TransducerBase`:
 
@@ -412,6 +555,7 @@ class TransducerBase:
     def __init__(self, ...):
         ...
         self._impulse_response: Optional[ndarray] = None  # (L_ir,) 1D array
+        self._excitation : Optional[ndarray] = None # (L_exc,) a 1D array
 
     @property
     def impulse_response(self) -> Optional[ndarray]:
@@ -431,9 +575,11 @@ class TransducerBase:
         if value is not None:
             value = np.asarray(value, dtype=np.float32).ravel()
         self._impulse_response = value
+
+    # Same as above for excitation
 ```
 
-This matches Field II's `xdc_impulse`. Each transducer (TX or RX) can have a different
+This matches Field II's `xdc_impulse`, `xdc_excitation`. Each transducer (TX or RX) can have a different
 impulse response.
 
 ### 4.3 `Reception` class
@@ -478,12 +624,13 @@ class Reception:
     >>> tx = LinearArrayTransducer(...)
     >>> tx.compute_delays(focus_mm=[0, 0, 30])
     >>> tx.impulse_response = ir_pulse  # electromechanical IR
+    >>> tx.excitation = excitation_pulse
     >>>
     >>> rx = LinearArrayTransducer(...)  # or same as tx
     >>> rx.impulse_response = ir_pulse
     >>>
     >>> sim = Reception(tx, rx, fs=200e6, c=1540)
-    >>> sim.set("excitation", excitation_pulse)
+    >>> # or sim.set("excitation", excitation_pulse)
     >>>
     >>> # Single-focus RF
     >>> rf, coords = sim(scatterer_positions_mm, scattering_amplitudes)
@@ -527,7 +674,8 @@ class Reception:
            If RX has impulse_response: will be convolved in freq domain.
         3. In frequency domain per scatterer per RX element:
            RF_e(f) = FFT(dh_tx) * FFT(d2h_rx_e) * FFT(excitation) *
-                     FFT(ir_tx) * FFT(ir_rx) * H_att(f, d)
+                     FFT(ir_tx) * FFT(ir_rx) * H_att(f, d_tx_s + d_rx_se)
+           H_att shape: (P, E_rx, N_freq) — two-path model, per-element by default.
         4. IFFT, weight by f_m(r), sum over scatterers.
         5. Scale by rho / (2 * c^2).
 
@@ -548,11 +696,11 @@ class Reception:
             {"t0": float, "dt": float}
         """
 
-    def compute_multi_line(
+    def compute_sequence(
         self,
         scatterer_positions_mm,
         scattering_amplitudes,
-        tx_events,  # list of dicts: [{"focus_mm": [...], "apodization": [...]}]
+        tx_events,  # list of dicts: [{"delays": [...], "apodization": [...]}]
         *,
         method="sdi",
     ) -> tuple[ndarray, dict]:
@@ -568,7 +716,7 @@ class Reception:
         TX transducer state is restored after all events.
         """
 
-    def compute_all_lines(
+    def compute_all(
         self,
         scatterer_positions_mm,
         scattering_amplitudes,
@@ -611,7 +759,8 @@ compute_dh(tx_patches → scat)         compute_d2h_per_element(rx_patches → s
     │         × V(f)            ← FFT(excitation)         │
     │         × IR_tx(f)        ← FFT(tx.impulse_response)│
     │         × IR_rx(f)        ← FFT(rx.impulse_response)│
-    │         × H_att(f, d_s)   ← causal_attenuation_tf   │
+    │         × H_att(f, d_tx_s + d_rx_se)  ← causal_attenuation_tf    │
+    │           shape: (P, E_rx, N_freq)   ← compute_reception_distances│
     └─────────────────────────────────────────────────────┘
                    ▼
               IFFT → rf(t, s, e)
@@ -630,12 +779,44 @@ DH_tx and D2H_rx vary per scatterer. When IR is None, corresponding FFT term = 1
 
 ### 4.5 Memory strategy for reception
 
-`d2h_rx` per element `(P, E_rx, T)` is the biggest allocation.
+**Element-loop (same pattern as Emission, decided during Batch 3 implementation).**
 
-Strategy:
-- If `P * E_rx * T * 4 < memory_threshold` (default 2 GB): compute all at once.
-- Otherwise: batch over scatterers (chunk P), accumulate RF in output buffer.
-- Print memory estimate before allocating (matching existing `compute_time_grid` pattern).
+`d2h_rx (T, P, E_rx)` monolithic pre-allocation causes OOM for matrix arrays (E_rx=3025).
+Instead, loop over RX elements:
+
+```python
+rf = zeros((T, E_rx), float32)
+fft_dh_tx = rfft(dh_tx_all, n=nfft, axis=0)  # (N_freq, P) — TX summed, pre-computed
+
+for e_rx in range(n_rx_elements):
+    mask_e = rx_sub_el_idx_arr == e_rx
+    # Batch over scatterers P
+    acc = zeros((nfft, 1), float64)  # single RF channel accumulation
+    for p_start in range(0, P, batch_P):
+        p_end = min(p_start + batch_P, P)
+        d2h_rx_e = compute_d2h_per_element(
+            scatterer_positions[p_start:p_end], rx_patches[mask_e], n_elements=1
+        )  # (cols, 1, T) → squeeze
+        h_pad = zeros((nfft, cols), float64)
+        h_pad[:T, :] = d2h_rx_e[:, 0, :].T.astype(float64)
+        D2H = rfft(h_pad, axis=0)    # (N_freq, cols)
+        # Frequency-domain product chain per scatterer
+        fft_rf_e = fft_dh_tx[:, p_start:p_end] * D2H  # (N_freq, cols)
+        fft_rf_e *= fft_v                               # excitation
+        fft_rf_e *= fft_ir_tx * fft_ir_rx              # impulse responses
+        if do_attenuation:
+            H_att_e = causal_attenuation_tf(freqs,
+                distances_total[p_start:p_end, e_rx], alpha0, freq_power, fc)
+            fft_rf_e *= H_att_e.T
+        # Weight by scattering amplitudes, sum over scatterers
+        weighted = fft_rf_e * scattering_amplitudes[p_start:p_end]
+        acc[:, 0:1] += irfft(weighted.sum(axis=1, keepdims=True), n=nfft, axis=0)
+    rf[:, e_rx] = (acc[:T, 0] * rho / (2 * c**2)).astype(float32)
+```
+
+Peak memory per e_rx iteration: `O(P_batch × nfft)` float64 — E_rx-independent.
+P-batching inside each element loop ensures P × nfft also stays bounded.
+Print memory estimate before main loop: `P × E_rx × T × 4` bytes (for user awareness even though we don't pre-allocate).
 
 ---
 
@@ -679,9 +860,18 @@ src/pyfield/
 from .emission import Emission
 from .reception import Reception
 from .PyField import PyField  # deprecated alias
-from .attenuation import causal_attenuation_tf
+from .attenuation import (
+    causal_attenuation_tf,
+    compute_reception_distances,
+    reduce_patch_distances_to_element,
+)
 
-__all__ = ["Emission", "Reception", "PyField", "causal_attenuation_tf"]
+__all__ = [
+    "Emission", "Reception", "PyField",
+    "causal_attenuation_tf",
+    "compute_reception_distances",
+    "reduce_patch_distances_to_element",
+]
 
 # pyfield/__init__.py — add Emission, Reception to top-level
 ```
@@ -766,12 +956,109 @@ No changes to existing transducer subclasses needed — inherited from base.
 
 ---
 
+## 7.2 `compute_delays` — Plane-Wave Steering Extension
+
+### Motivation
+
+Current `compute_delays(focus_mm)` only handles focused beams. Two common PW cases
+need steering:
+
+1. **Linear array** (elements along x, z≈0): single xz-plane angle θ_x.
+2. **Matrix array or 3D custom array** (elements span x-y, may have different z):
+   two angles θ_x (xz-plane) and θ_y (yz-plane). Single angle would only steer in
+   one direction and ignore the other lateral dimension.
+3. **Depth-staggered custom array at θ=0** (like `05_bigelementstx`): straight-ahead
+   PW — element z-positions already provide the needed depth correction. Same formula,
+   angles both zero.
+
+### New signature
+
+```python
+def compute_delays(
+    self,
+    focus_mm=None,
+    *,
+    angle_steering_deg=None,  # float or (float, float) — see below
+    c: Optional[float] = None,
+    inline: bool = True,
+    plot: bool = False,
+) -> np.ndarray:
+```
+
+**Mutual exclusivity**: exactly one of `focus_mm` / `angle_steering_deg` must be non-None.
+Both None or both set → `ValueError`.
+
+**`angle_steering_deg` input forms**:
+- `float` → linear array, steer in xz-plane only: `(θ_x, θ_y=0)`
+- `(float, float)` → 2D steer `(θ_x, θ_y)` for matrix or 3D arrays
+
+### Steering delay formula
+
+```python
+# Parse angles
+if isinstance(angle_steering_deg, (int, float)):
+    theta_x_deg, theta_y_deg = float(angle_steering_deg), 0.0
+else:
+    theta_x_deg, theta_y_deg = float(angle_steering_deg[0]), float(angle_steering_deg[1])
+
+theta_x = np.deg2rad(theta_x_deg)
+theta_y = np.deg2rad(theta_y_deg)
+sin_x, sin_y = np.sin(theta_x), np.sin(theta_y)
+nz_sq = 1.0 - sin_x**2 - sin_y**2
+if nz_sq < 0:
+    raise ValueError(
+        f"Steering angles ({theta_x_deg:.1f}°, {theta_y_deg:.1f}°) exceed physical limit "
+        f"(sin²θ_x + sin²θ_y must be ≤ 1)."
+    )
+n = np.array([sin_x, sin_y, np.sqrt(nz_sq)])  # unit steering direction
+
+# Project each element center onto the steering direction
+d = self.element_centers @ n  # (E,) signed projections
+
+# Delay: element with maximum projection fires first (zero delay)
+delays = (d.max() - d) / c   # (E,) non-negative, minimum always 0
+```
+
+**Physical interpretation**: element e fires at delay `(d_max - d_e) / c` so that all
+emitted wavefronts reach the same steering-direction phase plane simultaneously, producing
+a plane wave traveling in direction `n`.
+
+### Case table
+
+| Array type | `angle_steering_deg` | θ_y | `n` | `d_e` reduces to | Result |
+|-----------|---------------------|-----|-----|-------------------|--------|
+| Linear flat (z=0) | `0` | 0 | `[0, 0, 1]` | `z_e = 0` | All fire simultaneously |
+| Linear flat (z=0) | `30` | 0 | `[0.5, 0, 0.866]` | `0.5 * x_e` | Rightmost fires first |
+| Custom 3D (varying z) | `0` | 0 | `[0, 0, 1]` | `z_e` | Deeper elements fire later |
+| Matrix (x-y grid, z=0) | `(20, 10)` | 10° | `[sin20°, sin10°, nz]` | `x_e sin20° + y_e sin10°` | 2D steered PW |
+
+The custom-3D case with `angle_steering_deg=0` matches the manual delay computation in
+`others/05_bigelementstx/visualize_transient.py` — the formula reproduces it exactly
+via the z-projection term.
+
+### Mono-element behavior unchanged
+
+Mono-element transducers still warn and return `np.zeros(1)` regardless of `focus_mm`
+or `angle_steering_deg` — entire aperture fires simultaneously.
+
+### Files to update
+
+- `src/pyfield/transducers/base.py`: modify `compute_delays` signature and body.
+- `src/pyfield/transducers/validators.py`: add `validate_steering_angles` if needed.
+- Tests: focused unchanged. Add: `angle_steering_deg=0` on flat array → all-zero delays.
+  `angle_steering_deg=30` on flat linear → monotone delays proportional to x-position.
+  `angle_steering_deg=0` on depth-staggered custom array → delays proportional to z.
+
+---
+
 ## 8. Implementation Order
 
 ### Phase 1: Foundation (no API changes visible to user)
 1. `compute_sub_elem_attributes` → return `sub_el_idx_arr`. Update call sites.
-2. `sir_derivatives.py`: implement `compute_d2h`.
-3. Test: `compute_d2h` + 2 cumsums ≈ existing `compute_h_sir` (float32 tolerance).
+2. `compute_delays` → add `angle_steering_deg` param (§7.2). Focus path unchanged.
+3. `sir_derivatives.py`: implement `compute_d2h`.
+4. Test: `compute_d2h` + 2 cumsums ≈ existing `compute_h_sir` (float32 tolerance).
+   Test: `angle_steering_deg=0` flat array → zero delays. `angle_steering_deg=30` → monotone x. Depth-staggered → proportional to z.
 
 ### Phase 2: Remaining derivative kernels
 4. `compute_dh`, `compute_d2h_per_element`, `compute_dh_per_element`.
@@ -805,9 +1092,9 @@ No changes to existing transducer subclasses needed — inherited from base.
 
 ### Phase 6: Reception class
 21. Create `reception.py` with `Reception` class.
-22. Implement `__call__` for single-focus RF.
+22. Implement `__call__` for RF.
 23. Test: single point scatterer gives symmetric PSF. Pulse-echo with identical TX/RX.
-24. Implement `compute_multi_line` and `compute_all_lines`.
+24. Implement `compute_sequence` and `compute_all`.
 25. Test: multi-line with single focus == single call.
 
 ---
@@ -817,16 +1104,60 @@ No changes to existing transducer subclasses needed — inherited from base.
 - **Numba kernels**: `@njit(parallel=True, fastmath=True)`, `prange` over P.
 - **Memory budgets**: print estimate before big allocations. Batch P when
   `P * E * T * 4 bytes > threshold` (configurable, default 2 GB).
-- **Float32**: all kernel outputs. Freq-domain ops in float64 for accuracy (matches
-  existing `sir_to_pressure.py` pattern: upcast to float64 for FFT).
-- **Freq-domain**: `numpy.fft.rfft/irfft`. Batch with `ThreadPoolExecutor`.
-- **Attenuation TF**: precompute once `(P, N_rfft)`, broadcast across batches.
-- **Reception**: most expensive operation. Batch over scatterers (P dimension).
-  Each scatterer independent → embarrassingly parallel.
+- **Float32 throughout FFT**: all kernel outputs AND freq-domain ops stay float32 →
+  complex64. No upcast to float64 (half memory vs original spec). FFT batch size
+  `batch_P = 400 MB / (nfft×4 + 2×N_freq×8)` bytes.
+- **Freq-domain**: `scipy.fft.rfft/irfft(workers=-1)` — multithreaded. **Not** numpy.fft.
+  scipy with `workers=-1` uses all cores automatically; provides ~2–3× speedup over
+  single-threaded numpy for large arrays.
+- **Pre-allocated h_pad**: single `zeros((batch_P, nfft), float32)` outside all loops.
+  scipy.fft on already-nfft-length input creates no internal zero-padding buffer per call.
+  Without pre-allocation: `E × n_batches × ~140 MB` = ~17 GB zero-allocations → OS swap.
+  With pre-allocation: buffer created once, reused every iteration.
+- **Loop structure for per-element**: P-outer, E-inner. Accumulate freq-domain across E,
+  then one irfft per P-batch. Total irfft = n_batches (not `E × n_batches`).
+  Rationale: `irfft(sum_e H_e) = sum_e irfft(H_e)` (linearity), and one irfft
+  preserves inter-element interference (abs only after full E sum).
+- **ETA print**: after first P-batch, print `~total_min = t_first × n_batches`.
+- **Attenuation TF**: compute per-element inside element loop, `(P_batch, N_rfft)` per iteration.
+- **Emission**: element-loop over E, P-batched inside. Peak `O(P_batch × nfft)` per element.
+- **Reception**: element-loop over E_rx, P-batched inside. Same peak bound.
+
+### Measured benchmark (E=128, P=60501, nfft=8192)
+
+| Mode | Time |
+|------|------|
+| Monochromatic global | ~29 s |
+| Pulsed global | ~11 s |
+| Global excitation | ~24 s |
+| Per-element (E=128) | ~17 min |
+
+Per-element bottleneck is irreducible on CPU: `E × n_batches × t_rfft`.
+For E=128, 15 P-batches, `t_rfft ≈ 0.53 s` → `128 × 15 × 0.53 ≈ 1020 s`.
+Options to reduce: coarser grid (fewer P → fewer batches), GPU, or use global
+path when all elements share the same pulse.
 
 ---
 
 ## 10. API Summary
+
+### Transducer delays (focused and plane-wave)
+
+```python
+tx = LinearArrayTransducer(...)
+
+# Focused beam (existing)
+tx.compute_delays(focus_mm=[0, 0, 30])
+
+# Steered PW — linear array, xz-plane only
+tx.compute_delays(angle_steering_deg=0)     # straight-ahead PW
+tx.compute_delays(angle_steering_deg=20)    # steer 20° in xz-plane
+tx.compute_delays(angle_steering_deg=-15)   # steer -15°
+
+# Steered PW — matrix or 3D custom array, two angles
+tx.compute_delays(angle_steering_deg=(20, 10))   # θ_x=20°, θ_y=10°
+tx.compute_delays(angle_steering_deg=(0, 0))     # straight-ahead on depth-staggered array
+```
 
 ### Emission (replaces PyField)
 
@@ -882,7 +1213,7 @@ rf, coords = sim(scatterer_pos, scatterer_amp)
 
 # Multi-line (sweep TX focus)
 focuses = [[0, 0, 30], [1, 0, 30], [2, 0, 30]]
-rf_multi, coords = sim.compute_multi_line(scatterer_pos, scatterer_amp, focuses)
+rf_multi, coords = sim.compute_sequence(scatterer_pos, scatterer_amp, focuses)
 # rf_multi shape: (N_lines, Nt, E_rx)
 ```
 
@@ -901,6 +1232,11 @@ p, coords = sim(field_points)
 | Test | Validates |
 |------|-----------|
 | `compute_d2h` + 2 cumsums ≈ `compute_h_sir` | SDI delta-placement in new kernel |
+| `angle_steering_deg=0` flat array → `delays == 0` | Straight-ahead PW, flat geometry |
+| `angle_steering_deg=30` flat linear → delays ∝ x | xz-plane steering formula |
+| `angle_steering_deg=0` depth-staggered → delays ∝ z | z-projection term handles depth |
+| `angle_steering_deg=(θ_x, θ_y)` flat matrix → delays ∝ x·sin(θ_x)+y·sin(θ_y) | 2D steering |
+| `focus_mm` + `angle_steering_deg` both set → `ValueError` | Mutual exclusivity |
 | Per-element sum over E == summed-all | Grouping logic |
 | `Emission` pulsed == old `PyField(monochromatic=False)` no excitation | Migration correctness |
 | `Emission` mono == old `PyField(monochromatic=True)` | Migration correctness |
@@ -912,7 +1248,7 @@ p, coords = sim(field_points)
 | `impulse_response=None` == `impulse_response=delta` | IR default behavior |
 | `Reception` single scatterer on axis → symmetric RF | Pulse-echo PSF |
 | `Reception` TX==RX same transducer → valid pulse-echo | Self-echo correctness |
-| `compute_multi_line` with 1 focus == single `__call__` | Multi-line consistency |
+| `compute_sequence` with 1 focus == single `__call__` | Multi-line consistency |
 | `PyField` deprecated wrapper gives same results + warning | Backward compatibility |
 
 Use `numpy.testing.assert_allclose` with `rtol=1e-4` for float32.

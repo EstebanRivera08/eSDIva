@@ -7,7 +7,13 @@ import pytest
 
 matplotlib.use("Agg")
 
-from pyfield.utilities.plotting import plot_pressure_2D
+from pyfield.plotting import plot2D_pressure_plane as _plot2D
+
+
+# Old test API: plot_pressure_2D(x, z, p, ax=None).
+# New function signature: plot2D_pressure_plane(pressure_plane, x, z, ax=None).
+def plot_pressure_2D(x, z, p, *, ax=None):
+    return _plot2D(p, x, z, ax=ax)
 
 
 @pytest.fixture

@@ -12,7 +12,6 @@ ConvexArrayTransducer
     outer elements are angled outward producing a widening field of view.
 """
 
-import warnings
 from time import time as TIME
 from typing import List, Optional, Tuple
 

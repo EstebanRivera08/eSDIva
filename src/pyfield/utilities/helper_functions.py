@@ -102,21 +102,25 @@ def compute_sub_elem_attributes(transducer):
         Width of each patch (metres) — ``‖v[1] - v[0]‖``.
     wy_arr : float32 array (M,)
         Height of each patch (metres) — ``‖v[3] - v[0]‖``.
+    sub_el_idx_arr : int32 array (M,)
+        Element index for each patch — maps patch m to parent element e.
     """
     centers_sub_elem, apodization_sub_elem, delays_sub_elem = [], [], []
-    wx_list, wy_list = [], []
+    wx_list, wy_list, sub_el_idx_list = [], [], []
     for verts, el_idx in zip(transducer.sub_quad_verts, transducer.sub_el_idx):
         centers_sub_elem.append(verts.mean(axis=0))
         apodization_sub_elem.append(transducer.apodization[el_idx])
         delays_sub_elem.append(transducer.delays[el_idx])
         wx_list.append(np.linalg.norm(verts[1] - verts[0]))
         wy_list.append(np.linalg.norm(verts[3] - verts[0]))
+        sub_el_idx_list.append(el_idx)
 
     centers_sub_elem = np.array(centers_sub_elem, dtype=np.float32)
     apodization_sub_elem = np.array(apodization_sub_elem, dtype=np.float32)
     delays_sub_elem = np.array(delays_sub_elem, dtype=np.float32)
     wx_arr = np.array(wx_list, dtype=np.float32)
     wy_arr = np.array(wy_list, dtype=np.float32)
+    sub_el_idx_arr = np.array(sub_el_idx_list, dtype=np.int32)
     M = len(centers_sub_elem)
     range_k = None
     return (
@@ -127,6 +131,7 @@ def compute_sub_elem_attributes(transducer):
         range_k,
         wx_arr,
         wy_arr,
+        sub_el_idx_arr,
     )
 
 
@@ -153,6 +158,10 @@ def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
             The grid spacing in the y direction (in mm).
         - dz (or dz_mm) : float
             The grid spacing in the z direction (in mm).
+    fs : float, default: 200e6
+        Sampling frequency in Hz. Used to compute far-field condition warnings.
+    c : float, default: 1540.0
+        Speed of sound in m/s. Used for patch-size validation.
 
     Returns
     -------

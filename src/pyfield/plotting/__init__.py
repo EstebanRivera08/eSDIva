@@ -12,7 +12,11 @@ from .plotting2D import (
     plot2D_pressure_slices,
     plot2D_transient_slices,
 )
-from .plotting3D import plot3D_pressure_slices, plot3D_pressure_vol, plot3D_transient_slices
+from .plotting3D import (
+    plot3D_pressure_slices,
+    plot3D_pressure_vol,
+    plot3D_transient_slices,
+)
 from .plotting_pyvista import (
     add_2D_image,
     add_3D_vol,

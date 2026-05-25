@@ -67,6 +67,8 @@ class TransducerBase(ABC):
         self._delays: Optional[np.ndarray] = None
         self.apodization_type: Optional[str] = None
         self.FoverD: Optional[float] = None
+        self._impulse_response: Optional[np.ndarray] = None
+        self._excitation: Optional[np.ndarray] = None
 
         # Geometry cache (populated lazily)
         self._element_centers: Optional[np.ndarray] = None
@@ -279,6 +281,63 @@ class TransducerBase(ABC):
         """
         return int(np.sum(self.apodization > 0))
 
+    @property
+    def impulse_response(self) -> Optional[np.ndarray]:
+        """Electromechanical impulse response of the transducer element.
+
+        1-D float32 array sampled at the simulation sampling frequency.
+        Represents the electrical-to-acoustic (TX) or acoustic-to-electrical
+        (RX) transfer function. Applied via convolution in the frequency domain.
+
+        None = ideal (delta function) — no filtering.
+
+        Returns
+        -------
+        ndarray or None
+            Impulse response array of shape ``(L_ir,)``, or None.
+        """
+        return self._impulse_response
+
+    @impulse_response.setter
+    def impulse_response(self, value: Optional[np.ndarray]) -> None:
+        """Set impulse response; converts to 1-D float32 or stores None.
+
+        Parameters
+        ----------
+        value : ndarray or None
+            Impulse response to store. Converted to float32 and ravelled.
+        """
+        if value is not None:
+            value = np.asarray(value, dtype=np.float32).ravel()
+        self._impulse_response = value
+
+    @property
+    def excitation(self) -> Optional[np.ndarray]:
+        """Excitation pulse for this transducer.
+
+        1-D float32 array sampled at the simulation sampling frequency.
+        None = impulse (delta) excitation.
+
+        Returns
+        -------
+        ndarray or None
+            Excitation array of shape ``(L_exc,)``, or None.
+        """
+        return self._excitation
+
+    @excitation.setter
+    def excitation(self, value: Optional[np.ndarray]) -> None:
+        """Set excitation pulse; converts to 1-D float32 or stores None.
+
+        Parameters
+        ----------
+        value : ndarray or None
+            Excitation pulse to store. Converted to float32 and ravelled.
+        """
+        if value is not None:
+            value = np.asarray(value, dtype=np.float32).ravel()
+        self._excitation = value
+
     # ------------------------------------------------------------------
     # Abstract methods — must be implemented by every subclass
     # ------------------------------------------------------------------
@@ -307,22 +366,29 @@ class TransducerBase(ABC):
 
     def compute_delays(
         self,
-        focus_mm,
+        focus_mm=None,
         *,
+        angle_steering_deg=None,
         c: Optional[float] = None,
         inline: bool = True,
         plot: bool = False,
     ) -> np.ndarray:
         """
-        Compute per-element time delays for electronic focusing.
+        Compute per-element time delays for electronic focusing or plane-wave steering.
 
-        The delay law is distance-based: each element fires at a time that
-        makes the wave front arrive at ``focus_mm`` simultaneously.
+        Exactly one of ``focus_mm`` or ``angle_steering_deg`` must be provided.
 
         Parameters
         ----------
-        focus_mm : array-like, shape (2,) or (3,)
+        focus_mm : array-like, shape (2,) or (3,), optional
             Focal point in mm. If 2-D ``[x, z]``, y=0 is assumed.
+            Mutually exclusive with ``angle_steering_deg``.
+        angle_steering_deg : float or (float, float), optional
+            Plane-wave steering angle(s) in degrees.
+            A single float steers in the xz-plane only: ``(θ_x, θ_y=0)``.
+            A tuple ``(θ_x, θ_y)`` steers in both xz and yz planes (matrix or
+            3-D arrays).
+            Mutually exclusive with ``focus_mm``.
         c : float, optional
             Speed of sound in m/s. Defaults to ``speed_of_sound_mps`` (1540).
         inline : bool
@@ -334,6 +400,13 @@ class TransducerBase(ABC):
         -------
         ndarray
             Delays in seconds, shape ``(n_elements,)`` (minimum delay is always 0).
+
+        Raises
+        ------
+        ValueError
+            If both or neither of ``focus_mm`` / ``angle_steering_deg`` are given,
+            or if the steering angles exceed the physical limit
+            ``sin²θ_x + sin²θ_y > 1``.
         """
         if self.n_elements == 1:
             warnings.warn(
@@ -345,22 +418,52 @@ class TransducerBase(ABC):
             )
             return np.zeros(1)
 
+        if focus_mm is not None and angle_steering_deg is not None:
+            raise ValueError("Specify focus_mm or angle_steering_deg, not both.")
+        if focus_mm is None and angle_steering_deg is None:
+            raise ValueError("One of focus_mm or angle_steering_deg must be provided.")
+
         c = (
             validators.validate_speed_of_sound(c)
             if c is not None
             else self.speed_of_sound_mps
         )
-        focus_m = validators.validate_focus_coordinates(focus_mm)
 
-        dist = np.linalg.norm(self.element_centers - focus_m, axis=1)
-        if focus_m[2] <= 0:
-            # Diverging wave: earliest element fires first
-            delays = dist - dist.min()
+        if focus_mm is not None:
+            focus_m = validators.validate_focus_coordinates(focus_mm)
+            dist = np.linalg.norm(self.element_centers - focus_m, axis=1)
+            if focus_m[2] <= 0:
+                # Diverging wave: earliest element fires first
+                delays = dist - dist.min()
+            else:
+                # Focusing: farthest element fires first
+                delays = dist.max() - dist
+            delays /= c
         else:
-            # Focusing: farthest element fires first
-            delays = dist.max() - dist
+            # Plane-wave steering
+            if isinstance(angle_steering_deg, (int, float)):
+                theta_x_deg, theta_y_deg = float(angle_steering_deg), 0.0
+            else:
+                theta_x_deg, theta_y_deg = (
+                    float(angle_steering_deg[0]),
+                    float(angle_steering_deg[1]),
+                )
 
-        delays /= c
+            theta_x = np.deg2rad(theta_x_deg)
+            theta_y = np.deg2rad(theta_y_deg)
+            sin_x, sin_y = np.sin(theta_x), np.sin(theta_y)
+            nz_sq = 1.0 - sin_x**2 - sin_y**2
+            if nz_sq < 0:
+                raise ValueError(
+                    f"Steering angles ({theta_x_deg:.1f}°, {theta_y_deg:.1f}°) exceed "
+                    f"physical limit (sin²θ_x + sin²θ_y must be ≤ 1)."
+                )
+            # Unit steering direction
+            n_vec = np.array([sin_x, sin_y, np.sqrt(nz_sq)])
+            # Signed projection of each element centre onto steering direction
+            d_proj = self.element_centers @ n_vec  # (E,)
+            # Element with max projection fires first (zero delay); others delayed
+            delays = (d_proj.max() - d_proj) / c  # (E,) non-negative
 
         if inline:
             self.delays = delays
