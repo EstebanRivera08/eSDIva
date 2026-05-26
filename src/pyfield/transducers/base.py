@@ -462,8 +462,8 @@ class TransducerBase(ABC):
             n_vec = np.array([sin_x, sin_y, np.sqrt(nz_sq)])
             # Signed projection of each element centre onto steering direction
             d_proj = self.element_centers @ n_vec  # (E,)
-            # Element with max projection fires first (zero delay); others delayed
-            delays = (d_proj.max() - d_proj) / c  # (E,) non-negative
+            # Element with min projection fires first (zero delay); others compensate.
+            delays = (d_proj - d_proj.min()) / c  # (E,) non-negative
 
         if inline:
             self.delays = delays

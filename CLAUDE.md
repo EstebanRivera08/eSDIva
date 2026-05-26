@@ -201,6 +201,7 @@ soon, so keep independent and secret.
    ```
 
    **Return convention**: `Emission.__call__` always returns `(pressure, coords)`.
+   All modes scale pressure by `rho` (unified exit path).
    - `coords` keys `"x"`, `"y"`, `"z"` for structured grid (dict input); also
      `"t0"`, `"dt"` for transient modes.
    - Structured grid: Monochromatic `p.shape = (Nx, Ny, Nz)`,

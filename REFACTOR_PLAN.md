@@ -225,6 +225,32 @@ which correctly reverses the z-outer meshgrid flattening.
 Per-element is FFT-bound: `E × n_batches × t_rfft = 128 × 15 × 0.53 s ≈ 1020 s`.
 Irreducible on CPU for this grid size; reducible by coarsening grid or using GPU.
 
+### Post-Batch 3 Performance Fix
+
+**Problem**: Pulsed transient (mode 2) regressed from ~8 s to >100 s on
+`bigelementstx/visualize_transient.py` (CustomTransducer, 128 elements,
+P≈14K, M≈192K patches).
+
+**Root causes**:
+1. `_compute_active_window` — Python for-loop over all P points, each doing
+   NumPy ops on M patches. O(P) Python iterations × O(M) per iteration ≈ 50–100 s.
+2. `compute_time_grid` called twice — once in `__call__`, again inside `_compute_sir`.
+   Each call runs O(P×M) Numba distance scan.
+
+**Fix**:
+1. Removed `_compute_active_window` entirely. SDI tail index now uses
+   `info["max_time"]` returned by `compute_h_sir` (already computed inside
+   the Numba kernel at zero extra cost).
+2. `_compute_sir` accepts `time_grid_params` kwarg to reuse pre-computed
+   `(time_grid, t0, dt, T)` from `__call__`. No redundant O(P×M) scan.
+
+**Other cleanup applied**:
+- `Pressure_flat` → `pressure_flat` (consistent snake_case).
+- `rho` scaling unified: all modes (monochromatic + transient) now multiply
+  by `self.rho` in a single common exit path.
+- Duplicate reshape/coords logic merged into one block after mode dispatch.
+- Dispatch flags documented with inline comment.
+
 ---
 
 ## Architecture Decision: Element-Loop Memory Strategy

@@ -216,8 +216,24 @@ class Emission:
         conv = np.convolve(excitation.astype(np.float64), ir.astype(np.float64))
         return conv[: len(excitation)].astype(np.float32)
 
-    def _compute_sir(self, points_m, *, method="auto"):
-        """Compute h_sir summed over all patches, returns (T, P) float32."""
+    def _compute_sir(self, points_m, *, method="auto", time_grid_params=None):
+        """Compute h_sir summed over all patches, returns (T, P) float32.
+
+        Parameters
+        ----------
+        points_m : (P, 3) float32
+        method : str
+        time_grid_params : tuple or None
+            Pre-computed ``(time_grid, t0, dt, T)`` to avoid recomputing.
+
+        Returns
+        -------
+        h : (T, P) float32
+        t0 : float
+        info : dict
+            Keys ``"min_time"``, ``"max_time"``, ``"range_k_matrix"`` from
+            ``compute_h_sir``.
+        """
         method_flag = _method_to_flag(method)
         P = points_m.shape[0]
 
@@ -227,20 +243,24 @@ class Emission:
             )
 
         t_wall = time.time()
-        time_grid, t0, dt, T = compute_time_grid(
-            P,
-            self.M,
-            points_m,
-            self.centers_sub_elem,
-            self.wx,
-            self.wy,
-            self.c,
-            self.fs,
-            self.delays,
-            verbose=self.verbose,
-        )
 
-        h, _info = compute_h_sir(
+        if time_grid_params is not None:
+            time_grid, t0, dt, T = time_grid_params
+        else:
+            time_grid, t0, dt, T = compute_time_grid(
+                P,
+                self.M,
+                points_m,
+                self.centers_sub_elem,
+                self.wx,
+                self.wy,
+                self.c,
+                self.fs,
+                self.delays,
+                verbose=self.verbose,
+            )
+
+        h, info = compute_h_sir(
             P,
             self.M,
             T,
@@ -260,31 +280,7 @@ class Emission:
         if self.verbose:
             print(f"SIR computed in {time.time() - t_wall:.3f} s")
 
-        return h.T, t0  # (T, P)
-
-    def _compute_active_window(self, points_m, t0, T, dt):
-        """Return first sample index past which dh is guaranteed zero (SDI tail guard)."""
-        centers = self.centers_sub_elem
-        delays = self.delays_sub_elem
-        wx_arr = self.wx_arr
-        wy_arr = self.wy_arr
-        inv_c = 1.0 / self.c
-
-        t_max = -np.inf
-        for r_p in points_m:
-            diff = r_p[np.newaxis, :] - centers
-            dist = np.linalg.norm(diff, axis=1)
-            dist = np.maximum(dist, 1e-12)
-            ux = diff[:, 0] / dist
-            uy = diff[:, 1] / dist
-            xp = np.abs(ux) * wx_arr * inv_c
-            yp = np.abs(uy) * wy_arr * inv_c
-            dt1_arr = np.maximum(np.minimum(xp, yp), dt)
-            dt2_arr = np.maximum(np.maximum(xp, yp), dt)
-            t4 = dist * inv_c + 0.5 * (dt1_arr + dt2_arr) + delays
-            t_max = max(t_max, float(t4.max()))
-
-        return min(T, int(np.floor((t_max - t0) / dt)) + 2)
+        return h.T, t0, info  # (T, P), float, dict
 
     def _extract_patch_slices(self):
         """Pre-extract per-element patch arrays (outside E-loop for efficiency)."""
@@ -392,12 +388,14 @@ class Emission:
     # Global processing paths (no E-loop)
     # ------------------------------------------------------------------
 
-    def _mono_global(self, points_m, distances_m, method):
+    def _mono_global(self, points_m, distances_m, method, time_grid_params=None):
         """Monochromatic, global path: full h_sir → monochromatic pressure."""
-        h, t0 = self._compute_sir(points_m, method=method)
+        h, t0, info = self._compute_sir(
+            points_m, method=method, time_grid_params=time_grid_params
+        )
         T = h.shape[0]
         dt = 1.0 / self.fs
-        idx_e = self._compute_active_window(points_m, t0, T, dt)
+        idx_e = min(T, int(np.floor((info["max_time"] - t0) / dt)) + 2)
         h[idx_e:, :] = 0.0
         return from_sir_to_monochromatic_pressure(
             h,
@@ -453,7 +451,7 @@ class Emission:
 
         batch_P = self._batch_P(nfft)
         n_batches = (P + batch_P - 1) // batch_P
-        Pressure_flat = np.zeros((T, P), dtype=np.float32)
+        pressure_flat = np.zeros((T, P), dtype=np.float32)
 
         t_wall = time.time()
         if self.verbose:
@@ -475,7 +473,7 @@ class Emission:
             if H_att is not None:
                 H *= H_att[p_start:p_end]
 
-            Pressure_flat[:, p_start:p_end] = np.abs(
+            pressure_flat[:, p_start:p_end] = np.abs(
                 irfft(H, n=nfft, axis=1, workers=-1)[:, :T]
             ).T.astype(np.float32)
             del H
@@ -483,7 +481,7 @@ class Emission:
         if self.verbose:
             print(f"FFT processing done in {time.time() - t_wall:.3f} s")
 
-        return Pressure_flat  # (T, P)
+        return pressure_flat  # (T, P)
 
     # ------------------------------------------------------------------
     # Per-element processing paths (E-loop)
@@ -588,7 +586,7 @@ class Emission:
 
         batch_P = self._batch_P(nfft)
         n_batches = (P + batch_P - 1) // batch_P
-        Pressure_flat = np.zeros((T, P), dtype=np.float32)
+        pressure_flat = np.zeros((T, P), dtype=np.float32)
 
         if self.verbose:
             print(
@@ -653,7 +651,7 @@ class Emission:
                 del H_e
 
             # ONE irfft + abs per P-batch — preserves inter-element interference.
-            Pressure_flat[:, p_start:p_end] = np.abs(
+            pressure_flat[:, p_start:p_end] = np.abs(
                 irfft(acc_H, n=nfft, axis=1, workers=-1)[:, :T]
             ).T.astype(np.float32)
             del acc_H
@@ -670,7 +668,7 @@ class Emission:
                     f"(FFT-bound: {n_elements}×{n_batches} batches)"
                 )
 
-        return Pressure_flat  # (T, P)
+        return pressure_flat  # (T, P)
 
     # ------------------------------------------------------------------
     # Public API
@@ -721,6 +719,9 @@ class Emission:
                 pts = pts.reshape(1, 3)
             points_m = pts * np.float32(1e-3)
 
+        # Dispatch flags: per_elem_exc = mode 4 (excitation shape (L, E)).
+        # use_per_element = E-loop needed (mode 4 always, modes 1-3 when
+        # attenuation requires element-center distances).
         exc = self.excitation
         per_elem_exc = exc is not None and exc.ndim == 2
         use_per_element = (
@@ -791,16 +792,10 @@ class Emission:
                     points_m, T, dt, time_grid, method_flag
                 )
             else:
-                pressure_flat = self._mono_global(points_m, distances_m, method)
-
-            coords: dict = {}
-            if is_structured:
-                pressure = reshape_to_mapped_points(x, y, z, pressure_flat)[0]
-                coords["x"] = x
-                coords["y"] = y
-                coords["z"] = z
-            else:
-                pressure = pressure_flat
+                pressure_flat = self._mono_global(
+                    points_m, distances_m, method,
+                    time_grid_params=(time_grid, t0, dt, T),
+                )
 
         # -------------------------------------------------------
         # PULSED / GLOBAL EXC / PER-ELEMENT EXC — TRANSIENT
@@ -808,41 +803,41 @@ class Emission:
         else:
             if use_per_element:
                 # Per-element loop: pulsed (exc=None), global (L,), per-element (L, E).
-                Pressure_flat = self._transient_per_element(
+                pressure_flat = self._transient_per_element(
                     points_m, t0, T, dt, time_grid, method_flag, exc
                 )
             elif exc is None and self.alpha0 is None:
-                # Pure pulsed: no excitation, no attenuation → legacy path.
-                # Uses _compute_sir (recomputes time grid internally) and handles
-                # SDI tail-zeroing via _compute_active_window.
-                h, t0_pulsed = self._compute_sir(points_m, method=method)
+                # Mode 2 — pure pulsed: no excitation, no attenuation.
+                h, _t0, info = self._compute_sir(
+                    points_m, method=method,
+                    time_grid_params=(time_grid, t0, dt, T),
+                )
                 T_h = h.shape[0]
-                idx_e_h = self._compute_active_window(
-                    points_m, t0_pulsed, T_h, 1.0 / self.fs
+                idx_e_h = min(
+                    T_h, int(np.floor((info["max_time"] - t0) / dt)) + 2
                 )
                 h[idx_e_h:, :] = 0.0
-                Pressure_flat = from_sir_to_pressure(
+                pressure_flat = from_sir_to_pressure(
                     h, None, None, None, self.fs, rho=self.rho
                 )
-                # Override t0 with the pulsed-path value for coords below.
-                t0 = t0_pulsed
             else:
-                # Global excitation (L,) or pulsed + fast_attenuation with alpha0.
-                # FFT path with optional TX-center H_att and excitation convolution.
-                Pressure_flat = self._transient_global(
+                # Mode 3 — global excitation (L,) or fast attenuation.
+                pressure_flat = self._transient_global(
                     points_m, t0, T, dt, time_grid, distances_m, method, exc
                 )
 
-            if is_structured:
-                pressure = reshape_to_mapped_points(x, y, z, Pressure_flat) * self.rho
-            else:
-                pressure = Pressure_flat
-
-            coords = {}
-            if is_structured:
-                coords["x"] = x
-                coords["y"] = y
-                coords["z"] = z
+        # -------------------------------------------------------
+        # Common exit: reshape + rho scaling + coords
+        # -------------------------------------------------------
+        coords: dict = {}
+        if is_structured:
+            pressure = reshape_to_mapped_points(x, y, z, pressure_flat) * self.rho
+            coords["x"] = x
+            coords["y"] = y
+            coords["z"] = z
+        else:
+            pressure = pressure_flat * self.rho
+        if not self.monochromatic:
             coords["t0"] = t0
             coords["dt"] = 1.0 / self.fs
 

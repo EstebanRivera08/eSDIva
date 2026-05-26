@@ -100,6 +100,17 @@ Pre-commit hooks: ruff-check, ruff-format, ty, codespell, numpydoc-validation.
 - Single-responsibility functions
 - NumPy vectorized operations over loops
 
+### Readability vs Brevity (Open-Source Balance)
+- Keep files short. Fewer lines = easier to audit and contribute to.
+- Don't add docstrings to private helpers that have self-evident signatures.
+- Don't expand comments that already say what the code does — only comment **why**.
+- Prefer extracting a small helper over repeating 3+ lines, but don't abstract 1-time ops.
+- Use consistent variable names across methods in same class (e.g. `pressure_flat` not mixed `Pressure_flat`).
+- Inline comments: max 1 per logical block. No comment walls before code sections.
+- Dispatch logic: one short comment per branch explaining **which mode** it handles.
+- Dead code: delete immediately. No `# removed` markers, no `_unused` renames.
+- Aim: a newcomer reads `__call__` and understands the full routing in under 2 minutes.
+
 ## Commit Message Convention (Commitizen)
 
 Format: `<type>(<scope>): <short summary>`

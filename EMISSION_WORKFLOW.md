@@ -50,6 +50,8 @@ __call__(field_points_mm)
   ├─ compute_time_grid(P, M, points_m, centers, wx, wy, c, fs, delays)
   │    → time_grid (T,), t0 (float), dt (float), T (int)
   │    cost: O(P × M) distance scan, ~0.05–0.5 s for large grids
+  │    result stored as time_grid_params=(time_grid, t0, dt, T) and
+  │    passed to _compute_sir to avoid redundant recomputation
   │
   ├─ [alpha0 and global att path]
   │    compute_attenuation_distances(points_m, tx_center) → distances_m (P,)
@@ -65,21 +67,19 @@ __call__(field_points_mm)
 **Trigger**: `monochromatic=True`, `alpha0=None` or `fast_attenuation=True`
 
 ```
-_mono_global(points_m, distances_m, method)
+_mono_global(points_m, distances_m, method, time_grid_params)
   │
-  ├─ _compute_sir(points_m, method)
-  │    ├─ compute_time_grid(...)              [redundant: also called in preamble]
+  ├─ _compute_sir(points_m, method, time_grid_params=time_grid_params)
+  │    ├─ [time_grid_params provided → skip compute_time_grid]
   │    ├─ compute_h_sir(P, M, T, dt,          ◄── BOTTLENECK: Numba, O(P × M × avg_T)
   │    │    time_grid, points_m, centers,           ~25–35 s for P=60k, M=1280
   │    │    wx_arr, wy_arr, inv_c, fs,
   │    │    apod, delays, method_flag)
-  │    │    → h (P, T) float32
-  │    └─ return h.T, t0   → (T, P)
+  │    │    → h (P, T) float32, info dict
+  │    └─ return h.T, t0, info   → (T, P), float, dict
   │
-  ├─ _compute_active_window(points_m, t0, T, dt)
-  │    → idx_e    [SDI tail guard; Python loop over patches, fast]
-  │
-  ├─ h[idx_e:, :] = 0.0
+  ├─ idx_e_h from info["max_time"]   [O(1) — already computed inside Numba kernel]
+  ├─ h[idx_e_h:, :] = 0.0            [SDI tail guard]
   │
   └─ from_sir_to_monochromatic_pressure(h, None, None, None, fc, fs,
           alpha0=alpha0, distances_m=distances_m)
@@ -88,15 +88,12 @@ _mono_global(points_m, distances_m, method)
        ├─ |H[fc_idx, :]|                      [extract single frequency bin]
        └─ × |H_att| if alpha0                 [scalar multiply per point]
        → pressure_flat (P,)
-
-└─ reshape_to_mapped_points(x, y, z, pressure_flat)[0]  → (Nx, Ny, Nz)
 ```
 
 | Step | Cost | Notes |
 |------|------|-------|
 | `compute_h_sir` | ~25–35 s | Numba JIT, parallelised over P |
 | `from_sir_to_monochromatic_pressure` | ~2–5 s | Sequential FFT batches, float64 |
-| `compute_time_grid` | ~0.05 s | Called twice (minor redundancy) |
 
 **Dominant cost**: Numba SIR kernel.
 
@@ -127,9 +124,7 @@ _mono_per_element(points_m, T, dt, time_grid, method_flag)
   │    ├─ acc_flat[batch] += H_e_fc × H_att_e_b
   │    └─ del h_e    [free immediately]
   │
-  └─ abs(acc_flat)  → (P,) float32
-
-└─ reshape_to_mapped_points(x, y, z, pressure_flat)[0]  → (Nx, Ny, Nz)
+  └─ abs(acc_flat)  → pressure_flat (P,) float32
 ```
 
 | Step | Cost | Notes |
@@ -147,25 +142,23 @@ Total arithmetic equivalent — overhead from E Python loop calls is small.
 
 **Trigger**: `excitation=None`, `alpha0=None`
 
-Legacy path through `from_sir_to_pressure`.
+Direct SIR return — no FFT post-processing.
 
 ```
-_compute_sir(points_m, method)      ◄── BOTTLENECK: Numba
-  → h (T, P), t0
+_compute_sir(points_m, method, time_grid_params=time_grid_params)
+  ├─ [time_grid_params provided → skip compute_time_grid]
+  ├─ compute_h_sir(...)   ◄── BOTTLENECK: Numba
+  └─ return h.T, t0, info   → (T, P), float, dict
 
-_compute_active_window(...)  → idx_e_h
-h[idx_e_h:, :] = 0.0
+idx_e_h from info["max_time"]   [O(1) — from Numba kernel]
+h[idx_e_h:, :] = 0.0            [SDI tail guard]
 
-from_sir_to_pressure(h, None, None, None, fs, rho=rho, excitation=None)
-  [excitation=None branch]: returns h unchanged  →  Pressure_flat = h (T, P)
-
-reshape_to_mapped_points(x, y, z, Pressure_flat) × rho  → (Nt, Nx, Ny, Nz)
+pressure_flat = h   (T, P)
 ```
 
 | Step | Cost | Notes |
 |------|------|-------|
 | `compute_h_sir` | ~8–12 s | Same kernel as [A], but less post-processing |
-| `from_sir_to_pressure` | ~0 s | h returned directly when `excitation=None` |
 | reshape + rho | < 1 s | |
 
 **Dominant cost**: Numba SIR kernel.
@@ -209,7 +202,7 @@ _transient_global(points_m, t0, T, dt, time_grid, distances_m, method, exc_1d)
        └─ abs(irfft(H, n=nfft, axis=1, workers=-1)[:, :T]).T
             → Pressure_flat[:, batch]   float32
 
-└─ reshape_to_mapped_points(x, y, z, Pressure_flat) × rho  → (Nt, Nx, Ny, Nz)
+→ pressure_flat (T, P)
 ```
 
 | Step | Cost | Notes |
@@ -279,7 +272,7 @@ _transient_per_element(points_m, t0, T, dt, time_grid, method_flag, exc)
        │
        └─ [ib == 0] print ETA: t_first × n_batches → estimated total
 
-└─ reshape_to_mapped_points(x, y, z, Pressure_flat) × rho  → (Nt, Nx, Ny, Nz)
+→ pressure_flat (T, P)
 ```
 
 | Step | Cost | Notes |
@@ -343,15 +336,37 @@ irfft(H_0 + H_1 + ... + H_{E-1}) = irfft(H_0) + irfft(H_1) + ...   [linear]
 
 | Function | Module | What it does |
 |----------|--------|-------------|
-| `compute_h_sir` | `h_sir/farfield_rect_patch.py` | Numba JIT SIR, `(P, T) float32` |
+| `compute_h_sir` | `h_sir/farfield_rect_patch.py` | Numba JIT SIR, returns `(P, T) float32` + `info` dict |
 | `compute_time_grid` | `utilities/helper_functions.py` | Min/max TOF scan → `T, t0, dt, time_grid` |
+| `_compute_sir` | `emission.py` | Wraps `compute_h_sir`, accepts `time_grid_params` to avoid recomputation, returns `(h.T, t0, info)` |
 | `_extract_patch_slices` | `emission.py` | Pre-split patches per element, cache outside E-loop |
 | `_compute_h_sir_batch` | `emission.py` | Wrapper: passes element patch arrays to `compute_h_sir` |
 | `_batch_P` | `emission.py` | Batch size from 400 MB budget |
 | `causal_attenuation_tf` | `psimulation/attenuation.py` | Causal power-law H_att, K-K dispersion |
 | `from_sir_to_monochromatic_pressure` | `psimulation/sir_to_pressure.py` | FFT→single bin→reshape |
-| `from_sir_to_pressure` | `psimulation/sir_to_pressure.py` | Full FFT convolution with excitation |
 | `reshape_to_mapped_points` | `utilities/helper_functions.py` | `(T, P) → (T, Nz, Nx, Ny) → transpose (T, Nx, Ny, Nz)` |
+
+---
+
+## Common Exit Path (all modes)
+
+After mode dispatch produces `pressure_flat`, all modes share one exit block:
+
+```
+coords = {}
+if is_structured:
+    pressure = reshape_to_mapped_points(x, y, z, pressure_flat) * rho
+    coords["x"] = x;  coords["y"] = y;  coords["z"] = z
+else:
+    pressure = pressure_flat * rho
+
+if not monochromatic:
+    coords["t0"] = t0;  coords["dt"] = 1.0 / fs
+
+return pressure, coords
+```
+
+All modes return rho-scaled pressure uniformly.
 
 ---
 
@@ -363,4 +378,3 @@ irfft(H_0 + H_1 + ... + H_{E-1}) = irfft(H_0) + irfft(H_1) + ...   [linear]
 | Coarser grid | all | P ↓ → fewer batches |
 | Pre-compute all-element h_sir then split | [E] | Avoids E-loop overhead if memory permits |
 | Async Numba + FFT pipeline | [D][E] | Overlap SIR compute and FFT |
-| Remove double `compute_time_grid` in [A] | [A] | Minor: ~0.1 s |

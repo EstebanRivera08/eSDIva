@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 
-from pyfield import PyField
+from pyfield import Emission, PyField
 from pyfield.plotting import (
     add_transducer_mesh,
     plot2D_transient_slices,
@@ -19,10 +19,11 @@ CENTRAL_FREQUENCY_MHz = 1  # MHz
 SPEED_OF_SOUND_MS = 1540  # m/s
 FIG_NAME = "zeus_pad_transient"
 FOLDER_NAME = "./figures/"
-DB_SCALE = False
+DB_SCALE = True
 PLANE_WAVE = True
-PLOT_2D = True
-PLOT_3D = False
+PLOT_2D = False
+PLOT_3D = True
+SAVE_FIG = False
 
 lambda_mm = SPEED_OF_SOUND_MS / (CENTRAL_FREQUENCY_MHz * 1e3)  # mm
 element_diameter_mm = 2.9 * lambda_mm
@@ -63,16 +64,17 @@ transducer = CustomTransducer(
 
 
 if PLANE_WAVE:
-    zmax_elements = np.max(element_positions_m[:, 2])
-    virtual_plane_array = np.concatenate(
-        [element_positions_m[:, :2], np.ones((num_elements, 1)) * zmax_elements], axis=1
-    )
-    distance_to_virtual_plane_m = np.linalg.norm(
-        geometric_focus_m - virtual_plane_array, axis=1
-    )
-    delay_s = distance_to_virtual_plane_m / (SPEED_OF_SOUND_MS)  # s
-    # delay_s = np.max(delay_s) - delay_s  # invert to get delays for plane wave
-    transducer.set_delays(delay_s)
+    # zmax_elements = np.max(element_positions_m[:, 2])
+    # virtual_plane_array = np.concatenate(
+    #     [element_positions_m[:, :2], np.ones((num_elements, 1)) * zmax_elements], axis=1
+    # )
+    # distance_to_virtual_plane_m = np.linalg.norm(
+    #     geometric_focus_m - virtual_plane_array, axis=1
+    # )
+    # delay_s = distance_to_virtual_plane_m / (SPEED_OF_SOUND_MS)  # s
+    # # delay_s = np.max(delay_s) - delay_s  # invert to get delays for plane wave
+    # transducer.set_delays(delay_s)
+    transducer.compute_delays(angle_steering_deg=(10, -10))
 
 transducer.show(scalars="Delays", show_edges=False)
 # breakpoint()
@@ -111,10 +113,10 @@ plane_yz_dict = {
 }
 
 sampling_frequency_Hz = 50e6
-txsim = PyField(transducer, fs=sampling_frequency_Hz)
+txsim = Emission(transducer, fs=sampling_frequency_Hz)
 # Transient simulation — each plane returns (p, coords) with p=(Nt, Nx, Ny, Nz)
-pxz, coords_xz = txsim(plane_xz_dict, monochromatic=False)
-pyz, coords_yz = txsim(plane_yz_dict, monochromatic=False)
+pxz, coords_xz = txsim(plane_xz_dict)
+pyz, coords_yz = txsim(plane_yz_dict)
 # pxy, coords_xy = txsim(plane_xy_dict, monochromatic=False)
 
 common_t, [pxz_a, pyz_a] = align_to_common_time(
@@ -137,11 +139,17 @@ planes = [
 ]
 
 # --- 2D transient animation (matplotlib) ---
-save_path = FOLDER_NAME
-comment1 = "dB" if DB_SCALE else "linear"
-comment2 = "plane_wave" if PLANE_WAVE else "focused"
-file2D_name = FIG_NAME + f"_{comment1}_{comment2}_2D.gif"
-file3D_name = FIG_NAME + f"_{comment1}_{comment2}_3D.gif"
+
+if SAVE_FIG:
+    save_path = FOLDER_NAME
+    comment1 = "dB" if DB_SCALE else "linear"
+    comment2 = "plane_wave" if PLANE_WAVE else "focused"
+    file2D_name = FIG_NAME + f"_{comment1}_{comment2}_2D.gif"
+    file3D_name = FIG_NAME + f"_{comment1}_{comment2}_3D.gif"
+else:
+    save_path = None
+    file2D_name = None
+    file3D_name = None
 
 
 if PLOT_2D:
