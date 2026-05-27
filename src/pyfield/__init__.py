@@ -7,7 +7,7 @@ import pyfield.psimulation as psimulation
 import pyfield.transducers as transducers
 import pyfield.utilities as utilities
 from pyfield.plotting import plot2D_pressure_slices
-from pyfield.psimulation import Emission, PyField
+from pyfield.psimulation import Emission, PyField, Reception
 from pyfield.utilities import align_to_common_time, to_dB
 
 
@@ -19,6 +19,7 @@ def plot_pressure_planes(x, y, z, pressure_field, **kwargs):
 __all__ = [
     "Emission",
     "PyField",
+    "Reception",
     "psimulation",
     "transducers",
     "utilities",

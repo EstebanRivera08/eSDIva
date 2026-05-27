@@ -505,7 +505,12 @@ def plot2D_pressure_slices(
             xlabel, ylabel = "Y (mm)", "Z (mm)"
 
         im_main = ax_main.imshow(
-            init_data, origin="upper", extent=extent, vmin=vmin, vmax=vmax_plot, **kwargs
+            init_data,
+            origin="upper",
+            extent=extent,
+            vmin=vmin,
+            vmax=vmax_plot,
+            **kwargs,
         )
         ax_main.set_xlabel(xlabel)
         ax_main.set_ylabel(ylabel)

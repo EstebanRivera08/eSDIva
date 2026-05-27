@@ -83,7 +83,7 @@ The codebase follows a modular architecture with clear separation of concerns.
 
 2) **`src/pyfield/transducers/`** — Transducer geometry definitions
 
-3) **`src/pyfield/psimulation/`** — Pressure field simulation
+3) **`src/pyfield/psimulation/`** — Pressure field simulation (Emission + Reception)
 
 4) **`src/pyfield/utilities/`** — Helper functions, surface subdivision, brain-atlas integration
 
@@ -222,7 +222,63 @@ soon, so keep independent and secret.
    )
    ```
 
-5. **Visualize**:
+5. **Reception (Pulse-Echo RF Simulation)**:
+
+   `Reception` computes received RF signals via the PE SDI kernel, which places
+   16 deltas per (TX patch, RX patch) pair for efficient pulse-echo SIR computation.
+
+   ```python
+   from pyfield.psimulation import Reception
+
+   # TX and RX can be same or different transducers
+   tx = LinearArrayTransducer(...)
+   tx.compute_delays(focus_mm=[0, 0, 30])
+   tx.impulse_response = ir_pulse     # optional electromechanical IR
+   tx.excitation = excitation_pulse   # TX excitation
+
+   rx = LinearArrayTransducer(...)    # or same as tx
+   rx.impulse_response = ir_pulse     # optional RX IR
+
+   sim = Reception(tx, rx, fs=200e6, c=1540)
+
+   # Define scatterers
+   scatterer_pos = np.array([[0, 0, 30], [1, 0, 35]])  # mm
+   scatterer_amp = np.array([1.0, 0.5])
+
+   # Single-focus RF
+   rf, coords = sim(scatterer_pos, scatterer_amp)
+   # rf.shape = (Nt, E_rx), coords = {"t0": float, "dt": float}
+
+   # Multi-line (sweep TX focus)
+   tx_events = [
+       {"delays": delays_line1, "apodization": apod_line1},
+       {"delays": delays_line2, "apodization": apod_line2},
+   ]
+   rf_multi, coords = sim.compute_sequence(scatterer_pos, scatterer_amp, tx_events)
+   # rf_multi.shape = (N_events, Nt, E_rx)
+
+   # Full matrix capture
+   rf_fmc, coords = sim.compute_all(scatterer_pos, scatterer_amp)
+   # rf_fmc.shape = (E_tx, Nt, E_rx)
+   ```
+
+   **Constructor parameters** (keyword-only after tx, rx):
+   - `c=1540.0` — speed of sound (m/s)
+   - `rho=1.0` — medium density (kg/m^3)
+   - `fs=200e6` — sampling frequency (Hz)
+   - `alpha0=None` — attenuation in dB/(MHz^y·cm)
+   - `freq_power=1.0` — power-law exponent y
+   - `excitation=None` — TX excitation `(L,)` float32 (or uses `tx.excitation`)
+   - `verbose=True`
+
+   **Key differences from Emission**:
+   - Takes separate TX and RX transducers
+   - Uses PE SDI kernel (`compute_pe_sdi`) — no `jw` multiplication (derivatives
+     already in Dh_pe)
+   - Returns per-element RF data `(Nt, E_rx)`, not spatial pressure fields
+   - Scatterer positions instead of field grid
+
+6. **Visualize**:
    ```python
    from pyfield.plotting import plot2D_pressure_slices
    # works for both monochromatic (3D) and transient (4D) pressure fields

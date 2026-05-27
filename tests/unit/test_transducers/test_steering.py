@@ -1,7 +1,5 @@
 """Tests for compute_delays — plane-wave steering via angle_steering_deg."""
 
-import warnings
-
 import numpy as np
 import pytest
 
@@ -58,7 +56,10 @@ class TestSteeringErrors:
 
     def test_mono_element_returns_zeros_with_warning(self):
         from pyfield.transducers import FlatCircularTransducer
-        tx = FlatCircularTransducer(diameter_mm=10.0, no_sub_diameter=4, frequency_Hz=1e6)
+
+        tx = FlatCircularTransducer(
+            diameter_mm=10.0, no_sub_diameter=4, frequency_Hz=1e6
+        )
         with pytest.warns(UserWarning):
             d = tx.compute_delays(angle_steering_deg=0.0)
         np.testing.assert_array_equal(d, np.zeros(1))
@@ -150,7 +151,9 @@ class TestXzPlaneSteering:
         assert np.all(d_fast <= d_default + 1e-15)
         # Max delay scales by c ratio
         c_default = linear_8elem.speed_of_sound_mps
-        np.testing.assert_allclose(d_fast.max() / d_default.max(), c_default / 3000.0, rtol=1e-8)
+        np.testing.assert_allclose(
+            d_fast.max() / d_default.max(), c_default / 3000.0, rtol=1e-8
+        )
 
 
 # ---------------------------------------------------------------------------

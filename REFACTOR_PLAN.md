@@ -298,11 +298,14 @@ Peak memory per P-batch: `3 × (nfft × batch_P) × 8 bytes float64` ≈ 3 × 25
 
 ### Impact on Batch 4 (Reception)
 
-Reception `d2h_rx (T, P, E_rx)` is the largest allocation. Same element-loop applies:
+Reception uses `compute_pe_sdi` (combined TX+RX delta placement) per RX element. Same element-loop applies:
 
 ```
 for e_rx in range(n_rx_elements):
-    d2h_rx_e (T, P) → FFT → multiply chain → accumulate into rf[:, e_rx]
+    rx_patches_e = patches[sub_el_idx == e_rx]
+    compute_pe_sdi(all_tx_patches, rx_patches_e) → Dh_pe (P, T)
+    FFT(Dh_pe) → multiply by FFT(v'_pe) → multiply by H_att → IFFT
+    weight by scattering amplitudes → sum → rf[:, e_rx]
 ```
 
 Each iteration: `O(P × nfft)` memory. Total sequential, no concurrent allocations.
@@ -326,16 +329,17 @@ Each iteration: `O(P × nfft)` memory. Total sequential, no concurrent allocatio
 - `Reception` class: constructor params `(tx, rx, *, c, rho, fs, alpha0, freq_power, excitation, downsampling, verbose)`.
 - `.set(name, value)` — same `_SETTABLE` pattern as `Emission` (§6), without `monochromatic`.
 - `__call__(scatterer_positions_mm, scattering_amplitudes, *, method="sdi")`:
-  - Compute `dh_tx (P, T)` via `compute_dh` (TX summed).
-  - Compute `d2h_rx (P, E_rx, T)` via `compute_d2h_per_element` (RX per element).
-  - FFT all. Frequency-domain product chain (§4.4 data flow diagram):
-    `RF_e(f) = DH_tx × D2H_rx_e × V × IR_tx × IR_rx × H_att`
-  - H_att shape `(P, E_rx, N_freq)` via `compute_reception_distances` → `causal_attenuation_tf`. Skip if `alpha0=None`.
-  - IFFT, weight by `f_m(s)`, sum over scatterers.
+  - Per RX element loop: call `compute_pe_sdi` with all TX patches + RX element patches (combined delta placement) → `Dh_pe (P, T)`.
+  - FFT `Dh_pe`. Frequency-domain product chain:
+    `RF_e(f) = Dh_pe × V'_pe × H_att`
+    where `V'_pe = FFT(excitation) * FFT(ir_tx) * FFT(ir_rx)`.
+  - H_att shape `(P, N_freq)` via `compute_reception_distances` → `causal_attenuation_tf`. Skip if `alpha0=None`.
+  - IFFT, weight by `f_m(s)`, sum over scatterers → `rf[:, e_rx]`.
   - Scale by `rho / (2 * c^2)`.
   - Apply `downsampling` if not None.
   - Returns `(Nt, E_rx)`, `{"t0": float, "dt": float}`.
-- Memory strategy (§4.5 — element-loop): loop over RX elements, `d2h_rx_e (T, P)` per iteration; O(P × nfft) peak independent of E_rx. Batch P if needed.
+- Note: existing `compute_d2h` / `compute_dh` kernels in `sir_derivatives.py` are preserved for `Emission` use; Reception uses `compute_pe_sdi` exclusively.
+- Memory strategy (§4.5 — element-loop): loop over RX elements, `compute_pe_sdi` per iteration produces `Dh_pe (P, T)`; O(P × nfft) peak independent of E_rx. Batch P if needed.
 - `compute_sequence(scatterer_positions_mm, scattering_amplitudes, tx_events, *, time_btw_tx=None, method="sdi")`:
   - `tx_events`: list of dicts `{"delays": ndarray, "apodization": ndarray}`.
   - Loop: set TX delays/apod, call `__call__`, restore TX state after all events.

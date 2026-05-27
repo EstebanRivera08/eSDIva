@@ -7,6 +7,7 @@ from .sir_derivatives import (
     compute_d2h_per_element,
     compute_dh,
     compute_dh_per_element,
+    compute_pe_sdi,
     integrate_d2h_to_dh,
     integrate_dh_to_h,
 )
@@ -18,6 +19,7 @@ __all__ = [
     "compute_dh",
     "compute_d2h_per_element",
     "compute_dh_per_element",
+    "compute_pe_sdi",
     "integrate_d2h_to_dh",
     "integrate_dh_to_h",
 ]

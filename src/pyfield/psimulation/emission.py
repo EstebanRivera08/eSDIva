@@ -288,16 +288,20 @@ class Emission:
         slices = []
         for e in range(n_elements):
             mask = self.sub_el_idx_arr == e
-            slices.append((
-                self.centers_sub_elem[mask],
-                self.wx_arr[mask],
-                self.wy_arr[mask],
-                self.apodization_sub_elem[mask],
-                self.delays_sub_elem[mask],
-            ))
+            slices.append(
+                (
+                    self.centers_sub_elem[mask],
+                    self.wx_arr[mask],
+                    self.wy_arr[mask],
+                    self.apodization_sub_elem[mask],
+                    self.delays_sub_elem[mask],
+                )
+            )
         return slices
 
-    def _compute_h_sir_batch(self, pts_batch, T, dt, time_grid, method_flag, patch_arrays=None):
+    def _compute_h_sir_batch(
+        self, pts_batch, T, dt, time_grid, method_flag, patch_arrays=None
+    ):
         """Compute h_sir for a batch, returns (cols, T) float32.
 
         Parameters
@@ -379,7 +383,7 @@ class Emission:
         n_el = int(self.delays.shape[0])
         loop_str = f"Yes (E={n_el} elements)" if use_per_element else "No"
 
-        print(f"\n--- Emission ---")
+        print("\n--- Emission ---")
         print(f"  Mode       : {mode_str}")
         print(f"  Attenuation: {att_str}")
         print(f"  Per-element: {loop_str}")
@@ -399,7 +403,9 @@ class Emission:
         h[idx_e:, :] = 0.0
         return from_sir_to_monochromatic_pressure(
             h,
-            None, None, None,
+            None,
+            None,
+            None,
             self.fc,
             self.fs,
             alpha0=self.alpha0,
@@ -408,7 +414,9 @@ class Emission:
             distances_m=distances_m,
         )  # (P,) flat
 
-    def _transient_global(self, points_m, t0, T, dt, time_grid, distances_m, method, exc_1d):
+    def _transient_global(
+        self, points_m, t0, T, dt, time_grid, distances_m, method, exc_1d
+    ):
         """Global path for pulsed and global-excitation modes.
 
         Parameters
@@ -455,7 +463,9 @@ class Emission:
 
         t_wall = time.time()
         if self.verbose:
-            print(f"\nFFT processing: {P} points, nfft={nfft}, batch_P={batch_P} ({n_batches} batches)")
+            print(
+                f"\nFFT processing: {P} points, nfft={nfft}, batch_P={batch_P} ({n_batches} batches)"
+            )
 
         for p_start in range(0, P, batch_P):
             p_end = min(p_start + batch_P, P)
@@ -505,15 +515,21 @@ class Emission:
         batch_P = max(1, int(400 * 1024**2 // (T * 4 + 8)))
         acc_flat = np.zeros(P, dtype=np.complex64)
 
-        el_iter = _wrap_tqdm(
-            range(n_elements),
-            desc="Monochromatic elements",
-            total=n_elements,
-            leave=True,
-        ) if self.verbose else range(n_elements)
+        el_iter = (
+            _wrap_tqdm(
+                range(n_elements),
+                desc="Monochromatic elements",
+                total=n_elements,
+                leave=True,
+            )
+            if self.verbose
+            else range(n_elements)
+        )
 
         for e in el_iter:
-            if not self.verbose and (e % max(1, n_elements // 10) == 0 or e == n_elements - 1):
+            if not self.verbose and (
+                e % max(1, n_elements // 10) == 0 or e == n_elements - 1
+            ):
                 print(f"\r  Element {e + 1}/{n_elements}", end="", flush=True)
 
             # ONE Numba call for all P — maximizes parallel utilization.
@@ -528,7 +544,8 @@ class Emission:
 
                 if self.alpha0 is not None:
                     dist_e_b = np.linalg.norm(
-                        points_m[p_start:p_end].astype(np.float64) - elem_centers[e], axis=1
+                        points_m[p_start:p_end].astype(np.float64) - elem_centers[e],
+                        axis=1,
                     )
                     H_att_e_b = self._causal_tf_at_fc(dist_e_b)
                     acc_flat[p_start:p_end] += H_e_fc * H_att_e_b
@@ -573,7 +590,9 @@ class Emission:
         if exc is not None:
             if exc.ndim == 1:
                 fft_e = (j2pif * rfft(exc, n=nfft, workers=-1)).astype(np.complex64)
-                fft_exc_list = [fft_e] * n_elements  # shared reference — no extra memory
+                fft_exc_list = [
+                    fft_e
+                ] * n_elements  # shared reference — no extra memory
             else:
                 fft_exc_list = [
                     (j2pif * rfft(exc[:, e], n=nfft, workers=-1)).astype(np.complex64)
@@ -594,12 +613,16 @@ class Emission:
                 f"nfft={nfft}, batch_P={batch_P} ({n_batches} batches)"
             )
 
-        batch_iter = _wrap_tqdm(
-            range(0, P, batch_P),
-            desc="P-batches",
-            total=n_batches,
-            leave=True,
-        ) if self.verbose else range(0, P, batch_P)
+        batch_iter = (
+            _wrap_tqdm(
+                range(0, P, batch_P),
+                desc="P-batches",
+                total=n_batches,
+                leave=True,
+            )
+            if self.verbose
+            else range(0, P, batch_P)
+        )
 
         # Pre-allocate one zero-padded h_pad buffer reused for every element call.
         # scipy.fft receives an already-nfft-length input → no internal zero-padding
@@ -616,7 +639,7 @@ class Emission:
             p_end = min(p_start + batch_P, P)
             cols = p_end - p_start
             pts_batch = points_m[p_start:p_end]
-            h_pad = h_pad_buf[:cols]   # view into pre-allocated buffer, no copy
+            h_pad = h_pad_buf[:cols]  # view into pre-allocated buffer, no copy
 
             # Freq-domain accumulator for this batch — ONE irfft after the E loop.
             acc_H = np.zeros((cols, N_freq), dtype=np.complex64)
@@ -793,7 +816,9 @@ class Emission:
                 )
             else:
                 pressure_flat = self._mono_global(
-                    points_m, distances_m, method,
+                    points_m,
+                    distances_m,
+                    method,
                     time_grid_params=(time_grid, t0, dt, T),
                 )
 
@@ -809,13 +834,12 @@ class Emission:
             elif exc is None and self.alpha0 is None:
                 # Mode 2 — pure pulsed: no excitation, no attenuation.
                 h, _t0, info = self._compute_sir(
-                    points_m, method=method,
+                    points_m,
+                    method=method,
                     time_grid_params=(time_grid, t0, dt, T),
                 )
                 T_h = h.shape[0]
-                idx_e_h = min(
-                    T_h, int(np.floor((info["max_time"] - t0) / dt)) + 2
-                )
+                idx_e_h = min(T_h, int(np.floor((info["max_time"] - t0) / dt)) + 2)
                 h[idx_e_h:, :] = 0.0
                 pressure_flat = from_sir_to_pressure(
                     h, None, None, None, self.fs, rho=self.rho
@@ -845,7 +869,9 @@ class Emission:
         return pressure, coords
 
     def __repr__(self) -> str:
-        tf_str = "None" if self.transfer_function is None else repr(self.transfer_function)
+        tf_str = (
+            "None" if self.transfer_function is None else repr(self.transfer_function)
+        )
         return (
             f"Emission(transducer={self.tx}, c={self.c} m/s, fs={self.fs} Hz, "
             f"fc={self.fc} Hz, alpha0={self.alpha0} dB/(MHz^y cm), "

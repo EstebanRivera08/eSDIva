@@ -193,6 +193,33 @@ Redistributing derivatives onto SIRs (associativity of convolution):
 mean SDI can be truncated before integration stage. Saves O(T) operations per
 truncation, where T = temporal sampling length.
 
+## 9.1 PE SDI (Combined Pulse-Echo SDI)
+
+Key insight: instead of computing dh_tx and d2h_rx separately then FFT-convolving,
+the combined PE SDI places 16 deltas directly for each (m_e, m_r) patch pair.
+
+    zeta_pe = d2h^e *_t d2h^r = sum of 16 Dirac deltas per (m_e, m_r) pair
+
+Each TX corner (4) × each RX corner (4) = 16 delta events.
+Signs: (+1, -1, -1, +1) for each set of 4 corners.
+Delta position: t_event = t_e_corner + t_r_corner.
+Weight: slope_e × slope_r × sign_e × sign_r.
+
+    Dh_pe = integral(zeta_pe) = 1 cumsum
+
+Discrete implementation: 32 sample writes per (m_e, m_r) pair (16 deltas × 2 bins
+each via linear interpolation), followed by 1 cumulative sum per field point.
+
+Eliminates FFT convolution between dh_tx and d2h_rx — direct time-domain
+computation of the differentiated pulse-echo SIR.
+
+Excitation handling (Reception): v'_pe = (rho_0 / 2c_0^2) * (E_m * v).
+No derivative on v — derivatives already absorbed into Dh_pe.
+This differs from Emission where the signal chain has dv/dt.
+
+Code: `compute_pe_sdi` in `sir_derivatives.py`. Called once per RX element
+with element-filtered RX patches (Option A — Python element loop).
+
 ## 10. Attenuation in SIR Simulations
 
 **Core approach**: Post-hoc frequency-domain transfer function. SIR stays lossless.

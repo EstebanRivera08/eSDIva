@@ -1,6 +1,5 @@
 """Tests for sir_to_pressure — attenuation wiring (Batch 2)."""
 
-
 import numpy as np
 
 from pyfield.psimulation.sir_to_pressure import (
@@ -33,10 +32,13 @@ class TestFromSirToPressureIdentity:
         fs = 200e6
 
         out_old = from_sir_to_pressure(h, None, None, None, fs, excitation=exc)
-        out_new = from_sir_to_pressure(h, None, None, None, fs, excitation=exc, alpha0=None)
+        out_new = from_sir_to_pressure(
+            h, None, None, None, fs, excitation=exc, alpha0=None
+        )
 
         np.testing.assert_array_equal(
-            out_old, out_new,
+            out_old,
+            out_new,
             err_msg="alpha0=None must yield bit-identical output.",
         )
 
@@ -65,7 +67,11 @@ class TestFromSirToPressureAttenuation:
         distances_m = np.linspace(0.01, 0.05, P)
 
         out_att = from_sir_to_pressure(
-            h, None, None, None, fs,
+            h,
+            None,
+            None,
+            None,
+            fs,
             excitation=exc,
             alpha0=0.5,
             freq_power=1.0,
@@ -79,7 +85,7 @@ class TestFromSirToPressureAttenuation:
 
         # With attenuation, RMS over time axis should be ≤ without attenuation
         # for every field point
-        rms_att = np.sqrt(np.mean(out_att**2, axis=0))   # (P,)
+        rms_att = np.sqrt(np.mean(out_att**2, axis=0))  # (P,)
         rms_no_att = np.sqrt(np.mean(out_no_att**2, axis=0))
 
         assert np.all(rms_att <= rms_no_att + 1e-10), (
@@ -100,7 +106,11 @@ class TestFromSirToPressureAttenuation:
         distances_m = np.array([0.01, 0.03, 0.06])
 
         out_att = from_sir_to_pressure(
-            h, None, None, None, fs,
+            h,
+            None,
+            None,
+            None,
+            fs,
             excitation=exc,
             alpha0=0.5,
             freq_power=1.0,
@@ -141,8 +151,16 @@ class TestMonochromaticPressureAttenuation:
         distances_m = np.array([0.01, 0.02, 0.04, 0.08])
 
         out_att = from_sir_to_monochromatic_pressure(
-            h, None, None, None, fc, fs,
-            alpha0=0.5, freq_power=1.0, f0_hz=fc, distances_m=distances_m,
+            h,
+            None,
+            None,
+            None,
+            fc,
+            fs,
+            alpha0=0.5,
+            freq_power=1.0,
+            f0_hz=fc,
+            distances_m=distances_m,
         )
         out_no = from_sir_to_monochromatic_pressure(
             h, None, None, None, fc, fs, alpha0=None

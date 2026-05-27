@@ -593,9 +593,10 @@ class Reception:
 
     Physics (from physics-context.md §9):
 
-        p_r(t) = (rho/2c^2) * f_m(r) *_r [(E_rx * v_tx) *_t (dh_tx/dt *_t d2h_rx/dt2)]
+        p_r(t) = (rho/2c^2) * f_m(r) *_r [v'_pe(t) *_t Dh_pe(r, t)]
 
-    Where dh_tx and d2h_rx are computed via SDI derivative kernels.
+    Where Dh_pe = dh^e *_t d2h^r computed via PE SDI kernel (compute_pe_sdi),
+    and v'_pe = E_m * v (no derivative on v — derivatives in Dh_pe).
 
     Parameters
     ----------
@@ -666,18 +667,13 @@ class Reception:
     ) -> tuple[ndarray, dict]:
         """Compute RF signal for all receive elements.
 
-        Pipeline:
-        1. Compute dh_tx (first derivative of TX SIR) at scatterer positions.
-           If TX has impulse_response: will be convolved in freq domain.
-        2. Compute d2h_rx (second derivative of RX SIR) per RX element
-           at scatterer positions.
-           If RX has impulse_response: will be convolved in freq domain.
-        3. In frequency domain per scatterer per RX element:
-           RF_e(f) = FFT(dh_tx) * FFT(d2h_rx_e) * FFT(excitation) *
-                     FFT(ir_tx) * FFT(ir_rx) * H_att(f, d_tx_s + d_rx_se)
-           H_att shape: (P, E_rx, N_freq) — two-path model, per-element by default.
-        4. IFFT, weight by f_m(r), sum over scatterers.
-        5. Scale by rho / (2 * c^2).
+        Pipeline per RX element:
+        1. Extract RX element patches (mask by sub_el_idx)
+        2. Call compute_pe_sdi(pts, tx_all_patches, rx_elem_patches, ...)
+           → Dh_pe (P, T) for this element
+        3. FFT(Dh_pe) → multiply by FFT(v'_pe) × FFT(ir_tx) × FFT(ir_rx) × H_att
+        4. IFFT → weight by f_m(r), sum over scatterers
+        5. Scale by rho / (2 * c^2)
 
         Parameters
         ----------
@@ -739,33 +735,25 @@ class Reception:
 ```
 TX transducer                         RX transducer
     │                                     │
-    ├─ delays, apodization                ├─ apodization (delays optional for RX)
+    ├─ delays, apodization                ├─ apodization
     ├─ impulse_response (optional)        ├─ impulse_response (optional)
-    │                                     │
-    ▼                                     ▼
-compute_dh(tx_patches → scat)         compute_d2h_per_element(rx_patches → scat)
-    │                                     │
-    ▼                                     ▼
-  dh_tx (T, N_scat)                   d2h_rx (T, N_scat, E_rx)
     │                                     │
     └──────────────┬──────────────────────┘
                    ▼
-         FFT all to frequency domain
-                   ▼
-    Per scatterer s, per RX element e:
+    Per RX element e_rx:
     ┌─────────────────────────────────────────────────────┐
-    │ RF_e(f) = DH_tx(f,s)                                │
-    │         × D2H_rx_e(f,s)                             │
-    │         × V(f)            ← FFT(excitation)         │
-    │         × IR_tx(f)        ← FFT(tx.impulse_response)│
-    │         × IR_rx(f)        ← FFT(rx.impulse_response)│
-    │         × H_att(f, d_tx_s + d_rx_se)  ← causal_attenuation_tf    │
-    │           shape: (P, E_rx, N_freq)   ← compute_reception_distances│
+    │ compute_pe_sdi(pts, tx_all_patches, rx_elem_patches)│
+    │   → Dh_pe (P, T) — combined PE SIR derivative      │
+    │                                                     │
+    │ FFT(Dh_pe)                                          │
+    │   × FFT(v)         ← excitation (no derivative)     │
+    │   × FFT(ir_tx)     ← TX impulse response            │
+    │   × FFT(ir_rx)     ← RX impulse response            │
+    │   × H_att(f, d)    ← causal attenuation TF          │
+    │                                                     │
+    │ IFFT → weight by f_m(r) → sum over scatterers       │
+    │ → rf[:, e_rx]                                       │
     └─────────────────────────────────────────────────────┘
-                   ▼
-              IFFT → rf(t, s, e)
-                   ▼
-    Weight by f_m(s), sum over scatterers s
                    ▼
     Scale by rho / (2 * c^2)
                    ▼
@@ -774,48 +762,35 @@ compute_dh(tx_patches → scat)         compute_d2h_per_element(rx_patches → s
 
 **Frequency domain multiplications** are the key efficiency win: all convolutions become
 element-wise multiplies. IR_tx, IR_rx, V, and H_att are each precomputed once. Only
-DH_tx and D2H_rx vary per scatterer. When IR is None, corresponding FFT term = 1
+Dh_pe varies per RX element. When IR is None, corresponding FFT term = 1
 (identity).
 
 ### 4.5 Memory strategy for reception
 
 **Element-loop (same pattern as Emission, decided during Batch 3 implementation).**
 
-`d2h_rx (T, P, E_rx)` monolithic pre-allocation causes OOM for matrix arrays (E_rx=3025).
-Instead, loop over RX elements:
+Monolithic pre-allocation of per-element SIR arrays causes OOM for matrix arrays (E_rx=3025).
+Instead, loop over RX elements using PE SDI kernel:
 
 ```python
 rf = zeros((T, E_rx), float32)
-fft_dh_tx = rfft(dh_tx_all, n=nfft, axis=0)  # (N_freq, P) — TX summed, pre-computed
 
 for e_rx in range(n_rx_elements):
     mask_e = rx_sub_el_idx_arr == e_rx
-    # Batch over scatterers P
-    acc = zeros((nfft, 1), float64)  # single RF channel accumulation
-    for p_start in range(0, P, batch_P):
-        p_end = min(p_start + batch_P, P)
-        d2h_rx_e = compute_d2h_per_element(
-            scatterer_positions[p_start:p_end], rx_patches[mask_e], n_elements=1
-        )  # (cols, 1, T) → squeeze
-        h_pad = zeros((nfft, cols), float64)
-        h_pad[:T, :] = d2h_rx_e[:, 0, :].T.astype(float64)
-        D2H = rfft(h_pad, axis=0)    # (N_freq, cols)
-        # Frequency-domain product chain per scatterer
-        fft_rf_e = fft_dh_tx[:, p_start:p_end] * D2H  # (N_freq, cols)
-        fft_rf_e *= fft_v                               # excitation
-        fft_rf_e *= fft_ir_tx * fft_ir_rx              # impulse responses
-        if do_attenuation:
-            H_att_e = causal_attenuation_tf(freqs,
-                distances_total[p_start:p_end, e_rx], alpha0, freq_power, fc)
-            fft_rf_e *= H_att_e.T
-        # Weight by scattering amplitudes, sum over scatterers
-        weighted = fft_rf_e * scattering_amplitudes[p_start:p_end]
-        acc[:, 0:1] += irfft(weighted.sum(axis=1, keepdims=True), n=nfft, axis=0)
-    rf[:, e_rx] = (acc[:T, 0] * rho / (2 * c**2)).astype(float32)
+    # Compute Dh_pe via PE SDI kernel — 16 deltas per (m_e, m_r) pair + 1 cumsum.
+    Dh_pe = compute_pe_sdi(
+        scatterer_positions, tx_all_patches, rx_patches[mask_e], ...
+    )  # (P, T)
+    H_pe = rfft(Dh_pe, n=nfft, axis=1)  # (P, N_freq)
+    H_pe *= fft_v             # excitation (no derivative)
+    H_pe *= fft_ir_tx * fft_ir_rx  # impulse responses
+    if do_attenuation:
+        H_pe *= H_att_e       # per-element attenuation
+    rf_pe = irfft(H_pe, n=nfft, axis=1)[:, :T]
+    rf[:, e_rx] = (rf_pe * amps[:, None]).sum(axis=0) * scale
 ```
 
-Peak memory per e_rx iteration: `O(P_batch × nfft)` float64 — E_rx-independent.
-P-batching inside each element loop ensures P × nfft also stays bounded.
+Peak memory per e_rx iteration: `O(P × nfft)` float32 — E_rx-independent.
 Print memory estimate before main loop: `P × E_rx × T × 4` bytes (for user awareness even though we don't pre-allocate).
 
 ---

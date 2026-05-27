@@ -178,7 +178,9 @@ class TestReducePatchDistancesToElement:
         # 2 points, 4 patches, 2 elements (patches 0,1 → elem 0; patches 2,3 → elem 1)
         dist_pm = np.array([[1.0, 2.0, 3.0, 4.0], [5.0, 6.0, 7.0, 8.0]])
         sub_el_idx = np.array([0, 0, 1, 1], dtype=np.int32)
-        result = reduce_patch_distances_to_element(dist_pm, sub_el_idx, n_elements=2, reduce="mean")
+        result = reduce_patch_distances_to_element(
+            dist_pm, sub_el_idx, n_elements=2, reduce="mean"
+        )
         assert result.shape == (2, 2)
         np.testing.assert_allclose(result[0], [1.5, 3.5])
         np.testing.assert_allclose(result[1], [5.5, 7.5])
@@ -186,19 +188,26 @@ class TestReducePatchDistancesToElement:
     def test_min_reduction(self):
         dist_pm = np.array([[1.0, 3.0], [5.0, 7.0]])
         sub_el_idx = np.array([0, 0], dtype=np.int32)
-        result = reduce_patch_distances_to_element(dist_pm, sub_el_idx, n_elements=1, reduce="min")
+        result = reduce_patch_distances_to_element(
+            dist_pm, sub_el_idx, n_elements=1, reduce="min"
+        )
         np.testing.assert_allclose(result[:, 0], [1.0, 5.0])
 
     def test_max_reduction(self):
         dist_pm = np.array([[1.0, 3.0]])
         sub_el_idx = np.array([0, 0], dtype=np.int32)
-        result = reduce_patch_distances_to_element(dist_pm, sub_el_idx, n_elements=1, reduce="max")
+        result = reduce_patch_distances_to_element(
+            dist_pm, sub_el_idx, n_elements=1, reduce="max"
+        )
         assert result[0, 0] == pytest.approx(3.0)
 
     def test_invalid_reduce_raises(self):
         with pytest.raises(ValueError, match="reduce must be"):
             reduce_patch_distances_to_element(
-                np.ones((2, 2)), np.array([0, 1], dtype=np.int32), n_elements=2, reduce="median"
+                np.ones((2, 2)),
+                np.array([0, 1], dtype=np.int32),
+                n_elements=2,
+                reduce="median",
             )
 
 

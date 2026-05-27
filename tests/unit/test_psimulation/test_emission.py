@@ -46,9 +46,7 @@ class TestEmissionInit:
         assert sim.M > 0
 
     def test_custom_params(self, small_linear_transducer):
-        sim = _make_emission(
-            small_linear_transducer, c=1500.0, rho=1000.0, fs=100e6
-        )
+        sim = _make_emission(small_linear_transducer, c=1500.0, rho=1000.0, fs=100e6)
         assert sim.c == 1500.0
         assert sim.rho == 1000.0
         assert sim.fs == 100e6
@@ -88,7 +86,9 @@ class TestEmissionInit:
 
 
 class TestEmissionMonochromatic:
-    def test_structured_grid_output_shape(self, small_linear_transducer, small_field_grid):
+    def test_structured_grid_output_shape(
+        self, small_linear_transducer, small_field_grid
+    ):
         sim = _make_emission(small_linear_transducer, monochromatic=True)
         p, coords = sim(small_field_grid)
         assert p.ndim == 3
@@ -147,7 +147,9 @@ class TestEmissionGlobalExcitation:
         assert "t0" in coords
         assert "dt" in coords
 
-    def test_matches_pyfield_with_excitation(self, small_linear_transducer, small_field_grid):
+    def test_matches_pyfield_with_excitation(
+        self, small_linear_transducer, small_field_grid
+    ):
         """Emission(excitation=pulse) matches PyField(excitation=pulse) output."""
         exc = _make_excitation()
         sim_new = _make_emission(small_linear_transducer, excitation=exc)
@@ -163,9 +165,7 @@ class TestEmissionGlobalExcitation:
         pts = np.array([[0.0, 0.0, 20.0]], dtype=np.float32)
 
         sim_base = _make_emission(small_linear_transducer, excitation=exc)
-        sim_att = _make_emission(
-            small_linear_transducer, excitation=exc, alpha0=None
-        )
+        sim_att = _make_emission(small_linear_transducer, excitation=exc, alpha0=None)
 
         p_base, _ = sim_base(pts)
         p_att, _ = sim_att(pts)
@@ -200,16 +200,22 @@ class TestEmissionPerElementExcitation:
         # energy instead, which are robust to zero-crossing phase shifts.
         peak = float(max(p_global.max(), p_pe.max()))
         np.testing.assert_allclose(
-            p_pe.max(), p_global.max(), rtol=1e-3,
+            p_pe.max(),
+            p_global.max(),
+            rtol=1e-3,
             err_msg="Peak amplitude must match between per-element and global paths.",
         )
         np.testing.assert_allclose(
-            np.sum(p_pe**2), np.sum(p_global**2), rtol=1e-3,
+            np.sum(p_pe**2),
+            np.sum(p_global**2),
+            rtol=1e-3,
             err_msg="Total signal energy must match between per-element and global paths.",
         )
         # Tight absolute tolerance: sample-wise difference bounded to 0.1 % of peak.
         np.testing.assert_allclose(
-            p_pe, p_global, atol=peak * 1e-3,
+            p_pe,
+            p_global,
+            atol=peak * 1e-3,
             err_msg="Uniform per-element excitation must match global excitation output.",
         )
 
@@ -315,7 +321,9 @@ class TestPyFieldBackwardCompatibility:
         sim = _make_pyfield(small_linear_transducer)
         assert sim.monochromatic is True
 
-    def test_output_matches_emission_mono(self, small_linear_transducer, small_field_grid):
+    def test_output_matches_emission_mono(
+        self, small_linear_transducer, small_field_grid
+    ):
         sim_pf = _make_pyfield(small_linear_transducer)
         sim_em = _make_emission(small_linear_transducer, monochromatic=True)
 
@@ -324,7 +332,9 @@ class TestPyFieldBackwardCompatibility:
 
         np.testing.assert_allclose(p_pf, p_em, rtol=1e-5)
 
-    def test_pyfield_transient_with_excitation(self, small_linear_transducer, small_field_grid):
+    def test_pyfield_transient_with_excitation(
+        self, small_linear_transducer, small_field_grid
+    ):
         exc = _make_excitation()
         sim_pf = _make_pyfield(small_linear_transducer, monochromatic=False)
         p, coords = sim_pf(small_field_grid, excitation=exc)
