@@ -216,7 +216,7 @@ def subdivide_spherical_cap(
                 f"{max_ratio:.2f}). To reduce overlap: increase no_sub, "
                 f"decrease ratio_big_patches, or increase refine_factor.",
                 UserWarning,
-                stacklevel=2,
+                stacklevel=4,
             )
 
     print(
@@ -458,7 +458,9 @@ def subdivide_parametric_surface(
         _uc = u0 + (_i + 0.5) * dsu
         for _j in range(n_sa):
             _vc = v0 + (_j + 0.5) * dsv
-            if inside_fn is not None and not inside_fn(_uc, _vc):
+            # Use accept_fn (actual aperture boundary) not inside_fn (coarse-cell
+            # inner zone), so the reference area matches the accepted patch region.
+            if accept_fn is not None and not accept_fn(_uc, _vc):
                 continue
             _drdu = (
                 surface_fn(_uc + eps_u_sa, _vc) - surface_fn(_uc - eps_u_sa, _vc)
@@ -478,7 +480,7 @@ def subdivide_parametric_surface(
             f"Patch coverage is {coverage:.1%} (> 102%).  This may indicate "
             "patch overlap.  Increase n_u/n_v or decrease ratio_big_patches.",
             UserWarning,
-            stacklevel=2,
+            stacklevel=4,
         )
 
     print(

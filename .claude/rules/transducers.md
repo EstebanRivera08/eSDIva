@@ -51,9 +51,8 @@ For mono-element (all circular types):
 ## Surface Subdivision Methods
 
 **ConcaveCircular / ConvexCircular** — `method` parameter:
-- `"spherical"` (default): ring-based tiling (`subdivide_spherical_cap`), works at any
-  curvature including hemispheres
-- `"cartesian"`: parameter-space grid (`subdivide_parametric_surface`)
+- `"cartesian"` (default): arc-length reparameterised grid (`subdivide_parametric_surface`)
+- `"spherical"`: ring-based tiling (`subdivide_spherical_cap`), preferred at high curvature or hemispheres
 
 **Shared parameters** (all 4 circular types):
 - `ratio_big_patches` (0-1, default 0.85): inner ring refinement (spherical) or border

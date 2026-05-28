@@ -934,7 +934,7 @@ def _place_pe_sdi_2d(out, p, t0, T, fs, t1e, t2e, t3e, t4e, t1r, t2r, t3r, t4r, 
         # TX corner 0
         w0 = signs_e_0 * s_r * weight
         t_event = t1e + t_r
-        kf = (t_event - t0) * fs + np.float32(1.0)
+        kf = (t_event - t0) * fs + np.float32(2.0)
         kf_floor = int(np.floor(kf))
         w_ceil = kf - kf_floor
         w_floor = np.float32(1.0) - w_ceil
@@ -946,7 +946,7 @@ def _place_pe_sdi_2d(out, p, t0, T, fs, t1e, t2e, t3e, t4e, t1r, t2r, t3r, t4r, 
         # TX corner 1
         w1 = signs_e_1 * s_r * weight
         t_event = t2e + t_r
-        kf = (t_event - t0) * fs + np.float32(1.0)
+        kf = (t_event - t0) * fs + np.float32(2.0)
         kf_floor = int(np.floor(kf))
         w_ceil = kf - kf_floor
         w_floor = np.float32(1.0) - w_ceil
@@ -958,7 +958,7 @@ def _place_pe_sdi_2d(out, p, t0, T, fs, t1e, t2e, t3e, t4e, t1r, t2r, t3r, t4r, 
         # TX corner 2
         w2 = signs_e_2 * s_r * weight
         t_event = t3e + t_r
-        kf = (t_event - t0) * fs + np.float32(1.0)
+        kf = (t_event - t0) * fs + np.float32(2.0)
         kf_floor = int(np.floor(kf))
         w_ceil = kf - kf_floor
         w_floor = np.float32(1.0) - w_ceil
@@ -970,7 +970,7 @@ def _place_pe_sdi_2d(out, p, t0, T, fs, t1e, t2e, t3e, t4e, t1r, t2r, t3r, t4r, 
         # TX corner 3
         w3 = signs_e_3 * s_r * weight
         t_event = t4e + t_r
-        kf = (t_event - t0) * fs + np.float32(1.0)
+        kf = (t_event - t0) * fs + np.float32(2.0)
         kf_floor = int(np.floor(kf))
         w_ceil = kf - kf_floor
         w_floor = np.float32(1.0) - w_ceil

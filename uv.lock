@@ -2256,8 +2256,8 @@ requires-dist = [
     { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numba", specifier = ">=0.65.0" },
-    { name = "numpy", specifier = "<=2.1.2" },
-    { name = "pyqt5-qt5", specifier = "<=5.15.2" },
+    { name = "numpy", specifier = ">=2.1.2" },
+    { name = "pyqt5-qt5", specifier = ">=5.15.2" },
     { name = "pyvista", extras = ["jupyter"], specifier = ">=0.45.0" },
     { name = "scipy", specifier = ">=1.15.2" },
 ]

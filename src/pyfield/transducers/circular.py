@@ -271,11 +271,12 @@ class ConcaveCircularTransducer(TransducerBase):
         Must be ``>= 0``.  ``0`` = hemisphere.
     no_sub_diameter : int
         Target number of patches across the diameter.
-    method : {'spherical', 'cartesian'}
-        ``'spherical'`` (default) uses ring-based spherical-coordinate tiling
-        via :func:`subdivide_spherical_cap` — works at any curvature including
-        hemispheres.  ``'cartesian'`` uses the Cartesian parameter-space grid
-        via :func:`subdivide_parametric_surface`.
+    method : {'cartesian', 'spherical'}
+        ``'cartesian'`` (default) uses the arc-length reparameterised Cartesian
+        grid via :func:`subdivide_parametric_surface` — good for shallow bowls.
+        ``'spherical'`` uses ring-based spherical-coordinate tiling via
+        :func:`subdivide_spherical_cap` — preferred at high curvature or for
+        hemispheres.
     ratio_big_patches : float
         Fraction of the surface covered by coarse patches (0–1).  The
         remaining region is refined.  For spherical method, controls inner
@@ -285,7 +286,8 @@ class ConcaveCircularTransducer(TransducerBase):
         Subdivision factor in the refined region.  Default ``3``.
     normalize_patch_size : bool, default: False
         If True, set patch widths to the arc-length step size, ignoring
-        Jacobian stretch.  Produces uniform-sized patches.
+        Jacobian stretch.  Produces uniform-sized patches.  Useful with
+        ``method='cartesian'`` at high curvature to avoid rim-patch inflation.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
     """
@@ -296,7 +298,7 @@ class ConcaveCircularTransducer(TransducerBase):
         diameter_mm: float,
         focus_mm: float,
         no_sub_diameter: int = 25,
-        method: str = "spherical",
+        method: str = "cartesian",
         ratio_big_patches: float = 0.85,
         refine_factor: int = 3,
         normalize_patch_size: bool = False,
@@ -360,6 +362,12 @@ class ConcaveCircularTransducer(TransducerBase):
             f"method={method}, "
             f"{self.n_sub_patches} patches)."
         )
+        if method == "cartesian" and self._theta_max > np.pi / 4:
+            print(
+                f"  High curvature (theta_max={np.rad2deg(self._theta_max):.1f}°): "
+                "patch sizes scale with the local Jacobian near the rim. "
+                "Use method='spherical' or normalize_patch_size=True for uniform patches."
+            )
 
     def _compute_element_centers(self) -> np.ndarray:
         """Single element; centre is placed at the bowl's deepest point (origin)."""
@@ -475,8 +483,8 @@ class ConvexCircularTransducer(TransducerBase):
         Must be ``>= 0``.  ``0`` = hemisphere.
     no_sub_diameter : int
         Target number of patches across the diameter.
-    method : {'spherical', 'cartesian'}
-        ``'spherical'`` (default) or ``'cartesian'``.
+    method : {'cartesian', 'spherical'}
+        ``'cartesian'`` (default) or ``'spherical'`` (preferred at high curvature).
     ratio_big_patches : float
         Fraction of surface with coarse patches.  Default ``0.85``.
     refine_factor : int
@@ -494,7 +502,7 @@ class ConvexCircularTransducer(TransducerBase):
         diameter_mm: float,
         focus_mm: float,
         no_sub_diameter: int = 25,
-        method: str = "spherical",
+        method: str = "cartesian",
         ratio_big_patches: float = 0.85,
         refine_factor: int = 3,
         normalize_patch_size: bool = False,
@@ -555,6 +563,12 @@ class ConvexCircularTransducer(TransducerBase):
             f"method={method}, "
             f"{self.n_sub_patches} patches)."
         )
+        if method == "cartesian" and self._theta_max > np.pi / 4:
+            print(
+                f"  High curvature (theta_max={np.rad2deg(self._theta_max):.1f}°): "
+                "patch sizes scale with the local Jacobian near the rim. "
+                "Use method='spherical' or normalize_patch_size=True for uniform patches."
+            )
 
     def _compute_element_centers(self) -> np.ndarray:
         """Single element; centre placed at the aperture plane origin."""

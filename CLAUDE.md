@@ -644,9 +644,14 @@ out[i, k] = np.float32(acc)     # write back float32
 
 **Impact**: relative error ~5e-8. Physically zero. Never compare with atol=0.
 
-### 3. PE SDI vs FFT-Conv Reference — Interpolation Quantization
+### 3. PE SDI vs FFT-Conv Reference — Offset Convention
 
-PE SDI places deltas with linear interpolation (32 sample writes per pair). FFT convolution of dh_tx and d2h_rx is exact discrete convolution. Sample-level differences exist but wash out after excitation convolution (low-pass effect).
+PE SDI places combined deltas with `+ 2.0` bin offset (not `+1`). The reason:
+- Single SDI uses `+1` so that after 1 cumsum, `dh_e` step is at bin `Ne = floor((t_corner-t0)*fs) + 1`.
+- Reference `dh_e * d2h_r` first nonzero (from FFT conv) is at `Ne + Nr = natural_e + natural_r + 2`.
+- PE SDI must match this: `floor((t_corner_e + t_corner_r - pe_t0)*fs + offset) = Ne + Nr` → **offset = 2**.
+
+Using `+1` (wrong) shifts all Dh_pe events 1 sample early relative to reference. At 100 MHz = 10 ns axial shift.
 
 **Test strategy**: compare after excitation convolution, not raw deltas. Peak ratio < 5%, correlation > 0.95.
 

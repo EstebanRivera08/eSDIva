@@ -3,7 +3,6 @@
 Uses the PE SDI kernel (combined delta placement) for efficient computation
 of the differentiated pulse-echo SIR, Dh_pe = dh^e *_t d2h^r, via 16 deltas
 per (m_e, m_r) patch pair + 1 cumsum.
-
 """
 
 import time
@@ -218,6 +217,24 @@ class Reception:
         bytes_per_point = nfft * 4 + 2 * N_freq * 8
         return max(1, int(400 * 1024**2 // bytes_per_point))
 
+    def _validate_scatterer_inputs(self, positions_mm, amplitudes):
+        """Normalise and validate positions + amplitudes, return (points_m, amps)."""
+        pts_mm = np.asarray(positions_mm, dtype=np.float32)
+        if pts_mm.ndim == 1 and pts_mm.shape[0] == 3:
+            pts_mm = pts_mm.reshape(1, 3)
+        points_m = pts_mm * np.float32(1e-3)
+        P = points_m.shape[0]
+        if amplitudes is None:
+            amps = np.ones(P, dtype=np.float32)
+        else:
+            amps = np.asarray(amplitudes, dtype=np.float32)
+            if amps.shape[0] != P:
+                raise ValueError(
+                    f"amplitudes length ({amps.shape[0]}) must match "
+                    f"number of positions ({P})."
+                )
+        return points_m, amps
+
     def _compute_pe_time_grid(self, points_m):
         """Compute time grid covering both TX and RX propagation paths.
 
@@ -260,62 +277,30 @@ class Reception:
     # Public API
     # ------------------------------------------------------------------
 
-    def __call__(
-        self,
-        scatterer_positions_mm,
-        scattering_amplitudes,
-        *,
-        method="sdi",
-        downsampling=None,
+    def _compute_rf_inner(
+        self, points_m, amps, *, downsampling=None, per_scatterer=False
     ):
-        """Compute RF signal for all receive elements.
-
-        Pipeline per RX element:
-
-        1. Call ``compute_pe_sdi`` with all TX patches and element-filtered
-           RX patches → ``Dh_pe (P, T)`` for this element.
-        2. ``FFT(Dh_pe)`` → multiply by ``FFT(v'_pe)`` and ``H_att``.
-           ``v'_pe = E_m(t) * v(t)`` — no derivative needed.
-        3. IFFT → weight by scattering amplitudes → sum over scatterers.
-        4. Scale by ``rho / (2 * c^2)``.
+        """Shared computation core for __call__ and compute_point_rf.
 
         Parameters
         ----------
-        scatterer_positions_mm : (N_scat, 3) numpy.ndarray
-            Scatterer positions in mm.
-        scattering_amplitudes : (N_scat,) numpy.ndarray
-            Scattering coefficient at each position.
-        method : str, default "sdi"
-            SIR kernel method. Only "sdi" supported for PE SDI.
+        points_m : (P, 3) numpy.ndarray
+            Scatterer positions in metres.
+        amps : (P,) numpy.ndarray
+            Scattering amplitudes (float32).
         downsampling : int or None, default None
-            If set, downsample output by this factor.
+            Downsample output by this factor.
+        per_scatterer : bool, default False
+            If True return ``(P, Nt, E_rx)`` without summing over scatterers.
+            If False return ``(Nt, E_rx)`` — scatterer contributions summed.
 
         Returns
         -------
-        rf : (Nt, E_rx) numpy.ndarray
-            RF signal per receive element.
+        rf : (Nt, E_rx) or (P, Nt, E_rx) numpy.ndarray
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
-        if method != "sdi":
-            warnings.warn(
-                f"Reception only supports method='sdi', got '{method}'. Using 'sdi'.",
-                stacklevel=2,
-            )
-
-        pts_mm = np.asarray(scatterer_positions_mm, dtype=np.float32)
-        if pts_mm.ndim == 1 and pts_mm.shape[0] == 3:
-            pts_mm = pts_mm.reshape(1, 3)
-        points_m = pts_mm * np.float32(1e-3)
         P = points_m.shape[0]
-
-        amps = np.asarray(scattering_amplitudes, dtype=np.float32)
-        if amps.shape[0] != P:
-            raise ValueError(
-                f"scattering_amplitudes length ({amps.shape[0]}) must match "
-                f"number of scatterers ({P})."
-            )
-
         n_rx = int(self.rx.delays.shape[0])
         rx_slices = self._extract_rx_element_patches()
 
@@ -328,49 +313,43 @@ class Reception:
         ir_tx = getattr(self.tx, "impulse_response", None)
         ir_rx = getattr(self.rx, "impulse_response", None)
 
-        if exc is not None:
-            L_exc = len(exc)
-            nfft = _next_pow2(pe_T + L_exc - 1)
-        else:
-            nfft = _next_pow2(pe_T)
+        nfft = _next_pow2(pe_T + len(exc) - 1) if exc is not None else _next_pow2(pe_T)
         freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
 
-        # Pre-compute excitation and IR FFTs. No jw multiplication —
-        # derivatives already in Dh_pe.
-        fft_v = None
-        if exc is not None:
-            fft_v = rfft(exc, n=nfft, workers=-1).astype(np.complex64)
-
-        fft_ir_tx = None
-        if ir_tx is not None:
-            fft_ir_tx = rfft(
-                np.asarray(ir_tx, dtype=np.float32), n=nfft, workers=-1
-            ).astype(np.complex64)
-
-        fft_ir_rx = None
-        if ir_rx is not None:
-            fft_ir_rx = rfft(
-                np.asarray(ir_rx, dtype=np.float32), n=nfft, workers=-1
-            ).astype(np.complex64)
+        # Pre-compute excitation and IR FFTs (no jw — derivatives in Dh_pe).
+        fft_v = (
+            rfft(exc, n=nfft, workers=-1).astype(np.complex64)
+            if exc is not None
+            else None
+        )
+        fft_ir_tx = (
+            rfft(np.asarray(ir_tx, dtype=np.float32), n=nfft, workers=-1).astype(
+                np.complex64
+            )
+            if ir_tx is not None
+            else None
+        )
+        fft_ir_rx = (
+            rfft(np.asarray(ir_rx, dtype=np.float32), n=nfft, workers=-1).astype(
+                np.complex64
+            )
+            if ir_rx is not None
+            else None
+        )
 
         # Attenuation distances.
         do_attenuation = self.alpha0 is not None
         distances_pe = None
         if do_attenuation:
-            # element_centers already in metres.
             tx_center_m = np.asarray(self.tx.element_centers, dtype=np.float64).mean(
                 axis=0
             )
             rx_elem_centers_m = np.asarray(self.rx.element_centers, dtype=np.float64)
             distances_pe = compute_reception_distances(
-                points_m.astype(np.float64),
-                tx_center_m,
-                rx_elem_centers_m,
+                points_m.astype(np.float64), tx_center_m, rx_elem_centers_m
             )  # (P, E_rx)
 
         scale = np.float32(self.rho / (2.0 * self.c**2))
-
-        # Choose parallel axis based on scatterer count.
         parallel_axis = "patches" if P < 4 else "points"
 
         if self.verbose:
@@ -388,7 +367,9 @@ class Reception:
             print(f"  Attenuation: {att_str}")
 
         t_wall = time.time()
-        rf = np.zeros((pe_T, n_rx), dtype=np.float32)
+        rf = np.zeros(
+            (P, pe_T, n_rx) if per_scatterer else (pe_T, n_rx), dtype=np.float32
+        )
 
         el_iter = (
             _wrap_tqdm(range(n_rx), desc="RX elements", total=n_rx, leave=True)
@@ -399,7 +380,6 @@ class Reception:
         for e_rx in el_iter:
             rx_c, rx_wx, rx_wy, rx_ap, rx_dl = rx_slices[e_rx]
 
-            # Compute Dh_pe for this RX element via PE SDI kernel.
             Dh_pe = compute_pe_sdi(
                 points_m,
                 self._tx_centers,
@@ -420,11 +400,9 @@ class Reception:
                 parallel_axis=parallel_axis,
             )  # (P, pe_T) float32
 
-            # FFT of Dh_pe per scatterer.
             H_pe = rfft(Dh_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
             del Dh_pe
 
-            # Frequency-domain product chain.
             if fft_v is not None:
                 H_pe *= fft_v[np.newaxis, :]
             if fft_ir_tx is not None:
@@ -438,31 +416,118 @@ class Reception:
                     self.alpha0,
                     self.freq_power,
                     self.tx.fc,
-                ).astype(np.complex64)  # (P, N_freq)
+                ).astype(np.complex64)
                 H_pe *= H_att
 
-            # IFFT → real time-domain signal per scatterer.
             rf_pe = irfft(H_pe, n=nfft, axis=1, workers=-1)[:, :pe_T]  # (P, pe_T)
             del H_pe
 
-            # Weight by scattering amplitudes and sum over scatterers.
-            # rf_pe is real; sum produces one RF channel.
-            rf_channel = (rf_pe * amps[:, np.newaxis]).sum(axis=0)  # (pe_T,)
-            rf[:, e_rx] = (rf_channel * scale).astype(np.float32)
+            if per_scatterer:
+                # Keep individual traces — (P, pe_T) → stored in rf[:, :, e_rx].
+                rf[:, :, e_rx] = (rf_pe * amps[:, np.newaxis] * scale).astype(
+                    np.float32
+                )
+            else:
+                # Born approximation: sum contributions from all scatterers.
+                rf_channel = (rf_pe * amps[:, np.newaxis]).sum(axis=0)  # (pe_T,)
+                rf[:, e_rx] = (rf_channel * scale).astype(np.float32)
             del rf_pe
 
         if self.verbose:
             print(f"Reception computed in {time.time() - t_wall:.2f} s\n")
 
-        # Downsampling.
         if downsampling is not None and downsampling > 1:
-            rf = rf[:: int(downsampling), :]
+            step = int(downsampling)
+            rf = rf[:, ::step, :] if per_scatterer else rf[::step, :]
 
         coords = {"t0": pe_t0, "dt": dt}
         if downsampling is not None and downsampling > 1:
-            coords["dt"] = dt * int(downsampling)
+            coords["dt"] = dt * step
 
         return rf, coords
+
+    def __call__(
+        self,
+        scatterer_positions_mm,
+        scattering_amplitudes=None,
+        *,
+        method="sdi",
+        downsampling=None,
+    ):
+        """Compute RF signal for all receive elements.
+
+        Scatterer contributions are summed (Born approximation) to produce
+        one RF trace per RX element. Use `compute_point_rf` when individual
+        per-point traces are needed (e.g. PSF imaging).
+
+        Parameters
+        ----------
+        scatterer_positions_mm : (N_scat, 3) numpy.ndarray
+            Scatterer positions in mm.
+        scattering_amplitudes : (N_scat,) numpy.ndarray or None, default None
+            Scattering coefficient at each position. None defaults to ones.
+        method : str, default "sdi"
+            SIR kernel method. Only "sdi" supported for PE SDI.
+        downsampling : int or None, default None
+            If set, downsample output by this factor.
+
+        Returns
+        -------
+        rf : (Nt, E_rx) numpy.ndarray
+            RF signal per receive element.
+        coords : dict
+            Keys ``"t0"`` and ``"dt"`` (seconds).
+        """
+        if method != "sdi":
+            warnings.warn(
+                f"Reception only supports method='sdi', got '{method}'. Using 'sdi'.",
+                stacklevel=2,
+            )
+        pts_mm, amps = self._validate_scatterer_inputs(
+            scatterer_positions_mm, scattering_amplitudes
+        )
+        return self._compute_rf_inner(
+            pts_mm, amps, downsampling=downsampling, per_scatterer=False
+        )
+
+    def compute_point_rf(
+        self,
+        positions_mm,
+        amplitudes=None,
+        *,
+        downsampling=None,
+    ):
+        """Compute the pulse-echo RF response at each position independently.
+
+        Unlike `__call__`, scatterer contributions are **not** summed. Each
+        input position is treated as an isolated point reflector and returns
+        its own RF trace on a common time grid. Equivalent to Field II's
+        ``calc_hhp`` (pulse-echo SIR at a set of field points).
+
+        Useful for PSF imaging: pass a lateral grid of positions, receive
+        ``(N_points, Nt, E_rx)`` back, take ``[:, :, 0]`` for mono-element,
+        transpose to ``(Nt, N_points)`` for display.
+
+        Parameters
+        ----------
+        positions_mm : (N_points, 3) numpy.ndarray
+            Field-point positions in mm. All points share a common time grid.
+        amplitudes : (N_points,) numpy.ndarray or None, default None
+            Per-point scaling. None defaults to ones.
+        downsampling : int or None, default None
+            If set, downsample time axis by this factor.
+
+        Returns
+        -------
+        rf : (N_points, Nt, E_rx) numpy.ndarray
+            Pulse-echo RF response at each position.
+        coords : dict
+            Keys ``"t0"`` and ``"dt"`` (seconds).
+        """
+        pts_mm, amps = self._validate_scatterer_inputs(positions_mm, amplitudes)
+        return self._compute_rf_inner(
+            pts_mm, amps, downsampling=downsampling, per_scatterer=True
+        )
 
     def compute_sequence(
         self,
