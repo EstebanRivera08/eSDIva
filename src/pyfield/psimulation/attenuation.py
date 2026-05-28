@@ -5,19 +5,22 @@ from here.
 
 Physics reference: `.claude/rules/attenuation.md` and `physics-context.md §10`.
 
-Unit convention
----------------
+Notes
+-----
+**Unit convention**
+
 * User-facing: ``alpha0`` in dB/(MHz^y·cm) — matches clinical literature.
 * Internal: ``alpha0`` in Np/(Hz^y·m) — convert via ``convert_alpha0_to_nepers``.
 
-Attenuation model
------------------
-Causal power-law (Szabo 1994, Holm 2019).  Always includes Kramers–Kronig
+**Attenuation model**
+
+Causal power-law (Szabo 1994, Holm 2019).  Always includes Kramers-Kronig
 dispersion — cost is zero, accuracy is strictly better than non-causal.
 
 Frequency convention: formulas use linear frequency f [Hz], not angular
-frequency ω.  The ``causal_attenuation_tf`` unit conversion uses f-convention
-(no 2π factor in the exponent), matching the dB/(MHz^y·cm) user unit.
+frequency omega.  The ``causal_attenuation_tf`` unit conversion uses
+f-convention (no 2pi factor in the exponent), matching the dB/(MHz^y·cm)
+user unit.
 """
 
 import numpy as np
@@ -103,8 +106,9 @@ def causal_attenuation_tf(
 
     Returns
     -------
-    H : complex128 ndarray, shape (..., N_freq)
-        Attenuation transfer function.  ``|H| ≤ 1``.
+    numpy.ndarray
+        Attenuation transfer function H, shape ``(..., N_freq)``,
+        complex128.  ``|H| <= 1``.
 
     Notes
     -----
@@ -153,7 +157,7 @@ def causal_attenuation_tf(
 def compute_attenuation_distances(
     field_points_m: np.ndarray,
     transducer_center_m: np.ndarray,
-    patch_centers_m: np.ndarray = None,
+    patch_centers_m: np.ndarray | None = None,
     mode: str = "per_point",
 ) -> np.ndarray:
     """Propagation distance for attenuation.
@@ -176,7 +180,7 @@ def compute_attenuation_distances(
 
     Returns
     -------
-    distances : ndarray
+    numpy.ndarray
         Distances in metres.  Shape ``(P,)`` for ``per_point``, ``(P, M)``
         for ``per_patch``.
 
@@ -228,8 +232,9 @@ def reduce_patch_distances_to_element(
 
     Returns
     -------
-    distances_pe : (P, E) ndarray
-        One representative distance per field-point / element pair.
+    numpy.ndarray
+        One representative distance per field-point / element pair,
+        shape ``(P, E)``.
 
     Raises
     ------
@@ -283,10 +288,10 @@ def compute_reception_distances(
 
     Returns
     -------
-    distances : (P, E_rx) ndarray
-        Total round-trip distance per scatterer–element pair (metres).
-        Feed directly into ``causal_attenuation_tf`` to get H_att of shape
-        ``(P, E_rx, N_freq)``.
+    numpy.ndarray
+        Total round-trip distance per scatterer-element pair (metres),
+        shape ``(P, E_rx)``.  Feed directly into ``causal_attenuation_tf``
+        to get H_att of shape ``(P, E_rx, N_freq)``.
     """
     scatterer_positions_m = np.asarray(
         scatterer_positions_m, dtype=np.float64

@@ -349,8 +349,8 @@ def integrate_d2h_to_dh(d2h, dt):
 
     Returns
     -------
-    dh : float32 ndarray, same shape as d2h
-        First-derivative SIR.
+    float32 ndarray
+        First-derivative SIR, same shape as `d2h`.
 
     Raises
     ------
@@ -379,8 +379,8 @@ def integrate_dh_to_h(dh, dt):
 
     Returns
     -------
-    h : float32 ndarray, same shape as dh
-        Spatial impulse response.
+    float32 ndarray
+        Spatial impulse response, same shape as `dh`.
 
     Raises
     ------
@@ -406,7 +406,7 @@ def _get_n_threads():
     try:
         return numba.get_num_threads()
     except AttributeError:
-        return int(numba.config.NUMBA_NUM_THREADS)  # type: ignore[attr-defined]
+        return int(numba.config.NUMBA_NUM_THREADS)  # ty: ignore[unresolved-attribute]
 
 
 def _run_d2h(
@@ -535,7 +535,7 @@ def compute_d2h(
 
     Returns
     -------
-    d2h : float32 ndarray, shape (P, T)
+    (P, T) float32 ndarray
         Second derivative of SIR.
     """
     points, centers, wx, wy, apod, delays = _prepare_arrays(
@@ -589,11 +589,36 @@ def compute_dh(
 
     Parameters
     ----------
-    (same as ``compute_d2h``)
+    points : (P, 3) float32 ndarray
+        Field point positions in metres.
+    centers : (M, 3) float32 ndarray
+        Patch centre positions in metres.
+    wx : (M,) float32 ndarray
+        Patch half-widths along local x in metres.
+    wy : (M,) float32 ndarray
+        Patch half-widths along local y in metres.
+    inv_c : float
+        Inverse speed of sound 1/c (s/m).
+    apod : (M,) float32 ndarray
+        Patch apodization weights.
+    delays : (M,) float32 ndarray
+        Per-patch time delays in seconds.
+    t0 : float
+        Start time of the output time vector in seconds.
+    T : int
+        Number of output time samples.
+    fs : float
+        Sampling frequency in Hz.
+    dt : float
+        Time step 1/fs in seconds.
+    parallel_axis : {"points", "patches"}
+        Parallelisation strategy.
+    batch_size_points : int or None
+        Number of field points per processing batch.
 
     Returns
     -------
-    dh : float32 ndarray, shape (P, T)
+    (P, T) float32 ndarray
         First derivative of SIR.
     """
     d2h = compute_d2h(
@@ -636,27 +661,40 @@ def compute_d2h_per_element(
 
     Parameters
     ----------
-    points : float32 ndarray, shape (P, 3)
-    centers : float32 ndarray, shape (M, 3)
-    wx : float32 ndarray, shape (M,)
-    wy : float32 ndarray, shape (M,)
+    points : (P, 3) float32 ndarray
+        Field point positions in metres.
+    centers : (M, 3) float32 ndarray
+        Patch centre positions in metres.
+    wx : (M,) float32 ndarray
+        Patch half-widths along local x in metres.
+    wy : (M,) float32 ndarray
+        Patch half-widths along local y in metres.
     inv_c : float
-    apod : float32 ndarray, shape (M,)
-    delays : float32 ndarray, shape (M,)
+        Inverse speed of sound 1/c (s/m).
+    apod : (M,) float32 ndarray
+        Patch apodization weights.
+    delays : (M,) float32 ndarray
+        Per-patch time delays in seconds.
     t0 : float
+        Start time of the output time vector in seconds.
     T : int
+        Number of output time samples.
     fs : float
+        Sampling frequency in Hz.
     dt : float
-    sub_el_idx : int32 ndarray, shape (M,)
+        Time step 1/fs in seconds.
+    sub_el_idx : (M,) int32 ndarray
         Element index for each patch (from ``compute_sub_elem_attributes``).
     n_elements : int
         Total number of elements E.
     parallel_axis : {"points", "patches"}
+        Parallelisation strategy.
     batch_size_points : int or None
+        Number of field points per processing batch.
 
     Returns
     -------
-    d2h : float32 ndarray, shape (P, E, T)
+    (P, E, T) float32 ndarray
         Second derivative of SIR grouped by element.
     """
     points, centers, wx, wy, apod, delays = _prepare_arrays(
@@ -729,11 +767,40 @@ def compute_dh_per_element(
 
     Parameters
     ----------
-    (same as ``compute_d2h_per_element``)
+    points : (P, 3) float32 ndarray
+        Field point positions in metres.
+    centers : (M, 3) float32 ndarray
+        Patch centre positions in metres.
+    wx : (M,) float32 ndarray
+        Patch half-widths along local x in metres.
+    wy : (M,) float32 ndarray
+        Patch half-widths along local y in metres.
+    inv_c : float
+        Inverse speed of sound 1/c (s/m).
+    apod : (M,) float32 ndarray
+        Patch apodization weights.
+    delays : (M,) float32 ndarray
+        Per-patch time delays in seconds.
+    t0 : float
+        Start time of the output time vector in seconds.
+    T : int
+        Number of output time samples.
+    fs : float
+        Sampling frequency in Hz.
+    dt : float
+        Time step 1/fs in seconds.
+    sub_el_idx : (M,) int32 ndarray
+        Element index for each patch.
+    n_elements : int
+        Total number of elements E.
+    parallel_axis : {"points", "patches"}
+        Parallelisation strategy.
+    batch_size_points : int or None
+        Number of field points per processing batch.
 
     Returns
     -------
-    dh : float32 ndarray, shape (P, E, T)
+    (P, E, T) float32 ndarray
         First derivative of SIR grouped by element.
     """
     d2h = compute_d2h_per_element(
@@ -782,23 +849,34 @@ def compute_h_sir_patch_parallel(
 
     Parameters
     ----------
-    points : float32 ndarray, shape (P, 3)
-    centers : float32 ndarray, shape (M, 3)
-    wx : float32 ndarray, shape (M,)
-    wy : float32 ndarray, shape (M,)
+    points : (P, 3) float32 ndarray
+        Field point positions in metres.
+    centers : (M, 3) float32 ndarray
+        Patch centre positions in metres.
+    wx : (M,) float32 ndarray
+        Patch half-widths along local x in metres.
+    wy : (M,) float32 ndarray
+        Patch half-widths along local y in metres.
     inv_c : float
-    apod : float32 ndarray, shape (M,)
-    delays : float32 ndarray, shape (M,)
+        Inverse speed of sound 1/c (s/m).
+    apod : (M,) float32 ndarray
+        Patch apodization weights.
+    delays : (M,) float32 ndarray
+        Per-patch time delays in seconds.
     t0 : float
+        Start time of the output time vector in seconds.
     T : int
+        Number of output time samples.
     fs : float
+        Sampling frequency in Hz.
     dt : float
+        Time step 1/fs in seconds.
     n_threads : int or None
         Number of Numba threads. None = ``numba.get_num_threads()``.
 
     Returns
     -------
-    h : float32 ndarray, shape (P, T)
+    (P, T) float32 ndarray
         Spatial impulse response.
     """
     points, centers, wx, wy, apod, delays = _prepare_arrays(
@@ -1256,7 +1334,7 @@ def compute_pe_sdi(
 
     Returns
     -------
-    Dh_pe : (P, T) float32
+    (P, T) float32 ndarray
         Differentiated modified pulse-echo SIR at each scatterer.
     """
     points = np.asarray(points, dtype=np.float32)

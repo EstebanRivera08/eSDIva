@@ -6,9 +6,7 @@ files: |
 
 exclude: |
     (?x)^(
-        src/pyfield/future/
-        | others/
-        | examples/
+        examples/
     )
 
 
@@ -27,7 +25,7 @@ repos:
     hooks:
       - id: ty
         name: ty check
-        entry: uv run ty check src/ --exclude "src/pyfield/future/" --ignore missing-argument --ignore invalid-argument-type
+        entry: uv run ty check src/ --ignore missing-argument --ignore invalid-argument-type
         language: system
         pass_filenames: false
 
@@ -41,4 +39,4 @@ repos:
     rev: v1.9.0
     hooks:
       - id: numpydoc-validation
-        files: ^src/(?!.*future)(?!.*tests).+$
+        files: ^src/(?!.*tests).+$

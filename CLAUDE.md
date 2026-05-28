@@ -89,20 +89,12 @@ The codebase follows a modular architecture with clear separation of concerns.
 
 5) **`src/pyfield/plotting/`** — Visualization (2D Matplotlib and 3D PyVista)
 
-6) **`src/pyfield/cache/`** — Internal/experimental tools (TorchField, DopplerScan, coordinate transforms)
-
-7) **`src/pyfield/scans/`** — Scanning sequence utilities
-
-IMPORTANT NOTES: 
-- The module 1) Is the core computation engine, be careful with modifications. 
+IMPORTANT NOTES:
+- The module 1) Is the core computation engine, be careful with modifications.
 - Module 2) will be a module under constant development since new transducers can be created and added,
   so think in generalization since backward compatibility might be important.
-- Module 3) will have the principal class used for the API. Must be intuitive, 
-consistent, and predictable, minimizing friction for adoption and being robust over versions. 
-- The scans module is for personal use, keep it independent of the
-rest of the project. 
-- Anything labelled or using TorchField is under development and will not be release 
-soon, so keep independent and secret.
+- Module 3) will have the principal class used for the API. Must be intuitive,
+consistent, and predictable, minimizing friction for adoption and being robust over versions.
 
 ### Simulation Workflow
 
@@ -378,3 +370,307 @@ Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires 
 - `file_name` = **always includes extension** (e.g. `"field.png"`, `"slices.mp4"`)
 - Use helpers: `save_matplotlib_animation`, `save_pyvista_screenshot`, `save_pyvista_movie`
 - Directory creation handled by helpers via `_resolve_export_path`, not by callers
+
+---
+
+## Mathematical Foundations
+
+### 1. Spatial Impulse Response (SIR) — Tupholme-Stepanishen
+
+Pressure from vibrating aperture S at field point r_p:
+
+    p_m(r_p, t) = rho_0 * dv_n/dt *_t h_m(r_p, t)
+
+Where h_m is the SIR:
+
+    h_m(r_p, t) = (1/2pi) * integral_S [ delta(t - |r_m - r_p|/c_0) / |r_m - r_p| ] dS
+
+### 2. Far-Field Trapezoidal SIR (Rectangular Patch)
+
+For patch m with dimensions (w_mx, w_my), center r_m, field point r_p:
+- Distance: `l = |r_p - r_m|`
+- Unit vector: `u = (r_p - r_m) / l`
+
+Trapezoid parameters:
+- `dt1 = min(w_mx*|u_x|, w_my*|u_y|) / c_0`  (shorter side crossing)
+- `dt2 = max(w_mx*|u_x|, w_my*|u_y|) / c_0`  (longer side crossing)
+- `t1 = l/c_0 - (dt1 + dt2)/2`  (first corner TOF)
+- `t2 = t1 + dt1`, `t3 = t1 + dt2`, `t4 = t1 + dt1 + dt2`
+- `h_max = w_mx * w_my / (2*pi * dt2 * l)` (plateau amplitude)
+- `slope = h_max / dt1`
+
+**Far-field validity**: `w << sqrt(4*l*c_0/f)` — controls required subdivision density.
+
+### 3. SDI Method (Sparse Delta Integration)
+
+Key insight: 2nd derivative of trapezoid = 4 weighted Dirac deltas:
+
+    d2h/dt2 = slope * [delta(t-t1) - delta(t-t2) - delta(t-t3) + delta(t-t4)]
+
+Discrete: 8 sample writes per trapezoid (2 per corner via linear interpolation).
+Recover h by double cumsum. SDI wins when `avg_dk >> 8 + 2T/M`.
+
+### 4. Transducer = Sum of M Patches
+
+    h_tx(r_p, t) = sum_{m=1}^{M} a_m * h_m(r_p, t - tau_m)
+
+Where a_m = apodization, tau_m = delay per patch.
+
+### 5. Emission Signal Chain
+
+    p_e(r, t) = rho_0 * v_n(t) *_t dh(r, t)/dt
+
+For monochromatic CW: `p_e,cw(r) = |H(r, omega_c)|` (SIR Fourier transform at fc).
+
+### 6. PE SDI (Pulse-Echo Combined SDI)
+
+Instead of computing dh_tx and d2h_rx separately then FFT-convolving:
+
+    zeta_pe = d2h^e *_t d2h^r = 16 Dirac deltas per (m_e, m_r) pair
+
+Each TX corner (4) × each RX corner (4) = 16 delta events.
+32 sample writes per pair (16 × 2 bins via interpolation), then 1 cumsum.
+
+    Dh_pe = integral(zeta_pe)
+
+Received signal (Born approximation):
+
+    p_r(t) = (rho_0/2c_0^2) * f_m(r) *_r [(E_m * v) *_t Dh_pe(r, t)]
+
+Note: no derivative on v — derivatives already absorbed into Dh_pe.
+
+### 7. Causal Power-Law Attenuation
+
+General case (y != 1), Szabo (1994), Holm (2019):
+
+    H_att(w, d) = exp(-alpha0*|w|^y*d) * exp(-j*alpha0*|w|^y*tan(y*pi/2)*d)
+
+Special case (y = 1), O'Donnell (1981):
+
+    H_att(w, d) = exp(-alpha0*|w|*d) * exp(-j*(2*alpha0/pi)*w*ln(|w|/w0)*d)
+
+Unit conversion: `alpha0_neper = alpha0_dB * 100 / (20*log10(e) * 1e6^y)`
+
+Always causal (both absorption + K-K dispersion terms). Non-causal produces precursors.
+
+### 8. Plane-Wave Steering Delays
+
+    n = [sin(theta_x), sin(theta_y), sqrt(1 - sin^2(theta_x) - sin^2(theta_y))]
+    d_e = element_centers @ n
+    delays = (d_max - d_e) / c
+
+Physical: element with maximum projection fires first (zero delay).
+Constraint: `sin^2(theta_x) + sin^2(theta_y) <= 1`.
+
+---
+
+## Emission Workflow
+
+### Mode Decision Tree
+
+```
+Emission.__call__(field_points_mm)
+    |
+    +-- monochromatic=True
+    |       use_per_element? -- False --> [A] Mono Global
+    |                        -- True  --> [B] Mono Per-Element
+    |
+    +-- monochromatic=False
+            use_per_element? -- True  --> [E] Per-Element Transient
+            exc=None, alpha0=None ------> [C] Pulsed Pure
+            exc=(L,) or fast_att -------> [D] Global FFT
+
+    use_per_element = (alpha0 is not None and not fast_attenuation) OR exc.ndim == 2
+```
+
+### Shared Preamble (every call)
+
+1. `create_3D_spatial_grid_from_points(field_points_mm)` → x, y, z, points_m
+2. Compute `per_elem_exc`, `use_per_element` flags
+3. `compute_time_grid(P, M, points_m, ...)` → time_grid, t0, dt, T
+4. If alpha0 and global path: `compute_attenuation_distances` → distances_m (P,)
+5. If exc and tx.impulse_response: convolve `exc * ir_tx`
+
+### [A] Mono Global
+
+`_compute_sir` → `compute_h_sir` (Numba) → `from_sir_to_monochromatic_pressure` (single FFT bin at fc).
+If alpha0: `|H_att(fc, d)|` scalar multiply per point.
+
+### [B] Mono Per-Element
+
+Loop over E elements. Each: `compute_h_sir(M/E patches)` → dot product `h_e @ exp(-j2pi*fc*t)` → accumulate + per-element attenuation at fc.
+
+### [C] Pulsed Pure
+
+`_compute_sir` → `compute_h_sir` → return h directly. Fastest mode — no FFT.
+
+### [D] Global FFT
+
+Per P-batch: `compute_h_sir` → `rfft` → multiply `fft_exc * TF * H_att` → `irfft`.
+
+### [E] Per-Element Transient
+
+P-outer, E-inner double loop. Pre-allocated `h_pad_buf = zeros((batch_P, nfft), float32)` **once** outside all loops. Per (batch, element): `compute_h_sir(M/E patches)` → write into h_pad → `rfft` (no scipy internal buffer since already nfft-length) → multiply `fft_exc[e] * TF * H_att_e` → accumulate into `acc_H`. One `irfft` per P-batch (not per element). Freq-domain accumulation preserves inter-element interference.
+
+### Attenuation Integration
+
+- SIR kernels stay lossless — attenuation is **always** post-hoc in frequency domain.
+- `P_att(r, f) = P_lossless(r, f) * H_att(f, d)` — one complex multiply per point per freq bin.
+- Per-element path: `H_att_e (cols, N_freq)` computed inside E-loop using element-center distances.
+- Global path: `H_att (P, N_freq)` pre-computed using TX-center distances.
+- `alpha0=None` → no attenuation ops, bit-identical to no-attenuation baseline.
+
+---
+
+## Reception Workflow
+
+### Data Flow
+
+```
+Per RX element e_rx:
+  compute_pe_sdi(pts, tx_all_patches, rx_elem_patches) → Dh_pe (P, T)
+  FFT(Dh_pe) × FFT(v) × FFT(ir_tx) × FFT(ir_rx) × H_att(f, d)
+  IFFT → weight by f_m(r) → sum over scatterers → rf[:, e_rx]
+  Scale by rho / (2 * c^2)
+```
+
+- All convolutions become element-wise freq-domain multiplies.
+- IR_tx, IR_rx, V, H_att precomputed once. Only Dh_pe varies per RX element.
+- When IR is None, corresponding FFT term = 1 (identity).
+- Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
+- Memory: O(P × nfft) per RX element iteration — E_rx-independent.
+
+### compute_sequence
+
+Loop over TX events (different delays/apodization per event), call `__call__` each time.
+Returns `(N_events, Nt, E_rx)`. TX state restored after all events.
+
+### compute_all (Full Matrix Capture)
+
+Each TX element transmits, all RX receive. Returns `(E_tx, Nt, E_rx)`.
+
+---
+
+## Field II Correspondence
+
+| Field II | PyField | Notes |
+|----------|---------|-------|
+| `xdc_impulse(Th, ir)` | `transducer.impulse_response = ir` | Per-transducer electromechanical IR |
+| `xdc_excitation(Th, exc)` | `transducer.excitation = exc` / `Emission(excitation=...)` | TX only |
+| `xdc_focus(Th, ...)` | `transducer.compute_delays(focus_mm=...)` | Existing |
+| `xdc_apodization(Th, ...)` | `transducer.compute_apodization(...)` | Existing |
+| `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure |
+| `calc_scat_multi(tx, rx, pos, amp)` | `Reception(tx, rx)(pos, amp)` | Per-element RF |
+| `calc_scat_all(tx, rx, pos, amp)` | `Reception.compute_all(...)` | Full matrix capture |
+| `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
+| `calc_scat(tx, rx, pos, amp)` | **Not implemented** | Beamforming is user's job |
+| `xdc_baffle(Th, soft)` | Future extension | Not yet |
+| `xdc_dynamic_focus(...)` | Future extension | Requires timeline system |
+
+**Improvements over Field II**:
+- Causal power-law attenuation with K-K dispersion (Field II uses non-causal minimum-phase)
+- Explicit per-element excitation support via shape dispatch `(L,)` vs `(L, E)`
+- Python/NumPy ecosystem
+
+---
+
+## Performance Bottlenecks
+
+### Benchmark Reference (LinearArrayTransducer E=128, M=1280, P=60501, nfft=8192, 12.5 MHz)
+
+| Mode | Time | Primary Bottleneck |
+|------|------|--------------------|
+| [A] Mono Global | ~29 s | `compute_h_sir` (Numba, all M patches) |
+| [B] Mono Per-Element | ~29 s | Same Numba kernel × E (M/E patches each) |
+| [C] Pulsed Pure | ~11 s | `compute_h_sir` only — no FFT |
+| [D] Global FFT | ~24 s | Numba + scipy FFT interleaved per batch |
+| [E] Per-Element | ~17 min | `rfft` × E × n_batches (FFT-bound) |
+
+### Per-Element Mode Breakdown
+
+Total rfft calls: `E × n_batches = 128 × 15 = 1920` at ~0.53 s each.
+Total irfft calls: `n_batches = 15` (one per batch, not per element).
+Irreducible on CPU: `E × n_batches × t_rfft ≈ 1020 s`.
+
+### Memory Architecture (Per-Element Mode)
+
+```
+WRONG (earlier): zeros((cols, nfft), float32) inside E-loop
+  → E × n_batches × 140 MB = 268 GB allocation traffic → OS swap
+
+CORRECT (current): h_pad_buf = zeros((batch_P, nfft), float32) ONCE
+  → rfft receives already-nfft input → no scipy internal buffer
+  → ONE allocation, reused E × n_batches times
+```
+
+### Key Performance Rules
+
+- `scipy.fft.rfft/irfft(workers=-1)` for multithreaded FFT (2-3× over numpy.fft)
+- All kernel outputs + freq-domain ops stay float32 → complex64 (half memory vs float64)
+- Batch size: `batch_P = 400 MB / (nfft × 4 + 2 × N_freq × 8)` bytes
+- Freq-domain accumulation: `irfft(sum_e H_e) = sum_e irfft(H_e)` (linearity) — one irfft per batch preserves interference
+
+### Potential Optimizations (not yet implemented)
+
+| Optimization | Target Mode | Expected Gain |
+|-------------|-------------|---------------|
+| GPU FFT (cupy/torch) | [E] per-element | 10-50× on rfft |
+| Coarser grid | all | P ↓ → fewer batches |
+| Async Numba + FFT pipeline | [D][E] | Overlap SIR compute and FFT |
+
+---
+
+## Risky Implementations (Validate Physics/Math)
+
+### 1. SDI Tail Artifact — float32 Cumsum Cancellation
+
+**Location**: `sir_derivatives.py` cumsum functions, `farfield_rect_patch.py` integration.
+
+d2h events are ~4e10 in magnitude. Float32 ULP at that scale = 4096. When large positive/negative events cancel, residual is ±4096 (1 ULP), not the true ~±2048. This leaves a DC offset in dh that becomes a linear ramp in h after double cumsum.
+
+**Mitigation**: float64 accumulator + float32 write-back in all `_cumsum_2d`/`_cumsum_3d`:
+```python
+acc = np.float64(0.0)           # MANDATORY float64
+acc += np.float64(arr[i, k])    # promote to float64
+out[i, k] = np.float32(acc)     # write back float32
+```
+
+**Residual after fix**: ~0.004% of SIR peak — physically negligible but breaks exact comparison.
+**Test tolerance**: `rtol=0.005, atol=0.005 × peak` for all SIR comparisons.
+
+### 2. d2h_all ≠ d2h_per_element.sum() — Float32 Non-Associativity
+
+`compute_d2h` (all patches) vs `compute_d2h_per_element` (per-element grouping) accumulate in different orders. Float32 addition is not associative. Difference = up to 1 ULP of event magnitude (4096 at 4e10 scale). After cumsum, persistent constant offset in tail.
+
+**Impact**: relative error ~5e-8. Physically zero. Never compare with atol=0.
+
+### 3. PE SDI vs FFT-Conv Reference — Interpolation Quantization
+
+PE SDI places deltas with linear interpolation (32 sample writes per pair). FFT convolution of dh_tx and d2h_rx is exact discrete convolution. Sample-level differences exist but wash out after excitation convolution (low-pass effect).
+
+**Test strategy**: compare after excitation convolution, not raw deltas. Peak ratio < 5%, correlation > 0.95.
+
+### 4. Attenuation y=1 Continuity
+
+`tan(y*pi/2)` diverges as y→1. Cannot test y=1 continuity by approaching from y=1.001 (phase ~636× larger). Test y=1 branch independently via `|H(f)| = exp(-alpha0_nep * f * d)`.
+
+### 5. Global vs Per-Element Excitation Consistency
+
+Global path tiles `(L,) → (L, E)` and calls same element-loop as per-element path. Previous approaches (global SDI dh vs per-element dh → sum) produced different intermediate cumsums that propagated as 6144-magnitude constant offsets through FFT convolution, causing 150× relative differences near zero crossings.
+
+**Current solution**: both paths use identical per-element dh computation. Trade-off: global path does E separate cumsums instead of 1.
+
+### 6. Numba Cache Staleness
+
+After editing Numba kernels, `.nbi`/`.nbc` cache files may retain old compiled versions. Symptom: fix "has no effect." Clear cache:
+```powershell
+Get-ChildItem -Path "src\pyfield\h_sir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+```
+
+### 7. h_sir.__call__ Is Broken (Pre-existing)
+
+`h_sir.__call__` unpacks 4 values from `check_valid_field_points` which returns 1 value. Do NOT call it — use `compute_derivative` method or `Emission`/`Reception` classes directly.
+
+### 8. `from_sir_to_pressure` Attenuation with No Excitation
+
+When `excitation=None`, `from_sir_to_pressure` returns h_sir directly — no IRFFT step. Attenuation parameter is silently ignored. Callers relying on attenuation must provide excitation.

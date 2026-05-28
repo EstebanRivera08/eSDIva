@@ -283,6 +283,9 @@ class ConcaveCircularTransducer(TransducerBase):
         Default ``0.85``.
     refine_factor : int
         Subdivision factor in the refined region.  Default ``3``.
+    normalize_patch_size : bool, default: False
+        If True, set patch widths to the arc-length step size, ignoring
+        Jacobian stretch.  Produces uniform-sized patches.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
     """
@@ -478,6 +481,9 @@ class ConvexCircularTransducer(TransducerBase):
         Fraction of surface with coarse patches.  Default ``0.85``.
     refine_factor : int
         Subdivision factor in the refined region.  Default ``3``.
+    normalize_patch_size : bool, default: False
+        If True, set patch widths to the arc-length step size, ignoring
+        Jacobian stretch.  Produces uniform-sized patches.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz.
     """

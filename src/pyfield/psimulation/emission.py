@@ -79,6 +79,7 @@ class Emission:
         If False (default), run the per-element loop using each element's
         center as the propagation origin (accurate near-field attenuation).
     verbose : bool, default True
+        Print diagnostic information during simulation.
     """
 
     _SETTABLE: dict = {
@@ -432,8 +433,6 @@ class Emission:
             nfft = _next_pow2(T + L - 1)
         else:
             nfft = _next_pow2(T)
-        N_freq = nfft // 2 + 1
-
         # float32 → complex64 throughout (half memory vs float64 → complex128).
         freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
 
@@ -757,6 +756,7 @@ class Emission:
 
         # Validate per-element excitation shape
         if per_elem_exc:
+            assert exc is not None
             n_elements = int(self.delays.shape[0])
             if exc.shape[1] != n_elements:
                 raise ValueError(

@@ -135,6 +135,7 @@ def plot2D_planes(
     Returns
     -------
     None
+        This function displays the figure and returns nothing.
     """
     if isinstance(planes, dict):
         plane_xz = planes["xz"]
@@ -224,6 +225,9 @@ def plot2D_pressure_slices(
         - Shape ``(Nt, Nx, Ny, Nz)``: transient field, time along axis 0.
     x, y, z : numpy.ndarray, optional
         Coordinate arrays in mm. If None, default indices are used.
+    coords : dict, optional
+        Coordinate dict with keys ``"x"``, ``"y"``, ``"z"`` (and optionally
+        ``"t0"``, ``"dt"``).  Overrides individual *x*, *y*, *z* when provided.
     time_array : numpy.ndarray, optional
         Physical time values in seconds for each frame. Only used for 4D data.
         If None, frame indices are used as labels.
@@ -265,6 +269,7 @@ def plot2D_pressure_slices(
     Returns
     -------
     None
+        This function displays the figure and returns nothing.
     """
     import pathlib
 
@@ -675,6 +680,9 @@ def plot2D_transient_slices(
           each ``(Nt, N1, N2)``.
     x, y, z : numpy.ndarray, optional
         Coordinate arrays in mm. Default: index arrays.
+    coords : dict, optional
+        Coordinate dict with keys ``"x"``, ``"y"``, ``"z"`` (and optionally
+        ``"t0"``, ``"dt"``).  Overrides individual *x*, *y*, *z* when provided.
     time_array : numpy.ndarray, optional
         Physical time values (length Nt). If None, frame indices are used.
     center_mm : tuple of float, optional

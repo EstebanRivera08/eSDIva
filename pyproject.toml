@@ -97,7 +97,7 @@ filterwarnings = [
 # --------------------------------------------------------------------------- #
 [tool.coverage.run]
 source = ["pyfield"]
-omit = ["*pyfield/future/*", "*/examples/*", "*/others/*"]
+omit = ["*/examples/*"]
 
 [tool.coverage.report]
 exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
@@ -106,7 +106,7 @@ exclude_lines = ["pragma: no cover", "if TYPE_CHECKING:"]
 #  codespell
 # --------------------------------------------------------------------------- #
 [tool.codespell]
-skip = "*.ipynb,*.lock,others/*,examples/*,src/pyfield/future/*,.git"
+skip = "*.ipynb,*.lock,examples/*,.git"
 ignore-words-list = "ser,hsi,nd,mear,apod,fo,te,bu"
 
 # --------------------------------------------------------------------------- #
@@ -117,9 +117,9 @@ ignore-words-list = "ser,hsi,nd,mear,apod,fo,te,bu"
 exclude = [
     '\.__init__$',
     '\._.*$',
-    '^src/pyfield/future/.*',
+
     '^\.examples/.*',
-    '^others/.*',
+
 ]
 checks = [
     "all",  # Report on all checks, except the below

@@ -445,8 +445,8 @@ class TransducerBase(ABC):
                 theta_x_deg, theta_y_deg = float(angle_steering_deg), 0.0
             else:
                 theta_x_deg, theta_y_deg = (
-                    float(angle_steering_deg[0]),
-                    float(angle_steering_deg[1]),
+                    float(angle_steering_deg[0]),  # ty: ignore[not-subscriptable]
+                    float(angle_steering_deg[1]),  # ty: ignore[not-subscriptable]
                 )
 
             theta_x = np.deg2rad(theta_x_deg)

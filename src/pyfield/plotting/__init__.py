@@ -1,4 +1,4 @@
-# plotting module for 2D and 3D representations
+"""Plotting module for 2D and 3D pressure field visualization."""
 
 from .export_utils import (
     save_matplotlib_animation,

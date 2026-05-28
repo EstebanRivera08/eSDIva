@@ -1,10 +1,5 @@
 """Plotting and helper utility functions."""
 
-from pyfield.cache.transformation_functions import (
-    compute_affine_from_markers,
-    get_LabToTransducer,
-)
-
 from .bg_atlas import BG_Atlas
 from .helper_functions import (
     align_to_common_time,

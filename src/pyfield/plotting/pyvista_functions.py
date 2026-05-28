@@ -1,7 +1,7 @@
+"""Helper functions for PyVista mesh creation and styling."""
+
 import numpy as np
 import pyvista as pv
-
-# helper functions for pyvista plotting
 
 
 def _recompute_bounds(plotter):

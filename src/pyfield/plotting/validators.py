@@ -1,4 +1,8 @@
+"""Validation helpers for pressure field plotting inputs."""
+
+
 def _check_match(value1, value2, message=None):
+    """Raise ValueError if two values differ."""
     if message is None:
         message = f"Values do not match: {value1} != {value2}"
     if value1 != value2:
@@ -6,6 +10,18 @@ def _check_match(value1, value2, message=None):
 
 
 def check_planes_shape(planes):
+    """Validate that three orthogonal planes have consistent shapes.
+
+    Parameters
+    ----------
+    planes : list of numpy.ndarray
+        Three 2D arrays ``[plane_xz, plane_xy, plane_yz]``.
+
+    Returns
+    -------
+    list of int
+        Consistent dimensions ``[nx, ny, nz]``.
+    """
     plane_xz, plane_xy, plane_yz = planes
     nx1, nz1 = plane_xz.shape
     nx2, ny2 = plane_xy.shape
@@ -25,6 +41,15 @@ def check_planes_shape(planes):
 
 
 def check_coords(coords, shape):
+    """Validate that coordinate arrays match the expected field shape.
+
+    Parameters
+    ----------
+    coords : dict
+        Coordinate dict with keys ``"x"``, ``"y"``, ``"z"``.
+    shape : tuple of int
+        Expected ``(nx, ny, nz)`` dimensions.
+    """
     nx, ny, nz = shape
     if not isinstance(coords, dict):
         raise ValueError(

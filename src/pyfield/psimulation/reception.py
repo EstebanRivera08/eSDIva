@@ -4,7 +4,6 @@ Uses the PE SDI kernel (combined delta placement) for efficient computation
 of the differentiated pulse-echo SIR, Dh_pe = dh^e *_t d2h^r, via 16 deltas
 per (m_e, m_r) patch pair + 1 cumsum.
 
-Physics reference: `.claude/rules/physics-context.md` §9, `PROMPT.md`.
 """
 
 import time
@@ -50,7 +49,7 @@ class Reception:
 
     Where ``Dh_pe = dh^e *_t d2h^r`` is computed via combined SDI delta
     placement (16 deltas per patch pair), and ``v'_pe = E_m * v`` (no
-    derivative on excitation — derivatives already in Dh_pe).
+    derivative on excitation derivatives already in Dh_pe).
 
     Parameters
     ----------
@@ -74,6 +73,7 @@ class Reception:
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or
         delta (impulse).
     verbose : bool, default True
+        Print diagnostic information during simulation.
     """
 
     _SETTABLE: dict = {
@@ -487,7 +487,9 @@ class Reception:
         tx_events : list of dict
             Each dict has ``"delays"`` and/or ``"apodization"`` arrays.
         method : str, default "sdi"
+            SIR computation method (``"sdi"``, ``"naive"``, or ``"auto"``).
         downsampling : int or None, default None
+            Temporal downsampling factor for the output RF signal.
 
         Returns
         -------
@@ -553,9 +555,13 @@ class Reception:
         Parameters
         ----------
         scatterer_positions_mm : (N_scat, 3) numpy.ndarray
+            Scatterer positions in mm.
         scattering_amplitudes : (N_scat,) numpy.ndarray
+            Scattering coefficient at each position.
         method : str, default "sdi"
+            SIR computation method (``"sdi"``, ``"naive"``, or ``"auto"``).
         downsampling : int or None, default None
+            Temporal downsampling factor for the output RF signal.
 
         Returns
         -------

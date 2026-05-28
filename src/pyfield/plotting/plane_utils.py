@@ -4,14 +4,24 @@ Single source of truth for plane metadata, validation, and coordinate inference.
 """
 
 from dataclasses import dataclass
+from typing import TypedDict
 
 import numpy as np
 
+
+class _PlaneMeta(TypedDict):
+    axes: tuple[str, str]
+    normal: str
+    ci: int
+    xlabel: str
+    ylabel: str
+
+
 # Axis name → index in a (x, y, z) tuple
-AXIS_IDX = {"x": 0, "y": 1, "z": 2}
+AXIS_IDX: dict[str, int] = {"x": 0, "y": 1, "z": 2}
 
 # Plane metadata: axis pair, normal axis, index into (x,y,z) center tuple, labels
-PLANE_META = {
+PLANE_META: dict[str, _PlaneMeta] = {
     "xz": {
         "axes": ("x", "z"),
         "normal": "y",
@@ -280,8 +290,12 @@ def infer_coords(planes, x=None, y=None, z=None):
 
     Returns
     -------
-    x, y, z : numpy.ndarray
-        Complete coordinate arrays.
+    x : numpy.ndarray
+        Lateral coordinate array.
+    y : numpy.ndarray
+        Elevation coordinate array.
+    z : numpy.ndarray
+        Axial coordinate array.
     """
     return _infer_coords_from_planes(planes, x, y, z)
 

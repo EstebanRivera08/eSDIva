@@ -1,10 +1,8 @@
 """Shared save/export helpers for plotting functions.
 
-Convention
----------
-- ``save_path`` is always a **directory** (or ``None`` to skip saving).
-- ``file_name`` always **includes the extension** (e.g. ``"field.png"``).
-- Directory creation is handled here, not by callers.
+``save_path`` is always a **directory** (or ``None`` to skip saving).
+``file_name`` always **includes the extension** (e.g. ``"field.png"``).
+Directory creation is handled here, not by callers.
 """
 
 from __future__ import annotations
@@ -32,7 +30,23 @@ def save_matplotlib_animation(
     For extensions in ``{.mp4, .avi, .mov}`` ffmpeg is used directly.
     For anything else ffmpeg is tried first, falling back to pillow (GIF).
 
-    Returns the path that was actually written, or ``None`` on failure.
+    Parameters
+    ----------
+    ani : matplotlib.animation.FuncAnimation
+        Animation object to save.
+    save_path : str or pathlib.Path
+        Output directory.
+    file_name : str
+        File name with extension (e.g. ``"anim.mp4"``).
+    fps : int, default: 30
+        Frame rate.
+    dpi : int, default: 150
+        Resolution in dots per inch.
+
+    Returns
+    -------
+    pathlib.Path or None
+        Path that was actually written, or ``None`` on failure.
     """
     path = _resolve_export_path(save_path, file_name)
     ext = path.suffix.lower()
@@ -71,7 +85,21 @@ def save_pyvista_screenshot(
 ) -> Path | None:
     """Save a PyVista plotter screenshot.
 
-    Returns the saved path, or ``None`` on failure.
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        Plotter to capture.
+    save_path : str or pathlib.Path
+        Output directory.
+    file_name : str
+        File name with extension (e.g. ``"screenshot.png"``).
+    transparent_background : bool, default: True
+        Use a transparent background in the screenshot.
+
+    Returns
+    -------
+    pathlib.Path or None
+        Saved path, or ``None`` on failure.
     """
     path = _resolve_export_path(save_path, file_name)
     try:
@@ -98,7 +126,25 @@ def save_pyvista_movie(
     ``.gif`` uses ``plotter.open_gif``; other extensions use
     ``plotter.open_movie``.
 
-    Returns the saved path, or ``None`` on failure.
+    Parameters
+    ----------
+    plotter : pyvista.Plotter
+        Plotter to record from.
+    save_path : str or pathlib.Path
+        Output directory.
+    file_name : str
+        File name with extension (e.g. ``"movie.mp4"``).
+    update_fn : callable
+        Called as ``update_fn(idx)`` for each frame before writing.
+    frame_indices : iterable of int
+        Sequence of frame indices to iterate over.
+    fps : int, default: 30
+        Frame rate for video formats.
+
+    Returns
+    -------
+    pathlib.Path or None
+        Saved path, or ``None`` on failure.
     """
     path = _resolve_export_path(save_path, file_name)
     try:

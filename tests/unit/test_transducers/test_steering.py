@@ -174,7 +174,6 @@ class TestTwoDSteering:
         """x-only steer: elements with same x have equal delays regardless of y."""
         d = matrix_3x3.compute_delays(angle_steering_deg=(15.0, 0.0))
         x = matrix_3x3.element_centers[:, 0]
-        y = matrix_3x3.element_centers[:, 1]
         # Group by unique x and check delays equal within each group
         for xi in np.unique(x):
             mask = np.abs(x - xi) < 1e-9

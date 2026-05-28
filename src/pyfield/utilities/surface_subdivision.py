@@ -394,6 +394,7 @@ def subdivide_parametric_surface(
                 _add_patch(uc_c, vc_c, ddu, ddv)
                 continue
 
+            assert accept_fn is not None  # always paired with inside_fn
             # Classify cell by its four parameter-space corners
             in_flags = [
                 inside_fn(u0c, v0c),

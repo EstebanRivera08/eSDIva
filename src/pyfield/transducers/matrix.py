@@ -335,7 +335,7 @@ class MatrixArrayTransducer(TransducerBase):
         ax.set_title(f"Apodization: {self.apodization_type}")
         ax.set_xlabel("Element x #")
         ax.set_ylabel("Element y #")
-        ax._im = im  # store for colorbar if needed
+        ax._im = im  # ty: ignore[invalid-assignment]
 
         if standalone:
             plt.tight_layout()
@@ -385,7 +385,7 @@ class MatrixArrayTransducer(TransducerBase):
         ax.set_title("Delays (µs)")
         ax.set_xlabel("Element x #")
         ax.set_ylabel("Element y #")
-        ax._im = im  # store for colorbar if needed
+        ax._im = im  # ty: ignore[invalid-assignment]
         if standalone:
             plt.tight_layout()
             plt.show()

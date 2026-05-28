@@ -1,3 +1,5 @@
+"""3D pressure field visualization using PyVista."""
+
 from pathlib import Path
 
 import numpy as np
@@ -47,18 +49,26 @@ def plot3D_pressure_vol(
 
     Parameters
     ----------
-    x : (Nx,) numpy.ndarray
-        Lateral coordinates (mm).
-    y : (Ny,) numpy.ndarray
-        Elevation coordinates (mm).
-    z : (Nz,) numpy.ndarray
-        Axial coordinates (mm).
     pressure_field : (Nx, Ny, Nz) numpy.ndarray
         Pressure field samples on the grid.
+    x : (Nx,) numpy.ndarray, optional
+        Lateral coordinates (mm).
+    y : (Ny,) numpy.ndarray, optional
+        Elevation coordinates (mm).
+    z : (Nz,) numpy.ndarray, optional
+        Axial coordinates (mm).
+    db_scale : bool, optional
+        Convert to dB before display. Default False.
+    coords : dict, optional
+        Coordinate dict with keys ``"x"``, ``"y"``, ``"z"``.  Overrides
+        individual *x*, *y*, *z* when provided.
     show_fig : bool, optional
         If True, call ``plotter.show()`` to display the figure. Default True.
     save_path : str or Path, optional
         Path to save a screenshot. If None, no file is written. Default None.
+    file_name : str, optional
+        File name for saved video/screenshot. Default
+        ``"3D_pressure_slices.mp4"``.
     scalars : str, optional
         Name of the scalar array attached to the volume. Default ``"Pressure"``.
     plotter : pyvista.Plotter, optional
@@ -185,14 +195,19 @@ def plot3D_pressure_slices(
 
     Parameters
     ----------
-    x : (Nx,) numpy.ndarray
-        Lateral coordinates (mm).
-    y : (Ny,) numpy.ndarray
-        Elevation coordinates (mm).
-    z : (Nz,) numpy.ndarray
-        Axial coordinates (mm).
     pressure_field : (Nx, Ny, Nz) numpy.ndarray
         Pressure field samples on the grid.
+    x : (Nx,) numpy.ndarray, optional
+        Lateral coordinates (mm).
+    y : (Ny,) numpy.ndarray, optional
+        Elevation coordinates (mm).
+    z : (Nz,) numpy.ndarray, optional
+        Axial coordinates (mm).
+    db_scale : bool, optional
+        Convert to dB before display. Default False.
+    coords : dict, optional
+        Coordinate dict with keys ``"x"``, ``"y"``, ``"z"``.  Overrides
+        individual *x*, *y*, *z* when provided.
     show_fig : bool, optional
         If True, call ``plotter.show()`` to display the figure. Default True.
     save_path : str or Path, optional
@@ -374,8 +389,7 @@ def plot3D_transient_slices(
     show_grid_kwargs=None,
     **kwargs,
 ):
-    """Plot orthogonal pressure slices of transient data with a PyVista time
-    slider or video export.
+    """Plot transient pressure slices with PyVista time slider or video.
 
     Accepts either a full 4D volume (slices computed internally) or a dict of
     pre-computed 3D planes (up to 3).
@@ -389,6 +403,9 @@ def plot3D_transient_slices(
           each ``(Nt, N1, N2)``.
     x, y, z : numpy.ndarray, optional
         Coordinate arrays in mm. Default: index arrays.
+    coords : dict, optional
+        Coordinate dict with keys ``"x"``, ``"y"``, ``"z"`` (and optionally
+        ``"t0"``, ``"dt"``).  Overrides *x*, *y*, *z* when provided.
     time_array : numpy.ndarray, optional
         Physical time values (length Nt). If None, frame indices are used.
     center_mm : tuple of float, optional
@@ -397,14 +414,16 @@ def plot3D_transient_slices(
         Default: geometric centre (volume) or coordinate midpoints (planes).
     center_to_max : bool, optional
         If True and input is a volume, slice through the global pressure
-        maximum instead of `center_mm`. Default False.
+        maximum instead of *center_mm*. Default False.
     show_fig : bool, optional
         Call ``plotter.show()``. Default True.
+    db_scale : bool, optional
+        Convert to dB before display. Default False.
     save_path : str or Path, optional
         Directory for video export. If None, interactive slider is shown.
     file_name : str, optional
         Video file name with extension (e.g. ``"slices.mp4"``, ``"slices.gif"``).
-        Default: ``"3D_pressure_slices.mp4"`` if `save_path` is not None.
+        Default: ``"3D_pressure_slices.mp4"`` if *save_path* is not None.
     video_duration_s : float, optional
         Target video duration in seconds. Default 5.
     fps : int, optional
@@ -425,8 +444,20 @@ def plot3D_transient_slices(
         PyVista anti-aliasing mode. Default ``"ssaa"``.
     colorbar_title : str, optional
         Colorbar title. Default: *scalars* name.
-    camera_position, camera_elevation, camera_azimuth
-        Camera settings forwarded to PyVista.
+    camera_position : str or list, optional
+        PyVista camera position. Default: automatic.
+    camera_elevation : float, optional
+        Camera elevation angle in degrees. Default: automatic.
+    camera_azimuth : float, optional
+        Camera azimuth angle in degrees. Default: automatic.
+    vmin : float, optional
+        Minimum scalar value for the colour map.
+    vmax : float, optional
+        Maximum scalar value for the colour map.
+    theme : str, optional
+        PyVista colour theme. Default ``"white"``.
+    show_grid_kwargs : dict, optional
+        Keyword arguments forwarded to ``plotter.show_grid()``.
     **kwargs
         Forwarded to ``plotter.add_mesh()``.
 
@@ -542,7 +573,7 @@ def plot3D_transient_slices(
     pv.global_theme.background = background_color
 
     if save_path is not None:
-        video_path = str(Path(save_path) / file_name)
+        video_path = str(Path(save_path) / file_name)  # ty: ignore[unsupported-operator]
         Path(video_path).parent.mkdir(parents=True, exist_ok=True)
         off_screen = True
 
@@ -569,13 +600,13 @@ def plot3D_transient_slices(
                 **kwargs,
             )
 
-    plotter.camera.up = (0, 0, -1)  # Ensure Z is down
+    plotter.camera.up = (0, 0, -1)  # ty: ignore[unresolved-attribute]
     if camera_position is not None:
-        plotter.camera_position = camera_position
+        plotter.camera_position = camera_position  # ty: ignore[invalid-assignment]
     if camera_elevation is not None:
-        plotter.camera.elevation = camera_elevation
+        plotter.camera.elevation = camera_elevation  # ty: ignore[unresolved-attribute]
     if camera_azimuth is not None:
-        plotter.camera.azimuth = camera_azimuth
+        plotter.camera.azimuth = camera_azimuth  # ty: ignore[unresolved-attribute]
 
     default_show_grid_kwargs = {
         "grid": "back",
@@ -594,12 +625,12 @@ def plot3D_transient_slices(
     if show_grid_kwargs is not None:
         default_show_grid_kwargs.update(show_grid_kwargs)
 
-    plotter.show_grid(**default_show_grid_kwargs)
+    plotter.show_grid(**default_show_grid_kwargs)  # ty: ignore[unresolved-attribute]
 
     # ------------------------------------------------------------------
     # Time overlay + update callback
     # ------------------------------------------------------------------
-    text_actor = plotter.add_text(
+    text_actor = plotter.add_text(  # ty: ignore[unresolved-attribute]
         _format_time(0),
         position="upper_right",
         font_size=int(12 * scale),
@@ -617,6 +648,7 @@ def plot3D_transient_slices(
     # ------------------------------------------------------------------
     # Interactive slider or video export
     # ------------------------------------------------------------------
+    assert plotter is not None
     if save_path is None:
         plotter.add_slider_widget(
             _update_time,

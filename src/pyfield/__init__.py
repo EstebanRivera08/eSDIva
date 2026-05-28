@@ -13,6 +13,26 @@ from pyfield.utilities import align_to_common_time, to_dB
 
 # backward-compat alias (old signature was x, y, z, p; new is p, x, y, z)
 def plot_pressure_planes(x, y, z, pressure_field, **kwargs):
+    """Plot pressure planes (deprecated, use `plot2D_pressure_slices`).
+
+    Parameters
+    ----------
+    x : numpy.ndarray
+        Lateral coordinates.
+    y : numpy.ndarray
+        Elevation coordinates.
+    z : numpy.ndarray
+        Axial coordinates.
+    pressure_field : numpy.ndarray
+        Pressure data.
+    **kwargs
+        Forwarded to `plot2D_pressure_slices`.
+
+    Returns
+    -------
+    None
+        No return value; displays the plot.
+    """
     return plot2D_pressure_slices(pressure_field, x=x, y=y, z=z, **kwargs)
 
 
