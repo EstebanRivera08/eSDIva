@@ -20,7 +20,7 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
 from pyfield.plotting import plot3D_transient_slices
-from pyfield.psimulation import Emission
+from pyfield.emission import Emission
 from pyfield.transducers import MatrixArrayTransducer
 
 # ============================================================================

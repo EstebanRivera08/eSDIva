@@ -1,8 +1,11 @@
-"""Reception: compute received RF signals via pulse-echo simulation.
+"""ReceptionSDI: pulse-echo RF via the combined PE SDI kernel.
 
-Uses the PE SDI kernel (combined delta placement) for efficient computation
-of the differentiated pulse-echo SIR, Dh_pe = dh^e *_t d2h^r, via 16 deltas
-per (m_e, m_r) patch pair + 1 cumsum.
+Redistributes all 3 derivatives onto the SIR side via:
+
+    Dh_pe = dh^e *_t d2h^r = integral(zeta_pe dt)
+
+where zeta_pe = d2h_tx/dt2 *_t d2h_rx/dt2 (16 deltas per patch pair).
+Excitation enters without any derivative: v'_pe = E_m * v.
 """
 
 import time
@@ -11,13 +14,13 @@ import warnings
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from pyfield.h_sir.sir_derivatives import compute_pe_sdi
+from pyfield.hsir.transducer_sir_pe import compute_pe_sdi
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
 )
 
-from .attenuation import causal_attenuation_tf, compute_reception_distances
+from ..attenuation import causal_attenuation_tf, compute_reception_distances
 
 
 def _next_pow2(n):
@@ -34,21 +37,21 @@ def _wrap_tqdm(iterable, **kwargs):
         return iterable
 
 
-class Reception:
-    """Compute received RF signals via pulse-echo simulation.
+class ReceptionSDI:
+    """Compute received RF signals via the PE SDI formulation.
 
-    Models the full transmit-scatter-receive chain using the PE SDI kernel
-    and frequency-domain convolutions.
+    Redistributes all 3 temporal derivatives onto the SIR side, enabling
+    efficient computation via combined delta placement (16 deltas per TX-RX
+    patch pair, 1 cumsum). Excitation enters without derivatives.
 
     Physics:
 
-    .. code-block:: text
+        rf = v_pe' ⊛_t Dh_pe ⊛_r f_m
 
-        p_r(t) = (rho/2c^2) * f_m(r) *_r [v'_pe(t) *_t Dh_pe(r, t)]
+        v_pe' = (ρ₀/2c₀²) × E_m × v             ← no derivatives on excitation
+        Dh_pe = dh^e *_t d²h^r  (= ∫ zeta_pe dt)  ← 3 derivatives on SIR
 
-    Where ``Dh_pe = dh^e *_t d2h^r`` is computed via combined SDI delta
-    placement (16 deltas per patch pair), and ``v'_pe = E_m * v`` (no
-    derivative on excitation derivatives already in Dh_pe).
+    Only the ``"sdi"`` method is supported (SDI is intrinsic to the formulation).
 
     Parameters
     ----------
@@ -57,7 +60,7 @@ class Reception:
         impulse_response and excitation).
     rx : TransducerBase
         Receive transducer (with apodization, optional impulse_response).
-        Can be same object as tx for pulse-echo.
+        Can be the same object as tx for monostatic pulse-echo.
     c : float, default 1540.0
         Speed of sound (m/s).
     rho : float, default 1.0
@@ -69,8 +72,7 @@ class Reception:
     freq_power : float, default 1.0
         Attenuation power-law exponent.
     excitation : numpy.ndarray or None, default None
-        TX excitation pulse ``(L,)``. If None, uses tx.excitation or
-        delta (impulse).
+        TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -129,6 +131,9 @@ class Reception:
         ) = compute_sub_elem_attributes(self.tx)
         self._tx_wx_max = float(self._tx_wx.max())
         self._tx_wy_max = float(self._tx_wy.max())
+        tx_frames = self.tx.sub_patch_frames
+        self._tx_eu = np.asarray(tx_frames["tangents_u"], dtype=np.float32)
+        self._tx_ev = np.asarray(tx_frames["tangents_v"], dtype=np.float32)
 
         (
             self._rx_centers,
@@ -142,6 +147,9 @@ class Reception:
         ) = compute_sub_elem_attributes(self.rx)
         self._rx_wx_max = float(self._rx_wx.max())
         self._rx_wy_max = float(self._rx_wy.max())
+        rx_frames = self.rx.sub_patch_frames
+        self._rx_eu = np.asarray(rx_frames["tangents_u"], dtype=np.float32)
+        self._rx_ev = np.asarray(rx_frames["tangents_v"], dtype=np.float32)
 
     # ------------------------------------------------------------------
     # Runtime parameter update
@@ -207,6 +215,8 @@ class Reception:
                     self._rx_wy[mask],
                     self._rx_apod[mask],
                     self._rx_delays[mask],
+                    self._rx_eu[mask],
+                    self._rx_ev[mask],
                 )
             )
         return slices
@@ -236,12 +246,7 @@ class Reception:
         return points_m, amps
 
     def _compute_pe_time_grid(self, points_m):
-        """Compute time grid covering both TX and RX propagation paths.
-
-        PE round-trip: t_min uses min of (TX + RX) distances,
-        t_max uses max of (TX + RX) distances.
-        """
-        # TX time grid bounds.
+        """Compute time grid covering both TX and RX propagation paths."""
         _, tx_t0, tx_dt, tx_T = compute_time_grid(
             points_m.shape[0],
             self._tx_M,
@@ -254,7 +259,6 @@ class Reception:
             self.tx.delays,
             verbose=False,
         )
-        # RX time grid bounds.
         _, rx_t0, rx_dt, rx_T = compute_time_grid(
             points_m.shape[0],
             self._rx_M,
@@ -267,7 +271,6 @@ class Reception:
             self.rx.delays,
             verbose=False,
         )
-        # PE time grid: convolution of TX and RX SIRs.
         dt = 1.0 / self.fs
         pe_t0 = tx_t0 + rx_t0
         pe_T = tx_T + rx_T - 1
@@ -304,11 +307,9 @@ class Reception:
         n_rx = int(self.rx.delays.shape[0])
         rx_slices = self._extract_rx_element_patches()
 
-        # Time grid for PE convolution.
         pe_t0, dt, pe_T = self._compute_pe_time_grid(points_m)
         inv_c = np.float32(1.0 / self.c)
 
-        # Excitation handling: v'_pe = E_m(t) * v(t), no derivative.
         exc = self._resolve_excitation()
         ir_tx = getattr(self.tx, "impulse_response", None)
         ir_rx = getattr(self.rx, "impulse_response", None)
@@ -337,7 +338,6 @@ class Reception:
             else None
         )
 
-        # Attenuation distances.
         do_attenuation = self.alpha0 is not None
         distances_pe = None
         if do_attenuation:
@@ -350,10 +350,9 @@ class Reception:
             )  # (P, E_rx)
 
         scale = np.float32(self.rho / (2.0 * self.c**2))
-        parallel_axis = "patches" if P < 4 else "points"
 
         if self.verbose:
-            print("\n--- Reception ---")
+            print("\n--- ReceptionSDI ---")
             print(f"  Scatterers : {P}")
             print(f"  TX patches : {self._tx_M}")
             print(f"  RX elements: {n_rx} ({self._rx_M} patches total)")
@@ -378,7 +377,7 @@ class Reception:
         )
 
         for e_rx in el_iter:
-            rx_c, rx_wx, rx_wy, rx_ap, rx_dl = rx_slices[e_rx]
+            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_slices[e_rx]
 
             Dh_pe = compute_pe_sdi(
                 points_m,
@@ -397,7 +396,10 @@ class Reception:
                 pe_T,
                 self.fs,
                 dt,
-                parallel_axis=parallel_axis,
+                tx_eu=self._tx_eu,
+                tx_ev=self._tx_ev,
+                rx_eu=rx_eu,
+                rx_ev=rx_ev,
             )  # (P, pe_T) float32
 
             H_pe = rfft(Dh_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
@@ -423,18 +425,16 @@ class Reception:
             del H_pe
 
             if per_scatterer:
-                # Keep individual traces — (P, pe_T) → stored in rf[:, :, e_rx].
                 rf[:, :, e_rx] = (rf_pe * amps[:, np.newaxis] * scale).astype(
                     np.float32
                 )
             else:
-                # Born approximation: sum contributions from all scatterers.
                 rf_channel = (rf_pe * amps[:, np.newaxis]).sum(axis=0)  # (pe_T,)
                 rf[:, e_rx] = (rf_channel * scale).astype(np.float32)
             del rf_pe
 
         if self.verbose:
-            print(f"Reception computed in {time.time() - t_wall:.2f} s\n")
+            print(f"ReceptionSDI computed in {time.time() - t_wall:.2f} s\n")
 
         if downsampling is not None and downsampling > 1:
             step = int(downsampling)
@@ -451,14 +451,9 @@ class Reception:
         scatterer_positions_mm,
         scattering_amplitudes=None,
         *,
-        method="sdi",
         downsampling=None,
     ):
         """Compute RF signal for all receive elements.
-
-        Scatterer contributions are summed (Born approximation) to produce
-        one RF trace per RX element. Use `compute_point_rf` when individual
-        per-point traces are needed (e.g. PSF imaging).
 
         Parameters
         ----------
@@ -466,8 +461,6 @@ class Reception:
             Scatterer positions in mm.
         scattering_amplitudes : (N_scat,) numpy.ndarray or None, default None
             Scattering coefficient at each position. None defaults to ones.
-        method : str, default "sdi"
-            SIR kernel method. Only "sdi" supported for PE SDI.
         downsampling : int or None, default None
             If set, downsample output by this factor.
 
@@ -478,11 +471,6 @@ class Reception:
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
-        if method != "sdi":
-            warnings.warn(
-                f"Reception only supports method='sdi', got '{method}'. Using 'sdi'.",
-                stacklevel=2,
-            )
         pts_mm, amps = self._validate_scatterer_inputs(
             scatterer_positions_mm, scattering_amplitudes
         )
@@ -499,19 +487,10 @@ class Reception:
     ):
         """Compute the pulse-echo RF response at each position independently.
 
-        Unlike `__call__`, scatterer contributions are **not** summed. Each
-        input position is treated as an isolated point reflector and returns
-        its own RF trace on a common time grid. Equivalent to Field II's
-        ``calc_hhp`` (pulse-echo SIR at a set of field points).
-
-        Useful for PSF imaging: pass a lateral grid of positions, receive
-        ``(N_points, Nt, E_rx)`` back, take ``[:, :, 0]`` for mono-element,
-        transpose to ``(Nt, N_points)`` for display.
-
         Parameters
         ----------
         positions_mm : (N_points, 3) numpy.ndarray
-            Field-point positions in mm. All points share a common time grid.
+            Field-point positions in mm.
         amplitudes : (N_points,) numpy.ndarray or None, default None
             Per-point scaling. None defaults to ones.
         downsampling : int or None, default None
@@ -535,13 +514,9 @@ class Reception:
         scattering_amplitudes,
         tx_events,
         *,
-        method="sdi",
         downsampling=None,
     ):
         """Compute RF for multiple TX events (e.g., scan line sweep).
-
-        For each TX event, sets TX delays/apodization per event dict,
-        computes RF per RX element, then restores TX state.
 
         Parameters
         ----------
@@ -551,19 +526,14 @@ class Reception:
             Scattering coefficient at each position.
         tx_events : list of dict
             Each dict has ``"delays"`` and/or ``"apodization"`` arrays.
-        method : str, default "sdi"
-            SIR computation method (``"sdi"``, ``"naive"``, or ``"auto"``).
         downsampling : int or None, default None
-            Temporal downsampling factor for the output RF signal.
+            Temporal downsampling factor.
 
         Returns
         -------
         rf : (N_events, Nt, E_rx) numpy.ndarray
-            RF signal per TX event per receive element.
         coords : dict
-            Keys ``"t0"``, ``"dt"``.
         """
-        # Save original TX state.
         orig_delays = self.tx.delays.copy()
         orig_apod = self.tx.apodization.copy()
 
@@ -585,20 +555,16 @@ class Reception:
                 rf_i, coords_i = self(
                     scatterer_positions_mm,
                     scattering_amplitudes,
-                    method=method,
                     downsampling=downsampling,
                 )
                 results.append(rf_i)
                 if coords_out is None:
                     coords_out = coords_i
         finally:
-            # Restore TX state.
             self.tx.delays = orig_delays
             self.tx.apodization = orig_apod
             self._refresh_sub_elem_attributes()
 
-        # Stack: all events must have same Nt (same geometry → same time grid).
-        # Pad shorter ones if needed.
         max_Nt = max(r.shape[0] for r in results)
         n_rx = results[0].shape[1]
         rf_all = np.zeros((len(results), max_Nt, n_rx), dtype=np.float32)
@@ -612,7 +578,6 @@ class Reception:
         scatterer_positions_mm,
         scattering_amplitudes,
         *,
-        method="sdi",
         downsampling=None,
     ):
         """Full matrix capture: each TX element transmits, all RX receive.
@@ -620,25 +585,17 @@ class Reception:
         Parameters
         ----------
         scatterer_positions_mm : (N_scat, 3) numpy.ndarray
-            Scatterer positions in mm.
         scattering_amplitudes : (N_scat,) numpy.ndarray
-            Scattering coefficient at each position.
-        method : str, default "sdi"
-            SIR computation method (``"sdi"``, ``"naive"``, or ``"auto"``).
         downsampling : int or None, default None
-            Temporal downsampling factor for the output RF signal.
 
         Returns
         -------
         rf : (E_tx, Nt, E_rx) numpy.ndarray
-            Full matrix capture data.
         coords : dict
-            Keys ``"t0"``, ``"dt"``.
         """
         n_tx = int(self.tx.delays.shape[0])
         tx_events = []
         for e_tx in range(n_tx):
-            # Single-element transmit: only element e_tx is active.
             apod = np.zeros(n_tx, dtype=np.float32)
             apod[e_tx] = 1.0
             delays = np.zeros(n_tx, dtype=np.float32)
@@ -648,13 +605,12 @@ class Reception:
             scatterer_positions_mm,
             scattering_amplitudes,
             tx_events,
-            method=method,
             downsampling=downsampling,
         )
 
     def __repr__(self) -> str:
         return (
-            f"Reception(tx={self.tx}, rx={self.rx}, c={self.c} m/s, "
+            f"ReceptionSDI(tx={self.tx}, rx={self.rx}, c={self.c} m/s, "
             f"fs={self.fs} Hz, alpha0={self.alpha0}, "
             f"freq_power={self.freq_power})"
         )

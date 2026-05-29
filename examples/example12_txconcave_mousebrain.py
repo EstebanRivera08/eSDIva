@@ -36,7 +36,7 @@ from pyfield.plotting import (
     add_transducer_mesh,
     create_3Dvol_mesh,
 )
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 from pyfield.transducers import ConcaveCircularTransducer
 from pyfield.utilities import BG_Atlas
 
@@ -72,7 +72,7 @@ mouse_tx = ConcaveCircularTransducer(
     frequency_Hz=FREQ_HZ,
 )
 
-mouse_sim = PyField(mouse_tx, verbose=False)
+mouse_sim = Emission(mouse_tx, monochromatic=True, verbose=False)
 p, coords = mouse_sim(
     {
         "x_extent": [-1, 1],

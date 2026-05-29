@@ -26,7 +26,7 @@ from scipy.signal import hilbert
 sys.path.insert(0, str(Path(__file__).parent))
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.psimulation import Reception
+from pyfield.reception import ReceptionSDI
 from pyfield.transducers import ConcaveCircularTransducer
 from pyfield.utilities import to_dB
 
@@ -50,14 +50,15 @@ MAT_FILE = Path(__file__).parent / "rf_concave_psf.mat"
 # Load Field II reference
 # ---------------------------------------------------------------------------
 _mat = scipy.io.loadmat(str(MAT_FILE), simplify_cells=True)["save_struct"]
-fii_env_db: np.ndarray = _mat["rf_env_dB"]   # (Nt_fii=120, N_lat=101)
-fii_t0: float = float(_mat["t0"])             # 3.842e-05 s
-fii_dt: float = 1.0 / FS
+fii_env_db: np.ndarray = _mat["rf_env_dB"]  # (Nt_fii=120, N_lat=101)
+fii_t0: float = float(_mat["t0"])  # 3.842e-05 s
+# Mat file stores every-5th-sample envelope (RF_data(1:5:600,:) in Matlab).
+fii_dt: float = 5.0 / FS
 fii_Nt: int = fii_env_db.shape[0]
 fii_t_us = (fii_t0 + np.arange(fii_Nt) * fii_dt) * 1e6  # µs
 
 print(f"Field II: Nt={fii_Nt}, N_lat={fii_env_db.shape[1]}")
-print(f"  t0 = {fii_t0*1e6:.3f} µs, t_end = {fii_t_us[-1]:.3f} µs")
+print(f"  t0 = {fii_t0 * 1e6:.3f} us, t_end = {fii_t_us[-1]:.3f} us")
 print(f"  dB range: [{fii_env_db.min():.1f}, {fii_env_db.max():.1f}]")
 
 # ---------------------------------------------------------------------------
@@ -72,13 +73,22 @@ tx = ConcaveCircularTransducer(
 )
 
 t_ir = np.arange(0, 2.0 / FREQUENCY_HZ, 1.0 / FS)
-ir = (np.sin(2 * np.pi * FREQUENCY_HZ * t_ir) * np.hanning(len(t_ir))).astype(
-    np.float32
-)
-tx.impulse_response = ir
-tx.excitation = ir
+ir = np.sin(2 * np.pi * FREQUENCY_HZ * t_ir)
+exc = ir * np.hanning(len(t_ir))
 
-sim = Reception(tx, tx, fs=FS, c=C, verbose=False)
+tx.impulse_response = ir
+tx.excitation = exc
+
+# RX: same geometry, no impulse_response — matches Field II single E_m convention.
+rx = ConcaveCircularTransducer(
+    diameter_mm=DIAMETER_MM,
+    focus_mm=FOCUS_MM,
+    frequency_Hz=FREQUENCY_HZ,
+    refine_factor=1,
+    no_sub_diameter=16,
+)
+
+sim = ReceptionSDI(tx, rx, fs=FS, c=C, verbose=False)
 
 field_points_mm = np.column_stack(
     [
@@ -92,21 +102,22 @@ print(f"\nRunning PyField Reception for {len(X_SCAT_MM)} scatterers ...")
 rf_pts, coords = sim.compute_point_rf(field_points_mm)
 # rf_pts: (N_lat, Nt_pf, 1) — mono-element
 
-rf_image = rf_pts[:, :, 0].T          # (Nt_pf, N_lat)
+rf_image = rf_pts[:, :, 0].T  # (Nt_pf, N_lat)
 pf_t0: float = float(coords["t0"])
 pf_dt: float = float(coords["dt"])
 pf_Nt: int = rf_image.shape[0]
 pf_t_us = (pf_t0 + np.arange(pf_Nt) * pf_dt) * 1e6  # µs
 
 print(f"PyField:  Nt={pf_Nt}, N_lat={rf_image.shape[1]}")
-print(f"  t0 = {pf_t0*1e6:.3f} µs, t_end = {pf_t_us[-1]:.3f} µs")
-print(f"  t0 shift vs Field II: {(pf_t0 - fii_t0)*1e9:.1f} ns")
+print(f"  t0 = {pf_t0 * 1e6:.3f} us, t_end = {pf_t_us[-1]:.3f} us")
+print(f"  t0 shift vs Field II: {(pf_t0 - fii_t0) * 1e9:.1f} ns")
 
 # ---------------------------------------------------------------------------
 # Envelope and dB compression
 # ---------------------------------------------------------------------------
 env_pf = np.abs(hilbert(rf_image, axis=0))
 env_pf_db = to_dB(env_pf, vmin=10 ** (DB_FLOOR / 20))
+print(env_pf.max(), env_pf.min())
 
 # ---------------------------------------------------------------------------
 # Numerical diagnostics
@@ -114,16 +125,14 @@ env_pf_db = to_dB(env_pf, vmin=10 ** (DB_FLOOR / 20))
 fii_peak_t_idx, fii_peak_x_idx = np.unravel_index(
     np.argmax(fii_env_db), fii_env_db.shape
 )
-pf_peak_t_idx, pf_peak_x_idx = np.unravel_index(
-    np.argmax(env_pf_db), env_pf_db.shape
-)
+pf_peak_t_idx, pf_peak_x_idx = np.unravel_index(np.argmax(env_pf_db), env_pf_db.shape)
 print(
     f"\nPeak location:"
-    f"\n  Field II — t = {fii_t_us[fii_peak_t_idx]:.3f} µs, "
+    f"\n  Field II  t = {fii_t_us[fii_peak_t_idx]:.3f} us, "
     f"x = {X_SCAT_MM[fii_peak_x_idx]:.2f} mm"
-    f"\n  PyField  — t = {pf_t_us[pf_peak_t_idx]:.3f} µs, "
+    f"\n  PyField   t = {pf_t_us[pf_peak_t_idx]:.3f} us, "
     f"x = {X_SCAT_MM[pf_peak_x_idx]:.2f} mm"
-    f"\n  Δt = {(pf_t_us[pf_peak_t_idx] - fii_t_us[fii_peak_t_idx])*1e3:.2f} ns"
+    f"\n  dt_peak = {(pf_t_us[pf_peak_t_idx] - fii_t_us[fii_peak_t_idx]) * 1e3:.2f} ns"
 )
 
 # ---------------------------------------------------------------------------
@@ -144,17 +153,17 @@ _im_kw_rf = dict(aspect="auto", cmap="RdBu", vmin=-1, vmax=1)
 ax = axes[0, 0]
 im = ax.imshow(fii_env_db, extent=extent_fii, **_im_kw_db)
 plt.colorbar(im, ax=ax, label="dB")
-ax.set_title("Field II — envelope (dB)")
+ax.set_title("Field II  envelope (dB)")
 ax.set_xlabel("Lateral (mm)")
-ax.set_ylabel("Time (µs)")
+ax.set_ylabel("Time (us)")
 
 # --- top-right: PyField envelope dB ---
 ax = axes[0, 1]
 im = ax.imshow(env_pf_db, extent=extent_pf, **_im_kw_db)
 plt.colorbar(im, ax=ax, label="dB")
-ax.set_title("PyField — envelope (dB)")
+ax.set_title("PyField  envelope (dB)")
 ax.set_xlabel("Lateral (mm)")
-ax.set_ylabel("Time (µs)")
+ax.set_ylabel("Time (us)")
 
 # --- bottom-left: Field II envelope (linear, for FWHM inspection) ---
 ax = axes[1, 0]
@@ -167,23 +176,31 @@ ax.imshow(
     vmin=0,
     vmax=1,
 )
-ax.set_title("Field II — envelope (linear)")
+ax.set_title("Field II  envelope (linear)")
 ax.set_xlabel("Lateral (mm)")
-ax.set_ylabel("Time (µs)")
+ax.set_ylabel("Time (us)")
 
-# --- bottom-right: PyField raw RF (normalised) ---
+# --- bottom-right: PyField linear envelope ---
 ax = axes[1, 1]
-rf_norm = rf_image / (np.abs(rf_image).max() + 1e-30)
-ax.imshow(rf_norm, extent=extent_pf, **_im_kw_rf)
-ax.set_title("PyField — raw RF (normalised)")
+env_pf_linear = 10 ** (env_pf_db / 20)
+ax.imshow(
+    env_pf_linear,
+    extent=extent_pf,
+    aspect="auto",
+    cmap="hot",
+    vmin=0,
+    vmax=1,
+)
+ax.set_title("PyField  envelope (linear)")
 ax.set_xlabel("Lateral (mm)")
-ax.set_ylabel("Time (µs)")
+ax.set_ylabel("Time (us)")
+
 
 fig.suptitle(
-    f"PSF comparison — concave Ø{DIAMETER_MM:.0f} mm, focus {FOCUS_MM:.0f} mm, "
+    f"PSF comparison  concave {DIAMETER_MM:.0f} mm diam, focus {FOCUS_MM:.0f} mm, "
     f"scatterer z={SCATTERER_Z_MM} mm\n"
-    f"Δt0 = {(pf_t0 - fii_t0)*1e9:.1f} ns   "
-    f"Δt_peak = {(pf_t_us[pf_peak_t_idx] - fii_t_us[fii_peak_t_idx])*1e3:.2f} ns"
+    f"dt0 = {(pf_t0 - fii_t0) * 1e9:.1f} ns   "
+    f"dt_peak = {(pf_t_us[pf_peak_t_idx] - fii_t_us[fii_peak_t_idx]) * 1e3:.2f} ns"
 )
 plt.tight_layout()
 

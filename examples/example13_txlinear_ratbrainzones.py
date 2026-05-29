@@ -25,7 +25,7 @@ import numpy as np
 import pyvista as pv
 
 import pyfield.transducers as Transducers
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 from pyfield.utilities import BG_Atlas
 from pyfield.plotting import (
     add_pressure_vol,
@@ -95,7 +95,7 @@ domino.compute_delays(focus_mm=FOCUS_MM)
 domino.compute_apodization(focus_mm=FOCUS_MM, FoverD=FOVERD, apodization_type="rect")
 tx_mesh = domino.get_mesh()
 
-sim = PyField(domino)
+sim = Emission(domino, monochromatic=True)
 field_info_mm = {
     "x_extent": [-0.25 + FOCUS_MM[0], 0.25 + FOCUS_MM[0]],
     "y_extent": [-0.5 + FOCUS_MM[1], 0.5 + FOCUS_MM[1]],

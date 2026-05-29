@@ -29,7 +29,7 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
 from pyfield.beamforming import das, envelope_db
-from pyfield.psimulation import Reception
+from pyfield.reception import ReceptionSDI
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================
@@ -96,7 +96,7 @@ for x in X_LINES_MM:
 # ============================================================================
 # STEP 3: ACQUIRE RF DATA
 # ============================================================================
-sim = Reception(tx, rx, c=C, fs=FS, excitation=excitation)
+sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
 rf_seq, coords = sim.compute_sequence(SCATTERER_POS, SCATTERER_AMP, tx_events)
 # rf_seq.shape = (N_lines, Nt, E_rx)
 

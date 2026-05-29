@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pyfield.psimulation.attenuation import (
+from pyfield.attenuation import (
     causal_attenuation_tf,
     compute_attenuation_distances,
     compute_reception_distances,

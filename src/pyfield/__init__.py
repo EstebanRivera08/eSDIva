@@ -2,14 +2,17 @@
 
 from importlib.metadata import PackageNotFoundError, version
 
+import pyfield.attenuation as attenuation
 import pyfield.beamforming as beamforming
+import pyfield.emission as emission
 import pyfield.plotting as plotting
-import pyfield.psimulation as psimulation
+import pyfield.reception as reception
 import pyfield.transducers as transducers
 import pyfield.utilities as utilities
 from pyfield.beamforming import das, envelope_db
+from pyfield.emission import Emission, PyField
 from pyfield.plotting import plot2D_pressure_slices
-from pyfield.psimulation import Emission, PyField, Reception
+from pyfield.reception import Reception, ReceptionSDI
 from pyfield.utilities import align_to_common_time, to_dB
 
 
@@ -42,10 +45,13 @@ __all__ = [
     "Emission",
     "PyField",
     "Reception",
+    "ReceptionSDI",
+    "attenuation",
     "beamforming",
     "das",
+    "emission",
     "envelope_db",
-    "psimulation",
+    "reception",
     "transducers",
     "utilities",
     "plotting",

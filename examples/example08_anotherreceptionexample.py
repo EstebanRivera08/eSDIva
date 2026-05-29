@@ -17,7 +17,7 @@ import numpy as np
 
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.psimulation import Reception
+from pyfield.reception import ReceptionSDI
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================
@@ -73,7 +73,7 @@ print(f"Scatterers: {len(scatterer_pos)} point targets")
 # ============================================================================
 # STEP 3: FULL MATRIX CAPTURE
 # ============================================================================
-sim = Reception(tx, rx, c=C, fs=FS)
+sim = ReceptionSDI(tx, rx, c=C, fs=FS)
 rf_fmc, coords = sim.compute_all(scatterer_pos, scatterer_amp)
 # rf_fmc.shape = (E_tx, Nt, E_rx)
 

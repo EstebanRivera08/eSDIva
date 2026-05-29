@@ -5,7 +5,7 @@ import warnings
 import numpy as np
 import pytest
 
-from pyfield.psimulation import PyField
+from pyfield.emission import PyField
 from pyfield.transducers import LinearArrayTransducer
 
 

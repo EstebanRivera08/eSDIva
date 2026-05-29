@@ -5,7 +5,7 @@ import time
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from pyfield.h_sir.farfield_rect_patch import compute_h_sir
+from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
@@ -13,7 +13,7 @@ from pyfield.utilities.helper_functions import (
     reshape_to_mapped_points,
 )
 
-from .attenuation import causal_attenuation_tf, compute_attenuation_distances
+from ..attenuation import causal_attenuation_tf, compute_attenuation_distances
 from .sir_to_pressure import (
     from_sir_to_monochromatic_pressure,
     from_sir_to_pressure,
@@ -154,6 +154,9 @@ class Emission:
         self.wy = float(self.wy_arr.max())
         self.delays = self.tx.delays
         self.apodization = self.tx.apodization
+        frames = self.tx.sub_patch_frames
+        self.eu_arr = np.asarray(frames["tangents_u"], dtype=np.float32)
+        self.ev_arr = np.asarray(frames["tangents_v"], dtype=np.float32)
 
     # ------------------------------------------------------------------
     # Runtime parameter update
@@ -276,6 +279,8 @@ class Emission:
             self.apodization_sub_elem,
             self.delays_sub_elem,
             method_flag,
+            self.eu_arr,
+            self.ev_arr,
         )
 
         if self.verbose:
@@ -296,6 +301,8 @@ class Emission:
                     self.wy_arr[mask],
                     self.apodization_sub_elem[mask],
                     self.delays_sub_elem[mask],
+                    self.eu_arr[mask],
+                    self.ev_arr[mask],
                 )
             )
         return slices
@@ -320,8 +327,10 @@ class Emission:
             wy_arr = self.wy_arr
             apod_arr = self.apodization_sub_elem
             delays_arr = self.delays_sub_elem
+            eu_arr = self.eu_arr
+            ev_arr = self.ev_arr
         else:
-            centers, wx_arr, wy_arr, apod_arr, delays_arr = patch_arrays
+            centers, wx_arr, wy_arr, apod_arr, delays_arr, eu_arr, ev_arr = patch_arrays
 
         cols = pts_batch.shape[0]
         M_e = centers.shape[0]
@@ -341,6 +350,8 @@ class Emission:
             apod_arr,
             delays_arr,
             method_flag,
+            eu_arr,
+            ev_arr,
         )
         return h_out  # (cols, T) float32
 
@@ -856,6 +867,8 @@ class Emission:
         coords: dict = {}
         if is_structured:
             pressure = reshape_to_mapped_points(x, y, z, pressure_flat) * self.rho
+            if self.monochromatic:
+                pressure = pressure[0]  # (1, Nx, Ny, Nz) → (Nx, Ny, Nz)
             coords["x"] = x
             coords["y"] = y
             coords["z"] = z

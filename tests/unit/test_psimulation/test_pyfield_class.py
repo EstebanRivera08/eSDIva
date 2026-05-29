@@ -6,7 +6,7 @@ import pytest
 
 
 def _make_pyfield(tx, **kwargs):
-    from pyfield.psimulation import PyField
+    from pyfield.emission import PyField
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
@@ -28,7 +28,7 @@ class TestPyFieldCreation:
         assert sim.fs == 100e6
 
     def test_deprecation_warning_on_init(self, small_linear_transducer):
-        from pyfield.psimulation import PyField
+        from pyfield.emission import PyField
 
         with pytest.warns(DeprecationWarning, match="deprecated"):
             PyField(small_linear_transducer)

@@ -20,7 +20,7 @@ from config import FIG_FOLDER, SAVE_FIG
 
 import pyfield.transducers as transducers
 from pyfield.plotting import plot2D_pressure_slices
-from pyfield.psimulation import Emission
+from pyfield.emission import Emission
 
 # ============================================================================
 # CONFIGURATION

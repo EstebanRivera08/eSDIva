@@ -28,6 +28,11 @@ Run with:
 import numpy as np
 import pyvista as pv
 
+# ============================================================================
+# CONFIGURATION
+# ============================================================================
+from config import FIG_FOLDER, SAVE_FIG, SCALE
+
 import pyfield
 from pyfield.transducers import (
     ConcaveCircularTransducer,
@@ -38,11 +43,6 @@ from pyfield.transducers import (
     LinearArrayTransducer,
     MatrixArrayTransducer,
 )
-
-# ============================================================================
-# CONFIGURATION
-# ============================================================================
-from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 # Physics / transducer constants
 FC_HZ = 1.5e6  # Centre frequency (1.5 MHz)
@@ -57,8 +57,10 @@ def _show_or_save(tx, filename, scalars="Apodization"):
         plotter = pv.Plotter(
             window_size=(WIN_W * SCALE, WIN_H * SCALE), off_screen=True
         )
+        scale = SCALE
     else:
         plotter = pv.Plotter(window_size=(WIN_W, WIN_H))
+        scale = 1
 
     mesh = tx.get_mesh()
     if scalars == "Apodization":
@@ -75,15 +77,15 @@ def _show_or_save(tx, filename, scalars="Apodization"):
         scalar_bar_args={
             "title": title,
             "vertical": True,
-            "title_font_size": 12 * SCALE,
-            "label_font_size": 10 * SCALE,
+            "title_font_size": 12 * scale,
+            "label_font_size": 10 * scale,
         },
         show_edges=True,
         ambient=1,
     )
     plotter.add_axes()
     plotter.show_grid(
-        font_size=10 * SCALE,
+        font_size=10 * scale,
         xtitle="X (mm)",
         ytitle="Y (mm)",
         ztitle="Z (mm)",

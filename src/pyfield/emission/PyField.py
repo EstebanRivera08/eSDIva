@@ -1,6 +1,6 @@
 """PyField: deprecated alias for Emission.
 
-Use `pyfield.psimulation.Emission` instead.
+Use `pyfield.emission.Emission` instead.
 """
 
 import warnings
@@ -29,7 +29,7 @@ class PyField(Emission):
 
     def __init__(self, transducer, *, monochromatic=True, **kwargs):
         warnings.warn(
-            "PyField is deprecated, use pyfield.psimulation.Emission instead.",
+            "PyField is deprecated, use pyfield.emission.Emission instead.",
             DeprecationWarning,
             stacklevel=2,
         )

@@ -23,7 +23,7 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
 from pyfield.plotting import plot2D_pressure_slices
-from pyfield.psimulation import Emission
+from pyfield.emission import Emission
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================

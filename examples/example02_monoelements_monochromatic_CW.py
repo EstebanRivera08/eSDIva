@@ -21,14 +21,14 @@ Run with:
 
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
+from pyfield.plotting import plot2D_pressure_slices
 from pyfield.transducers import (
     ConcaveCircularTransducer,
     ConvexCircularTransducer,
     FlatCircularTransducer,
     FocusedCircularTransducer,
 )
-from pyfield.plotting import plot2D_pressure_slices
 
 # ============================================================================
 # CONFIGURATION
@@ -54,8 +54,10 @@ XZ_GRID = {
 
 print("\n --- Example 2: Mono-element Circular Transducer Pressure Fields --- \n")
 
+scale = 1
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
+    scale = SCALE
 
 # ============================================================================
 # STEP 1: FLAT CIRCULAR TRANSDUCER — FLAT PISTON
@@ -69,7 +71,7 @@ flat = FlatCircularTransducer(
 )
 flat.show()
 
-sim_flat = PyField(flat, c=C, fs=FREQ_SAMPLING_HZ)
+sim_flat = Emission(flat, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_flat, coords = sim_flat(XZ_GRID, method="auto")
 
 plot2D_pressure_slices(
@@ -95,7 +97,7 @@ bowl = ConcaveCircularTransducer(
 )
 bowl.show()
 
-sim_bowl = PyField(bowl, c=C, fs=FREQ_SAMPLING_HZ)
+sim_bowl = Emission(bowl, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_bowl, coords = sim_bowl(XZ_GRID, method="auto")
 
 plot2D_pressure_slices(
@@ -117,12 +119,12 @@ cyl = FocusedCircularTransducer(
     diameter_mm=20.0,
     focus_mm=40.0,
     no_sub_diameter=20,
-    focus_axis="y",
+    focus_axis="x",
     frequency_Hz=FREQ_HZ,
 )
 cyl.show()
 
-sim_cyl = PyField(cyl, c=C, fs=FREQ_SAMPLING_HZ)
+sim_cyl = Emission(cyl, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_cyl, coords = sim_cyl(XZ_GRID, method="auto")
 
 plot2D_pressure_slices(
@@ -148,7 +150,7 @@ conv = ConvexCircularTransducer(
 )
 conv.show()
 
-sim_conv = PyField(conv, c=C, fs=FREQ_SAMPLING_HZ)
+sim_conv = Emission(conv, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_conv, coords = sim_conv(XZ_GRID, method="auto")
 
 plot2D_pressure_slices(

@@ -20,7 +20,7 @@ from scipy.signal import hilbert
 from config import FIG_FOLDER, SAVE_FIG
 
 import pyfield.transducers as transducers
-from pyfield.psimulation import Reception
+from pyfield.reception import ReceptionSDI
 from pyfield.utilities import to_dB
 
 # ============================================================================
@@ -76,7 +76,7 @@ scatterer_amp = np.array([1.0, 0.7, 0.7], dtype=np.float32)
 # ============================================================================
 # STEP 4: SIMULATE — WITH EXCITATION
 # ============================================================================
-sim = Reception(tx, rx, c=C, fs=FS, excitation=excitation)
+sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
 rf, coords = sim(scatterer_pos, scatterer_amp)
 # rf.shape = (Nt, E_rx)
 

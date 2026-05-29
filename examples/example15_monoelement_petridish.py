@@ -31,7 +31,7 @@ from pyfield.plotting import (
     create_3Dvol_mesh,
     load_mesh_from_stl,
 )
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 from pyfield.transducers import ConcaveCircularTransducer
 
 WIN_W, WIN_H = 500, 600
@@ -82,7 +82,7 @@ field_points = {
     "dz": 0.2,
 }
 
-sim = PyField(transducer, monochromatic=True, verbose=False)
+sim = Emission(transducer, monochromatic=True, verbose=False)
 p, coords = sim(field_points, method="auto")
 p_norm = p / p.max()
 

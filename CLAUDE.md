@@ -12,7 +12,7 @@ of rectangular patches and computes pressure fields via convolution with excitat
 
 Guidelines are loaded automatically from `.claude/rules/`:
 - **coding-guidelines** — code style, testing, commits (always loaded)
-- **physics-context** — SIR/SDI theory (loaded when touching `h_sir/`, `psimulation/`, `transducers/`)
+- **physics-context** — SIR/SDI theory (loaded when touching `hsir/`, `emission/`, `reception/`, `transducers/`)
 - **transducers** — geometry conventions, subdivision, z-convention (loaded when touching `transducers/`)
 
 When the user says **"documentation"** or **"the docs"**, they mean the `docs/` folder (MkDocs site). Update the relevant `.md` file there whenever the corresponding code changes.
@@ -79,22 +79,25 @@ uv add <package>
 
 The codebase follows a modular architecture with clear separation of concerns. 
 
-1) **`src/pyfield/h_sir/`** — Spatial Impulse Response computation
+1) **`src/pyfield/hsir/`** — Spatial Impulse Response computation
 
 2) **`src/pyfield/transducers/`** — Transducer geometry definitions
 
-3) **`src/pyfield/psimulation/`** — Pressure field simulation (Emission + Reception)
+3) **`src/pyfield/emission/`** — Emission simulation (`Emission`, deprecated `PyField` alias)
 
-4) **`src/pyfield/utilities/`** — Helper functions, surface subdivision, brain-atlas integration
+4) **`src/pyfield/reception/`** — Reception simulation (`ReceptionSDI`, `Reception`)
 
-5) **`src/pyfield/plotting/`** — Visualization (2D Matplotlib and 3D PyVista)
+5) **`src/pyfield/attenuation/`** — Power-law attenuation transfer functions
+
+6) **`src/pyfield/utilities/`** — Helper functions, surface subdivision, brain-atlas integration
+
+7) **`src/pyfield/plotting/`** — Visualization (2D Matplotlib and 3D PyVista)
 
 IMPORTANT NOTES:
-- The module 1) Is the core computation engine, be careful with modifications.
-- Module 2) will be a module under constant development since new transducers can be created and added,
-  so think in generalization since backward compatibility might be important.
-- Module 3) will have the principal class used for the API. Must be intuitive,
-consistent, and predictable, minimizing friction for adoption and being robust over versions.
+- Module 1) is the core computation engine — be careful with modifications.
+- Module 2) is under constant development since new transducers can be created and added.
+  Prioritize generalization; backward compatibility matters.
+- Modules 3) and 4) are the primary API. Must be intuitive, consistent, and predictable.
 
 ### Simulation Workflow
 
@@ -136,7 +139,7 @@ consistent, and predictable, minimizing friction for adoption and being robust o
    (emits `DeprecationWarning`, defaults `monochromatic=True` for backward compat).
 
    ```python
-   from pyfield.psimulation import Emission
+   from pyfield.emission import Emission
 
    # Mode 1 — Monochromatic CW (returns spatial amplitude at fc)
    sim = Emission(tx, monochromatic=True)
@@ -216,11 +219,12 @@ consistent, and predictable, minimizing friction for adoption and being robust o
 
 5. **Reception (Pulse-Echo RF Simulation)**:
 
-   `Reception` computes received RF signals via the PE SDI kernel, which places
-   16 deltas per (TX patch, RX patch) pair for efficient pulse-echo SIR computation.
+   Two reception classes are available:
+   - `ReceptionSDI` — PE SDI kernel (16 deltas per TX/RX patch pair, 1 cumsum). Fast, default choice.
+   - `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx`, (jω)³ differentiation via FFT. Slower but exact match to Field II arithmetic.
 
    ```python
-   from pyfield.psimulation import Reception
+   from pyfield.reception import ReceptionSDI  # or Reception for conventional
 
    # TX and RX can be same or different transducers
    tx = LinearArrayTransducer(...)
@@ -231,7 +235,7 @@ consistent, and predictable, minimizing friction for adoption and being robust o
    rx = LinearArrayTransducer(...)    # or same as tx
    rx.impulse_response = ir_pulse     # optional RX IR
 
-   sim = Reception(tx, rx, fs=200e6, c=1540)
+   sim = ReceptionSDI(tx, rx, fs=200e6, c=1540)
 
    # Define scatterers
    scatterer_pos = np.array([[0, 0, 30], [1, 0, 35]])  # mm
@@ -265,8 +269,8 @@ consistent, and predictable, minimizing friction for adoption and being robust o
 
    **Key differences from Emission**:
    - Takes separate TX and RX transducers
-   - Uses PE SDI kernel (`compute_pe_sdi`) — no `jw` multiplication (derivatives
-     already in Dh_pe)
+   - `ReceptionSDI` uses PE SDI kernel (`compute_pe_sdi`) — no `jw` multiplication (derivatives already in Dh_pe)
+   - `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with (jω)³ differentiation
    - Returns per-element RF data `(Nt, E_rx)`, not spatial pressure fields
    - Scatterer positions instead of field grid
 
@@ -560,8 +564,8 @@ Each TX element transmits, all RX receive. Returns `(E_tx, Nt, E_rx)`.
 | `xdc_focus(Th, ...)` | `transducer.compute_delays(focus_mm=...)` | Existing |
 | `xdc_apodization(Th, ...)` | `transducer.compute_apodization(...)` | Existing |
 | `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure |
-| `calc_scat_multi(tx, rx, pos, amp)` | `Reception(tx, rx)(pos, amp)` | Per-element RF |
-| `calc_scat_all(tx, rx, pos, amp)` | `Reception.compute_all(...)` | Full matrix capture |
+| `calc_scat_multi(tx, rx, pos, amp)` | `ReceptionSDI(tx, rx)(pos, amp)` | Per-element RF (SDI, fast) |
+| `calc_scat_all(tx, rx, pos, amp)` | `ReceptionSDI.compute_all(...)` | Full matrix capture |
 | `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
 | `calc_scat(tx, rx, pos, amp)` | **Not implemented** | Beamforming is user's job |
 | `xdc_baffle(Th, soft)` | Future extension | Not yet |

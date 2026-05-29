@@ -8,6 +8,7 @@ interface: delay computation, apodization, visualization, and state
 management.
 """
 
+import copy
 import warnings
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
@@ -765,6 +766,10 @@ class TransducerBase(ABC):
         self._sub_el_idx = None
         self._sub_patch_frames = None
         print(f"{self.name} cleaned up.")
+
+    def copy(self) -> "TransducerBase":
+        """Return a deep copy of this transducer, including all state and cached geometry."""
+        return copy.deepcopy(self)
 
     def get_state_dict(self) -> Dict[str, Any]:
         """Return a snapshot of the current apodization / delay state.

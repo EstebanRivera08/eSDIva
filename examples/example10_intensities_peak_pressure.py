@@ -23,7 +23,7 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
 import pyfield.transducers as transducers
-from pyfield.psimulation import Emission
+from pyfield.emission import Emission
 
 # ============================================================================
 # CONFIGURATION  (mirrors Field II example_intensity.m)

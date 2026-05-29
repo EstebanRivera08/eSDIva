@@ -17,13 +17,13 @@ def _make_excitation(fs=200e6, fc=5e6, n_cycles=2):
 
 
 def _make_emission(tx, **kwargs):
-    from pyfield.psimulation import Emission
+    from pyfield.emission import Emission
 
     return Emission(tx, **kwargs)
 
 
 def _make_pyfield(tx, **kwargs):
-    from pyfield.psimulation import PyField
+    from pyfield.emission import PyField
 
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
@@ -312,7 +312,7 @@ class TestTransferFunction:
 
 class TestPyFieldBackwardCompatibility:
     def test_deprecation_warning(self, small_linear_transducer):
-        from pyfield.psimulation import PyField
+        from pyfield.emission import PyField
 
         with pytest.warns(DeprecationWarning, match="deprecated"):
             PyField(small_linear_transducer)

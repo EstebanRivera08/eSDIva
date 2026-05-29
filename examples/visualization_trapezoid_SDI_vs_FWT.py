@@ -112,7 +112,7 @@ def plot_trapezoid_methods(
         t_naive, h_naive, "s", label=r"$h_{naive}$", color="g", ms=10, zorder=7
     )
     stem_container = ax.stem(
-        t_derivative - 1,
+        t_derivative,
         d2h,
         linefmt="#dd9e00ff",
         markerfmt="s",
@@ -135,11 +135,11 @@ def plot_trapezoid_methods(
     (line_dh,) = ax.plot(
         t_derivative,
         dh,
-        "b--s",
+        "b:s",
         label=r"$\partial h / \partial t$",
         ms=6,
         zorder=5,
-        linewidth=2,
+        linewidth=1,
     )
     ax.set_ylim(-0.5, 0.5)
     ax.set_xlabel("$ t $  (samples)")
@@ -149,7 +149,8 @@ def plot_trapezoid_methods(
     for text in leg.get_texts():
         text.set_fontweight("bold")
         text.set_fontsize(15)
-    ax.grid("minor")
+    # ax.grid("minor")
+    ax.hlines(0, t0, t_max, colors="lightgray", linestyles="-", linewidth=1)
     ax.set_xticks(range(0, 11))
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
@@ -159,76 +160,25 @@ def plot_trapezoid_methods(
     arrow_annotations = {}
 
     def add_annotations(t1, t2, t3, t4):
-        """Add text labels and arrows for time points and intervals"""
-        # Text labels for time points
-        y_text = -0.4  # Position for text labels
-        text_annotations["t1"] = ax.text(
-            t1 + 0.25, y_text, r"$t_1$", ha="center", fontsize=18, color="k"
-        )
-        text_annotations["t2"] = ax.text(
-            t2 + 0.25, y_text, r"$t_2$", ha="center", fontsize=18, color="k"
-        )
-        text_annotations["t3"] = ax.text(
-            t3 + 0.25, y_text, r"$t_3$", ha="center", fontsize=18, color="k"
-        )
-        text_annotations["t4"] = ax.text(
-            t4 + 0.25, y_text, r"$t_4$", ha="center", fontsize=18, color="k"
-        )
+        """Create or update text labels for time points."""
+        y_text = -0.4
 
-        # # Double-headed arrow for Δt1 (between t1 and t2)
-        # y_arrow_dt1 = 0.75
-        # arrow_annotations["dt1_arrow"] = FancyArrowPatch(
-        #     (t1, y_arrow_dt1),
-        #     (t2, y_arrow_dt1),
-        #     arrowstyle="|-|",
-        #     mutation_scale=20,
-        #     color="black",
-        #     linewidth=1.5,
-        # )
-        # ax.add_patch(arrow_annotations["dt1_arrow"])
-        # text_annotations["dt1_label"] = ax.text(
-        #     (t1 + t2) / 2,
-        #     y_arrow_dt1 + 0.08,
-        #     r"$\Delta t_1$",
-        #     ha="center",
-        #     fontsize=12,
-        #     color="black",
-        # )
-
-        # # Double-headed arrow for Δt2 (between t1 and t3)
-        # y_arrow_dt2 = -0.35
-        # arrow_annotations["dt2_arrow"] = FancyArrowPatch(
-        #     (t1, y_arrow_dt2),
-        #     (t3, y_arrow_dt2),
-        #     arrowstyle="<->",
-        #     mutation_scale=20,
-        #     color="black",
-        #     linewidth=1.5,
-        # )
-        # ax.add_patch(arrow_annotations["dt2_arrow"])
-        # text_annotations["dt2_label"] = ax.text(
-        #     (t1 + t3) / 2,
-        #     y_arrow_dt2 + 0.08,
-        #     r"$\Delta t_2$",
-        #     ha="center",
-        #     fontsize=12,
-        #     color="black",
-        # )
-
-        # # Double-headed arrow for Δt1 (between t3 and t4)
-        # y_arrow_dt1_2 = 0.75
-        # arrow_annotations["dt1_arrow_2"] = FancyArrowPatch(
-        #     (t3, y_arrow_dt1_2),
-        #     (t4, y_arrow_dt1_2),
-        #     arrowstyle="|-|",
-        #     mutation_scale=20,
-        #     color="black",
-        #     linewidth=1.5,
-        # )
-        # ax.add_patch(arrow_annotations["dt1_arrow_2"])
+        for key, t, label in [
+            ("t1", t1, r"$t_1$"),
+            ("t2", t2, r"$t_2$"),
+            ("t3", t3, r"$t_3$"),
+            ("t4", t4, r"$t_4$"),
+        ]:
+            if key not in text_annotations:
+                text_annotations[key] = ax.text(
+                    t + 0.25, y_text, label, ha="center", fontsize=18, color="k"
+                )
+            else:
+                text_annotations[key].set_position((t + 0.25, y_text))
+                text_annotations[key].set_text(label)
 
     # Initial annotations
-    # add_annotations(t1, t2, t3, t4)
+    add_annotations(t1, t2, t3, t4)
 
     # Function to update the plot
     def update_plot(Dt1, Dt2, shift):
@@ -345,3 +295,18 @@ def plot_trapezoid_methods(
 
     plt.show()
     return fig
+
+
+if __name__ == "__main__":
+    area = 2
+    l_c = 3
+    Dt1 = 2
+    Dt2 = 5
+    shift = 1.5
+    range_Dt1 = (0.5, 5.0)
+    range_Dt2 = (0.5, 5.0)
+    range_shift = (-2.0, 2.0)
+
+    plot_trapezoid_methods(
+        area, l_c, Dt1, Dt2, shift, range_Dt1, range_Dt2, range_shift
+    )

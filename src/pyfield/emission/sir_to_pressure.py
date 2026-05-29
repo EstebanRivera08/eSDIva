@@ -9,7 +9,7 @@ from pyfield.utilities.helper_functions import (
     reshape_to_mapped_points,
 )
 
-from .attenuation import causal_attenuation_tf
+from ..attenuation import causal_attenuation_tf
 
 
 def _next_pow2(n):

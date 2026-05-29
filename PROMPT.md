@@ -1,58 +1,52 @@
+I need you to clean up and reorganize the SIR core modules. The goal is to keep only code that is physically meaningful, readable, and directly comparable to the equations. Avoid unnecessary abstractions and local helper methods.
 
-Create a complete plan for refactoring the **PyField examples**. The goal is to produce the **minimum set of examples** that:
+**Tasks**
 
-- Exercise **every PyField functionality** (to ensure full test coverage)
-- Provide **clear, visual outputs** for users
-- Demonstrate **how to use the API** through concise, well‑structured scripts
-- Generate asset figures when `config.py` indicates so (this file must be kept)
+1. **hsir module**
+   - `h_sir` was renamed to `hsir` (check all imports).
+   - I deleted `h_derivatives`, `h_SDI`, and other bulky scripts.
+   - I created `transducer_sir.py` as a clean template (rewritten from `farfield_rect_patch`). Use this style: readable, minimal, and physics‑aligned.  
+     Note: `patch_frames` → `patch_nvector`.
+   - `transducer_sir_pe.py` contains the pulse‑echo parts. Adapt it so it mirrors the structure of `transducer_sir.py` and includes functions like `compute_Dh_pe()`.
+   - I added `element_sir.py` and `element_sir_pe.py`. They should mirror the transducer versions but operate per element.
+   - I removed `h_sir.py` entirely; the class was unnecessary.
 
-Use the **existing examples as a base**, but extend them to cover new features (e.g., emission and reception classes).  
-Include **parallel examples inspired by FIELD II** to highlight API differences and compare equivalent outputs.
+2. **psimulation module**
+   - It no longer exists. It is now split into:
+     - `emission`
+     - `reception`
+     - `attenuation`
+   - Some modules need new or updated `__init__.py` files.
+   - Several scripts in emission/reception are too long; splitting them into smaller, well‑named modules is required.
 
-### **General Requirements**
-- Follow the same structure as current examples:  
-  - Clear parameter declaration  
-  - Logical section division  
-  - Concise, meaningful comments  
-- Each example must begin with a **short description** of what it demonstrates.
-- Produce a **README.md** listing all examples with 1–2 sentence descriptions.
-- Ensure the collection provides a **complete overview** of PyField capabilities and a **direct comparison** with FIELD II where relevant.
 
-### **Examples to Implement**
-These examples form the initial full suite:
+Some more especific tasks would include:
 
-1. `visualization_trapezoid_SDI_vs_FWT.py`  
-2. `example01_transducer_gallery.py`  
-3. `example02_monoelements_monochromatic_CW.py`  
-4. `example03_multielements_monochromatic_CW.py`  
-5. `example04_lineararray_excitation_DW.py`  
-6. `example05_matrixarray_pulsed_steeredPW.py`  
-   - Use the **3D transient plotting** function  
-7. `example06_concave_PSF.py`  
-   - Based on the FIELD II example  
-8. `example07_lineararray_TXfocus_RXall.py`  
-9. `example08_anotherreceptionexample.py`  
-10. `example09_lineararray_imagePSF.py`  
-    - FIELD II equivalent  
-    - May require a new `pyfield.beamforming` module  
-    - Implement a first explicit version inside the example  
-11. `example10_intensities_peak_pressure.py`  
-    - FIELD II equivalent  
-    - Introduce attenuation  
-12. `example11_lineararray_attenuations_monochromatic_CW.py`  
-    - Show attenuation effect on 2D slice  
-    - Shortened version of FIELD II’s long example  
+1) Emission and Reception validation of dependencies of other modules and correct
+deivision of computation per element or global for transducer.
 
-### **“Extras” Section**
-These examples highlight advanced or niche capabilities:
+2) Especifically for Reception, create two classes.
 
-12. `example12_txconcave_mousebrain.py`  
-13. `example13_txlinear_ratbrainzones.py`  
-14. `example14_importstl_petri_dish.py`  
-15. `example15_monoelement_petridish.py`  
-16. `example16_subdivide_parametric_surface.py`  
+These classes computes:
+rf = v_pe ⊛_t h_pe ⊛_r  f_m
+with ⊛ convolution. So they both needs to be sent to fourier domain.
 
-### **Additional Task**
-evaluate whether anything is missing in the examples.
-Propose additional examples that would be valuable for new users or advanced users exploring PyField.
+The main difference is :
+Reception: This should admits the 3 methods (sdi, naive, auto) and is the
+conventional fieldii implementation with:
+v_pe = (ρ₀/2c₀²) × E_m ⊛_t ∂³v/∂t³     ← 3 derivatives on excitation
+h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)     ← no derivatives on SIR
+
+whereas,
+ReceptionSDI: Performs the new SDI formulation and just admits SDI for its nature
+(redistribute all 3 derivatives onto SIR side) turning the equation to:
+rf = v_pe' ⊛_t Dh_pe ⊛_r  f_m
+
+v_pe' = (ρ₀/2c₀²) × E_m × v            ← no derivatives
+Dh_pe = dh_tx/dt ⊛_t d²h_rx/dt² = ∫zeta_pe dt           ← 3 derivatives on SIR
+
+With zeta_pe :
+∫zeta_pe dt = d²h_tx/dt² ⊛_t d²h_rx/dt²   <- convolution of 4 deltas with 4 deltas
+giving 16 deltas (therefore 32 in discrete implementation).
+    .
 

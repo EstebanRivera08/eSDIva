@@ -1,19 +1,17 @@
-"""Pressure field simulation engine."""
+"""Causal power-law attenuation transfer functions and distance utilities."""
 
 from .attenuation import (
     causal_attenuation_tf,
+    compute_attenuation_distances,
     compute_reception_distances,
+    convert_alpha0_to_nepers,
     reduce_patch_distances_to_element,
 )
-from .emission import Emission
-from .PyField import PyField
-from .reception import Reception
 
 __all__ = [
-    "Emission",
-    "PyField",
-    "Reception",
     "causal_attenuation_tf",
+    "compute_attenuation_distances",
     "compute_reception_distances",
+    "convert_alpha0_to_nepers",
     "reduce_patch_distances_to_element",
 ]
