@@ -9,7 +9,7 @@ import pyfield.plotting as plotting
 import pyfield.reception as reception
 import pyfield.transducers as transducers
 import pyfield.utilities as utilities
-from pyfield.beamforming import das, envelope_db
+from pyfield.beamforming import DAS_focused_scanline, envelope_db
 from pyfield.emission import Emission, PyField
 from pyfield.plotting import plot2D_pressure_slices
 from pyfield.reception import Reception, ReceptionSDI
@@ -48,7 +48,7 @@ __all__ = [
     "ReceptionSDI",
     "attenuation",
     "beamforming",
-    "das",
+    "DAS_focused_scanline",
     "emission",
     "envelope_db",
     "reception",

@@ -1,7 +1,7 @@
 """
 Example 08: Linear Array — Full Matrix Capture (FMC)
 
-Demonstrates ``Reception.compute_all()`` for Full Matrix Capture (FMC), where
+Demonstrates ``ReceptionSDI.rf_matrix()`` for Full Matrix Capture (FMC), where
 each TX element fires individually while all RX elements record.
 
 Output shape: ``(E_tx, Nt, E_rx)`` — one complete RF dataset per TX element.
@@ -74,7 +74,7 @@ print(f"Scatterers: {len(scatterer_pos)} point targets")
 # STEP 3: FULL MATRIX CAPTURE
 # ============================================================================
 sim = ReceptionSDI(tx, rx, c=C, fs=FS)
-rf_fmc, coords = sim.compute_all(scatterer_pos, scatterer_amp)
+rf_fmc, coords = sim.rf_matrix(scatterer_pos, scatterer_amp)
 # rf_fmc.shape = (E_tx, Nt, E_rx)
 
 t = coords["t0"] + np.arange(rf_fmc.shape[1]) * coords["dt"]

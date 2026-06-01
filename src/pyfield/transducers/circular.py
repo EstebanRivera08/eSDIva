@@ -141,6 +141,18 @@ def _tile_disk(
     return quads, mean_area, el_idx
 
 
+def _shift_frames_z(frames: Dict, dz: float) -> None:
+    """Translate all patch corners and centers along z by ``dz`` (in place).
+
+    Used to relocate the spherical-cap z-origin from the rim (as produced by
+    :func:`subdivide_spherical_cap`) to the apex, matching the Field II /
+    datasheet convention where the surface apex sits at ``z = 0``.
+    """
+    for corner in frames["corners"]:
+        corner[:, 2] += dz
+    frames["centers"][:, 2] += dz
+
+
 # ---------------------------------------------------------------------------
 # FlatCircularTransducer — flat piston
 # ---------------------------------------------------------------------------
@@ -257,18 +269,20 @@ class ConcaveCircularTransducer(TransducerBase):
     equidistant from the geometric focus, so the acoustic wave converges at
     that point without any electronic delays.  Common in HIFU therapy and TUS.
 
-    ``focus_mm`` is the **axial depth** from the rim plane (z = 0) to the
-    geometric focus.  The radius of curvature is derived as
-    ``R = sqrt(focus_mm² + (D/2)²)``.  ``focus_mm = 0`` gives a hemisphere
-    (R = D/2).
+    ``focus_mm`` is the **focal length** — the radius of curvature of the bowl,
+    i.e. the value printed on a transducer datasheet (Field II ``xdc_concave``
+    ``Rfocus``).  The surface **apex sits at z = 0**, the geometric focus at
+    ``z = focus_mm`` in front of the bowl, and the rim is lifted to
+    ``z = +sag`` where ``sag = R - sqrt(R² - (D/2)²)``.  ``focus_mm = D/2`` gives
+    a hemisphere.
 
     Parameters
     ----------
     diameter_mm : float
         Outer diameter of the bowl aperture in mm.
     focus_mm : float
-        Axial distance from the rim to the geometric focus in mm.
-        Must be ``>= 0``.  ``0`` = hemisphere.
+        Focal length = radius of curvature in mm.  Must be ``>= D/2``
+        (the aperture radius).  ``focus_mm = D/2`` = hemisphere.
     no_sub_diameter : int
         Target number of patches across the diameter.
     method : {'cartesian', 'spherical'}
@@ -313,10 +327,11 @@ class ConcaveCircularTransducer(TransducerBase):
         validators.validate_positive(diameter_mm, "diameter_mm", strict=True)
         validators.validate_integer(no_sub_diameter, "no_sub_diameter", min_val=4)
 
-        if focus_mm < 0:
+        if focus_mm < diameter_mm / 2:
             raise ValueError(
-                f"focus_mm ({focus_mm:.2f}) must be >= 0.  "
-                "Use focus_mm=0 for a hemisphere."
+                f"focus_mm ({focus_mm:.2f}) is the focal length (= radius of "
+                f"curvature) and must be >= the aperture radius "
+                f"({diameter_mm / 2:.2f} mm).  Use focus_mm = D/2 for a hemisphere."
             )
         if method not in ("spherical", "cartesian"):
             raise ValueError("method must be 'spherical' or 'cartesian'.")
@@ -330,12 +345,12 @@ class ConcaveCircularTransducer(TransducerBase):
         self.normalize_patch_size = normalize_patch_size
         self.n_elements = 1
 
-        # focus_mm = z_depth → R = sqrt(f² + r_ap²)
+        # focus_mm = focal length = radius of curvature (datasheet / Field II).
+        # Apex at z=0; geometric focus at z=R in front of the bowl.
         r_ap = self.radius
-        f = focus_mm * 1e-3
-        R = np.sqrt(f**2 + r_ap**2)
+        R = focus_mm * 1e-3
         self.radius_of_curvature = R
-        self._sag = R - f  # since sqrt(R² - r_ap²) = f
+        self._sag = R - np.sqrt(max(R * R - r_ap * r_ap, 0.0))
 
         # Spherical half-angle from pole to rim
         self._theta_max = np.arcsin(r_ap / R)
@@ -387,6 +402,9 @@ class ConcaveCircularTransducer(TransducerBase):
                 ratio_big_patches=self.ratio_big_patches,
                 refine_factor=self.refine_factor,
             )
+            # subdivide_spherical_cap puts the rim at z=0 (pole at z=-sag).
+            # Shift so the apex sits at z=0 (rim at z=+sag), matching Field II.
+            _shift_frames_z(frames, self._sag)
         else:
             R = self.radius_of_curvature
             R_ap = self.radius
@@ -401,12 +419,10 @@ class ConcaveCircularTransducer(TransducerBase):
             R_inner = rbp * R_ap
             R_accept = 1.005 * R_ap
 
-            D_flat = np.sqrt(max(R * R - R_ap * R_ap, 0.0))  # = R*cos(theta_max)
-
             def surface_fn(sx: float, sy: float) -> np.ndarray:
                 x = R * np.sin(sx / R)
                 y = R * np.sin(sy / R)
-                z = D_flat - np.sqrt(max(R * R - x * x - y * y, 0.0))  # rim at z=0
+                z = R - np.sqrt(max(R * R - x * x - y * y, 0.0))  # apex at z=0
                 return np.array([x, y, z])
 
             def inside_fn(sx: float, sy: float) -> bool:
@@ -465,22 +481,23 @@ class ConvexCircularTransducer(TransducerBase):
     medium** (positive-z direction).  The convex surface diverges — its
     virtual focus is at ``z = -R`` (behind the transducer).
 
-    ``focus_mm`` is the **axial depth** from the rim plane to the virtual
-    focus (same convention as :class:`ConcaveCircularTransducer`).
-    ``R = sqrt(focus_mm² + (D/2)²)``.  ``focus_mm = 0`` gives a hemisphere.
+    ``focus_mm`` is the **focal length** — the radius of curvature of the dome
+    (the value on a transducer datasheet).  The dome **apex sits at z = 0**, the
+    virtual focus at ``z = -focus_mm`` behind the transducer, and the rim recedes
+    to ``z = -sag``.  ``focus_mm = D/2`` gives a hemisphere.
 
-    Surface z-profile (rim at z = 0, apex at z = sag):
+    Surface z-profile (apex at z = 0, rim at z = -sag):
 
-        sag = R - √(R² - (D/2)²) = R - focus_mm
-        z(r) = sag - (R - √(R² - r²))   r = √(x² + y²) ≤ D/2
+        sag = R - √(R² - (D/2)²)
+        z(r) = √(R² - r²) - R    r = √(x² + y²) ≤ D/2
 
     Parameters
     ----------
     diameter_mm : float
         Outer diameter of the dome aperture in mm.
     focus_mm : float
-        Axial distance from the rim to the virtual focus in mm.
-        Must be ``>= 0``.  ``0`` = hemisphere.
+        Focal length = radius of curvature in mm.  Must be ``>= D/2``
+        (the aperture radius).  ``focus_mm = D/2`` = hemisphere.
     no_sub_diameter : int
         Target number of patches across the diameter.
     method : {'cartesian', 'spherical'}
@@ -517,10 +534,11 @@ class ConvexCircularTransducer(TransducerBase):
         validators.validate_positive(diameter_mm, "diameter_mm", strict=True)
         validators.validate_integer(no_sub_diameter, "no_sub_diameter", min_val=4)
 
-        if focus_mm < 0:
+        if focus_mm < diameter_mm / 2:
             raise ValueError(
-                f"focus_mm ({focus_mm:.2f}) must be >= 0.  "
-                "Use focus_mm=0 for a hemisphere."
+                f"focus_mm ({focus_mm:.2f}) is the focal length (= radius of "
+                f"curvature) and must be >= the aperture radius "
+                f"({diameter_mm / 2:.2f} mm).  Use focus_mm = D/2 for a hemisphere."
             )
         if method not in ("spherical", "cartesian"):
             raise ValueError("method must be 'spherical' or 'cartesian'.")
@@ -534,12 +552,12 @@ class ConvexCircularTransducer(TransducerBase):
         self.normalize_patch_size = normalize_patch_size
         self.n_elements = 1
 
-        # focus_mm = z_depth → R = sqrt(f² + r_ap²)
+        # focus_mm = focal length = radius of curvature (datasheet / Field II).
+        # Apex at z=0; virtual focus at z=-R behind the dome.
         r_ap = self.radius
-        f = focus_mm * 1e-3
-        R = np.sqrt(f**2 + r_ap**2)
+        R = focus_mm * 1e-3
         self.radius_of_curvature = R
-        self._sag = R - f
+        self._sag = R - np.sqrt(max(R * R - r_ap * r_ap, 0.0))
 
         self._theta_max = np.arcsin(r_ap / R)
         target_size = self.diameter / no_sub_diameter
@@ -588,10 +606,12 @@ class ConvexCircularTransducer(TransducerBase):
                 ratio_big_patches=self.ratio_big_patches,
                 refine_factor=self.refine_factor,
             )
+            # subdivide_spherical_cap puts the rim at z=0 (apex at z=+sag).
+            # Shift so the apex sits at z=0 (rim at z=-sag), matching Field II.
+            _shift_frames_z(frames, -self._sag)
         else:
             R = self.radius_of_curvature
             R_ap = self.radius
-            sag = self._sag
             rbp = self.ratio_big_patches
             rf = self.refine_factor
 
@@ -606,7 +626,7 @@ class ConvexCircularTransducer(TransducerBase):
             def surface_fn(sx: float, sy: float) -> np.ndarray:
                 x = R * np.sin(sx / R)
                 y = R * np.sin(sy / R)
-                z = sag - (R - np.sqrt(max(R * R - x * x - y * y, 0.0)))
+                z = np.sqrt(max(R * R - x * x - y * y, 0.0)) - R  # apex at z=0
                 return np.array([x, y, z])
 
             def inside_fn(sx: float, sy: float) -> bool:
@@ -666,9 +686,9 @@ class FocusedCircularTransducer(TransducerBase):
     cylindrical surface.  The resulting pressure field is focused along a
     line perpendicular to the curved axis.
 
-    ``focus_mm`` is the **axial depth** from the rim to the line focus
-    (same convention as :class:`ConcaveCircularTransducer`).
-    ``R = sqrt(focus_mm² + (D/2)²)``.  Must be ``>= 0``.
+    ``focus_mm`` is the **focal length** — the radius of curvature of the arc
+    (the value on a transducer datasheet).  ``R = focus_mm``; the line focus is
+    at ``z = focus_mm``.  Must be ``>= D/2`` (the aperture radius).
 
     Typical use cases:
 
@@ -726,10 +746,12 @@ class FocusedCircularTransducer(TransducerBase):
         if focus_axis not in ("x", "y"):
             raise ValueError("focus_axis must be 'x' or 'y'.")
 
-        if focus_mm < 0:
+        if focus_mm < diameter_mm / 2:
             raise ValueError(
-                f"focus_mm ({focus_mm:.2f}) must be >= 0.  "
-                "Use focus_mm=0 for a semicircular cylinder."
+                f"focus_mm ({focus_mm:.2f}) is the focal length (= radius of "
+                f"curvature) and must be >= the aperture radius "
+                f"({diameter_mm / 2:.2f} mm).  Use focus_mm = D/2 for a "
+                "semicircular cylinder."
             )
 
         self.diameter = diameter_mm * 1e-3
@@ -740,10 +762,9 @@ class FocusedCircularTransducer(TransducerBase):
         self.refine_factor = refine_factor
         self.n_elements = 1
 
-        # focus_mm = z_depth → R = sqrt(f² + r_ap²)
-        r_ap = self.radius
-        f = focus_mm * 1e-3
-        R = np.sqrt(f**2 + r_ap**2)
+        # focus_mm = focal length = radius of curvature (datasheet / Field II).
+        # Apex (curved-axis centre line) at z=0; line focus at z=R.
+        R = focus_mm * 1e-3
         self.radius_of_curvature = R
 
         self.elem_width = self.diameter
@@ -774,9 +795,9 @@ class FocusedCircularTransducer(TransducerBase):
 
         Surface equation (curved along ``focus_axis``):
 
-            z(x, y) = √(R² - R_ap²) - √(R² - val²)   where val = y (or x)
+            z(x, y) = R - √(R² - val²)   where val = y (or x)
 
-        Rim at z = 0 (at val = ±R_ap), centre at z = -sag.
+        Apex (centre line, val = 0) at z = 0, curved-axis rim at z = +sag.
 
         Uses :func:`subdivide_parametric_surface` so each patch has arc-length
         extents and tangents tangent to the cylindrical surface.
@@ -788,15 +809,9 @@ class FocusedCircularTransducer(TransducerBase):
         rbp = self.ratio_big_patches
         rf = self.refine_factor
 
-        # D_flat: z-coordinate of the sphere at val=±R_ap (the curved-axis rim).
-        # Setting z = D_flat - sqrt(R²-val²) places the curved-axis rim at z=0
-        # and the center at z = D_flat - R = -sag, consistent with focus_mm
-        # measured from the rim plane.
-        D_flat = np.sqrt(max(R * R - R_ap * R_ap, 0.0))
-
         def surface_fn(x: float, y: float) -> np.ndarray:
             val = y if axis == "y" else x
-            z = D_flat - np.sqrt(max(R * R - val * val, 0.0))  # rim at z=0
+            z = R - np.sqrt(max(R * R - val * val, 0.0))  # apex at z=0
             return np.array([x, y, z])
 
         R_inner = rbp * R_ap

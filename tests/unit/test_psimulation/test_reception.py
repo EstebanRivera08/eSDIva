@@ -185,15 +185,15 @@ class TestReceptionSet:
 
 
 class TestReceptionSequence:
-    """compute_sequence with multiple TX events."""
+    """rf_sequence with multiple TX events."""
 
     def test_single_event_matches_call(self, simple_tx, simple_rx, on_axis_scatterer):
-        """compute_sequence with 1 event == __call__ with same delays/apod."""
+        """rf_sequence with 1 event == __call__ with same delays/apod."""
         pos, amp = on_axis_scatterer
         sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
 
         rf_single, coords_single = sim(pos, amp)
-        rf_seq, coords_seq = sim.compute_sequence(
+        rf_seq, coords_seq = sim.rf_sequence(
             pos,
             amp,
             [{"delays": simple_tx.delays, "apodization": simple_tx.apodization}],
@@ -206,11 +206,11 @@ class TestReceptionSequence:
             rf_single,
             rtol=1e-5,
             atol=1e-30,
-            err_msg="Single-event compute_sequence must match __call__.",
+            err_msg="Single-event rf_sequence must match __call__.",
         )
 
     def test_sequence_restores_tx_state(self, simple_tx, simple_rx, on_axis_scatterer):
-        """TX delays/apod must be restored after compute_sequence."""
+        """TX delays/apod must be restored after rf_sequence."""
         pos, amp = on_axis_scatterer
         sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
 
@@ -223,7 +223,7 @@ class TestReceptionSequence:
                 "apodization": np.ones_like(orig_apod),
             },
         ]
-        sim.compute_sequence(pos, amp, events)
+        sim.rf_sequence(pos, amp, events)
 
         np.testing.assert_array_equal(simple_tx.delays, orig_delays)
         np.testing.assert_array_equal(simple_tx.apodization, orig_apod)

@@ -19,19 +19,19 @@ Run with:
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.plotting import plot2D_pressure_slices
 from pyfield.emission import Emission
+from pyfield.plotting import plot2D_pressure_slices
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================
 # CONFIGURATION  (Domino-like 128-element probe at 10 MHz)
 # ============================================================================
+FS = 100e6  # Hz
 FREQUENCY_HZ = 10e6
 C = 1540.0
-FOCUS_MM = [0, 0, 5]  # close focus for a short near-field example
+FOCUS_MM = [0, 0, 8]  # close focus for a short near-field example
 
 # Attenuation: brain tissue (ITIS database values)
 ALPHA0_BRAIN = 0.5912  # dB/(cm·MHz^y)  — ITIS whole-brain
@@ -41,7 +41,7 @@ FREQ_POWER_BRAIN = 1.3  # power-law exponent y
 PLANE = {
     "x_extent": [-7, 7],
     "y_extent": [0, 0],
-    "z_extent": [0.5, 12],
+    "z_extent": [0.5, 15],
     "dx": 0.05,
     "dy": 0,
     "dz": 0.05,
@@ -78,8 +78,10 @@ print(f"Focus: {FOCUS_MM} mm")
 # STEP 2: WATER (no attenuation)
 # ============================================================================
 print("\nSimulating water (no attenuation) ...")
-sim_water = Emission(tx, monochromatic=True)
+sim_water = Emission(tx, monochromatic=True, fs=FS)
 p_water, coords = sim_water(PLANE)
+
+print(coords["x"])
 
 # ============================================================================
 # STEP 3: BRAIN TISSUE (causal power-law attenuation)
@@ -88,6 +90,7 @@ print("Simulating brain tissue (causal K-K attenuation) ...")
 sim_brain = Emission(
     tx,
     monochromatic=True,
+    fs=FS,
     alpha0=ALPHA0_BRAIN,
     freq_power=FREQ_POWER_BRAIN,
 )
@@ -127,8 +130,8 @@ p_brain_safe = np.where(p_brain > 0, p_brain, 1e-30)
 att_map_db = 20 * np.log10(p_brain_safe / p_water_safe)
 
 fig, ax = plt.subplots(figsize=FIGSIZE)
-# p shape is (1, Nx, Ny, Nz); take the XZ slice and transpose for imshow
-att_xz = att_map_db[0, :, 0, :].T  # (Nz, Nx)
+# p shape is (Nx, Ny, Nz); take the XZ slice and transpose for imshow
+att_xz = np.squeeze(att_map_db).T  # (Nz, Nx)
 extent = [
     coords["x"].min(),
     coords["x"].max(),

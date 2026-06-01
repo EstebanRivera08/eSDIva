@@ -21,6 +21,12 @@ Notes
 - ``CustomTransducer`` -- Assemble any number of mono-element transducers at
   arbitrary positions and orientations (e.g. TUS helmet).
 
+**Field II import**:
+
+- ``FieldIITransducer`` -- Transducer built from ``xdc_get(Th, 'all')`` patch data.
+- ``from_fieldii_xdc_data`` -- Factory: parse ``xdc_get`` struct → FieldIITransducer.
+- ``from_fieldii_patch_arrays`` -- Factory: explicit patch arrays → FieldIITransducer.
+
 **Pre-defined transducers**:
 
 - ``Domino`` -- 128-element linear array (clinical probe).
@@ -40,6 +46,11 @@ from .circular import (
     FocusedCircularTransducer,
 )
 from .custom import CustomTransducer
+from .fieldii_compat import (
+    FieldIITransducer,
+    from_fieldii_patch_arrays,
+    from_fieldii_xdc_data,
+)
 from .linear import LinearArrayTransducer, ConvexArrayTransducer
 from .matrix import MatrixArrayTransducer
 from .saved_transducers import Domino, Zeus_Matrix
@@ -58,6 +69,10 @@ __all__ = [
     "FocusedCircularTransducer",
     # Composite
     "CustomTransducer",
+    # Field II import
+    "FieldIITransducer",
+    "from_fieldii_xdc_data",
+    "from_fieldii_patch_arrays",
     # Pre-defined
     "Domino",
     "Zeus_Matrix",

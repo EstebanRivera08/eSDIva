@@ -8,7 +8,7 @@ import numpy.typing as npt
 from pyfield.utilities import to_dB
 
 
-def das(
+def DAS_focused_scanline(
     rf: npt.NDArray[np.floating],
     coords: dict,
     rx,

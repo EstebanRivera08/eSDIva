@@ -87,14 +87,14 @@ print(f"Simulating {len(X_SCAT_MM)} lateral positions at z={SCATTERER_Z_MM} mm .
 print("\n  [1/2] Reception(method='naive') ...")
 t_start = time.time()
 sim_naive = Reception(tx, rx, fs=FS, c=C, method="sdi", verbose=False)
-rf_naive, coords_naive = sim_naive.compute_point_rf(field_points_mm)
+rf_naive, coords_naive = sim_naive.scattered_rf(field_points_mm, per_scatterer=True)
 t_naive = time.time() - t_start
 print(f" Done in {t_naive:.2f} s")
 
 print("\n  [2/2] ReceptionSDI() ...")
 t_start = time.time()
 sim_sdi = ReceptionSDI(tx, rx, fs=FS, c=C, verbose=False)
-rf_sdi, coords_sdi = sim_sdi.compute_point_rf(field_points_mm)
+rf_sdi, coords_sdi = sim_sdi.scattered_rf(field_points_mm, per_scatterer=True)
 t_sdi = time.time() - t_start
 print(f" Done in {t_sdi:.2f} s")
 

@@ -24,7 +24,7 @@ Run any example with `uv run examples/<script>.py`.
 | 05 | `example05_matrixarray_pulsed_steeredPW.py` | Steered plane-wave pulsed emission on a matrix array; 3-D PyVista animation via `plot3D_transient_slices`. | |
 | 06 | `example06_concave_PSF.py` | Pulse-echo PSF of a concave single-element transducer; lateral × time RF image. | ✓ `example_concave_psf.m` |
 | 07 | `example07_lineararray_TXfocus_RXall.py` | Focused TX with all-RX reception; RF waterfall and envelope of centre channel. | |
-| 08 | `example08_anotherreceptionexample.py` | Full Matrix Capture (FMC) with `Reception.compute_all()`; peak amplitude matrix visualization. | |
+| 08 | `example08_anotherreceptionexample.py` | Full Matrix Capture (FMC) with `ReceptionSDI.rf_matrix()`; peak amplitude matrix visualization. | |
 | 09 | `example09_lineararray_imagePSF.py` | Multi-focus RF acquisition + DAS beamforming (`pyfield.beamforming`) → B-mode PSF image. | ✓ `example_point_spread_functions.m` |
 | 10 | `example10_intensities_peak_pressure.py` | On-axis peak pressure and Ispta vs depth with and without tissue attenuation. | ✓ `example_intensity.m` |
 | 11 | `example11_lineararray_attenuations_monochromatic_CW.py` | CW pressure field comparison: water vs brain tissue (causal K-K attenuation). | ✓ `example_lineararray_attenuation_monochromatic_CW.m` |
@@ -33,8 +33,9 @@ Run any example with `uv run examples/<script>.py`.
 > - Field II uses a non-causal linear-frequency attenuation approximation.
 >   PyField implements causal power-law attenuation with Kramers–Kronig dispersion
 >   (Szabo 1994 / Holm 2019).
-> - `calc_hhp` (pulse-echo SIR at field points) has no direct PyField equivalent;
->   examples 06 and 09 use `Reception` with explicit scatterers instead.
+> - Field II `calc_hhp` (pulse-echo response / PSF, 1 derivative) ↔
+>   `Reception.pulse_echo_response()`. Field II `calc_scat` (scattered echo,
+>   3 derivatives) ↔ `Reception.scattered_rf()` / `ReceptionSDI.scattered_rf()`.
 
 ---
 
@@ -72,9 +73,10 @@ SCALE = 3                   # DPI multiplier for saved screenshots
 | `Emission(excitation=...)` | 04, 05, 10 |
 | `Emission` per-element excitation `(L, E)` | — (see CLAUDE.md) |
 | `Emission.set()` runtime update | 03 |
-| `Reception.__call__()` single focus | 06, 07 |
-| `Reception.compute_sequence()` | 09 |
-| `Reception.compute_all()` FMC | 08 |
+| `Reception.scattered_rf()` (calc_scat) | 06, 07 |
+| `Reception.pulse_echo_response()` (calc_hhp PSF) | — |
+| `ReceptionSDI.rf_sequence()` | 09 |
+| `ReceptionSDI.rf_matrix()` FMC | 08 |
 | Attenuation (`alpha0`, `freq_power`) | 10, 11 |
 | `pyfield.beamforming.das` | 09 |
 | `pyfield.beamforming.envelope_db` | 09 |

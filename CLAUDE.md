@@ -221,7 +221,23 @@ IMPORTANT NOTES:
 
    Two reception classes are available:
    - `ReceptionSDI` — PE SDI kernel (16 deltas per TX/RX patch pair, 1 cumsum). Fast, default choice.
-   - `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx`, (jω)³ differentiation via FFT. Slower but exact match to Field II arithmetic.
+   - `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx`, FFT differentiation. Slower but exact match to Field II arithmetic.
+
+   **Method naming = physical quantity computed** (pedagogic, mirrors Field II):
+   | Method | Field II | Derivatives | Output |
+   |--------|----------|-------------|--------|
+   | `scattered_rf(pts, amp)` | `calc_scat` | 3 (Born) | recorded echo `(Nt, E_rx)` |
+   | `pulse_echo_response(pts)` | `calc_hhp` | 1 (emission) | PSF / system response |
+   | `rf_sequence(pts, amp, events)` | — | 3 | scan-line sweep `(N_ev, Nt, E_rx)` |
+   | `rf_matrix(pts, amp)` | `calc_scat_all` | 3 | FMC `(E_tx, Nt, E_rx)` |
+
+   `__call__` is an alias of `scattered_rf` (the common case). All methods take
+   `per_scatterer=False` (sum over scatterers → `(Nt, E_rx)`) or `True`
+   (keep separate → `(N_pts, Nt, E_rx)`). `pulse_echo_response` is available on
+   both classes: conventional `Reception` applies `(jω)¹`; `ReceptionSDI`
+   integrates `Dh_pe` twice (`cumsum²·dt²`) to strip 2 of its 3 baked derivatives
+   (stable — exc/ir band-pass removes DC). Both match Field II `calc_hhp` and each
+   other to ~0.995 raw / 0.9999 envelope correlation.
 
    ```python
    from pyfield.reception import ReceptionSDI  # or Reception for conventional
@@ -241,20 +257,25 @@ IMPORTANT NOTES:
    scatterer_pos = np.array([[0, 0, 30], [1, 0, 35]])  # mm
    scatterer_amp = np.array([1.0, 0.5])
 
-   # Single-focus RF
-   rf, coords = sim(scatterer_pos, scatterer_amp)
+   # Scattered RF echo (calc_scat). sim(...) is the same as sim.scattered_rf(...).
+   rf, coords = sim.scattered_rf(scatterer_pos, scatterer_amp)
    # rf.shape = (Nt, E_rx), coords = {"t0": float, "dt": float}
+
+   # Pulse-echo response / PSF (calc_hhp, 1 derivative) — both classes
+   psf, coords = sim.pulse_echo_response(scatterer_pos, per_scatterer=True)
+   # psf.shape = (N_pts, Nt, E_rx)
+   # (ReceptionSDI double-integrates Dh_pe; conventional Reception applies (jω)¹.)
 
    # Multi-line (sweep TX focus)
    tx_events = [
        {"delays": delays_line1, "apodization": apod_line1},
        {"delays": delays_line2, "apodization": apod_line2},
    ]
-   rf_multi, coords = sim.compute_sequence(scatterer_pos, scatterer_amp, tx_events)
+   rf_multi, coords = sim.rf_sequence(scatterer_pos, scatterer_amp, tx_events)
    # rf_multi.shape = (N_events, Nt, E_rx)
 
    # Full matrix capture
-   rf_fmc, coords = sim.compute_all(scatterer_pos, scatterer_amp)
+   rf_fmc, coords = sim.rf_matrix(scatterer_pos, scatterer_amp)
    # rf_fmc.shape = (E_tx, Nt, E_rx)
    ```
 
@@ -269,8 +290,8 @@ IMPORTANT NOTES:
 
    **Key differences from Emission**:
    - Takes separate TX and RX transducers
-   - `ReceptionSDI` uses PE SDI kernel (`compute_pe_sdi`) — no `jw` multiplication (derivatives already in Dh_pe)
-   - `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with (jω)³ differentiation
+   - `ReceptionSDI` uses PE SDI kernel (`compute_pe_sdi`) — no `jw` multiplication (3 derivatives already in Dh_pe; `pulse_echo_response` double-integrates Dh_pe)
+   - `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with `(jω)ⁿ` differentiation (n=3 scattered_rf, n=1 pulse_echo_response)
    - Returns per-element RF data `(Nt, E_rx)`, not spatial pressure fields
    - Scatterer positions instead of field grid
 
@@ -356,6 +377,14 @@ Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires 
 2. Implement `_compute_element_centers()` to define element positions
 3. Implement `_build_subdivisions()` to generate rectangular patches
 4. Export in `src/pyfield/transducers/__init__.py`
+
+**Importing Field II Transducer Geometry**:
+- `FieldIITransducer` (`src/pyfield/transducers/fieldii_compat.py`) — transducer built from raw patches
+- `from_fieldii_xdc_data(data)` — parse MATLAB `xdc_get(Th,'all')` struct → `FieldIITransducer`
+- `from_fieldii_patch_arrays(centres, u, v, hw, hh)` — explicit patch arrays → `FieldIITransducer`
+- Treats each Field II mathematical element as one PyField element (n_elements = N_patches)
+- For monostatic reception, sum RF channels after simulation (all channels belong to the single aperture)
+- Scale convention: PyField uses `rho/(2c²)`, Field II uses `rho/2`. Raw amplitude differs by `c²≈2.37e6`. Normalised PSF unaffected.
 
 **Modifying SIR Computation**:
 - Core implementation: `src/pyfield/h_sir/farfield_rect_patch.py`
@@ -544,12 +573,12 @@ Per RX element e_rx:
 - Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
 - Memory: O(P × nfft) per RX element iteration — E_rx-independent.
 
-### compute_sequence
+### rf_sequence
 
-Loop over TX events (different delays/apodization per event), call `__call__` each time.
-Returns `(N_events, Nt, E_rx)`. TX state restored after all events.
+Loop over TX events (different delays/apodization per event), call `scattered_rf`
+each time. Returns `(N_events, Nt, E_rx)`. TX state restored after all events.
 
-### compute_all (Full Matrix Capture)
+### rf_matrix (Full Matrix Capture)
 
 Each TX element transmits, all RX receive. Returns `(E_tx, Nt, E_rx)`.
 
@@ -563,11 +592,12 @@ Each TX element transmits, all RX receive. Returns `(E_tx, Nt, E_rx)`.
 | `xdc_excitation(Th, exc)` | `transducer.excitation = exc` / `Emission(excitation=...)` | TX only |
 | `xdc_focus(Th, ...)` | `transducer.compute_delays(focus_mm=...)` | Existing |
 | `xdc_apodization(Th, ...)` | `transducer.compute_apodization(...)` | Existing |
-| `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure |
-| `calc_scat_multi(tx, rx, pos, amp)` | `ReceptionSDI(tx, rx)(pos, amp)` | Per-element RF (SDI, fast) |
-| `calc_scat_all(tx, rx, pos, amp)` | `ReceptionSDI.compute_all(...)` | Full matrix capture |
+| `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure (1 derivative) |
+| `calc_hhp(tx, rx, pts)` | `(Reception\|ReceptionSDI)(tx, rx).pulse_echo_response(pts)` | Pulse-echo response / PSF (1 derivative). SDI double-integrates Dh_pe |
+| `calc_scat_multi(tx, rx, pos, amp)` | `ReceptionSDI(tx, rx).scattered_rf(pos, amp)` | Scattered RF (3 derivatives, SDI fast) |
+| `calc_scat_all(tx, rx, pos, amp)` | `ReceptionSDI.rf_matrix(...)` | Full matrix capture |
 | `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
-| `calc_scat(tx, rx, pos, amp)` | **Not implemented** | Beamforming is user's job |
+| `calc_scat(tx, rx, pos, amp)` | `scattered_rf(...)` then beamform | Beamforming is user's job |
 | `xdc_baffle(Th, soft)` | Future extension | Not yet |
 | `xdc_dynamic_focus(...)` | Future extension | Requires timeline system |
 

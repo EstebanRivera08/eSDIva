@@ -9,7 +9,6 @@ Excitation enters without any derivative: v'_pe = E_m * v.
 """
 
 import time
-import warnings
 
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
@@ -281,9 +280,15 @@ class ReceptionSDI:
     # ------------------------------------------------------------------
 
     def _compute_rf_inner(
-        self, points_m, amps, *, downsampling=None, per_scatterer=False
+        self,
+        points_m,
+        amps,
+        *,
+        n_integrations=0,
+        downsampling=None,
+        per_scatterer=False,
     ):
-        """Shared computation core for __call__ and compute_point_rf.
+        """Shared computation core for scattered_rf and pulse_echo_response.
 
         Parameters
         ----------
@@ -291,6 +296,11 @@ class ReceptionSDI:
             Scatterer positions in metres.
         amps : (P,) numpy.ndarray
             Scattering amplitudes (float32).
+        n_integrations : int, default 0
+            Number of time integrations applied to ``Dh_pe`` before the exc/ir
+            multiplies. 0 = scattered RF (calc_scat, 3 derivatives baked into
+            the PE-SDI kernel). 2 = pulse-echo response (calc_hhp, 1 derivative):
+            integrating twice removes two of the three baked derivatives.
         downsampling : int or None, default None
             Downsample output by this factor.
         per_scatterer : bool, default False
@@ -402,6 +412,14 @@ class ReceptionSDI:
                 rx_ev=rx_ev,
             )  # (P, pe_T) float32
 
+            # pulse_echo_response: integrate twice to strip two of the three
+            # derivatives baked into Dh_pe → 1-derivative calc_hhp response.
+            # Stable here: the exc/ir band-pass removes DC, so no integration drift.
+            for _ in range(n_integrations):
+                Dh_pe = (np.cumsum(Dh_pe, axis=1, dtype=np.float64) * dt).astype(
+                    np.float32
+                )
+
             H_pe = rfft(Dh_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
             del Dh_pe
 
@@ -446,14 +464,19 @@ class ReceptionSDI:
 
         return rf, coords
 
-    def __call__(
+    def scattered_rf(
         self,
         scatterer_positions_mm,
         scattering_amplitudes=None,
         *,
+        per_scatterer=False,
         downsampling=None,
     ):
-        """Compute RF signal for all receive elements.
+        """Scattered RF echo from point scatterers (Field II ``calc_scat``).
+
+        Full pulse-echo scattered signal with the three temporal derivatives of
+        the Born scattering model (two are baked into the PE-SDI kernel, one is
+        the emission derivative). This is the signal a transducer would record.
 
         Parameters
         ----------
@@ -461,13 +484,18 @@ class ReceptionSDI:
             Scatterer positions in mm.
         scattering_amplitudes : (N_scat,) numpy.ndarray or None, default None
             Scattering coefficient at each position. None defaults to ones.
+        per_scatterer : bool, default False
+            If False, sum scatterer contributions per RX channel and return
+            ``(Nt, E_rx)``. If True, keep each scatterer separate and return
+            ``(N_scat, Nt, E_rx)`` — useful for inspecting the response of
+            individual points.
         downsampling : int or None, default None
-            If set, downsample output by this factor.
+            If set, downsample the time axis by this factor.
 
         Returns
         -------
-        rf : (Nt, E_rx) numpy.ndarray
-            RF signal per receive element.
+        rf : (Nt, E_rx) or (N_scat, Nt, E_rx) numpy.ndarray
+            Scattered RF per receive element.
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
@@ -475,40 +503,61 @@ class ReceptionSDI:
             scatterer_positions_mm, scattering_amplitudes
         )
         return self._compute_rf_inner(
-            pts_mm, amps, downsampling=downsampling, per_scatterer=False
+            pts_mm,
+            amps,
+            n_integrations=0,
+            downsampling=downsampling,
+            per_scatterer=per_scatterer,
         )
 
-    def compute_point_rf(
+    # ``__call__`` is the ergonomic alias for the most common operation.
+    __call__ = scattered_rf
+
+    def pulse_echo_response(
         self,
-        positions_mm,
+        points_mm,
         amplitudes=None,
         *,
+        per_scatterer=False,
         downsampling=None,
     ):
-        """Compute the pulse-echo RF response at each position independently.
+        """Pulse-echo response / point-spread function (Field II ``calc_hhp``).
+
+        The PE-SDI kernel bakes the three scattering derivatives into ``Dh_pe``;
+        integrating it twice removes two of them, leaving the single-derivative
+        pulse-echo response — the same quantity Field II ``calc_hhp`` returns and
+        ``Reception.pulse_echo_response`` computes directly. The integration is
+        numerically stable because the excitation/IR band-pass removes any DC that
+        could otherwise accumulate into drift.
 
         Parameters
         ----------
-        positions_mm : (N_points, 3) numpy.ndarray
+        points_mm : (N_points, 3) numpy.ndarray
             Field-point positions in mm.
         amplitudes : (N_points,) numpy.ndarray or None, default None
             Per-point scaling. None defaults to ones.
+        per_scatterer : bool, default False
+            If False return ``(Nt, E_rx)`` (summed); if True return
+            ``(N_points, Nt, E_rx)`` — one PSF trace per point.
         downsampling : int or None, default None
-            If set, downsample time axis by this factor.
+            If set, downsample the time axis by this factor.
 
         Returns
         -------
-        rf : (N_points, Nt, E_rx) numpy.ndarray
-            Pulse-echo RF response at each position.
+        rf : (Nt, E_rx) or (N_points, Nt, E_rx) numpy.ndarray
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
-        pts_mm, amps = self._validate_scatterer_inputs(positions_mm, amplitudes)
+        pts_mm, amps = self._validate_scatterer_inputs(points_mm, amplitudes)
         return self._compute_rf_inner(
-            pts_mm, amps, downsampling=downsampling, per_scatterer=True
+            pts_mm,
+            amps,
+            n_integrations=2,
+            downsampling=downsampling,
+            per_scatterer=per_scatterer,
         )
 
-    def compute_sequence(
+    def rf_sequence(
         self,
         scatterer_positions_mm,
         scattering_amplitudes,
@@ -516,7 +565,7 @@ class ReceptionSDI:
         *,
         downsampling=None,
     ):
-        """Compute RF for multiple TX events (e.g., scan line sweep).
+        """Scattered RF for a sequence of TX events (e.g. a scan-line sweep).
 
         Parameters
         ----------
@@ -573,14 +622,14 @@ class ReceptionSDI:
 
         return rf_all, coords_out
 
-    def compute_all(
+    def rf_matrix(
         self,
         scatterer_positions_mm,
         scattering_amplitudes,
         *,
         downsampling=None,
     ):
-        """Full matrix capture: each TX element transmits, all RX receive.
+        """Full-matrix capture (FMC): each TX element fires alone, all RX receive.
 
         Parameters
         ----------
@@ -601,7 +650,7 @@ class ReceptionSDI:
             delays = np.zeros(n_tx, dtype=np.float32)
             tx_events.append({"delays": delays, "apodization": apod})
 
-        return self.compute_sequence(
+        return self.rf_sequence(
             scatterer_positions_mm,
             scattering_amplitudes,
             tx_events,

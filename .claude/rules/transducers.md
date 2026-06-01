@@ -21,21 +21,24 @@ Patch dimensions must satisfy far-field condition: w << sqrt(4*l*c_0/f).
 
 ## Z-Convention for Curved Transducers
 
-Rim always at z = 0. Focus/medium in +z direction.
-- **ConcaveCircular**: pole at z = -sag, rim at z = 0, focus at z = +focus_mm
-- **ConvexCircular**: dome apex at z = +sag, rim at z = 0
-- **FocusedCircular**: curved edges at z = 0, center at z = -sag
+Apex (surface centre) at z = 0, matching Field II `xdc_concave`/`xdc_convex`
+and transducer datasheets. Focus/medium in +z direction.
+- **ConcaveCircular**: apex at z = 0, rim at z = +sag, focus at z = +focus_mm (= R)
+- **ConvexCircular**: apex at z = 0, rim at z = -sag, virtual focus at z = -R
+- **FocusedCircular**: centre line at z = 0, curved-axis edges at z = +sag, line focus at z = +R
 - **FlatCircular**: entire face at z = 0
 
 `sag = R - sqrt(R^2 - (D/2)^2)`
 
 ## focus_mm Definition (Concave / Convex / Focused)
 
-`focus_mm` = axial z-depth from rim plane to geometric focus.
-Radius of curvature derived: `R = sqrt(focus_mm^2 + (D/2)^2)`.
-- `focus_mm = 0` → hemisphere (`R = D/2`)
-- Must satisfy `focus_mm >= 0`
+`focus_mm` = **focal length = radius of curvature** (the datasheet value, =
+Field II `xdc_concave` `Rfocus`). `R = focus_mm` directly.
+- `focus_mm = D/2` → hemisphere (`R = D/2`)
+- Must satisfy `focus_mm >= D/2` (aperture radius); else ValueError
 - Stored internally as `self.radius_of_curvature` in metres
+- Spherical-cap subdivision still builds with rim at z=0 then shifts z by ±sag
+  (`_shift_frames_z`) so the apex lands at z=0
 
 ## Mono-Element vs Multi-Element
 

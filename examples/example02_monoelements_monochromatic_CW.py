@@ -144,7 +144,7 @@ print("\n--- 4. ConvexCircularTransducer (dome, D=20 mm, hemisphere) ---")
 
 conv = ConvexCircularTransducer(
     diameter_mm=20.0,
-    focus_mm=0,
+    focus_mm=10.0,  # focal length = radius of curvature; D/2 → hemisphere
     no_sub_diameter=30,
     frequency_Hz=FREQ_HZ,
 )

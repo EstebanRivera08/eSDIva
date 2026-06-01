@@ -578,6 +578,7 @@ def plot3D_transient_slices(
         off_screen = True
 
     kwargs.setdefault("clim", clim)
+    kwargs.setdefault("cmap", "jet")
 
     for i, key in enumerate(plane_order):
         if i == 0:

@@ -153,38 +153,46 @@ Field II (40.220 µs).  Two independent contributors:
 
 ### 4a — Different signal chain (excitation convolution count)
 
-Field II `calc_hhp` with `xdc_impulse(Th, ir)` and `xdc_excitation(Th, exc)`:
+Field II `calc_hhp` with `xdc_impulse(Th, Hanning_ir)` and `xdc_excitation(Th, plain_exc)`:
 
 ```
-RF_fii  ∝  d(ir * exc)/dt  *  d²h_pe/dt²  =  d³(ir * exc * h_pe)/dt³
+RF_fii  ∝  d(Hanning_ir * plain_exc)/dt  *  d²h_pe/dt²
+        =  d³(Hanning_ir * plain_exc * h_pe)/dt³
 ```
 
-PyField Reception with `tx.impulse_response = ir` and `tx.excitation = ir`:
+Both TX and RX in Field II use `Th`, so both get Hanning_ir applied.
+Signal chain: `plain_exc ⊛ Hanning_ir_tx ⊛ Hanning_ir_rx`.
 
-```
-RF_pf   =  Dh_pe * FFT(v) * FFT(ir_tx) * FFT(ir_rx)
-        =  d³h_pe/dt³ * exc * ir_tx * ir_rx
-        =  d³(ir³ * h_pe)/dt³     [one extra ir vs Field II]
-```
-
-Extra ir adds group delay `(N_ir - 1)/2 / fs = 33 / 100e6 = 330 ns`.
-
-### 4b — Geometry approximation
-
-`_compute_pe_sdi_ppar` computes direction cosines in the **global frame**:
-
+**Original bug in `compare_psf_fieldii.py`** (before 2026-06-01 fix):
 ```python
-xp_e = dx_e / dist_e   # global, not patch-local
-yp_e = dy_e / dist_e
+ir = sin(2πf₀t)                # plain sine — WRONG
+tx.impulse_response = ir
+tx.excitation = ir * hanning    # Hanning on excitation — WRONG
 ```
+PyField chain: `(Hanning_sin) ⊛ plain_sin ⊛ plain_sin` = `Hanning × sin³`.
+Field II chain: `plain_sin ⊛ Hanning_sin ⊛ Hanning_sin` = `Hanning² × sin³`.
+One fewer Hanning window → broader PSF, 330 ns group delay difference.
 
-For curved transducer patches (5.7° tilt at rim of 16 mm / 80 mm bowl),
-local and global direction cosines differ by up to ~37% for rim patches.
-This changes the trapezoid width (Dt1, Dt2) and therefore h_max per patch.
-The shift in effective SIR centre contributes ~295 ns.
+**Fixed (2026-06-01)**:
+```python
+ir = sin(2πf₀t) * hanning(...)  # Hanning on IR — CORRECT
+tx.impulse_response = ir
+tx.excitation = sin(2πf₀t)      # plain sine — CORRECT
+```
+Now PyField chain = Field II chain exactly.
 
-### Net
-330 ns (extra ir) + 295 ns (geometry approx) ≈ 625 ns observed.
+### 4b — Geometry approximation (ALREADY FIXED)
+
+The TROUBLESHOOT doc (2026-05-29) documented that `_compute_pe_sdi_ppar`
+used global direction cosines. This has since been fixed: both
+`farfield_rect_patch.py` and `transducer_sir_pe.py` now project the
+displacement vector onto local patch frame tangents (`eu`, `ev`) before
+computing `xp`, `yp`. The ~295 ns contribution from this approximation
+no longer applies.
+
+### Net (after both fixes)
+Signal chain fix removes 330 ns. Geometry approximation already fixed.
+Residual timing difference should be ≤ 50 ns (numerical/discretisation).
 
 ---
 
@@ -203,21 +211,17 @@ Max-over-time gives the correct 7.20 mm FWHM.
 
 ### Comparison (all at z = 30 mm, focus = 80 mm, diameter = 16 mm)
 
-| Metric | Field II | PyField |
-|--------|---------|---------|
-| Peak time (on-axis) | 40.220 µs | 40.856 µs |
-| Lateral FWHM (-6 dB, max-t) | 5.20 mm\* | 7.20 mm |
-| Axial FWHM (-6 dB) | 0.750 µs | 0.940 µs |
+Measurements below are from the **old** (wrong-signal-chain) run.  After the
+2026-06-01 fix (`compare_psf_fieldii.py`) the PSF should be re-measured and
+this table updated.
+
+| Metric | Field II | PyField (old) | PyField (fixed, TBD) |
+|--------|---------|---------------|----------------------|
+| Peak time (on-axis) | 40.220 µs | 40.856 µs | ~40.3 µs (expected) |
+| Lateral FWHM (-6 dB, max-t) | 5.20 mm\* | 7.20 mm | closer to 5.2 mm |
+| Axial FWHM (-6 dB) | 0.750 µs | 0.940 µs | closer to 0.75 µs |
 
 \* Field II measured as time-slice (no per-x max), likely slightly underestimates.
-
-Both are wider than the theoretical focus FWHM (~1.3 mm at 80 mm), confirming
-the expected defocused response at z = 30 mm (before the 80 mm geometric focus).
-
-Remaining difference (lateral ~40%, axial ~25%) is attributed to:
-- Extra `ir` convolution in PyField (ir_tx × ir_rx vs single E_m in Field II)
-  broadens the effective pulse and adds 330 ns group delay.
-- Global vs local direction cosines for curved patches (geometry approximation).
 
 PSF spatial structure (main lobe shape, absence of spurious side-lobes)
 qualitatively agrees between PyField and Field II.
@@ -232,5 +236,7 @@ qualitatively agrees between PyField and Field II.
 | 59% leakage in Dh_pe | NO (diagnostic artefact) | N/A | None |
 | DC tail 0.053% | YES (float32) | Accepted | Killed by zero-mean excitation |
 | Mat file DT 10ns vs 50ns | YES | YES | 2065 ns apparent error → 625 ns real |
-| 625 ns vs Field II | YES (convention) | Documented | Extra ir conv + geometry approx |
+| Signal chain: wrong IR/exc assignment | YES | YES (2026-06-01) | Extra Hanning window → PSF broadening + 330 ns |
+| Geometry: global vs local cosines | YES | YES (pre-existing fix) | Both kernels already use local patch frames |
+| Scale convention: rho/2c² vs rho/2 | YES (convention) | Documented | Raw amplitude differs by c²; normalised PSF unaffected |
 | Lateral FWHM 0.8mm (wrong) | NO (time-slice artefact) | Documented | Max-over-time gives correct 7.2mm |
