@@ -87,14 +87,16 @@ print(f"Simulating {len(X_SCAT_MM)} lateral positions at z={SCATTERER_Z_MM} mm .
 print("\n  [1/2] Reception(method='naive') ...")
 t_start = time.time()
 sim_naive = Reception(tx, rx, fs=FS, c=C, method="naive", verbose=False)
-rf_naive, coords_naive = sim_naive.scattered_rf(field_points_mm, per_scatterer=True)
+rf_naive, coords_naive = sim_naive.pulse_echo_response(
+    field_points_mm, per_scatterer=True
+)
 t_naive = time.time() - t_start
 print(f" Done in {t_naive:.2f} s")
 
 print("\n  [2/2] ReceptionSDI() ...")
 t_start = time.time()
 sim_sdi = ReceptionSDI(tx, rx, fs=FS, c=C, verbose=False)
-rf_sdi, coords_sdi = sim_sdi.scattered_rf(field_points_mm, per_scatterer=True)
+rf_sdi, coords_sdi = sim_sdi.pulse_echo_response(field_points_mm, per_scatterer=True)
 t_sdi = time.time() - t_start
 print(f" Done in {t_sdi:.2f} s")
 
@@ -105,25 +107,9 @@ print(f" Done in {t_sdi:.2f} s")
 rf_naive_img = rf_naive[:, :, 0].T
 rf_sdi_img = rf_sdi[:, :, 0].T
 
-# Align SDI to naive by integer-sample lag.
-# Both share t0/dt, but conventional FFT (jω)³ vs PE SDI baked-delta paths place
-# steep RF edges fractionally differently; a raw index-wise diff then flips sign
-# at zero-crossings and exaggerates a tiny shift into ~30% pointwise error.
-# Lag is taken from the highest-SNR on-axis trace and applied to the whole image.
-center_idx = len(X_SCAT_MM) // 2
-xcorr = np.correlate(rf_naive_img[:, center_idx], rf_sdi_img[:, center_idx], "full")
-lag = int(np.argmax(np.abs(xcorr))) - (rf_sdi_img.shape[0] - 1)
-rf_sdi_img = np.roll(rf_sdi_img, lag, axis=0)
-if lag > 0:
-    rf_sdi_img[:lag] = 0.0
-elif lag < 0:
-    rf_sdi_img[lag:] = 0.0
-print(f"  Aligned SDI to naive by {lag} samples ({lag / FS * 1e6:+.4f} µs)")
-
-t_us_naive = (
-    coords_naive["t0"] + np.arange(rf_naive_img.shape[0]) * coords_naive["dt"]
-) * 1e6
-t_us_sdi = (coords_sdi["t0"] + np.arange(rf_sdi_img.shape[0]) * coords_sdi["dt"]) * 1e6
+time_array = (
+    coords_sdi["t0"] + np.arange(rf_naive.shape[1]) * coords_sdi["dt"]
+) * 1e6  # µs
 
 env_naive = np.abs(hilbert(rf_naive_img, axis=0))
 env_sdi = np.abs(hilbert(rf_sdi_img, axis=0))
@@ -134,35 +120,38 @@ env_sdi_db = to_dB(env_sdi / peak, vmin=10 ** (-60 / 20))
 
 # Difference on shortest common time axis.
 # Compare the shapes
-print(f"\n  rf_naive shape: {rf_naive_img.shape}, t_us_naive length: {len(t_us_naive)}")
-print(f"  rf_sdi shape: {rf_sdi_img.shape}, t_us_sdi length: {len(t_us_sdi)}")
-T_min = min(rf_naive_img.shape[0], rf_sdi_img.shape[0])
-diff_abs = rf_naive_img[:T_min] - rf_sdi_img[:T_min]
-diff_pct = diff_abs / (peak + 1e-30) * 100.0
-t_us_diff = t_us_naive[:T_min]
+print(f"\n  rf_naive shape: {rf_naive_img.shape}")
+print(f"  rf_sdi shape: {rf_sdi_img.shape}")
+diff_abs = rf_naive_img - rf_sdi_img
+diff_pct = diff_abs / (peak) * 100.0
+pos_max_diff = np.unravel_index(np.abs(diff_pct).argmax(), diff_pct.shape)
+diff_max = diff_abs[pos_max_diff]
+print(f"  Max absolute difference: {diff_max:.2f}, and maxpeak = {peak:.2f}")
+print(f"  Max absolute difference at (row, col) = {pos_max_diff}")
 
 max_err_pct = float(diff_pct.max())
 
 # Envelope error is the honest headline: shift-tolerant, reflects PSF agreement
 # rather than sub-sample edge jitter in the raw RF.
 env_err_pct = float(
-    np.abs(env_naive[:T_min] - env_sdi[:T_min]).max()
-    / (env_naive.max() + 1e-30)
-    * 100.0
+    np.abs(env_naive - env_sdi).max() / (env_naive.max() + 1e-30) * 100.0
 )
-print(f"\n  Max |naive - SDI| / peak (raw, aligned): {max_err_pct:.2f} %")
+print(f"\n  Max |naive - SDI| / peak (raw, native): {max_err_pct:.2f} %")
 print(f"  Max |naive - SDI| / peak (envelope)     : {env_err_pct:.2f} %")
 
 # ============================================================================
 # STEP 4: DISPLAY
 # ============================================================================
+t_us_naive = t_us_sdi = t_us_diff = time_array
 extent_naive = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_naive[-1], t_us_naive[0]]
 extent_sdi = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_sdi[-1], t_us_sdi[0]]
 extent_diff = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_diff[-1], t_us_diff[0]]
 
 peak_rf = np.abs(rf_naive_img).max() + 1e-30
-peak_row = int(np.argmax(env_naive[:, center_idx]))
-peak_row_sdi = min(peak_row, env_sdi_db.shape[0] - 1)
+peak_row = env_naive_db.argmax(axis=0).max()
+peak_row_sdi = env_sdi_db.argmax(axis=0).max()
+center_idx = len(X_SCAT_MM) // 2
+print(f"\n  Peak RF at row {peak_row} (naive), {peak_row_sdi} (SDI)")
 
 fig, axes = plt.subplots(3, 3, figsize=(16, 8))
 
@@ -199,14 +188,14 @@ ax.sharey(axes[0, 0])
 ax = axes[0, 2]
 im = ax.imshow(diff_pct, aspect="auto", extent=extent_diff, cmap="viridis", vmin=0)
 plt.colorbar(im, ax=ax, label="%")
-ax.set_title(f"|naive − SDI| / peak, aligned  (max {max_err_pct:.2f} %)")
+ax.set_title(f"|naive − SDI| / peak, native  (max {max_err_pct:.2f} %)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 ax.sharex(axes[0, 0])
 ax.sharey(axes[0, 0])
 
 # Row 1: envelope dB images + envelope difference
-env_diff_db = env_naive_db[:T_min] - env_sdi_db[:T_min]
+env_diff_db = env_naive_db - env_sdi_db
 
 ax = axes[1, 0]
 im = ax.imshow(

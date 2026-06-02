@@ -8,12 +8,11 @@
 %  Version 1.0, June 29, 2001 by JAJ
 
 %  Set initial parameters
+
 addpath(genpath('C:\Users\INSERM\Documents\Esteban\Simulation\Field II'))
-for x = [125,250,500,1000,2000]
-    
 R=8/1000;             %  Radius of transducer [m]
 Rfocus=80/1000;       %  Geometric focus point [m]
-ele_size=x/1e6;      %  Size of mathematical elements [m]
+ele_size=1/1000;      %  Size of mathematical elements [m]
 f0=3e6;               %  Transducer center frequency [Hz]
 fs=100e6;             %  Sampling frequency [Hz]
 
@@ -33,18 +32,9 @@ xdc_excitation (Th, excitation);
 %  Calculate the pulse echo field and display it
 
 xpoints=(-10:0.2:10);
-tic ;
 [RF_data, start_time] = calc_hhp (Th, Th, [xpoints; zeros(1,101); 30*ones(1,101)]'/1000);
 
-total_time = toc ;
-disp(total_time)
-s.RF_data=RF_data; s.start_time=start_time; s.ele_size=x;
-s.geom=xdc_get(Th,'all'); s.impulse_response=impulse_response;
-s.excitation=excitation ; s.total_time = total_time ;
-save(sprintf('concave_es_%dum.mat', round(x)), '-struct','s') ; 
-xdc_free(Th)
-end
-%%  Make a display of the envelope
+%  Make a display of the envelope
 
 figure(1)
 env=abs(hilbert(RF_data(1:5:600,:)));

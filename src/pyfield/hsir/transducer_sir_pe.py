@@ -76,7 +76,11 @@ def _place_pe_sdi_deltas(
     # Static sign arrays: +1, -1, -1, +1 for corners 1–4.
     signpos1 = np.float32(1.0)
     signneg1 = np.float32(-1.0)
-    k_shift = np.float32(2.0)
+    # Combined-kernel placement: zeta = d2h_e ⊛ d2h_r, one cumsum → Dh_pe.
+    # Discrete-conv index adds: event lands at floor((t_e+t_r-pe_t0)*fs), matching
+    # naive h_tx⊛h_rx onset. No extra shift — single-SDI h is already correctly
+    # timed (verified: Emission/Reception sdi-h_sir agree with naive at lag 0).
+    k_shift = np.float32(0.0)
 
     # Unrolled 4×4 loop for Numba performance.
     # TX corner 0 (sign +1) × all RX corners
