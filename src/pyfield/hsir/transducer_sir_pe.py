@@ -163,7 +163,11 @@ def _compute_Dh_pe_parallel_points(
     P = points.shape[0]
     M_e = tx_centers.shape[0]
     M_r = rx_centers.shape[0]
-    out = np.zeros((P, T), dtype=np.float32)
+    # float64 buffer: PE weight = slope_e*slope_r can reach ~1e20 for sub-sample
+    # patches (Dt clamped to dt → slope ~ area/dt², squared in the product).
+    # A float32 buffer loses ~1e13 per write to cancellation → DC/ramp leak
+    # (vertical streaks) after the cumsum. float64 ULP at 1e20 is ~2e4 (negligible).
+    out = np.zeros((P, T), dtype=np.float64)
     for p in prange(P):  # ty: ignore[not-iterable]
         for m_r in range(M_r):
             # RX patch → scatterer direction (projected onto patch local frame).
@@ -275,8 +279,8 @@ def _compute_Dh_pe_parallel_points(
         # Integrate: 1 cumsum → Dh_pe (delta distribution, no dt scaling needed).
         acc = np.float64(0.0)
         for k in range(T):
-            acc += np.float64(out[p, k])
-            out[p, k] = np.float32(acc)
+            acc += out[p, k]
+            out[p, k] = acc
     return out
 
 
@@ -401,7 +405,7 @@ def compute_pe_sdi(
             T,
             fs,
             dt,
-        )
+        ).astype(np.float32)
 
     out = np.zeros((P, T), dtype=np.float32)
     for start in range(0, P, batch_size_points):

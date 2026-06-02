@@ -378,7 +378,17 @@ class Reception:
                 points_m.astype(np.float64), tx_center_m, rx_elem_centers_m
             )  # (P, E_rx)
 
-        scale = np.float32(self.rho / (2.0 * self.c**2))
+        # Continuous-convolution dt factor for h_tx ⊛ h_rx.
+        # H_pe = irfft(H_tx · H_rx) is a *discrete* convolution Σ_k h_tx[k] h_rx[n-k],
+        # whereas the physical SIR convolution is the continuous integral
+        # (h_tx ⊛ h_rx)(t) = ∫ h_tx(τ) h_rx(t-τ) dτ ≈ dt · Σ_k. The two differ by
+        # one factor of dt. The excitation/IR convolutions are also freq-domain
+        # products here, but `ReceptionSDI` forms them the same way, so they cancel
+        # in any cross-check; only the SIR-SIR convolution differs — `ReceptionSDI`
+        # builds it from a Dirac-delta train (δ⊛δ → weights multiply, intrinsically
+        # the continuous convolution). Without this dt, conventional `Reception` is
+        # larger than `ReceptionSDI` by exactly fs = 1/dt (verified fc-independent).
+        scale = np.float32(self.rho / (2.0 * self.c**2) * dt)
 
         if self.verbose:
             mode = (

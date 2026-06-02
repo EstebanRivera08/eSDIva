@@ -68,8 +68,8 @@ def _make_transducer(with_excitation: bool = False) -> ConcaveCircularTransducer
         diameter_mm=DIAMETER_MM,
         focus_mm=FOCUS_MM,
         frequency_Hz=FREQUENCY_HZ,
-        refine_factor=1,
-        no_sub_diameter=16,
+        refine_factor=2,
+        no_sub_diameter=25,
     )
     t_ir = np.arange(0, 2.0 / FREQUENCY_HZ, 1.0 / FS)
     # Match Field II: xdc_impulse uses Hanning-windowed sine on the transducer handle
@@ -81,6 +81,9 @@ def _make_transducer(with_excitation: bool = False) -> ConcaveCircularTransducer
         tx.excitation = np.sin(2 * np.pi * FREQUENCY_HZ * t_ir)
     return tx
 
+
+tx = _make_transducer()
+tx.show()
 
 # ConcaveCircularTransducer now follows the Field II / datasheet convention:
 # focus_mm is the focal length (= radius of curvature) and the bowl apex sits at
@@ -212,7 +215,7 @@ _kw_db = dict(aspect="auto", cmap="hot", vmin=DB_FLOOR, vmax=0)
 _kw_rf = dict(aspect="auto", cmap="RdBu", vmin=-1, vmax=1)
 _kw_lin = dict(aspect="auto", cmap="hot", vmin=0, vmax=1)
 
-fig, axes = plt.subplots(3, 4, figsize=(21, 10))
+fig, axes = plt.subplots(3, 4, figsize=(16, 7))
 
 # --- Row 0: envelope dB (PyField) / Field II envelope dB ---
 ax = axes[0, 0]
