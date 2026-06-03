@@ -4,21 +4,19 @@ Example 09: Linear Array — B-mode PSF Image via DAS Beamforming
 Field II parallel: ``fieldiiexamples/linear_psf_example/`` (sesr.m scenario)
 
 Simulates a PSF phantom (20 on-axis point scatterers at 5 mm intervals,
-z = 15–110 mm), acquires RF data with ``ReceptionSDI.rf_sequence``,
-and beamforms with ``pyfield.beamforming.das`` to produce a
-log-compressed B-mode image.
+z = 15–110 mm) and builds a B-mode line by line with
+``ReceptionSDI.scan_focusline`` (one focused scan line per lateral position),
+then log-compresses to a B-mode image.
 
   1. PSF phantom: 20 on-axis scatterers, z = 15, 20, …, 110 mm
   2. 128-element linear array, 3 MHz, λ-pitch, Hanning-windowed IR on TX and RX
-  3. Multi-focus TX sequence: 20 scan lines, fixed focus at z = 60 mm
-  4. Sliding 64-element active aperture per scan line
-  5. rf_seq shape: (N_lines, Nt, E_rx)
-  6. DAS receive focus at (x_line, 0, 60 mm) → RF line, inactive channels zeroed
-  7. Hilbert envelope + global log-compression → B-mode image
+  3. Per line: scan_focusline recomputes TX focus + apodization at z = 60 mm,
+     simulates the pulse-echo RF, DAS-beamforms (RX focus = same point), and
+     returns the Hilbert envelope.
+  4. Map each line's time axis to display depth → global log-compression.
 
-Field II difference: Field II performs TX + RX beamforming inside
-``calc_scat``.  PyField separates simulation and beamforming —
-``pyfield.beamforming.das`` applies receive delays and sums channels.
+Field II parallel: this is the conventional line-by-line acquisition Field II's
+psf example performs with ``calc_scat`` filling ``image_data(:,i)``.
 
 Run with:
     uv run examples/example09_lineararray_imagePSF.py
@@ -29,10 +27,8 @@ import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
-from scipy.signal import hilbert
 
-from pyfield.beamforming import DAS_focused_scanline as das
-from pyfield.reception import Reception, ReceptionSDI
+from pyfield.reception import ReceptionSDI
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================
@@ -107,69 +103,35 @@ rx.impulse_response = pulse
 excitation = pulse.copy()
 
 # ============================================================================
-# STEP 2: BUILD TX EVENTS — sliding N_ACTIVE aperture, focus at z=60 mm
+# STEP 2-4: SCAN — one focused line per lateral position via scan_focusline
 # ============================================================================
-# Sliding aperture formula from sesr.m:
-#   N_pre = round(x / (width+kerf) + N_elements/2 - N_active/2)
-tx_events = []
-apod_per_line = []
-
+# `scan_focusline` recomputes the TX focus + apodization for each focal point,
+# simulates the pulse-echo RF, DAS-beamforms the line (RX focus = same point) and
+# returns its envelope — the conventional line-by-line acquisition, exactly as a
+# scanner builds a B-mode (cf. Field II's psf example filling image_data(:,i)).
+# `coords["t0"]` is beam-axis referenced inside scan_focusline, so no manual bulk
+# correction is needed; we only map each line's time axis to display depth.
+sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
+common_depth_mm = np.arange(9.0, 120.0 + 0.05, 0.05)  # shared display axis
+env_lines = []
 for x in X_LINES_MM:
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
-        focus = [x, 0, Z_FOCUS_MM]
-        delays = tx.compute_delays(focus_mm=focus, inline=False)
-        apods = tx.compute_apodization(
-            focus_mm=focus,
+        env_line, coords = sim.scan_focusline(
+            [float(x), 0.0, Z_FOCUS_MM],
+            SCATTERER_POS,
+            SCATTERER_AMP,
             FoverD=FOVERD,
             apodization_type=APOD_TYPE,
-            inline=False,
         )
-
-    tx_events.append({"delays": delays, "apodization": apods})
-    apod_per_line.append(apods)
-
-# ============================================================================
-# STEP 3: ACQUIRE RF DATA  → (N_lines, Nt, E_rx)
-# ============================================================================
-sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
-rf_seq, coords = sim.rf_sequence(SCATTERER_POS, SCATTERER_AMP, tx_events)
-# rf_seq.shape = (N_seq, Nt, E_rx)
-
-print(f"\nRF sequence shape: {rf_seq.shape}  (N_lines, Nt, E_rx)")
-
-# ============================================================================
-# STEP 4: DAS BEAMFORMING + GLOBAL LOG-COMPRESSION
-# ============================================================================
-# TX focus time-reference correction.
-#
-# PyField references focusing delays to the FARTHEST element
-# (``delays = dist.max() - dist``), so the beam-axis element carries a bulk
-# delay ``max(delays) = (dist.max() - z_focus)/c``.  That bulk delay pushes the
-# emission late, placing every echo ~``(dist.max() - z_focus)/2`` too deep.
-# Field II avoids this by referencing delays to the beam axis
-# (``xdc_center_focus``).  We reproduce that reference here by subtracting each
-# line's beam-axis delay from its time origin.  Because ``dist.max()`` grows for
-# off-centre lines, this correction is PER LINE — using a single shared origin
-# would curve and smear the off-axis PSF.  The residual ~0.5 mm bias is the
-# excitation⊛IR group delay, which Field II's RF carries too.
-common_depth_mm = np.arange(9.0, 120.0 + 0.05, 0.05)  # shared display axis
-env_lines = []
-for i, x in enumerate(X_LINES_MM):
-    rf_active = rf_seq[i].copy()  # (Nt, E_rx)
-    rf_active[:, apod_per_line[i] == 0] = 0.0  # mask inactive channels
-    rf_line = das(rf_active, coords, rx, focus_mm=[float(x), 0.0, Z_FOCUS_MM], c=C)
-
-    bulk_delay = float(tx_events[i]["delays"].max())  # beam-axis TX delay
-    t_line = (coords["t0"] - bulk_delay) + np.arange(len(rf_line)) * coords["dt"]
-    depth_line_mm = t_line * C / 2 * 1e3
-
-    env_line = np.abs(hilbert(rf_line.astype(np.float64)))
+    depth_line_mm = (
+        coords["t0"] + np.arange(len(env_line)) * coords["dt"]
+    ) * C / 2 * 1e3
     env_lines.append(
         np.interp(common_depth_mm, depth_line_mm, env_line, left=0, right=0)
     )
 
-# Global Hilbert envelope + log-compression (60 dB dynamic range, like mk_img.m)
+# Global log-compression (60 dB dynamic range, like mk_img.m)
 env_matrix = np.stack(env_lines, axis=1)  # (N_depth, N_lines)
 global_max = env_matrix.max()
 bmode = 20.0 * np.log10(np.maximum(env_matrix / global_max, 10 ** (-60 / 20)))

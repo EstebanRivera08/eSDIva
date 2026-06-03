@@ -1,7 +1,7 @@
 """
 Example 08: Linear Array — Full Matrix Capture (FMC)
 
-Demonstrates ``ReceptionSDI.rf_matrix()`` for Full Matrix Capture (FMC), where
+Demonstrates ``ReceptionSDI.synthetic_aperture_rf()`` for Full Matrix Capture (FMC), where
 each TX element fires individually while all RX elements record.
 
 Output shape: ``(E_tx, Nt, E_rx)`` — one complete RF dataset per TX element.
@@ -74,25 +74,27 @@ print(f"Scatterers: {len(scatterer_pos)} point targets")
 # STEP 3: FULL MATRIX CAPTURE
 # ============================================================================
 sim = ReceptionSDI(tx, rx, c=C, fs=FS)
-rf_fmc, coords = sim.rf_matrix(scatterer_pos, scatterer_amp)
-# rf_fmc.shape = (E_tx, Nt, E_rx)
+rf_fmc, coords = sim.synthetic_aperture_rf(
+    scatterer_pos, scatterer_amp, decimation=1, countdown=False
+)
+# rf_fmc.shape = (E_tx, E_rx, Nt)
 
-t = coords["t0"] + np.arange(rf_fmc.shape[1]) * coords["dt"]
-print(f"\nFMC shape: {rf_fmc.shape}  (E_tx, Nt, E_rx)")
+t = coords["t0"] + np.arange(rf_fmc.shape[2]) * coords["dt"]
+print(f"\nFMC shape: {rf_fmc.shape}  (E_tx, E_rx, Nt)")
 print(f"Time range: {t[0] * 1e6:.2f} – {t[-1] * 1e6:.2f} µs")
 
 # ============================================================================
 # STEP 4: VISUALISE
 # ============================================================================
 E_tx = rf_fmc.shape[0]
-E_rx = rf_fmc.shape[2]
+E_rx = rf_fmc.shape[1]
 
 fig, axes = plt.subplots(1, 3, figsize=(15, 4))
 
 # A-scan for first TX element (all RX channels)
 ax = axes[0]
 ax.imshow(
-    rf_fmc[0] / (np.abs(rf_fmc[0]).max() + 1e-30),
+    rf_fmc[0].T / (np.abs(rf_fmc[0]).max() + 1e-30),  # (Erx,Nt) → (Nt,Erx) for display
     aspect="auto",
     extent=[0, E_rx - 1, t[-1] * 1e6, t[0] * 1e6],
     cmap="RdBu",
@@ -107,7 +109,7 @@ ax.set_title("TX=0: RF data (all RX)")
 mid = E_tx // 2
 ax = axes[1]
 ax.imshow(
-    rf_fmc[mid] / (np.abs(rf_fmc[mid]).max() + 1e-30),
+    rf_fmc[mid].T / (np.abs(rf_fmc[mid]).max() + 1e-30),  # (Erx,Nt) → (Nt,Erx)
     aspect="auto",
     extent=[0, E_rx - 1, t[-1] * 1e6, t[0] * 1e6],
     cmap="RdBu",
@@ -119,7 +121,7 @@ ax.set_ylabel("Time (µs)")
 ax.set_title(f"TX={mid}: RF data (all RX)")
 
 # FMC matrix: peak amplitude per (TX, RX) pair at a single time sample
-peak_matrix = np.max(np.abs(rf_fmc), axis=1)  # (E_tx, E_rx)
+peak_matrix = np.max(np.abs(rf_fmc), axis=2)  # (E_tx, E_rx), max over time
 ax = axes[2]
 im = ax.imshow(peak_matrix, aspect="auto", cmap="viridis")
 plt.colorbar(im, ax=ax, label="Peak |RF|")

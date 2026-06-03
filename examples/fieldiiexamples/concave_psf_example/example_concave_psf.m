@@ -10,6 +10,8 @@
 %  Set initial parameters
 
 addpath(genpath('C:\Users\INSERM\Documents\Esteban\Simulation\Field II'))
+field
+
 R=8/1000;             %  Radius of transducer [m]
 Rfocus=80/1000;       %  Geometric focus point [m]
 ele_size=1/1000;      %  Size of mathematical elements [m]

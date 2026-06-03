@@ -174,7 +174,7 @@ field_points_mm = np.column_stack(
 ).astype(np.float32)
 
 # ---------------------------------------------------------------------------
-# Run both PyField backends (calc_hhp = pulse_echo_response, 1 derivative)
+# Run both PyField backends (calc_hhp = pulse_echo_rf, 0 derivatives)
 # ---------------------------------------------------------------------------
 print(f"\nSimulating {len(X_SCAT_MM)} lateral positions at z={SCATTERER_Z_MM} mm ...")
 
@@ -188,7 +188,7 @@ sim_naive = Reception(
     method="naive",
     verbose=False,
 )
-rf_naive, coords_naive = sim_naive.pulse_echo_response(
+rf_naive, coords_naive = sim_naive.pulse_echo_rf(
     field_points_mm, per_scatterer=True
 )
 t_naive = time.time() - t_start
@@ -203,15 +203,16 @@ sim_sdi = ReceptionSDI(
     c=C,
     verbose=False,
 )
-rf_sdi, coords_sdi = sim_sdi.pulse_echo_response(field_points_mm, per_scatterer=True)
+rf_sdi, coords_sdi = sim_sdi.pulse_echo_rf(field_points_mm, per_scatterer=True)
 t_sdi = time.time() - t_start
 print(f"  Done in {t_sdi:.2f} s")
 
 # ---------------------------------------------------------------------------
 # Reshape to (Nt, N_lat) and build time axes (µs)
 # ---------------------------------------------------------------------------
-rf_naive_img = rf_naive[:, :, 0].T
-rf_sdi_img = rf_sdi[:, :, 0].T
+# per_scatterer → (P, Erx, Nt); mono-element → channel 0 → (P, Nt) → .T = (Nt, P).
+rf_naive_img = rf_naive[:, 0, :].T
+rf_sdi_img = rf_sdi[:, 0, :].T
 t_us_naive = (
     coords_naive["t0"] + np.arange(rf_naive_img.shape[0]) * coords_naive["dt"]
 ) * 1e6

@@ -55,13 +55,13 @@ class TestReceptionBasic:
     """Basic Reception functionality."""
 
     def test_rf_output_shape(self, simple_tx, simple_rx, on_axis_scatterer):
-        """RF output shape must be (Nt, E_rx)."""
+        """RF output shape must be (E_rx, Nt)."""
         pos, amp = on_axis_scatterer
         sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
         rf, coords = sim(pos, amp)
 
         assert rf.ndim == 2
-        assert rf.shape[1] == simple_rx.n_elements
+        assert rf.shape[0] == simple_rx.n_elements
         assert rf.dtype == np.float32
         assert "t0" in coords
         assert "dt" in coords
@@ -74,13 +74,18 @@ class TestReceptionBasic:
         assert np.any(rf != 0), "RF should be non-zero for on-axis scatterer."
 
     def test_self_echo_valid(self, simple_tx, on_axis_scatterer):
-        """TX == RX (same transducer) must produce valid result."""
+        """TX == RX (same transducer) must produce valid result.
+
+        ``simple_tx`` is focused, so reusing it as RX legitimately triggers the
+        non-default RX delays/apodization warning (they are applied per element).
+        """
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_tx, verbose=False)
+        with pytest.warns(UserWarning, match="RX apodization/delays are non-default"):
+            sim = ReceptionSDI(simple_tx, simple_tx, verbose=False)
         rf, coords = sim(pos, amp)
 
         assert rf.ndim == 2
-        assert rf.shape[1] == simple_tx.n_elements
+        assert rf.shape[0] == simple_tx.n_elements
         assert np.any(rf != 0)
 
     def test_excitation_none_pure_pe_sir(self, simple_tx, simple_rx, on_axis_scatterer):
@@ -135,8 +140,8 @@ class TestReceptionDownsampling:
         rf_full, _ = sim(pos, amp)
         rf_ds, coords_ds = sim(pos, amp, downsampling=10)
 
-        Nt_full = rf_full.shape[0]
-        Nt_ds = rf_ds.shape[0]
+        Nt_full = rf_full.shape[1]  # (E_rx, Nt) → time is last axis
+        Nt_ds = rf_ds.shape[1]
         expected_Nt = len(range(0, Nt_full, 10))
         assert Nt_ds == expected_Nt, f"Expected {expected_Nt} samples, got {Nt_ds}."
         assert coords_ds["dt"] == 10 * (1.0 / sim.fs)
@@ -185,32 +190,32 @@ class TestReceptionSet:
 
 
 class TestReceptionSequence:
-    """rf_sequence with multiple TX events."""
+    """sequence_rf with multiple TX events."""
 
     def test_single_event_matches_call(self, simple_tx, simple_rx, on_axis_scatterer):
-        """rf_sequence with 1 event == __call__ with same delays/apod."""
+        """sequence_rf with 1 event == __call__ with same delays/apod."""
         pos, amp = on_axis_scatterer
         sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
 
         rf_single, coords_single = sim(pos, amp)
-        rf_seq, coords_seq = sim.rf_sequence(
+        rf_seq, coords_seq = sim.sequence_rf(
             pos,
             amp,
             [{"delays": simple_tx.delays, "apodization": simple_tx.apodization}],
         )
 
         assert rf_seq.shape[0] == 1  # 1 event
-        assert rf_seq.shape[2] == simple_rx.n_elements
+        assert rf_seq.shape[1] == simple_rx.n_elements  # (Nev, E_rx, Nt)
         assert_allclose(
-            rf_seq[0, : rf_single.shape[0], :],
+            rf_seq[0, :, : rf_single.shape[1]],
             rf_single,
             rtol=1e-5,
             atol=1e-30,
-            err_msg="Single-event rf_sequence must match __call__.",
+            err_msg="Single-event sequence_rf must match __call__.",
         )
 
     def test_sequence_restores_tx_state(self, simple_tx, simple_rx, on_axis_scatterer):
-        """TX delays/apod must be restored after rf_sequence."""
+        """TX delays/apod must be restored after sequence_rf."""
         pos, amp = on_axis_scatterer
         sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
 
@@ -223,7 +228,7 @@ class TestReceptionSequence:
                 "apodization": np.ones_like(orig_apod),
             },
         ]
-        sim.rf_sequence(pos, amp, events)
+        sim.sequence_rf(pos, amp, events)
 
         np.testing.assert_array_equal(simple_tx.delays, orig_delays)
         np.testing.assert_array_equal(simple_tx.apodization, orig_apod)

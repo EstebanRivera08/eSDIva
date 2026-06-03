@@ -119,17 +119,22 @@ p, coords = sim(field_points, method="auto")       # always returns (pressure, c
 ```
 
 **Reception** (pulse-echo RF): two classes — `ReceptionSDI` (fast PE-SDI kernel,
-default) and `Reception` (conventional FieldII-style, exact match). Methods named by
-physical quantity: `scattered_rf` (=`calc_scat`), `pulse_echo_response` (=`calc_hhp`,
-PSF), `rf_sequence` (scan-line sweep), `rf_matrix` (FMC). `__call__` aliases
-`scattered_rf`. Takes separate TX/RX transducers and scatterer positions, returns
-per-element RF `(Nt, E_rx)`. Full details in `ARCHITECTURE.md`.
+default) and `Reception` (conventional FieldII-style, exact match), same API. Four
+methods (axis `[emission, reception, Nt]`; all zero-derivative, matching Field II
+`calc_scat`≡`calc_hhp`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True`
+gives the PSF), `sequence_rf` (PW/DW event sweep), `synthetic_aperture_rf`
+(FMC/`calc_scat_all`, per-element DW basis, decimated), `scan_focusline` (one
+conventional focused B-mode line). Takes separate TX/RX transducers + scatterer
+positions; returns per-element RF `(Erx, Nt)`. `coords["t0"]` is beam-axis
+referenced. Full details in `ARCHITECTURE.md`.
 
 ```python
 from pyfield.reception import ReceptionSDI
 sim = ReceptionSDI(tx, rx, fs=200e6, c=1540)
-rf, coords = sim.scattered_rf(scatterer_pos_mm, scatterer_amp)   # (Nt, E_rx)
-psf, coords = sim.pulse_echo_response(pts, per_scatterer=True)   # PSF
+rf, coords = sim.pulse_echo_rf(scatterer_pos_mm, scatterer_amp)        # (Erx, Nt)
+psf, coords = sim.pulse_echo_rf(pts, per_scatterer=True)               # (P, Erx, Nt) PSF
+env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
+                                 apodization_type="hanning")           # (Nt,) one B-mode line
 ```
 
 **Visualize**: `plot2D_pressure_slices(p, coords=coords, db_scale=True)` (mono 3D or

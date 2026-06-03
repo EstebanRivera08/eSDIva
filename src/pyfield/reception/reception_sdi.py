@@ -9,6 +9,7 @@ Excitation enters without any derivative: v'_pe = E_m * v.
 """
 
 import time
+import warnings
 
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
@@ -20,10 +21,34 @@ from pyfield.utilities.helper_functions import (
 )
 
 from ..attenuation import causal_attenuation_tf, compute_reception_distances
+from ._common import ReceptionMixin, _anti_alias_decimate
 
 
 def _next_pow2(n):
     return 1 << (int(n - 1).bit_length())
+
+
+def _warn_if_rx_delays_apods_not_default(rx):
+    """Warn when RX delays are nonzero or apodization is non-uniform.
+
+    Reception applies the RX delays and apodization PER RECEIVE ELEMENT inside the
+    SIR (each element's trace is time-shifted by its delay and scaled by its
+    apodization weight); it does NOT sum over receive elements. That is intentional
+    so receive-side weighting can be modelled, but it means a weighted/focused RX
+    transducer changes the raw per-element RF. Detection is value-based: only fires
+    when the weights would actually affect the signal (so an unfocused RX, or
+    ``rx = tx.copy()`` of an unfocused TX, stays silent).
+    """
+    if np.any(np.asarray(rx.delays) != 0.0) or not np.allclose(rx.apodization, 1.0):
+        warnings.warn(
+            "RX apodization/delays are non-default and ARE applied per receive "
+            "element (each element's RF is time-shifted and scaled in the SIR; no "
+            "receive sum is performed). Intentional for receive-side weighting; for "
+            "raw per-element RF leave the RX transducer unfocused (zero delays, unit "
+            "apodization).",
+            UserWarning,
+            stacklevel=3,
+        )
 
 
 def _wrap_tqdm(iterable, **kwargs):
@@ -36,7 +61,7 @@ def _wrap_tqdm(iterable, **kwargs):
         return iterable
 
 
-class ReceptionSDI:
+class ReceptionSDI(ReceptionMixin):
     """Compute received RF signals via the PE SDI formulation.
 
     Redistributes all 3 temporal derivatives onto the SIR side, enabling
@@ -49,6 +74,10 @@ class ReceptionSDI:
 
         v_pe' = (ρ₀/2c₀²) × E_m × v             ← no derivatives on excitation
         Dh_pe = dh^e *_t d²h^r  (= ∫ zeta_pe dt)  ← 3 derivatives on SIR
+
+    Both public quantities then strip these 3 kernel derivatives with three
+    frequency-domain integrations (``÷(jω)³``) to match Field II, whose
+    ``calc_scat`` and ``calc_hhp`` carry no explicit temporal derivative.
 
     Only the ``"sdi"`` method is supported (SDI is intrinsic to the formulation).
 
@@ -111,6 +140,7 @@ class ReceptionSDI:
         )
         self.verbose = verbose
         self._refresh_sub_elem_attributes()
+        _warn_if_rx_delays_apods_not_default(self.rx)
 
     # ------------------------------------------------------------------
     # Sub-element state management
@@ -288,7 +318,7 @@ class ReceptionSDI:
         downsampling=None,
         per_scatterer=False,
     ):
-        """Shared computation core for scattered_rf and pulse_echo_response.
+        """Shared computation core for pulse_echo_rf (and the mixin wrappers).
 
         Parameters
         ----------
@@ -297,10 +327,14 @@ class ReceptionSDI:
         amps : (P,) numpy.ndarray
             Scattering amplitudes (float32).
         n_integrations : int, default 0
-            Number of time integrations applied to ``Dh_pe`` before the exc/ir
-            multiplies. 0 = scattered RF (calc_scat, 3 derivatives baked into
-            the PE-SDI kernel). 2 = pulse-echo response (calc_hhp, 1 derivative):
-            integrating twice removes two of the three baked derivatives.
+            Number of frequency-domain integrations (÷``(jω)``) applied to the
+            PE SIR before the exc/ir multiplies. The PE-SDI kernel bakes 3
+            derivatives, so 3 = the Field II-matching result (both ``calc_scat``
+            and ``calc_hhp``, 0 net derivatives): ÷``(jω)³`` removes all three,
+            leaving the bare exc⊛ir⊛ir⊛h convolution. Done in frequency domain
+            (not cumsum) so it adds no group delay and stays sample-aligned with
+            conventional `Reception`. (Lower values keep extra derivatives — e.g.
+            0 leaves the raw 3-derivative kernel output.)
         downsampling : int or None, default None
             Downsample output by this factor.
         per_scatterer : bool, default False
@@ -377,8 +411,22 @@ class ReceptionSDI:
 
         t_wall = time.time()
         rf = np.zeros(
-            (P, pe_T, n_rx) if per_scatterer else (pe_T, n_rx), dtype=np.float32
+            (P, n_rx, pe_T) if per_scatterer else (n_rx, pe_T), dtype=np.float32
         )
+
+        # pulse_echo_rf integration is done in the frequency domain
+        # (÷(jω) per integration) rather than by time-domain cumsum. This is the
+        # exact inverse of the analytic (jω) derivative, so it carries ZERO group
+        # delay and stays sample-aligned with conventional `Reception` — whereas a
+        # forward-Euler cumsum adds ½ sample of delay per integration. The f=0 bin
+        # is zeroed (the exc/ir band-pass carries no DC anyway).
+        inv_jw_pow = None
+        if n_integrations > 0:
+            jw = 1j * 2.0 * np.pi * freqs.astype(np.float64)
+            inv = np.zeros_like(jw)
+            nz = freqs > 0
+            inv[nz] = (1.0 / jw[nz]) ** n_integrations
+            inv_jw_pow = inv.astype(np.complex64)
 
         el_iter = (
             _wrap_tqdm(range(n_rx), desc="RX elements", total=n_rx, leave=True)
@@ -387,6 +435,10 @@ class ReceptionSDI:
         )
 
         for e_rx in el_iter:
+            # rx_ap / rx_dl carry this element's RX apodization + delays. They are
+            # applied here PER ELEMENT (scale + time-shift in the SIR) and are NOT
+            # summed across RX elements. Non-default RX weighting therefore changes
+            # the raw per-element RF — see _warn_if_rx_delays_apods_not_default.
             rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_slices[e_rx]
 
             Dh_pe = compute_pe_sdi(
@@ -412,16 +464,13 @@ class ReceptionSDI:
                 rx_ev=rx_ev,
             )  # (P, pe_T) float32
 
-            # pulse_echo_response: integrate twice to strip two of the three
-            # derivatives baked into Dh_pe → 1-derivative calc_hhp response.
-            # Stable here: the exc/ir band-pass removes DC, so no integration drift.
-            for _ in range(n_integrations):
-                Dh_pe = (np.cumsum(Dh_pe, axis=1, dtype=np.float64) * dt).astype(
-                    np.float32
-                )
-
             H_pe = rfft(Dh_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
             del Dh_pe
+
+            # pulse_echo_rf: strip the 3 derivatives baked into Dh_pe by
+            # integrating in the frequency domain (calc_hhp = 0 derivatives).
+            if inv_jw_pow is not None:
+                H_pe *= inv_jw_pow[np.newaxis, :]
 
             if fft_v is not None:
                 H_pe *= fft_v[np.newaxis, :]
@@ -443,218 +492,78 @@ class ReceptionSDI:
             del H_pe
 
             if per_scatterer:
-                rf[:, :, e_rx] = (rf_pe * amps[:, np.newaxis] * scale).astype(
+                rf[:, e_rx, :] = (rf_pe * amps[:, np.newaxis] * scale).astype(
                     np.float32
                 )
             else:
                 rf_channel = (rf_pe * amps[:, np.newaxis]).sum(axis=0)  # (pe_T,)
-                rf[:, e_rx] = (rf_channel * scale).astype(np.float32)
+                rf[e_rx, :] = (rf_channel * scale).astype(np.float32)
             del rf_pe
 
         if self.verbose:
             print(f"ReceptionSDI computed in {time.time() - t_wall:.2f} s\n")
 
-        if downsampling is not None and downsampling > 1:
+        # t0 referenced to the beam axis (subtract the TX focusing bulk) so
+        # downstream beamforming needs no per-line correction. See pulse_echo_rf.
+        t0 = pe_t0 - float(np.max(self.tx.delays))
+        coords = {"t0": t0, "dt": dt}
+        if downsampling is not None and int(downsampling) > 1:
             step = int(downsampling)
-            rf = rf[:, ::step, :] if per_scatterer else rf[::step, :]
-
-        coords = {"t0": pe_t0, "dt": dt}
-        if downsampling is not None and downsampling > 1:
+            rf = _anti_alias_decimate(rf, step)  # anti-aliased along last (time) axis
             coords["dt"] = dt * step
 
         return rf, coords
 
-    def scattered_rf(
+    def pulse_echo_rf(
         self,
         scatterer_positions_mm,
-        scattering_amplitudes=None,
-        *,
-        per_scatterer=False,
-        downsampling=None,
-    ):
-        """Scattered RF echo from point scatterers (Field II ``calc_scat``).
-
-        Full pulse-echo scattered signal with the three temporal derivatives of
-        the Born scattering model (two are baked into the PE-SDI kernel, one is
-        the emission derivative). This is the signal a transducer would record.
-
-        Parameters
-        ----------
-        scatterer_positions_mm : (N_scat, 3) numpy.ndarray
-            Scatterer positions in mm.
-        scattering_amplitudes : (N_scat,) numpy.ndarray or None, default None
-            Scattering coefficient at each position. None defaults to ones.
-        per_scatterer : bool, default False
-            If False, sum scatterer contributions per RX channel and return
-            ``(Nt, E_rx)``. If True, keep each scatterer separate and return
-            ``(N_scat, Nt, E_rx)`` — useful for inspecting the response of
-            individual points.
-        downsampling : int or None, default None
-            If set, downsample the time axis by this factor.
-
-        Returns
-        -------
-        rf : (Nt, E_rx) or (N_scat, Nt, E_rx) numpy.ndarray
-            Scattered RF per receive element.
-        coords : dict
-            Keys ``"t0"`` and ``"dt"`` (seconds).
-        """
-        pts_mm, amps = self._validate_scatterer_inputs(
-            scatterer_positions_mm, scattering_amplitudes
-        )
-        return self._compute_rf_inner(
-            pts_mm,
-            amps,
-            n_integrations=0,
-            downsampling=downsampling,
-            per_scatterer=per_scatterer,
-        )
-
-    # ``__call__`` is the ergonomic alias for the most common operation.
-    __call__ = scattered_rf
-
-    def pulse_echo_response(
-        self,
-        points_mm,
         amplitudes=None,
         *,
         per_scatterer=False,
         downsampling=None,
     ):
-        """Pulse-echo response / point-spread function (Field II ``calc_hhp``).
+        """Pulse-echo RF from point scatterers (Field II ``calc_scat``/``calc_hhp``).
 
-        The PE-SDI kernel bakes the three scattering derivatives into ``Dh_pe``;
-        integrating it twice removes two of them, leaving the single-derivative
-        pulse-echo response — the same quantity Field II ``calc_hhp`` returns and
-        ``Reception.pulse_echo_response`` computes directly. The integration is
-        numerically stable because the excitation/IR band-pass removes any DC that
-        could otherwise accumulate into drift.
+        The core reception primitive. Amplitude-weighted superposition of each
+        scatterer's pulse-echo response, with NO extra temporal derivative: the
+        three derivatives baked into the PE-SDI kernel are stripped by three
+        frequency-domain integrations (``÷(jω)³``), matching Field II (whose
+        ``calc_scat`` for a unit point scatterer equals ``calc_hhp``, corr 1.0000).
+        Frequency-domain integration carries no group delay, so the SDI result
+        stays sample-aligned with conventional `Reception`.
 
-        Parameters
-        ----------
-        points_mm : (N_points, 3) numpy.ndarray
-            Field-point positions in mm.
-        amplitudes : (N_points,) numpy.ndarray or None, default None
-            Per-point scaling. None defaults to ones.
-        per_scatterer : bool, default False
-            If False return ``(Nt, E_rx)`` (summed); if True return
-            ``(N_points, Nt, E_rx)`` — one PSF trace per point.
-        downsampling : int or None, default None
-            If set, downsample the time axis by this factor.
-
-        Returns
-        -------
-        rf : (Nt, E_rx) or (N_points, Nt, E_rx) numpy.ndarray
-        coords : dict
-            Keys ``"t0"`` and ``"dt"`` (seconds).
-        """
-        pts_mm, amps = self._validate_scatterer_inputs(points_mm, amplitudes)
-        return self._compute_rf_inner(
-            pts_mm,
-            amps,
-            n_integrations=2,
-            downsampling=downsampling,
-            per_scatterer=per_scatterer,
-        )
-
-    def rf_sequence(
-        self,
-        scatterer_positions_mm,
-        scattering_amplitudes,
-        tx_events,
-        *,
-        downsampling=None,
-    ):
-        """Scattered RF for a sequence of TX events (e.g. a scan-line sweep).
+        ``per_scatterer=True`` keeps each scatterer separate (PSF); ``False`` sums
+        them. ``coords["t0"]`` is beam-axis referenced (TX bulk ``delays.max()``
+        subtracted) so downstream beamforming needs no per-line correction.
 
         Parameters
         ----------
         scatterer_positions_mm : (N_scat, 3) numpy.ndarray
             Scatterer positions in mm.
-        scattering_amplitudes : (N_scat,) numpy.ndarray
-            Scattering coefficient at each position.
-        tx_events : list of dict
-            Each dict has ``"delays"`` and/or ``"apodization"`` arrays.
+        amplitudes : (N_scat,) numpy.ndarray or None, default None
+            Scattering coefficient at each position. None defaults to ones.
+        per_scatterer : bool, default False
+            If False, sum over scatterers → ``(Erx, Nt)``. If True →
+            ``(N_scat, Erx, Nt)`` (PSF per point).
         downsampling : int or None, default None
-            Temporal downsampling factor.
+            Anti-aliased time decimation factor.
 
         Returns
         -------
-        rf : (N_events, Nt, E_rx) numpy.ndarray
+        rf : (Erx, Nt) or (N_scat, Erx, Nt) numpy.ndarray
+            Pulse-echo RF per receive element (channels before time).
         coords : dict
+            Keys ``"t0"`` and ``"dt"`` (seconds).
         """
-        orig_delays = self.tx.delays.copy()
-        orig_apod = self.tx.apodization.copy()
-
-        results = []
-        coords_out = None
-        try:
-            for i, event in enumerate(tx_events):
-                if "delays" in event:
-                    self.tx.delays = np.asarray(event["delays"], dtype=np.float32)
-                if "apodization" in event:
-                    self.tx.apodization = np.asarray(
-                        event["apodization"], dtype=np.float32
-                    )
-                self._refresh_sub_elem_attributes()
-
-                if self.verbose:
-                    print(f"\n=== TX event {i + 1}/{len(tx_events)} ===")
-
-                rf_i, coords_i = self(
-                    scatterer_positions_mm,
-                    scattering_amplitudes,
-                    downsampling=downsampling,
-                )
-                results.append(rf_i)
-                if coords_out is None:
-                    coords_out = coords_i
-        finally:
-            self.tx.delays = orig_delays
-            self.tx.apodization = orig_apod
-            self._refresh_sub_elem_attributes()
-
-        max_Nt = max(r.shape[0] for r in results)
-        n_rx = results[0].shape[1]
-        rf_all = np.zeros((len(results), max_Nt, n_rx), dtype=np.float32)
-        for i, r in enumerate(results):
-            rf_all[i, : r.shape[0], :] = r
-
-        return rf_all, coords_out
-
-    def rf_matrix(
-        self,
-        scatterer_positions_mm,
-        scattering_amplitudes,
-        *,
-        downsampling=None,
-    ):
-        """Full-matrix capture (FMC): each TX element fires alone, all RX receive.
-
-        Parameters
-        ----------
-        scatterer_positions_mm : (N_scat, 3) numpy.ndarray
-        scattering_amplitudes : (N_scat,) numpy.ndarray
-        downsampling : int or None, default None
-
-        Returns
-        -------
-        rf : (E_tx, Nt, E_rx) numpy.ndarray
-        coords : dict
-        """
-        n_tx = int(self.tx.delays.shape[0])
-        tx_events = []
-        for e_tx in range(n_tx):
-            apod = np.zeros(n_tx, dtype=np.float32)
-            apod[e_tx] = 1.0
-            delays = np.zeros(n_tx, dtype=np.float32)
-            tx_events.append({"delays": delays, "apodization": apod})
-
-        return self.rf_sequence(
-            scatterer_positions_mm,
-            scattering_amplitudes,
-            tx_events,
+        pts_mm, amps = self._validate_scatterer_inputs(
+            scatterer_positions_mm, amplitudes
+        )
+        return self._compute_rf_inner(
+            pts_mm,
+            amps,
+            n_integrations=3,
             downsampling=downsampling,
+            per_scatterer=per_scatterer,
         )
 
     def __repr__(self) -> str:

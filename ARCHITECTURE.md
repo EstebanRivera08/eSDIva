@@ -9,7 +9,7 @@ Sections:
 1. [Full API Reference](#full-api-reference) — Emission & Reception parameters, all modes
 2. [Common Modifications](#common-modifications) — extending transducers, SIR, plotting
 3. [Emission Workflow](#emission-workflow) — mode decision tree, per-mode breakdown
-4. [Reception Workflow](#reception-workflow) — data flow, rf_sequence, rf_matrix
+4. [Reception Workflow](#reception-workflow) — data flow, sequence_rf, synthetic_aperture_rf
 5. [Field II Correspondence](#field-ii-correspondence) — API mapping table
 6. [Performance Bottlenecks](#performance-bottlenecks) — benchmarks, memory architecture
 7. [Risky Implementations](#risky-implementations) — physics/math validation hazards
@@ -108,60 +108,55 @@ Two reception classes are available:
 - `ReceptionSDI` — PE SDI kernel (16 deltas per TX/RX patch pair, 1 cumsum). Fast, default choice.
 - `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx`, FFT differentiation. Slower but exact match to Field II arithmetic.
 
-**Method naming = physical quantity computed** (pedagogic, mirrors Field II):
-| Method | Field II | Derivatives | Output |
-|--------|----------|-------------|--------|
-| `scattered_rf(pts, amp)` | `calc_scat` | 3 (Born) | recorded echo `(Nt, E_rx)` |
-| `pulse_echo_response(pts)` | `calc_hhp` | 1 (emission) | PSF / system response |
-| `rf_sequence(pts, amp, events)` | — | 3 | scan-line sweep `(N_ev, Nt, E_rx)` |
-| `rf_matrix(pts, amp)` | `calc_scat_all` | 3 | FMC `(E_tx, Nt, E_rx)` |
+**Public API** (axis order `[emission, reception, Nt]` — channels before time;
+`coords["t0"]` beam-axis referenced). All return zero-derivative RF matching
+Field II (`calc_scat` ≡ `calc_hhp` for a point):
+| Method | Field II | Output |
+|--------|----------|--------|
+| `pulse_echo_rf(pts, amp)` = `__call__` | `calc_scat`/`calc_hhp` | `(Erx, Nt)` summed · `(P, Erx, Nt)` `per_scatterer` (PSF) |
+| `sequence_rf(pts, amp, events)` | — | `(Nev, Erx, Nt)` (PW/DW emission basis) |
+| `synthetic_aperture_rf(pts, amp)` | `calc_scat_all` | `(Ntx_grp, Erx, Nt)` decimated (per-element/group DW basis) |
+| `scan_focusline(focus_mm, pts, amp)` | `calc_scat` (beamformed) | `(Nt,)` one focused scan-line envelope |
 
-`__call__` is an alias of `scattered_rf` (the common case). All methods take
-`per_scatterer=False` (sum over scatterers → `(Nt, E_rx)`) or `True`
-(keep separate → `(N_pts, Nt, E_rx)`). `pulse_echo_response` is available on
-both classes: conventional `Reception` applies `(jω)¹`; `ReceptionSDI`
-integrates `Dh_pe` twice (`cumsum²·dt²`) to strip 2 of its 3 baked derivatives
-(stable — exc/ir band-pass removes DC). Both match Field II `calc_hhp` and each
-other to ~0.995 raw / 0.9999 envelope correlation.
+`pulse_echo_rf` is the core engine; `sequence_rf` loops it; `synthetic_aperture_rf`
+= sequence with auto per-element/group events (zero delay, unit apod) + anti-aliased
+decimation + size guard; `scan_focusline` recomputes TX focus/apod then beamforms via
+`pyfield.beamforming.DAS_focused_scanline`. The three wrappers live in
+`ReceptionMixin` (`reception/_common.py`), shared by both classes.
+
+`ReceptionSDI` strips the 3 baked PE-SDI derivatives by dividing by `(jω)³` in the
+frequency domain (no group delay → sample-aligned with `Reception`'s `(jω)⁰=1`).
+Field II `calc_hhp`/`calc_scat` carry no round-trip ∂/∂t, so both classes match
+corr≈1.0000 at the RF level (per-element RF verified 0.997 vs `calc_scat_multi`).
 
 ```python
 from pyfield.reception import ReceptionSDI  # or Reception for conventional
 
-# TX and RX can be same or different transducers
 tx = LinearArrayTransducer(...)
-tx.compute_delays(focus_mm=[0, 0, 30])
-tx.impulse_response = ir_pulse     # optional electromechanical IR
-tx.excitation = excitation_pulse   # TX excitation
-
-rx = LinearArrayTransducer(...)    # or same as tx
-rx.impulse_response = ir_pulse     # optional RX IR
-
+tx.impulse_response = ir_pulse
+tx.excitation = excitation_pulse
+rx = tx.copy()
+rx.impulse_response = ir_pulse
 sim = ReceptionSDI(tx, rx, fs=200e6, c=1540)
 
-# Define scatterers
 scatterer_pos = np.array([[0, 0, 30], [1, 0, 35]])  # mm
 scatterer_amp = np.array([1.0, 0.5])
 
-# Scattered RF echo (calc_scat). sim(...) is the same as sim.scattered_rf(...).
-rf, coords = sim.scattered_rf(scatterer_pos, scatterer_amp)
-# rf.shape = (Nt, E_rx), coords = {"t0": float, "dt": float}
+# Core pulse-echo RF.  sim(...) == sim.pulse_echo_rf(...).
+rf, coords = sim.pulse_echo_rf(scatterer_pos, scatterer_amp)
+# rf.shape = (E_rx, Nt), coords = {"t0": float, "dt": float}
+psf, coords = sim.pulse_echo_rf(scatterer_pos, per_scatterer=True)  # (P, E_rx, Nt)
 
-# Pulse-echo response / PSF (calc_hhp, 1 derivative) — both classes
-psf, coords = sim.pulse_echo_response(scatterer_pos, per_scatterer=True)
-# psf.shape = (N_pts, Nt, E_rx)
-# (ReceptionSDI double-integrates Dh_pe; conventional Reception applies (jω)¹.)
+# Sweep emission basis (PW/DW events)
+tx_events = [{"delays": d1, "apodization": a1}, {"delays": d2, "apodization": a2}]
+rf_multi, coords = sim.sequence_rf(scatterer_pos, scatterer_amp, tx_events)  # (Nev,Erx,Nt)
 
-# Multi-line (sweep TX focus)
-tx_events = [
-    {"delays": delays_line1, "apodization": apod_line1},
-    {"delays": delays_line2, "apodization": apod_line2},
-]
-rf_multi, coords = sim.rf_sequence(scatterer_pos, scatterer_amp, tx_events)
-# rf_multi.shape = (N_events, Nt, E_rx)
+# Synthetic aperture / FMC (per-element diverging-wave basis)
+rf_sa, coords = sim.synthetic_aperture_rf(scatterer_pos, scatterer_amp)  # (Ntx,Erx,Nt)
 
-# Full matrix capture
-rf_fmc, coords = sim.rf_matrix(scatterer_pos, scatterer_amp)
-# rf_fmc.shape = (E_tx, Nt, E_rx)
+# One conventional focused scan line (loop focus_mm to build a B-mode)
+env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
+                                 FoverD=2.0, apodization_type="hanning")  # (Nt,)
 ```
 
 **Constructor parameters** (keyword-only after tx, rx):
@@ -175,9 +170,9 @@ rf_fmc, coords = sim.rf_matrix(scatterer_pos, scatterer_amp)
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `ReceptionSDI` uses PE SDI kernel (`compute_pe_sdi`) — no `jw` multiplication (3 derivatives already in Dh_pe; `pulse_echo_response` double-integrates Dh_pe)
-- `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with `(jω)ⁿ` differentiation (n=3 scattered_rf, n=1 pulse_echo_response)
-- Returns per-element RF data `(Nt, E_rx)`, not spatial pressure fields
+- `ReceptionSDI` uses the PE SDI kernel (`compute_pe_sdi`); `pulse_echo_rf` divides by `(jω)³` in freq domain to strip the 3 baked kernel derivatives (Field II match = 0 net derivatives)
+- `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with `(jω)⁰=1` (zero derivatives, matching Field II)
+- Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
 
 ### Visualization
@@ -320,14 +315,24 @@ Per RX element e_rx:
 - Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
 - Memory: O(P × nfft) per RX element iteration — E_rx-independent.
 
-### rf_sequence
+### sequence_rf
 
-Loop over TX events (different delays/apodization per event), call `scattered_rf`
-each time. Returns `(N_events, Nt, E_rx)`. TX state restored after all events.
+Loop over TX events (different delays/apodization per event), call `pulse_echo_rf`
+each time. Returns `(N_events, Erx, Nt)`. TX state restored after all events.
+Warns + suggests `downsampling=` if the output would be large.
 
-### rf_matrix (Full Matrix Capture)
+### synthetic_aperture_rf (Full Matrix Capture / synthetic aperture)
 
-Each TX element transmits, all RX receive. Returns `(E_tx, Nt, E_rx)`.
+Each TX element/group fires flat (zero delay, unit apod — overrides TX state), all
+RX receive. Returns `(Ntx_grp, Erx, Nt)`, anti-aliased-decimated (`decimation=10`
+default). `tx_groups` = `"element"` (FMC) / `int N` (sub-aperture) / custom groups.
+Estimates output size first; warns + auto-decimates (or streams to `out_path` memmap)
+if it would exceed RAM, after a 10 s abortable countdown.
+
+### scan_focusline
+
+One conventional focused scan line: recompute TX focus+apod from `focus_mm`,
+`pulse_echo_rf`, DAS, Hilbert envelope. Returns `(Nt,)`; loop `focus_mm` for a B-mode.
 
 ---
 
@@ -340,11 +345,11 @@ Each TX element transmits, all RX receive. Returns `(E_tx, Nt, E_rx)`.
 | `xdc_focus(Th, ...)` | `transducer.compute_delays(focus_mm=...)` | Existing |
 | `xdc_apodization(Th, ...)` | `transducer.compute_apodization(...)` | Existing |
 | `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure (1 derivative) |
-| `calc_hhp(tx, rx, pts)` | `(Reception\|ReceptionSDI)(tx, rx).pulse_echo_response(pts)` | Pulse-echo response / PSF (1 derivative). SDI double-integrates Dh_pe |
-| `calc_scat_multi(tx, rx, pos, amp)` | `ReceptionSDI(tx, rx).scattered_rf(pos, amp)` | Scattered RF (3 derivatives, SDI fast) |
-| `calc_scat_all(tx, rx, pos, amp)` | `ReceptionSDI.rf_matrix(...)` | Full matrix capture |
+| `calc_hhp(tx, rx, pts)` | `(Reception\|ReceptionSDI)(tx, rx).pulse_echo_rf(pts, per_scatterer=True)` | Pulse-echo response / PSF (0 derivatives; bare exc⊛ir⊛ir⊛h) |
+| `calc_scat_multi(tx, rx, pos, amp)` | `pulse_echo_rf(pos, amp)` | Per-element scattered RF (0 derivatives, = amp-weighted calc_hhp) |
+| `calc_scat_all(tx, rx, pos, amp)` | `synthetic_aperture_rf(...)` | Full matrix capture / synthetic aperture |
 | `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
-| `calc_scat(tx, rx, pos, amp)` | `scattered_rf(...)` then beamform | Beamforming is user's job |
+| `calc_scat(tx, rx, pos, amp)` (beamformed line) | `scan_focusline(focus_mm, pos, amp)` | Conventional focused scan line |
 | `xdc_baffle(Th, soft)` | Future extension | Not yet |
 | `xdc_dynamic_focus(...)` | Future extension | Requires timeline system |
 

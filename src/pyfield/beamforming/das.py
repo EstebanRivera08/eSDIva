@@ -29,7 +29,8 @@ def DAS_focused_scanline(
     Parameters
     ----------
     rf : numpy.ndarray
-        Raw channel RF data, shape ``(Nt, E_rx)``, as returned by `Reception`.
+        Raw channel RF data, shape ``(E_rx, Nt)`` (channels, time), as returned
+        by `Reception`.
     coords : dict
         Timing info with keys ``"t0"`` (float, seconds) and ``"dt"``
         (float, seconds), as returned by `Reception`.
@@ -56,17 +57,17 @@ def DAS_focused_scanline(
     center_idx = rx_centers.shape[0] // 2
     delta_t = t_rx - t_rx[center_idx]  # positive = echo arrives later in that channel
 
-    Nt = rf.shape[0]
+    Nt = rf.shape[1]  # rf is (E_rx, Nt)
     sample_idx = np.arange(Nt, dtype=np.float64)
     rf_das = np.zeros(Nt, dtype=np.float64)
 
-    for e in range(rf.shape[1]):
+    for e in range(rf.shape[0]):
         # Echo from focus is at sample (i + Δt/dt) in channel e relative to
         # the centre channel at sample i.  Read ahead to align.
         rf_das += np.interp(
             sample_idx + delta_t[e] / dt,
             sample_idx,
-            rf[:, e].astype(np.float64),
+            rf[e, :].astype(np.float64),
             left=0.0,
             right=0.0,
         )

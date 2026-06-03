@@ -121,11 +121,21 @@ def _windowed_corr_lag(a, at, b, bt, t_lo, t_hi, max_ns=200, osr=8):
 
 
 def _beamwidth_6db(env2d, xax):
-    """-6 dB lateral beamwidth (mm) at the envelope-peak time row."""
+    """-6 dB lateral beamwidth (mm) of the contiguous main lobe.
+
+    Span the contiguous run of columns around the peak that stay above -6 dB, so
+    far sidelobes that also poke above the threshold do not inflate the width.
+    """
     row = env2d[int(np.argmax(env2d.max(axis=1))), :]
     row = row / (row.max() + 1e-30)
-    above = xax[row >= 10 ** (-6 / 20)]
-    return (above[-1] - above[0]) if above.size > 1 else np.nan
+    thr = 10 ** (-6 / 20)
+    pk = int(np.argmax(row))
+    lo = hi = pk
+    while lo > 0 and row[lo - 1] >= thr:
+        lo -= 1
+    while hi < row.size - 1 and row[hi + 1] >= thr:
+        hi += 1
+    return (xax[hi] - xax[lo]) if hi > lo else np.nan
 
 
 # ---------------------------------------------------------------------------
@@ -266,14 +276,15 @@ for es in ELE_SIZES_UM:
     sim_n = Reception(
         _make(geom, ir, exc), _make(geom, ir), fs=FS, c=C, method="naive", verbose=False
     )
-    rf_n, cn = sim_n.pulse_echo_response(field_points_mm, per_scatterer=True)
+    rf_n, cn = sim_n.pulse_echo_rf(field_points_mm, per_scatterer=True)
     sim_s = ReceptionSDI(
         _make(geom, ir, exc), _make(geom, ir), fs=FS, c=C, verbose=False
     )
-    rf_s, cs = sim_s.pulse_echo_response(field_points_mm, per_scatterer=True)
+    rf_s, cs = sim_s.pulse_echo_rf(field_points_mm, per_scatterer=True)
 
-    rf_n_img = rf_n[:, :, 0].T
-    rf_s_img = rf_s[:, :, 0].T
+    # per_scatterer now returns (P, Erx, Nt); mono-element → take channel 0 → (P, Nt).
+    rf_n_img = rf_n[:, 0, :].T
+    rf_s_img = rf_s[:, 0, :].T
     t_n = cn["t0"] + np.arange(rf_n_img.shape[0]) / FS
     t_s = cs["t0"] + np.arange(rf_s_img.shape[0]) / FS
 
@@ -283,7 +294,7 @@ for es in ELE_SIZES_UM:
     tb_pk = _env_peak_time(b, fii_t)
     grp = (_env_peak_time(a, t_s) - tb_pk) * 1e9
     pkt = tb_pk * 1e6
-    corr, phs = _windowed_corr_lag(a, t_s * 1e6, b, fii_t * 1e6, pkt - 1.5, pkt + 1.5)
+    corr, phs = _windowed_corr_lag(a, t_s, b, fii_t, pkt - 1.5, pkt + 1.5)
     bw_py = _beamwidth_6db(np.abs(hilbert(rf_s_img, axis=0)), X_SCAT_MM)
     bw_fii = _beamwidth_6db(np.abs(hilbert(fii_rf, axis=0)), X_SCAT_MM)
     print("entering to save psf")
@@ -303,6 +314,26 @@ for es in ELE_SIZES_UM:
         f"{es / 1000:8.3f} {n_patches:8d} {corr:+8.4f} {grp:+8.1f} {phs:+8.1f} "
         f"{bw_py:7.3f} {bw_fii:7.3f}"
     )
+
+# ---------------------------------------------------------------------------
+# Metrics table (CSV) — durable numbers for inspection.
+# ---------------------------------------------------------------------------
+import csv
+
+csv_path = FIG_DIR / "convergence_metrics.csv"
+try:
+    with csv_path.open("w", newline="") as f:
+        w = csv.writer(f)
+        w.writerow(
+            ["ele_um", "n_patches", "peak_corr", "group_lag_ns", "phase_lag_ns",
+             "bw6_py_mm", "bw6_fii_mm"]
+        )
+        for es, n_patches, corr_v, grp_v, phs_v, bwp, bwf in rows:
+            w.writerow([es, n_patches, f"{corr_v:.6f}", f"{grp_v:.3f}",
+                        f"{phs_v:.3f}", f"{bwp:.4f}", f"{bwf:.4f}"])
+    print(f"Wrote {csv_path}")
+except PermissionError:
+    print(f"WARNING: {csv_path} is locked (open elsewhere?); skipped CSV write.")
 
 # ---------------------------------------------------------------------------
 # Convergence figure
