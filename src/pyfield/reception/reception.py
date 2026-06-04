@@ -1,68 +1,52 @@
-"""Reception: conventional FieldII-style pulse-echo RF simulation.
+"""Reception: conventional Tupholme-Stepanishen pulse-echo RF simulation.
 
-Implements the standard Tupholme-Stepanishen formulation. The two-way SIR is
-``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` (a plain SIR convolution). The recorded
-pulse-echo RF is the bare ``exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe`` with NO explicit
-temporal derivative — Field II applies no round-trip ∂/∂t in either ``calc_hhp``
-or ``calc_scat`` (``calc_scat`` for a unit point scatterer is identical to
-``calc_hhp``); all pulse shaping lives in the excitation and impulse responses.
-Matching Field II uses ``n_derivatives=0`` (verified corr≈1.0000 at the RF level;
-the old n=3 convention inflated the RF by ~(jω)³≈10²²).
+Physics. The pulse-echo signal carries the third time-derivative of the
+excitation, ``v_pe = (ρ₀/2c₀²) E_m ⊛ ∂³v/∂t³``. In a real system that ∂³ is not
+formed explicitly — it is absorbed into the band-limited excitation and impulse
+responses, so the practical chain is ``e ⊛ h_e ⊛ h_r``.
+
+This class implements the standard formulation directly: the two-way SIR is the
+plain convolution ``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` (no derivatives), and the
+recorded RF is ``exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe``. Because the excitation/IR chain
+already supplies the three physical derivatives, NO extra explicit ∂/∂t is applied
+(``n_derivatives=0``); applying the textbook ``∂³`` on top would double them. The
+optional ``n_derivatives`` knob exposes that explicit form (e.g. 3 = the textbook
+Born ``∂³`` for a derivative-free excitation).
+
+Field II parallel (for adoption): Field II uses the same convention — ``calc_hhp``
+and ``calc_scat`` apply no round-trip ∂/∂t (``calc_scat`` for a unit point equals
+``calc_hhp``), the derivatives living in the pulse and impulse responses — so the
+``n_derivatives=0`` RF coincides with Field II (corr≈1.0000).
 
 Public API (output axis ``[emission, reception, Nt]``, channels before time;
 ``coords["t0"]`` beam-axis referenced):
     pulse_echo_rf          core; (Erx,Nt) summed / (P,Erx,Nt) per_scatterer (PSF)
-    sequence_rf            per TX event → (Nev,Erx,Nt)            [in ReceptionMixin]
-    synthetic_aperture_rf  per element/group DW basis → (Ntx,Erx,Nt)   [mixin]
-    scan_focusline         one DAS-beamformed line envelope        [mixin]
+    sequence_rf            per TX event → (Nev,Erx,Nt)            [in ReceptionBase]
+    synthetic_aperture_rf  per element/group DW basis → (Ntx,Erx,Nt)   [base]
+    scan_focusline         one focused line, RX summed in-kernel    [base]
     __call__ = pulse_echo_rf
 
 Supports ``"naive"``, ``"sdi"``, and ``"auto"`` SIR methods. See `ReceptionSDI`
-for the faster formulation (PE-SDI kernel bakes 3 derivatives, stripped by three
-frequency-domain integrations to the same zero-derivative result).
+for the faster formulation (PE-SDI kernel carries the 3 derivatives on the SIR for
+speed, then integrates them back onto the excitation/IR chain — same result).
 """
 
 import time
-import warnings
 
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
 from pyfield.hsir.transducer_sir import compute_h_sir
-from pyfield.utilities.helper_functions import (
-    compute_sub_elem_attributes,
-    compute_time_grid,
-)
+from pyfield.utilities.helper_functions import compute_time_grid
 
 from ..attenuation import causal_attenuation_tf, compute_reception_distances
-from ._common import ReceptionMixin, _anti_alias_decimate
-
-
-def _next_pow2(n):
-    return 1 << (int(n - 1).bit_length())
-
-
-def _warn_if_rx_delays_apods_not_default(rx):
-    """Warn when RX delays are nonzero or apodization is non-uniform.
-
-    Reception applies the RX delays and apodization PER RECEIVE ELEMENT inside the
-    SIR (each element's trace is time-shifted by its delay and scaled by its
-    apodization weight); it does NOT sum over receive elements. That is intentional
-    so receive-side weighting can be modelled, but it means a weighted/focused RX
-    transducer changes the raw per-element RF. Detection is value-based: only fires
-    when the weights would actually affect the signal (so an unfocused RX, or
-    ``rx = tx.copy()`` of an unfocused TX, stays silent).
-    """
-    if np.any(np.asarray(rx.delays) != 0.0) or not np.allclose(rx.apodization, 1.0):
-        warnings.warn(
-            "RX apodization/delays are non-default and ARE applied per receive "
-            "element (each element's RF is time-shifted and scaled in the SIR; no "
-            "receive sum is performed). Intentional for receive-side weighting; for "
-            "raw per-element RF leave the RX transducer unfocused (zero delays, unit "
-            "apodization).",
-            UserWarning,
-            stacklevel=3,
-        )
+from .base import (
+    ReceptionBase,
+    _anti_alias_decimate,
+    _next_pow2,
+    _warn_if_rx_delays_apods_not_default,
+    _wrap_tqdm,
+)
 
 
 def _method_to_flag(method):
@@ -73,29 +57,21 @@ def _method_to_flag(method):
     return None  # auto
 
 
-def _wrap_tqdm(iterable, **kwargs):
-    """Wrap with tqdm if importable, else return plain iterable."""
-    try:
-        from tqdm import tqdm
+class Reception(ReceptionBase):
+    """Conventional Tupholme-Stepanishen pulse-echo RF simulation.
 
-        return tqdm(iterable, **kwargs)
-    except ImportError:
-        return iterable
-
-
-class Reception(ReceptionMixin):
-    """Conventional FieldII-style pulse-echo RF simulation.
-
-    Computes received signals using the standard Tupholme-Stepanishen SIR
-    formulation. The SIR kernels h_tx and h_rx are computed without
-    differentiation; the recorded pulse-echo RF (Field II ``calc_scat`` ≡
-    ``calc_hhp`` for a point) is the zero-derivative convolution
+    Computes received signals using the standard SIR formulation. The SIR kernels
+    h_tx and h_rx are computed without differentiation; the recorded pulse-echo RF
+    is the convolution
 
         rf = (ρ₀/2c₀²) Σ_i a_i (exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe)|_{r_i}
 
-    with ``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` the plain two-way SIR. Public API
-    via `pulse_echo_rf` (core) plus `sequence_rf` / `synthetic_aperture_rf` /
-    `scan_focusline` from `ReceptionMixin`.
+    with ``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` the plain two-way SIR. The three
+    physical excitation derivatives are carried by the band-limited exc/IR chain,
+    so no extra explicit ∂/∂t is applied (``n_derivatives=0``); this is Field II's
+    convention (``calc_scat`` ≡ ``calc_hhp`` for a point). Public API via
+    `pulse_echo_rf` (core) plus `sequence_rf` / `synthetic_aperture_rf` /
+    `scan_focusline` from `ReceptionBase`.
 
     Parameters
     ----------
@@ -164,130 +140,8 @@ class Reception(ReceptionMixin):
         _warn_if_rx_delays_apods_not_default(self.rx)
 
     # ------------------------------------------------------------------
-    # Sub-element state management
+    # Backend-specific helpers
     # ------------------------------------------------------------------
-
-    def _refresh_sub_elem_attributes(self):
-        """Extract patch arrays from both TX and RX transducers."""
-        (
-            self._tx_centers,
-            self._tx_apod,
-            self._tx_delays,
-            self._tx_M,
-            _,
-            self._tx_wx,
-            self._tx_wy,
-            self._tx_sub_el_idx,
-        ) = compute_sub_elem_attributes(self.tx)
-        self._tx_wx_max = float(self._tx_wx.max())
-        self._tx_wy_max = float(self._tx_wy.max())
-        tx_frames = self.tx.sub_patch_frames
-        self._tx_eu = np.asarray(tx_frames["tangents_u"], dtype=np.float32)
-        self._tx_ev = np.asarray(tx_frames["tangents_v"], dtype=np.float32)
-
-        (
-            self._rx_centers,
-            self._rx_apod,
-            self._rx_delays,
-            self._rx_M,
-            _,
-            self._rx_wx,
-            self._rx_wy,
-            self._rx_sub_el_idx,
-        ) = compute_sub_elem_attributes(self.rx)
-        self._rx_wx_max = float(self._rx_wx.max())
-        self._rx_wy_max = float(self._rx_wy.max())
-        rx_frames = self.rx.sub_patch_frames
-        self._rx_eu = np.asarray(rx_frames["tangents_u"], dtype=np.float32)
-        self._rx_ev = np.asarray(rx_frames["tangents_v"], dtype=np.float32)
-
-    # ------------------------------------------------------------------
-    # Runtime parameter update
-    # ------------------------------------------------------------------
-
-    def set(self, name: str, value):
-        """Update a simulation parameter at runtime.
-
-        Parameters
-        ----------
-        name : str
-            One of: "c", "rho", "fs", "alpha0", "freq_power", "excitation",
-            "method", "verbose", "tx", "rx".
-        value : object
-            New value for the parameter.
-
-        Raises
-        ------
-        ValueError
-            If name is not a recognized parameter.
-        TypeError
-            If value has the wrong type.
-        """
-        if name in ("tx", "rx"):
-            setattr(self, name, value)
-            self._refresh_sub_elem_attributes()
-            return
-        if name not in self._SETTABLE:
-            raise ValueError(
-                f"Unknown parameter '{name}'. "
-                f"Valid: {['tx', 'rx'] + list(self._SETTABLE)}"
-            )
-        expected = self._SETTABLE[name][0]
-        if not isinstance(value, expected):
-            raise TypeError(f"'{name}' expects {expected}, got {type(value)}")
-        if name == "excitation" and value is not None:
-            value = np.asarray(value, dtype=np.float32)
-        setattr(self, name, value)
-
-    # ------------------------------------------------------------------
-    # Private helpers
-    # ------------------------------------------------------------------
-
-    def _resolve_excitation(self):
-        """Return effective excitation: self.excitation or tx.excitation."""
-        exc = self.excitation
-        if exc is None:
-            tx_exc = getattr(self.tx, "excitation", None)
-            if tx_exc is not None:
-                exc = np.asarray(tx_exc, dtype=np.float32).ravel()
-        return exc
-
-    def _extract_rx_element_patches(self):
-        """Pre-extract per-RX-element patch arrays."""
-        n_rx = int(self.rx.delays.shape[0])
-        slices = []
-        for e in range(n_rx):
-            mask = self._rx_sub_el_idx == e
-            slices.append(
-                (
-                    self._rx_centers[mask],
-                    self._rx_wx[mask],
-                    self._rx_wy[mask],
-                    self._rx_apod[mask],
-                    self._rx_delays[mask],
-                    self._rx_eu[mask],
-                    self._rx_ev[mask],
-                )
-            )
-        return slices
-
-    def _validate_scatterer_inputs(self, positions_mm, amplitudes):
-        """Normalise and validate positions + amplitudes, return (points_m, amps)."""
-        pts_mm = np.asarray(positions_mm, dtype=np.float32)
-        if pts_mm.ndim == 1 and pts_mm.shape[0] == 3:
-            pts_mm = pts_mm.reshape(1, 3)
-        points_m = pts_mm * np.float32(1e-3)
-        P = points_m.shape[0]
-        if amplitudes is None:
-            amps = np.ones(P, dtype=np.float32)
-        else:
-            amps = np.asarray(amplitudes, dtype=np.float32)
-            if amps.shape[0] != P:
-                raise ValueError(
-                    f"amplitudes length ({amps.shape[0]}) must match "
-                    f"number of positions ({P})."
-                )
-        return points_m, amps
 
     def _compute_sir_time_grids(self, points_m):
         """Compute separate TX and RX time grids.
@@ -326,7 +180,14 @@ class Reception(ReceptionMixin):
     # ------------------------------------------------------------------
 
     def _compute_rf_inner(
-        self, points_m, amps, *, n_derivatives=3, downsampling=None, per_scatterer=False
+        self,
+        points_m,
+        amps,
+        *,
+        n_derivatives=3,
+        downsampling=None,
+        per_scatterer=False,
+        focused_sum=False,
     ):
         """Shared computation core for pulse_echo_rf (and the mixin wrappers).
 
@@ -337,14 +198,24 @@ class Reception(ReceptionMixin):
         amps : (P,) numpy.ndarray
             Scattering amplitudes (float32).
         n_derivatives : int, default 3
-            Number of temporal derivatives applied in the frequency domain via
-            ``(jω)^n``. 3 = scattered RF (Field II ``calc_scat``); 0 = pulse-echo
-            response / point-spread function (Field II ``calc_hhp``, the bare
-            exc⊛ir⊛ir⊛h convolution).
+            Number of EXTRA explicit temporal derivatives applied in the frequency
+            domain via ``(jω)^n``, on top of the exc/IR chain. 0 = the practical
+            pulse-echo RF: the three physical derivatives are already carried by
+            ``exc ⊛ ir_tx ⊛ ir_rx``, so the bare convolution is taken (Field II
+            ``calc_scat`` ≡ ``calc_hhp``). 3 = the textbook Born ``∂³`` form, valid
+            only for a derivative-free excitation (would double-differentiate the
+            band-limited exc/IR used here).
         downsampling : int or None, default None
             Downsample output by this factor.
         per_scatterer : bool, default False
             If True return ``(P, Nt, E_rx)``. If False return ``(Nt, E_rx)``.
+        focused_sum : bool, default False
+            If True, beamform on receive INSIDE the SIR: ``h_rx`` is computed over
+            ALL RX patches at once (carrying their focusing ``rx.delays`` +
+            ``rx.apodization``), so the patch sum is the focused, apodized receive
+            line — Field II ``calc_scat``'s internal receive beamforming. Output
+            collapses the RX axis to 1 (``(1, Nt)``), needing no external DAS.
+            Mutually exclusive with ``per_scatterer``.
 
         Returns
         -------
@@ -352,9 +223,30 @@ class Reception(ReceptionMixin):
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
+        if focused_sum and per_scatterer:
+            raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
         P = points_m.shape[0]
         n_rx = int(self.rx.delays.shape[0])
-        rx_slices = self._extract_rx_element_patches()
+        # focused_sum: one group = all RX patches (their sum is the beamformed
+        # line). otherwise: one group per RX element → per-channel RF.
+        if focused_sum:
+            rx_groups = [
+                (
+                    self._rx_centers,
+                    self._rx_wx,
+                    self._rx_wy,
+                    self._rx_apod,
+                    self._rx_delays,
+                    self._rx_eu,
+                    self._rx_ev,
+                )
+            ]
+        else:
+            rx_groups = self._extract_rx_element_patches()
+        n_out = len(rx_groups)
+        show = (
+            self.verbose and not focused_sum
+        )  # focused_sum is the quiet loop primitive
         method_flag = _method_to_flag(self.method)
 
         time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx = (
@@ -374,8 +266,9 @@ class Reception(ReceptionMixin):
         nfft = _next_pow2(pe_T + L)
         freqs = rfftfreq(nfft, d=1.0 / self.fs)  # (N_freq,) float64 for precision
 
-        # Temporal derivative factor in freq domain: (j*2*pi*f)^n.
-        # n=3 → scattered RF (calc_scat); n=0 → pulse-echo response (calc_hhp, (jω)^0=1).
+        # Extra explicit derivative factor in freq domain: (j*2*pi*f)^n.
+        # n=0 → exc/IR chain already carries the 3 physical derivatives ((jω)^0=1);
+        # n=3 → textbook Born ∂³ (derivative-free excitation only).
         jw_pow = (1j * 2.0 * np.pi * freqs) ** n_derivatives
 
         # Pre-compute excitation * (jω)^n FFT.
@@ -408,9 +301,12 @@ class Reception(ReceptionMixin):
                 axis=0
             )
             rx_elem_centers_m = np.asarray(self.rx.element_centers, dtype=np.float64)
+            # focused_sum collapses the RX axis, so use one aperture-centroid path.
+            if focused_sum:
+                rx_elem_centers_m = rx_elem_centers_m.mean(axis=0, keepdims=True)
             distances_pe = compute_reception_distances(
                 points_m.astype(np.float64), tx_center_m, rx_elem_centers_m
-            )  # (P, E_rx)
+            )  # (P, n_out)
 
         # Continuous-convolution dt factor for h_tx ⊛ h_rx.
         # H_pe = irfft(H_tx · H_rx) is a *discrete* convolution Σ_k h_tx[k] h_rx[n-k],
@@ -424,15 +320,11 @@ class Reception(ReceptionMixin):
         # larger than `ReceptionSDI` by exactly fs = 1/dt (verified fc-independent).
         scale = np.float32(self.rho / (2.0 * self.c**2) * dt)
 
-        if self.verbose:
+        if show:
             mode = (
-                "scattered RF (calc_scat)"
-                if n_derivatives == 3
-                else (
-                    "pulse-echo response (calc_hhp)"
-                    if n_derivatives == 1
-                    else f"custom (jω)^{n_derivatives}"
-                )
+                "pulse-echo RF (exc/IR carry ∂³; calc_scat ≡ calc_hhp)"
+                if n_derivatives == 0
+                else f"+{n_derivatives} explicit ∂/∂t (textbook Born = 3)"
             )
             print("\n--- Reception (conventional) ---")
             print(f"  Quantity   : {mode}")
@@ -475,21 +367,22 @@ class Reception(ReceptionMixin):
         del h_tx
 
         rf = np.zeros(
-            (P, n_rx, pe_T) if per_scatterer else (n_rx, pe_T), dtype=np.float32
+            (P, n_out, pe_T) if per_scatterer else (n_out, pe_T), dtype=np.float32
         )
 
         el_iter = (
-            _wrap_tqdm(range(n_rx), desc="RX elements", total=n_rx, leave=True)
-            if self.verbose
-            else range(n_rx)
+            _wrap_tqdm(range(n_out), desc="RX elements", total=n_out, leave=True)
+            if show
+            else range(n_out)
         )
 
         for e_rx in el_iter:
-            # rx_ap / rx_dl carry this element's RX apodization + delays. They are
-            # applied here PER ELEMENT (scale + time-shift in the SIR) and are NOT
-            # summed across RX elements. Non-default RX weighting therefore changes
-            # the raw per-element RF — see _warn_if_rx_delays_apods_not_default.
-            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_slices[e_rx]
+            # rx_ap / rx_dl carry this group's RX apodization + delays. Per element
+            # (focused_sum=False) they shift/scale that element's trace and are NOT
+            # summed across elements (raw per-channel RF — see the warning). With
+            # focused_sum the single group holds every RX patch, so the patch sum
+            # is one focusing-delayed, apodized beamformed line.
+            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_groups[e_rx]
             M_e = rx_c.shape[0]
 
             # Compute h_rx for this element's patches: (P, T_rx).
@@ -546,13 +439,17 @@ class Reception(ReceptionMixin):
                 rf[e_rx, :] = (rf_channel * scale).astype(np.float32)
             del rf_pe
 
-        if self.verbose:
+        if show:
             print(f"Reception computed in {time.time() - t_wall:.2f} s\n")
 
         # t0 referenced to the beam axis: subtract the TX focusing bulk
         # (delays.max(), the centre/last-firing element delay) so downstream
         # beamforming needs no per-line bulk correction. See pulse_echo_rf.
+        # focused_sum also bakes the RX focusing delays into the line, so subtract
+        # the RX bulk too (mirror of TX) to keep the depth mapping correct.
         t0 = pe_t0 - float(np.max(self.tx.delays))
+        if focused_sum:
+            t0 -= float(np.max(self.rx.delays))
         coords = {"t0": t0, "dt": dt}
         if downsampling is not None and int(downsampling) > 1:
             step = int(downsampling)
@@ -569,17 +466,19 @@ class Reception(ReceptionMixin):
         per_scatterer=False,
         downsampling=None,
     ):
-        """Pulse-echo RF from point scatterers (Field II ``calc_scat``/``calc_hhp``).
+        """Pulse-echo RF from point scatterers.
 
         The core reception primitive. The recorded pulse-echo signal is the
         amplitude-weighted superposition of each scatterer's pulse-echo response::
 
             rf = (ρ₀/2c₀²) Σ_i a_i (exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe)|_{r_i}
 
-        with NO extra temporal derivative — Field II ``calc_scat`` for a unit point
-        scatterer is identical to ``calc_hhp`` (verified, corr 1.0000), so this is
-        matched with ``n_derivatives=0`` (the old "3 Born derivatives" convention
-        was not Field II's behaviour and inflated the RF by ~(jω)³≈10²²).
+        The three physical excitation derivatives are carried by the band-limited
+        ``exc ⊛ ir_tx ⊛ ir_rx`` chain, so NO extra explicit ∂/∂t is applied
+        (``n_derivatives=0``); applying the textbook ``∂³`` on top would
+        double-differentiate (the discarded "3 Born derivatives" convention
+        inflated the RF by ~(jω)³≈10²²). Field II uses the same convention, so this
+        equals its ``calc_scat`` (≡ ``calc_hhp`` for a unit point, corr 1.0000).
 
         ``per_scatterer=True`` keeps each scatterer separate — the point-spread
         function (PSF) use; ``False`` sums them (the recorded echo).
@@ -617,6 +516,24 @@ class Reception(ReceptionMixin):
             downsampling=downsampling,
             per_scatterer=per_scatterer,
         )
+
+    def _focused_sum_rf(self, points_m, amps, *, downsampling=None):
+        """Receive-beamformed line via in-kernel focused sum.
+
+        Backend hook for `ReceptionBase.scan_focusline`: the pulse-echo RF
+        (``n_derivatives=0`` — no extra explicit ∂/∂t, the exc/IR chain carries
+        the physical derivatives) with ``focused_sum=True``. Returns the single
+        line ``(Nt,)`` and its coords. Field II's ``calc_scat`` builds its line
+        the same way (focused, apodized, summed on receive).
+        """
+        rf, coords = self._compute_rf_inner(
+            points_m,
+            amps,
+            n_derivatives=0,
+            downsampling=downsampling,
+            focused_sum=True,
+        )
+        return rf[0], coords
 
     def __repr__(self) -> str:
         return (

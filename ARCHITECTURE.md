@@ -109,8 +109,12 @@ Two reception classes are available:
 - `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx`, FFT differentiation. Slower but exact match to Field II arithmetic.
 
 **Public API** (axis order `[emission, reception, Nt]` — channels before time;
-`coords["t0"]` beam-axis referenced). All return zero-derivative RF matching
-Field II (`calc_scat` ≡ `calc_hhp` for a point):
+`coords["t0"]` beam-axis referenced). The pulse-echo signal physically carries the
+3rd derivative of the excitation (`v_pe = ρ₀/2c₀² · E_m ⊛ ∂³v/∂t³`), but in practice
+that ∂³ is baked into the band-limited excitation + impulse responses
+(`∝ e ⊛ h_e ⊛ h_r`), so no method applies an explicit extra ∂/∂t. Field II uses the
+same convention (`calc_scat` ≡ `calc_hhp` for a point), so all methods coincide with
+it:
 | Method | Field II | Output |
 |--------|----------|--------|
 | `pulse_echo_rf(pts, amp)` = `__call__` | `calc_scat`/`calc_hhp` | `(Erx, Nt)` summed · `(P, Erx, Nt)` `per_scatterer` (PSF) |
@@ -120,14 +124,20 @@ Field II (`calc_scat` ≡ `calc_hhp` for a point):
 
 `pulse_echo_rf` is the core engine; `sequence_rf` loops it; `synthetic_aperture_rf`
 = sequence with auto per-element/group events (zero delay, unit apod) + anti-aliased
-decimation + size guard; `scan_focusline` recomputes TX focus/apod then beamforms via
-`pyfield.beamforming.DAS_focused_scanline`. The three wrappers live in
-`ReceptionMixin` (`reception/_common.py`), shared by both classes.
+decimation + size guard; `scan_focusline` recomputes TX **and** RX focus/apod (RX
+mirrors TX by default; `rx_FoverD`/`rx_apodization_type` override) then beamforms on
+receive INSIDE the SIR kernel (`focused_sum=True`: all RX patches summed in one
+`compute_pe_sdi`/`compute_h_sir` call → one FFT pair, no external DAS). These shared
+methods plus all common state (`set`, patch extraction, validation) live in
+`ReceptionBase` (`reception/base.py`); each subclass adds only its constructor,
+time-grid helper, `_compute_rf_inner`, and the convention wrappers.
 
-`ReceptionSDI` strips the 3 baked PE-SDI derivatives by dividing by `(jω)³` in the
-frequency domain (no group delay → sample-aligned with `Reception`'s `(jω)⁰=1`).
-Field II `calc_hhp`/`calc_scat` carry no round-trip ∂/∂t, so both classes match
-corr≈1.0000 at the RF level (per-element RF verified 0.997 vs `calc_scat_multi`).
+The 3 physical derivatives are carried by the exc/IR chain, so neither class applies
+an explicit ∂³: `Reception` uses `(jω)⁰=1`; `ReceptionSDI`'s kernel places the 3 on
+the SIR for speed, then divides by `(jω)³` in the frequency domain (no group delay →
+sample-aligned with `Reception`) to relocate them onto the exc/IR chain. Field II
+shares this convention, so both classes match it corr≈1.0000 at the RF level
+(per-element RF verified 0.997 vs `calc_scat_multi`).
 
 ```python
 from pyfield.reception import ReceptionSDI  # or Reception for conventional
@@ -170,8 +180,8 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `ReceptionSDI` uses the PE SDI kernel (`compute_pe_sdi`); `pulse_echo_rf` divides by `(jω)³` in freq domain to strip the 3 baked kernel derivatives (Field II match = 0 net derivatives)
-- `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with `(jω)⁰=1` (zero derivatives, matching Field II)
+- `ReceptionSDI` uses the PE SDI kernel (`compute_pe_sdi`); `pulse_echo_rf` divides by `(jω)³` in freq domain to relocate the kernel's 3 derivatives onto the exc/IR chain (which physically carries them)
+- `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with `(jω)⁰=1` (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
 - Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
 

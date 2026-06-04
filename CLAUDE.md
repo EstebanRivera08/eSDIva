@@ -119,14 +119,22 @@ p, coords = sim(field_points, method="auto")       # always returns (pressure, c
 ```
 
 **Reception** (pulse-echo RF): two classes — `ReceptionSDI` (fast PE-SDI kernel,
-default) and `Reception` (conventional FieldII-style, exact match), same API. Four
-methods (axis `[emission, reception, Nt]`; all zero-derivative, matching Field II
-`calc_scat`≡`calc_hhp`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True`
-gives the PSF), `sequence_rf` (PW/DW event sweep), `synthetic_aperture_rf`
-(FMC/`calc_scat_all`, per-element DW basis, decimated), `scan_focusline` (one
-conventional focused B-mode line). Takes separate TX/RX transducers + scatterer
-positions; returns per-element RF `(Erx, Nt)`. `coords["t0"]` is beam-axis
-referenced. Full details in `ARCHITECTURE.md`.
+default) and `Reception` (conventional Tupholme-Stepanishen), same API, sharing
+`ReceptionBase` (`base.py`). Physics: the pulse-echo signal carries the 3rd
+derivative of the excitation (`v_pe = ρ₀/2c₀² · E_m ⊛ ∂³v/∂t³`); in practice that
+∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
+(`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither class applies an explicit ∂³.
+`ReceptionSDI`'s kernel puts the 3 derivatives on the SIR for speed, then
+integrates 3× (`÷(jω)³`) to relocate them back onto the exc/IR chain; `Reception`
+never adds them (`n_derivatives=0`). Field II uses the same convention
+(`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — that's the
+adoption parallel, not the justification. Four methods (axis `[emission, reception,
+Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
+`sequence_rf` (PW/DW event sweep), `synthetic_aperture_rf` (FMC/`calc_scat_all`,
+per-element DW basis, decimated), `scan_focusline` (one focused B-mode line, RX
+summed in-kernel). Takes separate TX/RX transducers + scatterer positions; returns
+per-element RF `(Erx, Nt)`. `coords["t0"]` is beam-axis referenced. Full details in
+`ARCHITECTURE.md`.
 
 ```python
 from pyfield.reception import ReceptionSDI
@@ -193,7 +201,14 @@ For monochromatic CW: `p_e,cw(r) = |H(r, omega_c)|` (SIR Fourier transform at fc
 
 ### 6. PE SDI (Pulse-Echo Combined SDI)
 
-Instead of computing dh_tx and d2h_rx separately then FFT-convolving:
+The pulse-echo signal physically carries the 3rd derivative of the excitation:
+
+    v_pe(t) = (rho_0/2c_0^2) * E_m(t) *_t d3v/dt3   ∝   e(t) *_t h_e(t) *_t h_r(t)
+
+Those 3 derivatives can ride on either factor of the convolution. In a REAL system
+d3v/dt3 is never formed explicitly — it is baked into the band-limited excitation
+e and the TX/RX impulse responses h_e, h_r (right-hand proportionality). For SPEED
+the PE-SDI kernel instead puts the 3 derivatives on the SIR:
 
     zeta_pe = d2h^e *_t d2h^r = 16 Dirac deltas per (m_e, m_r) pair
 
@@ -202,11 +217,16 @@ Each TX corner (4) × each RX corner (4) = 16 delta events.
 
     Dh_pe = integral(zeta_pe)
 
-Received signal (Born approximation):
+Received signal (excitation enters at zero derivative — the 3 are in Dh_pe):
 
     p_r(t) = (rho_0/2c_0^2) * f_m(r) *_r [(E_m * v) *_t Dh_pe(r, t)]
 
-Note: no derivative on v — derivatives already absorbed into Dh_pe.
+But the practical chain e *_t h_e *_t h_r ALREADY carries the 3 physical
+derivatives, so using it with Dh_pe would differentiate 6×. The public RF therefore
+INTEGRATES 3× (÷(jω)³) to strip the kernel's copies, relocating the single physical
+set onto the exc/IR chain. Conventional `Reception` simply never adds them
+(`n_derivatives=0`). Field II uses the same convention (no explicit d3 in
+calc_scat/calc_hhp), so both coincide with it.
 
 ### 7. Causal Power-Law Attenuation
 
