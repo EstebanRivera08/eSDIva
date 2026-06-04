@@ -17,6 +17,10 @@ serve-docs:
 clean-docs:
     Remove-Item -Recurse -Force -ErrorAction SilentlyContinue .cache/, site/
 
+# Clean graphify non-crucial cache/state (keeps graph.json/html, GRAPH_REPORT.md, manifest.json).
+clean-graphify:
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue graphify-out/cache/, graphify-out/cost.json, graphify-out/.graphify_labels.json, graphify-out/.graphify_root, graphify-out/.graphify_python
+
 # Run all tests (without visual regression comparison).
 test:
     uv run pytest tests/
@@ -36,6 +40,7 @@ coverage:
 # Aliases
 alias d := docs
 alias cd := clean-docs
+alias cg := clean-graphify
 alias sd := serve-docs
 alias t := test
 alias pc := pre-commit
