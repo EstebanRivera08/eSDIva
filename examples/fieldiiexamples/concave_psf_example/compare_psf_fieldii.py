@@ -188,9 +188,7 @@ sim_naive = Reception(
     method="naive",
     verbose=False,
 )
-rf_naive, coords_naive = sim_naive.pulse_echo_rf(
-    field_points_mm, per_scatterer=True
-)
+rf_naive, coords_naive = sim_naive.pulse_echo_rf(field_points_mm, per_scatterer=True)
 t_naive = time.time() - t_start
 print(f"  Done in {t_naive:.2f} s")
 

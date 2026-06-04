@@ -6,7 +6,7 @@ at a single point while all RX elements receive simultaneously.
 
   1. Focused TX + flat RX (same transducer, different delay laws)
   2. Reception with and without excitation pulse
-  3. RF data shape: ``(Nt, E_rx)`` — one time trace per RX channel
+  3. RF data shape: ``(E_rx, Nt)`` — one time trace per RX channel
   4. Visualisation: RF waterfall image + single-channel envelope
 
 Run with:
@@ -78,10 +78,10 @@ scatterer_amp = np.array([1.0, 0.7, 0.7], dtype=np.float32)
 # ============================================================================
 sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
 rf, coords = sim(scatterer_pos, scatterer_amp)
-# rf.shape = (Nt, E_rx)
+# rf.shape = (E_rx, Nt)
 
-t = coords["t0"] + np.arange(rf.shape[0]) * coords["dt"]
-print(f"\nRF shape: {rf.shape}  (Nt, E_rx)")
+t = coords["t0"] + np.arange(rf.shape[1]) * coords["dt"]
+print(f"\nRF shape: {rf.shape}  (E_rx, Nt)")
 print(f"Time range: {t[0] * 1e6:.2f} – {t[-1] * 1e6:.2f} µs")
 
 # ============================================================================
@@ -92,9 +92,9 @@ fig, axes = plt.subplots(1, 3, figsize=(15, 5))
 # RF waterfall image (all channels)
 ax = axes[0]
 ax.imshow(
-    rf / (np.abs(rf).max() + 1e-30),
+    rf.T / (np.abs(rf).max() + 1e-30),  # (E_rx, Nt) → (Nt, E_rx) for time-on-y
     aspect="auto",
-    extent=[0, rf.shape[1] - 1, t[-1] * 1e6, t[0] * 1e6],
+    extent=[0, rf.shape[0] - 1, t[-1] * 1e6, t[0] * 1e6],
     cmap="RdBu",
     vmin=-1,
     vmax=1,
@@ -105,8 +105,8 @@ ax.set_title("RF data (all channels)")
 
 # Single channel (centre element) RF trace
 ax = axes[1]
-ch = rf.shape[1] // 2
-ax.plot(t * 1e6, rf[:, ch], "b", linewidth=0.7)
+ch = rf.shape[0] // 2
+ax.plot(t * 1e6, rf[ch, :], "b", linewidth=0.7)
 ax.set_xlabel("Time (µs)")
 ax.set_ylabel("Amplitude")
 ax.set_title(f"Single channel (element {ch})")
@@ -114,7 +114,7 @@ ax.grid(True, alpha=0.3)
 
 # Log-compressed envelope of centre channel
 ax = axes[2]
-env = np.abs(hilbert(rf[:, ch].astype(np.float64)))
+env = np.abs(hilbert(rf[ch, :].astype(np.float64)))
 env_db = to_dB(env)
 ax.plot(t * 1e6, env_db, "k", linewidth=0.8)
 ax.set_xlabel("Time (µs)")

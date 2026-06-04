@@ -87,9 +87,7 @@ print(f"Simulating {len(X_SCAT_MM)} lateral positions at z={SCATTERER_Z_MM} mm .
 print("\n  [1/2] Reception(method='naive') ...")
 t_start = time.time()
 sim_naive = Reception(tx, rx, fs=FS, c=C, method="naive", verbose=False)
-rf_naive, coords_naive = sim_naive.pulse_echo_rf(
-    field_points_mm, per_scatterer=True
-)
+rf_naive, coords_naive = sim_naive.pulse_echo_rf(field_points_mm, per_scatterer=True)
 t_naive = time.time() - t_start
 print(f" Done in {t_naive:.2f} s")
 

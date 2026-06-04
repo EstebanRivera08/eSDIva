@@ -105,13 +105,14 @@ excitation = pulse.copy()
 # ============================================================================
 # STEP 2-4: SCAN — one focused line per lateral position via scan_focusline
 # ============================================================================
-# `scan_focusline` recomputes the TX focus + apodization for each focal point,
-# simulates the pulse-echo RF, DAS-beamforms the line (RX focus = same point) and
-# returns its envelope — the conventional line-by-line acquisition, exactly as a
-# scanner builds a B-mode (cf. Field II's psf example filling image_data(:,i)).
-# `coords["t0"]` is beam-axis referenced inside scan_focusline, so no manual bulk
-# correction is needed; we only map each line's time axis to display depth.
-sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
+# `scan_focusline` recomputes the TX *and* RX focus + apodization for each focal
+# point (RX mirrors TX here) and beamforms on receive INSIDE the SIR kernel
+# (focused_sum), returning the line envelope directly — exactly Field II's
+# calc_scat, which focuses + apodizes both apertures and sums on receive to fill
+# image_data(:,i). `coords["t0"]` is beam-axis referenced (TX+RX focusing bulk
+# subtracted), so no manual bulk correction is needed; we only map each line's
+# time axis to display depth.
+sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation, verbose=False)
 common_depth_mm = np.arange(9.0, 120.0 + 0.05, 0.05)  # shared display axis
 env_lines = []
 for x in X_LINES_MM:
@@ -125,8 +126,8 @@ for x in X_LINES_MM:
             apodization_type=APOD_TYPE,
         )
     depth_line_mm = (
-        coords["t0"] + np.arange(len(env_line)) * coords["dt"]
-    ) * C / 2 * 1e3
+        (coords["t0"] + np.arange(len(env_line)) * coords["dt"]) * C / 2 * 1e3
+    )
     env_lines.append(
         np.interp(common_depth_mm, depth_line_mm, env_line, left=0, right=0)
     )
@@ -152,8 +153,8 @@ plt.colorbar(im, ax=ax, label="dB")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Depth (mm)")
 ax.set_title(
-    "B-mode PSF image (mask) \n"
-    f"DAS focus at z={Z_FOCUS_MM} mm\n"
+    "B-mode PSF image\n"
+    f"TX/RX focus at z={Z_FOCUS_MM} mm\n"
     f"{NO_LINES} lines × {N_ACTIVE}/{N_ELEMENTS} act. elems.\n"
     f"3 MHz with apod = '{APOD_TYPE}'"
 )

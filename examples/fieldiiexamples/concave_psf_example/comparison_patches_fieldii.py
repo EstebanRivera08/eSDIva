@@ -325,12 +325,28 @@ try:
     with csv_path.open("w", newline="") as f:
         w = csv.writer(f)
         w.writerow(
-            ["ele_um", "n_patches", "peak_corr", "group_lag_ns", "phase_lag_ns",
-             "bw6_py_mm", "bw6_fii_mm"]
+            [
+                "ele_um",
+                "n_patches",
+                "peak_corr",
+                "group_lag_ns",
+                "phase_lag_ns",
+                "bw6_py_mm",
+                "bw6_fii_mm",
+            ]
         )
         for es, n_patches, corr_v, grp_v, phs_v, bwp, bwf in rows:
-            w.writerow([es, n_patches, f"{corr_v:.6f}", f"{grp_v:.3f}",
-                        f"{phs_v:.3f}", f"{bwp:.4f}", f"{bwf:.4f}"])
+            w.writerow(
+                [
+                    es,
+                    n_patches,
+                    f"{corr_v:.6f}",
+                    f"{grp_v:.3f}",
+                    f"{phs_v:.3f}",
+                    f"{bwp:.4f}",
+                    f"{bwf:.4f}",
+                ]
+            )
     print(f"Wrote {csv_path}")
 except PermissionError:
     print(f"WARNING: {csv_path} is locked (open elsewhere?); skipped CSV write.")
