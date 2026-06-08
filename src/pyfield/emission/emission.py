@@ -717,6 +717,20 @@ class Emission:
         3. ``excitation=(L,)`` → transient with global excitation convolution.
         4. ``excitation=(L, E)`` → transient with per-element excitation.
 
+        **FieldII equivalences** (same transducer geometry):
+
+        * Mode 2 → ``ρ₀ · h(r, t)``.  Equivalent to FieldII ``calc_h``;
+          with ``rho=1.0`` (PyField default) the arrays are numerically
+          identical up to floating-point precision.
+        * Mode 1 → ``|H(r, ω_c)|`` (SIR Fourier magnitude at fc).
+          Equivalent to FieldII ``calc_h`` → FFT → extract the fc bin.
+        * Mode 3 → ``ρ₀ · d(e ⊛ ir_tx)/dt ⊛ h(r, t)`` (pulsed acoustic
+          pressure), where ``ir_tx = tx.impulse_response`` if set, else the
+          bare excitation ``e`` is used directly (``dv_n/dt = de/dt``).
+          Equivalent to FieldII ``calc_hp`` with ``xdc_excitation(Th, e)``
+          and ``xdc_impulse(Th, ir_tx)`` set accordingly.
+        * Mode 4 → same as mode 3, one loop iteration per element.
+
         For modes 1–3, the per-element loop is triggered when
         ``alpha0 is not None and not fast_attenuation``.  When triggered,
         each element's h_sir is computed separately and attenuation uses the
