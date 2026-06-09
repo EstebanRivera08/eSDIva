@@ -105,8 +105,17 @@ common_t, [pxz_a, pyz_a] = align_to_common_time(
 ### Reception (Pulse-Echo RF Simulation)
 
 Two reception classes are available:
-- `ReceptionSDI` — PE SDI kernel (16 deltas per TX/RX patch pair, 1 cumsum). Fast, default choice.
-- `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx`, FFT differentiation. Slower but exact match to Field II arithmetic.
+- `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx` (each SIR built
+  separately, convolved by FFT). Depth-binned post-processing (see
+  [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes it
+  **the fast choice for real arrays** (many patches): cost ~`O(P·M + P·log nfft)`.
+  Beats Field II `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
+- `ReceptionSDI` — PE SDI kernel: builds the two-way SIR from the *product* of the
+  two delta trains (16 deltas per TX/RX patch pair, 1 cumsum). Cost ~`O(P·M_tx·M_rx)`
+  — **quadratic in patch count**, so faster only when `M` is small (few-patch /
+  monoelement transducers). Not depth-binned.
+
+Both give the same RF; pick by patch count.
 
 **Public API** (axis order `[emission, reception, Nt]` — channels before time;
 `coords["t0"]` beam-axis referenced). The pulse-echo signal physically carries the
@@ -324,6 +333,51 @@ Per RX element e_rx:
 - When IR is None, corresponding FFT term = 1 (identity).
 - Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
 - Memory: O(P × nfft) per RX element iteration — E_rx-independent.
+
+### Pulse-Echo Post-Processing & Depth Binning
+
+This is why `Reception` (conventional) is fast. After the SIR kernels run (which are
+*not* the bottleneck — ~6% of runtime), the work is the per-element convolution
+`h_pe = h_tx ⊛ h_rx`, done by FFT. Three layers cut its cost:
+
+**1. Sum scatterers before the IFFT.** The recorded RF sums over scatterers, and the
+excitation/IR filters `F` are the same for all of them. By linearity
+`Σ_p a_p · irfft(H_p · F) = irfft((Σ_p a_p H_p) · F)`, so the per-element loop does
+**one IFFT per element**, not one per scatterer. (`per_scatterer=True` keeps each
+scatterer, so it skips this.)
+
+**2. float32 FFTs.** The SIR is float32; FFTing in float32 → complex64 halves the
+dominant forward-FFT cost vs float64, with no meaningful accuracy loss.
+
+**3. Depth binning (`_fast_rf_binned`, `_auto_depth_bins`).** `nfft` is set by the
+time grid, which spans the *whole* scatterer cloud — so a scatterer at the focus
+(short SIR, ~200 samples) is padded to the same `nfft` as the farthest one (~2048).
+Fix: sort scatterers by depth and split into bins. Each bin spans a narrow depth
+range → short time grid → small `nfft`. Scatterers are still summed in frequency
+within a bin (layer 1), so it stays one IFFT per element per bin.
+
+Bins share **one sample lattice**: each bin's grid starts at `t0_global + n0·dt`
+(`_lattice_grid`), so every bin's per-element result drops into the global RF buffer
+at the exact integer sample offset `n0` — no interpolation, no sub-sample drift.
+(Skip this and the bins misalign by a fraction of a sample, giving ~25% error.)
+
+**Choosing the bin count** (`_auto_depth_bins`) balances two effects:
+- *Grid length*: more bins → shorter grids → smaller `nfft`. Diminishing once a bin
+  is as short as a single scatterer's SIR (≈ arrival_spread / 128 bins).
+- *Cache*: each bin's `H_tx`/`H_rx` FFT batch is reused across all RX elements; when
+  it fits in CPU cache the element loop is much faster. That caps the bin size at
+  ≈ `_SCATTERERS_PER_BIN` (~200) scatterers/bin — the dominant effect at high
+  `N_scat`. The auto rule is `n_bins ≈ max(spread/128, P/200)`, ≥128 scatterers/bin.
+
+Override with the `n_depth_bins` constructor arg (or `sim.set("n_depth_bins", N)`)
+to tune for a different CPU or `N_scat ≫ 10⁴`. The optimum is machine-dependent but
+broad; binning off (`n_depth_bins=1`) recovers the single-grid path.
+
+Result (Domino linear, E=128, M=1280, vs Field II `calc_scat_multi` time): N=100
+1.1×, N=1000 2.0×, N=10⁴ 2.1×. The 3 layers preserve the RF to ~4e-4 (binned vs
+unbinned) — within float/grid-snap tolerance. Attenuation, `per_scatterer`, and
+`focused_sum` keep the non-binned path. (`ReceptionSDI` is not binned — its cost is
+the `O(M²)` kernel, not the FFT.)
 
 ### sequence_rf
 

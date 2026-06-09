@@ -372,6 +372,28 @@ class ReceptionSDI(ReceptionBase):
                 rx_ev=rx_ev,
             )  # (P, pe_T) float32
 
+            # Fast path: only a per-element sum over scatterers is returned and the
+            # exc/IR/integration filters are identical across scatterers, so collapse
+            # the P scatterers FIRST — weighted sum of Dh_pe in the time domain — then
+            # run ONE FFT pair instead of P. irfft/rfft are linear and the filters are
+            # shared, so Σ_p a_p·irfft(rfft(Dh_p)·F) = irfft(rfft(Σ_p a_p·Dh_p)·F)
+            # exactly (float reordering only). Attenuation differs per scatterer, so it
+            # keeps the per-scatterer path below.
+            if not per_scatterer and not do_attenuation:
+                Dh_sum = amps @ Dh_pe  # (pe_T,) — BLAS matvec
+                del Dh_pe
+                H = rfft(Dh_sum, n=nfft, workers=-1)  # (N_freq,) ONE forward FFT
+                if inv_jw_pow is not None:
+                    H *= inv_jw_pow
+                if fft_v is not None:
+                    H *= fft_v
+                if fft_ir_tx is not None:
+                    H *= fft_ir_tx
+                if fft_ir_rx is not None:
+                    H *= fft_ir_rx
+                rf[e_rx, :] = (irfft(H, n=nfft)[:pe_T] * scale).astype(np.float32)
+                continue
+
             H_pe = rfft(Dh_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
             del Dh_pe
 

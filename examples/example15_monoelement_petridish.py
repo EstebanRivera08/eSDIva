@@ -24,6 +24,7 @@ import pyvista as pv
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
+from pyfield.emission import Emission
 from pyfield.plotting import (
     add_pressure_vol,
     add_stl_mesh,
@@ -31,7 +32,6 @@ from pyfield.plotting import (
     create_3Dvol_mesh,
     load_mesh_from_stl,
 )
-from pyfield.emission import Emission
 from pyfield.transducers import ConcaveCircularTransducer
 
 WIN_W, WIN_H = 500, 600
@@ -53,8 +53,11 @@ print("=" * 70)
 print("PyField + STL Mesh Visualisation Example")
 print("=" * 70)
 
+SAVE_FIG = True
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
+else:
+    SCALE = 1
 
 # ============================================================================
 # STEP 1: CREATE TRANSDUCER
@@ -77,9 +80,9 @@ field_points = {
     "x_extent": [-2, 2],
     "y_extent": [-2, 2],
     "z_extent": [18, 35],
-    "dx": 0.1,
-    "dy": 0.1,
-    "dz": 0.2,
+    "dx": 0.2,
+    "dy": 0.2,
+    "dz": 0.25,
 }
 
 sim = Emission(transducer, monochromatic=True, verbose=False)
@@ -134,6 +137,7 @@ plotter = add_pressure_vol(
     contour_levels=15,
     vmin=0,
     vmax=1,
+    show_scalar_bar=False,
     scalar_bar_args={
         "title": "Pressure (a.u.)",
         "title_font_size": 20 * SCALE,
@@ -157,10 +161,15 @@ if has_stl:
 
 plotter.camera.up = (0, 0, -1)
 plotter.camera_position = [
-    (-59.01688106487966, 71.55213364857292, 49.54316793764734),
-    (3.631094007909384, -0.9265847114160961, 18.48889861413802),
-    (0.42343180238636613, 0.6405023120483719, -0.6406733153398253),
+    (-53.67964565205763, 74.07757738542603, 55.263491914275875),
+    (3.5962218268199346, 0.18757271972784184, 17.819623870363255),
+    (0.45596127755931304, 0.6574370262898801, -0.5998965492729551),
 ]
+#         [
+#     (-59.01688106487966, 71.55213364857292, 49.54316793764734),
+#     (3.631094007909384, -0.9265847114160961, 18.48889861413802),
+#     (0.42343180238636613, 0.6405023120483719, -0.6406733153398253),
+# ]
 
 if SAVE_FIG:
     plotter.screenshot(str(FIG_FOLDER / "stl_simulation.png"))
@@ -168,6 +177,7 @@ else:
     plotter.show()
 
 plotter.close()
+print(plotter.camera_position)
 del sim, pressure_vol, tx_mesh, plotter
 if has_stl:
     del petri_dish

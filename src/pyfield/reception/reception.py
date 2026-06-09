@@ -57,6 +57,11 @@ def _method_to_flag(method):
     return None  # auto
 
 
+# Pulse-echo fast path splits scatterers into depth bins (see _auto_depth_bins).
+# Best ≈ this many scatterers per bin; override per instance with n_depth_bins.
+_SCATTERERS_PER_BIN = 200
+
+
 class Reception(ReceptionBase):
     """Conventional Tupholme-Stepanishen pulse-echo RF simulation.
 
@@ -95,6 +100,10 @@ class Reception(ReceptionBase):
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
     method : str, default "auto"
         SIR computation method: ``"naive"``, ``"sdi"``, or ``"auto"``.
+    n_depth_bins : "auto" or int, default "auto"
+        Pulse-echo speed knob. Scatterers are grouped into this many depth bins so
+        each bin uses a short FFT (big speedup at high scatterer counts). ``"auto"``
+        sizes it automatically; pass an int to tune for your CPU/scatterer count.
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -107,6 +116,7 @@ class Reception(ReceptionBase):
         "freq_power": (float, "Attenuation exponent"),
         "excitation": ((np.ndarray, type(None)), "Excitation pulse or None"),
         "method": (str, "SIR method: naive / sdi / auto"),
+        "n_depth_bins": ((int, str), "Pulse-echo depth bins: 'auto' or int"),
         "verbose": (bool, "Print diagnostics"),
     }
 
@@ -122,6 +132,7 @@ class Reception(ReceptionBase):
         freq_power=1.0,
         excitation=None,
         method="auto",
+        n_depth_bins="auto",
         verbose=True,
     ):
         self.tx = tx
@@ -135,6 +146,7 @@ class Reception(ReceptionBase):
             np.asarray(excitation, dtype=np.float32) if excitation is not None else None
         )
         self.method = method
+        self.n_depth_bins = n_depth_bins
         self.verbose = verbose
         self._refresh_sub_elem_attributes()
         _warn_if_rx_delays_apods_not_default(self.rx)
@@ -174,6 +186,211 @@ class Reception(ReceptionBase):
             verbose=False,
         )
         return time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx
+
+    # ------------------------------------------------------------------
+    # Depth-binned fast path (Field II-style bounded windows)
+    # ------------------------------------------------------------------
+
+    def _auto_depth_bins(self, points_m, n_out):
+        """Number of depth bins for the fast path (1 = no binning).
+
+        Two needs set the count: keep each bin's time grid short (≈ arrival spread
+        / 128) and keep each bin's FFT batch cache-resident
+        (≈ _SCATTERERS_PER_BIN scatterers/bin). See ARCHITECTURE.md for why.
+        """
+        P = points_m.shape[0]
+        if P < 128 or n_out < 2:
+            return 1
+        center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
+        arrival = 2.0 * np.linalg.norm(points_m - center, axis=1) / self.c
+        spread = float(arrival.max() - arrival.min()) * self.fs  # samples
+        n_bins = max(round(spread / 128), round(P / _SCATTERERS_PER_BIN))
+        return max(1, min(n_bins, P // 128))  # keep ≥128 scatterers/bin
+
+    def _lattice_grid(self, pts, M, centers, wx_max, wy_max, delays, t0_global):
+        """Time grid for ``pts`` snapped to the global sample lattice.
+
+        Returns ``(grid, n0, T)``: ``grid`` starts at ``t0_global + n0·dt`` so every
+        bin shares one lattice and per-bin results add at integer offset ``n0``.
+        """
+        dt = 1.0 / self.fs
+        _, t0, _, T = compute_time_grid(
+            pts.shape[0],
+            M,
+            pts,
+            centers,
+            wx_max,
+            wy_max,
+            self.c,
+            self.fs,
+            delays,
+            verbose=False,
+        )
+        n0 = int(np.floor((t0 - t0_global) / dt))
+        T += int(round((t0 - (t0_global + n0 * dt)) / dt)) + 1
+        grid = (t0_global + (n0 + np.arange(T)) * dt).astype(np.float32)
+        return grid, n0, T
+
+    def _fast_rf_binned(
+        self,
+        points_m,
+        amps,
+        rx_groups,
+        n_out,
+        method_flag,
+        *,
+        n_derivatives,
+        n_bins,
+        downsampling,
+    ):
+        """Pulse-echo RF, split into depth bins for short per-bin FFTs.
+
+        Same result as the inline fast path, but scatterers are grouped by depth so
+        each bin uses a tight time grid (smaller nfft). Bins share one sample lattice
+        (`_lattice_grid`), so the per-element results add at integer offsets. Used for
+        ``per_scatterer=False`` with no attenuation. See ARCHITECTURE.md.
+        """
+        dt = 1.0 / self.fs
+        inv_c = np.float32(1.0 / self.c)
+        scale = np.float32(self.rho / (2.0 * self.c**2) * dt)
+        exc = self._resolve_excitation()
+        ir_tx = getattr(self.tx, "impulse_response", None)
+        ir_rx = getattr(self.rx, "impulse_response", None)
+        L = len(exc) if exc is not None else 0
+
+        # Global lattice origin (also the reported t0); shared by every bin.
+        _, t0_tx_g, _, _ = compute_time_grid(
+            points_m.shape[0],
+            self._tx_M,
+            points_m,
+            self._tx_centers,
+            self._tx_wx_max,
+            self._tx_wy_max,
+            self.c,
+            self.fs,
+            self.tx.delays,
+            verbose=False,
+        )
+        _, t0_rx_g, _, _ = compute_time_grid(
+            points_m.shape[0],
+            self._rx_M,
+            points_m,
+            self._rx_centers,
+            self._rx_wx_max,
+            self._rx_wy_max,
+            self.c,
+            self.fs,
+            self.rx.delays,
+            verbose=False,
+        )
+
+        center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
+        order = np.argsort(np.linalg.norm(points_m - center, axis=1))  # by depth
+
+        results = []  # (rf_bin, offset)
+        for idx in np.array_split(order, n_bins):
+            if idx.size == 0:
+                continue
+            pts, am = points_m[idx], amps[idx]
+            Pb = pts.shape[0]
+
+            grid_t, n0t, Tt = self._lattice_grid(
+                pts,
+                self._tx_M,
+                self._tx_centers,
+                self._tx_wx_max,
+                self._tx_wy_max,
+                self.tx.delays,
+                t0_tx_g,
+            )
+            grid_r, n0r, Tr = self._lattice_grid(
+                pts,
+                self._rx_M,
+                self._rx_centers,
+                self._rx_wx_max,
+                self._rx_wy_max,
+                self.rx.delays,
+                t0_rx_g,
+            )
+
+            peTb = Tt + Tr - 1
+            nfft = _next_pow2(peTb + L)
+            jw_pow = (1j * 2.0 * np.pi * rfftfreq(nfft, d=dt)) ** n_derivatives
+            fft_v = (
+                rfft(exc.astype(np.float64), n=nfft, workers=-1) * jw_pow
+                if exc is not None
+                else jw_pow
+            ).astype(np.complex64)
+            fft_ir = [
+                rfft(np.asarray(ir, np.float64), n=nfft, workers=-1).astype(
+                    np.complex64
+                )
+                for ir in (ir_tx, ir_rx)
+                if ir is not None
+            ]
+
+            h_tx, _ = compute_h_sir(
+                Pb,
+                self._tx_M,
+                Tt,
+                dt,
+                grid_t,
+                pts,
+                self._tx_centers,
+                self._tx_wx,
+                self._tx_wy,
+                inv_c,
+                self.fs,
+                self._tx_apod,
+                self._tx_delays,
+                method_flag,
+                self._tx_eu,
+                self._tx_ev,
+            )
+            H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)
+            del h_tx
+
+            rf_bin = np.zeros((n_out, peTb), dtype=np.float32)
+            for e_rx in range(n_out):
+                rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_groups[e_rx]
+                h_rx_e, _ = compute_h_sir(
+                    Pb,
+                    rx_c.shape[0],
+                    Tr,
+                    dt,
+                    grid_r,
+                    pts,
+                    rx_c,
+                    rx_wx,
+                    rx_wy,
+                    inv_c,
+                    self.fs,
+                    rx_ap,
+                    rx_dl,
+                    method_flag,
+                    rx_eu,
+                    rx_ev,
+                )
+                H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
+                del h_rx_e
+                H = (am @ (H_tx * H_rx_e)) * fft_v  # sum scatterers, then exc filter
+                for f in fft_ir:
+                    H *= f
+                rf_bin[e_rx] = (irfft(H, n=nfft)[:peTb] * scale).astype(np.float32)
+            results.append((rf_bin, n0t + n0r))
+
+        nt_total = max(off + r.shape[1] for r, off in results)
+        rf = np.zeros((n_out, nt_total), dtype=np.float32)
+        for r, off in results:
+            rf[:, off : off + r.shape[1]] += r
+
+        t0 = (t0_tx_g + t0_rx_g) - float(np.max(self.tx.delays))  # beam-axis ref
+        coords = {"t0": t0, "dt": dt}
+        if downsampling is not None and int(downsampling) > 1:
+            step = int(downsampling)
+            rf = _anti_alias_decimate(rf, step)
+            coords["dt"] = dt * step
+        return rf, coords
 
     # ------------------------------------------------------------------
     # Public API
@@ -248,6 +465,28 @@ class Reception(ReceptionBase):
             self.verbose and not focused_sum
         )  # focused_sum is the quiet loop primitive
         method_flag = _method_to_flag(self.method)
+
+        # Depth-binned fast path: per-element RF, no attenuation. Bounded per-bin
+        # time grids → smaller nfft → big speedup at high scatterer counts. Bin count
+        # from self.n_depth_bins ("auto" or int).
+        if not per_scatterer and not focused_sum and self.alpha0 is None:
+            n_bins = self.n_depth_bins
+            n_bins = (
+                self._auto_depth_bins(points_m, n_out)
+                if n_bins == "auto"
+                else int(n_bins)
+            )
+            if n_bins > 1:
+                return self._fast_rf_binned(
+                    points_m,
+                    amps,
+                    rx_groups,
+                    n_out,
+                    method_flag,
+                    n_derivatives=n_derivatives,
+                    n_bins=n_bins,
+                    downsampling=downsampling,
+                )
 
         time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx = (
             self._compute_sir_time_grids(points_m)
@@ -363,7 +602,11 @@ class Reception(ReceptionBase):
             self._tx_ev,
         )  # (P, T_tx) float32
 
-        H_tx = rfft(h_tx.astype(np.float64), n=nfft, axis=1, workers=-1)  # (P, N_freq)
+        # FFT the SIR in float32 (→complex64): the SIR is float32 already and the
+        # exc/IR band-pass tolerates it (matches ReceptionSDI, which also FFTs in
+        # float32). Upcasting to float64 here doubled the FFT cost — the dominant
+        # term — for negligible accuracy gain.
+        H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)  # (P, N_freq) complex64
         del h_tx
 
         rf = np.zeros(
@@ -406,10 +649,30 @@ class Reception(ReceptionBase):
             )  # (P, T_rx) float32
 
             # H_pe = FFT(h_tx) * FFT(h_rx_e) — convolve SIRs in freq domain.
-            H_rx_e = rfft(h_rx_e.astype(np.float64), n=nfft, axis=1, workers=-1)
+            # float32 FFT (→complex64); see the h_tx note above.
+            H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
             del h_rx_e
-            H_pe = (H_tx * H_rx_e).astype(np.complex64)
+            H_pe = H_tx * H_rx_e
             del H_rx_e
+
+            # Fast path: only a per-element sum over scatterers is returned and the
+            # exc/IR filters are identical across scatterers, so collapse the P
+            # scatterers FIRST — weighted sum of the SIR-product spectra — then run
+            # ONE irfft instead of P. irfft is linear and the filters are shared, so
+            # Σ_p a_p·irfft(H_p·F) = irfft((Σ_p a_p·H_p)·F) exactly (float reordering
+            # only). Attenuation differs per scatterer, so it keeps the per-scatterer
+            # path below. (The forward SIR FFTs stay per-scatterer: each scatterer has
+            # its own h_tx/h_rx.)
+            if not per_scatterer and not do_attenuation:
+                H_sum = amps @ H_pe  # (N_freq,) — BLAS matvec
+                del H_pe
+                H_sum = H_sum * fft_v_pe
+                if fft_ir_tx is not None:
+                    H_sum *= fft_ir_tx
+                if fft_ir_rx is not None:
+                    H_sum *= fft_ir_rx
+                rf[e_rx, :] = (irfft(H_sum, n=nfft)[:pe_T] * scale).astype(np.float32)
+                continue
 
             # Apply 3rd derivative on excitation, IR, attenuation.
             H_pe *= fft_v_pe[np.newaxis, :]
