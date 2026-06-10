@@ -1,5 +1,45 @@
 # PyField Coding Guidelines
 
+## Documentation & Comment Philosophy — Audience First (READ FIRST)
+
+**PyField is written for ultrasound researchers and students, not for programmers.**
+The readers of this code are physicists and engineers who want to understand and check
+the *implementation of the acoustics* — the SIR method, the pulse-echo chain, the
+beamforming — so they can trust it, reproduce it, and extend it. Every docstring and
+every comment is written for that reader. This is an explicit, non-negotiable design
+principle of the package, not a style preference.
+
+Rules that follow from this:
+
+1. **Self-sufficient — never cite markdown files.** A docstring or comment must stand
+   entirely on its own. **Do NOT reference markdown documents** (`ARCHITECTURE.md`,
+   `PE_SDI_kernel_analysis.md`, `CLAUDE.md`, READMEs, "the module docstring", papers)
+   from any docstring or comment — those files drift, get renamed, and the reader may
+   not have them open. State the idea inline in one or two sentences so the reader
+   understands *what* the method computes and *why* without opening anything else.
+   A bare "see X" or "Full rationale: <file>.md" is forbidden; write the rationale here.
+2. **Physics first, code second.** Explain the acoustic meaning before the array
+   mechanics. Name the physical quantity (SIR, two-way delay, apodization, depth bin),
+   give its units, and connect it to the equations in the module/`CLAUDE.md`. A reader
+   should map the code to the textbook, not reverse-engineer the textbook from the code.
+3. **Concise and clear.** Short, plain sentences. No filler, no restating the signature
+   in prose. One or two sentences of intent beat a paragraph. If a method needs a long
+   explanation, the *method* is probably doing too much.
+4. **Easy to follow.** Define symbols the first time they appear in a docstring
+   (`h_tx` = transmit spatial impulse response). Prefer the notation used in `CLAUDE.md`
+   / the physics rules so the whole package reads consistently. Spell out a step the
+   reader could not infer (a sign, a factor of `dt`, a `fs` scaling, a convention).
+5. **Private methods get the same care.** A researcher auditing the code reads
+   `_compute_rf_inner` and the kernels too. Private does not mean undocumented — it means
+   "internal", and the *why* still matters. (Skip docstrings only on trivial helpers
+   whose signature is genuinely self-evident, per "Readability vs Brevity" below.)
+6. **Comments explain the physics/why, never the obvious.** Comment the non-obvious
+   acoustic or numerical reason (why a `dt` factor, why `float64` accumulation, why this
+   delay sign), not what the line literally does.
+
+When in doubt, ask: *"Could an ultrasound PhD student who has never seen this file read
+this docstring and understand the physics being computed?"* If not, rewrite it.
+
 ## Project Status
 
 Close to release. Be careful with core engine `h_sir`. Transducers and utilities
@@ -82,6 +122,8 @@ Pre-commit hooks: ruff-check, ruff-format, ty, codespell, numpydoc-validation.
 - Validate inputs early with descriptive messages
 
 ### Documentation (NumPy Docstring Format)
+- **Audience: see "Documentation & Comment Philosophy" at the top — every docstring is
+  self-sufficient, physics-first, and written for ultrasound researchers/students.**
 - Include Parameters, Returns, Raises sections
 - Default values: `arg : type, default: value` or `arg : type, optional` for `None`
 - Single backticks for inline code (Zensical/MkDocs style)

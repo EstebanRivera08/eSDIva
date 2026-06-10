@@ -1,17 +1,26 @@
-"""Reception: conventional Tupholme-Stepanishen pulse-echo RF simulation.
+"""Reception: pulse-echo RF simulation by direct spatial-impulse-response convolution.
 
-Physics. The pulse-echo signal carries the third time-derivative of the
-excitation, ``v_pe = (ρ₀/2c₀²) E_m ⊛ ∂³v/∂t³``. In a real system that ∂³ is not
-formed explicitly — it is absorbed into the band-limited excitation and impulse
-responses, so the practical chain is ``e ⊛ h_e ⊛ h_r``.
+Pulse-echo RF model. Computes the received RF echo from point scatterers with Jensen's
+spatial-impulse-response model (J. A. Jensen, "A model for the propagation and scattering
+of ultrasound in tissue", J. Acoust. Soc. Am. 89(1), 182-190, 1991), as in Field II. The
+SIRs themselves use the Tupholme-Stepanishen formulation (Tupholme, Mathematika 16, 1969;
+Stepanishen, J. Acoust. Soc. Am. 49, 1971) with PyField's far-field trapezoidal SIR of
+rectangular patches.
 
-This class implements the standard formulation directly: the two-way SIR is the
-plain convolution ``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` (no derivatives), and the
-recorded RF is ``exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe``. Because the excitation/IR chain
-already supplies the three physical derivatives, NO extra explicit ∂/∂t is applied
-(``n_derivatives=0``); applying the textbook ``∂³`` on top would double them. The
-optional ``n_derivatives`` knob exposes that explicit form (e.g. 3 = the textbook
-Born ``∂³`` for a derivative-free excitation).
+This class evaluates the RF equation the direct ("conventional") way — it builds the two
+one-way SIRs and convolves them — in contrast to `ReceptionSDI`, which evaluates the same
+equation by sparse delta integration (see that class for the unifying identity chain).
+
+Physics. The pulse-echo signal carries the third time-derivative of the excitation,
+``v_pe = (ρ₀/2c₀²) E_m ⊛ ∂³v/∂t³``. In a real system that ∂³ is not formed explicitly —
+it is absorbed into the band-limited excitation and impulse responses, so the practical
+chain is ``e ⊛ h_e ⊛ h_r``. The two-way SIR is the plain convolution
+``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` (no derivatives) and the recorded RF is
+``exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe``. Because the excitation/IR chain already supplies the
+three physical derivatives, NO extra explicit ∂/∂t is applied (``n_derivatives=0``);
+applying the textbook ``∂³`` on top would double them. The optional ``n_derivatives``
+knob exposes that explicit form (e.g. 3 = the textbook Born ``∂³`` for a
+derivative-free excitation).
 
 Field II parallel (for adoption): Field II uses the same convention — ``calc_hhp``
 and ``calc_scat`` apply no round-trip ∂/∂t (``calc_scat`` for a unit point equals
@@ -63,20 +72,23 @@ _SCATTERERS_PER_BIN = 200
 
 
 class Reception(ReceptionBase):
-    """Conventional Tupholme-Stepanishen pulse-echo RF simulation.
+    """Pulse-echo RF by direct two-way SIR convolution (Jensen's model).
 
-    Computes received signals using the standard SIR formulation. The SIR kernels
-    h_tx and h_rx are computed without differentiation; the recorded pulse-echo RF
-    is the convolution
+    Computes the received echo from point scatterers using the standard SIR
+    formulation (model and citations in the module docstring above): the one-way SIRs
+    ``h_tx`` and ``h_rx`` are built without differentiation, and the recorded RF is the
+    amplitude-weighted sum over scatterers
 
-        rf = (ρ₀/2c₀²) Σ_i a_i (exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe)|_{r_i}
+        rf(t) = (ρ₀/2c₀²) Σ_p σ_p · (exc ⊛ ir_tx ⊛ ir_rx ⊛ h_pe)|_{r_p}
 
-    with ``h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)`` the plain two-way SIR. The three
-    physical excitation derivatives are carried by the band-limited exc/IR chain,
-    so no extra explicit ∂/∂t is applied (``n_derivatives=0``); this is Field II's
-    convention (``calc_scat`` ≡ ``calc_hhp`` for a point). Public API via
-    `pulse_echo_rf` (core) plus `sequence_rf` / `synthetic_aperture_rf` /
-    `scan_focusline` from `ReceptionBase`.
+    where the sum runs over scatterers ``p`` at positions ``r_p`` with scattering
+    amplitudes ``σ_p`` (the ``amplitudes`` argument), and
+    ``h_pe = h_tx(r₁→r_p) ⊛_t h_rx(r_p→r₁)`` is the plain two-way SIR for that
+    scatterer. The three physical excitation derivatives are carried by the
+    band-limited exc/IR chain, so no extra explicit ∂/∂t is applied
+    (``n_derivatives=0``); this is Field II's convention (``calc_scat`` ≡ ``calc_hhp``
+    for a point). Public API via `pulse_echo_rf` (core) plus `sequence_rf` /
+    `synthetic_aperture_rf` / `scan_focusline` from `ReceptionBase`.
 
     Parameters
     ----------
@@ -194,9 +206,12 @@ class Reception(ReceptionBase):
     def _auto_depth_bins(self, points_m, n_out):
         """Number of depth bins for the fast path (1 = no binning).
 
-        Two needs set the count: keep each bin's time grid short (≈ arrival spread
-        / 128) and keep each bin's FFT batch cache-resident
-        (≈ _SCATTERERS_PER_BIN scatterers/bin). See ARCHITECTURE.md for why.
+        Scatterers at very different depths echo at very different times, so a single
+        FFT must span the whole arrival spread (a long, mostly-empty time grid). Grouping
+        them by depth lets each bin use a short grid (small FFT), which dominates the
+        cost. The count balances two needs: keep each bin's grid short (≈ arrival-time
+        spread in samples / 128) and keep its scatterer batch cache-resident
+        (≈ ``_SCATTERERS_PER_BIN`` scatterers/bin).
         """
         P = points_m.shape[0]
         if P < 128 or n_out < 2:
@@ -245,10 +260,12 @@ class Reception(ReceptionBase):
     ):
         """Pulse-echo RF, split into depth bins for short per-bin FFTs.
 
-        Same result as the inline fast path, but scatterers are grouped by depth so
-        each bin uses a tight time grid (smaller nfft). Bins share one sample lattice
-        (`_lattice_grid`), so the per-element results add at integer offsets. Used for
-        ``per_scatterer=False`` with no attenuation. See ARCHITECTURE.md.
+        Same physical result as the inline fast path (the full RF summed over
+        scatterers), but scatterers are grouped by depth so each bin spans a tight
+        arrival-time window and uses a smaller FFT. All bins share one global sample
+        lattice (`_lattice_grid`), so each bin's RF simply adds back at an integer sample
+        offset — no resampling. Used only when scatterers are summed
+        (``per_scatterer=False``) and attenuation is off.
         """
         dt = 1.0 / self.fs
         inv_c = np.float32(1.0 / self.c)

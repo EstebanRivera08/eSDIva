@@ -234,6 +234,80 @@ class TestReceptionSequence:
         np.testing.assert_array_equal(simple_tx.apodization, orig_apod)
 
 
+class TestReceptionFormulations:
+    """method flag: auto router + truncated/complete/conventional equivalence."""
+
+    @staticmethod
+    def _exc(fs=100e6, fc=5e6):
+        t = np.arange(0, 2.0 / fc, 1.0 / fs)
+        return (np.sin(2 * np.pi * fc * t) * np.hanning(len(t))).astype(np.float32)
+
+    def test_invalid_method_raises(self, simple_tx, simple_rx):
+        with pytest.raises(ValueError, match="Unknown method"):
+            ReceptionSDI(simple_tx, simple_rx, method="bogus", verbose=False)
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        with pytest.raises(ValueError, match="Unknown method"):
+            sim.set("method", "bogus")
+
+    def test_three_methods_agree(self, simple_tx, simple_rx):
+        """truncated ≈ complete ≈ conventional produce the same physical RF."""
+        exc = self._exc()
+        simple_tx.impulse_response = exc  # band-limited chain → complete is exact
+        simple_rx.impulse_response = exc
+        pos = np.array([[0, 0, 18], [1.0, 0, 22], [-1.5, 0, 26]], dtype=np.float32)
+        amp = np.array([1.0, 0.8, 1.2], dtype=np.float32)
+        out = {}
+        for m in ("truncated", "complete", "conventional"):
+            sim = ReceptionSDI(
+                simple_tx,
+                simple_rx,
+                fs=100e6,
+                c=1540,
+                excitation=exc,
+                method=m,
+                verbose=False,
+            )
+            out[m], _ = sim.pulse_echo_rf(pos, amp)
+        n = min(v.shape[-1] for v in out.values())
+
+        def corr(a, b):
+            return np.corrcoef(a[..., :n].ravel(), b[..., :n].ravel())[0, 1]
+
+        assert corr(out["truncated"], out["conventional"]) > 0.99
+        assert corr(out["complete"], out["conventional"]) > 0.99
+        pk = {m: float(np.abs(v).max()) for m, v in out.items()}
+        assert abs(pk["truncated"] / pk["conventional"] - 1) < 0.05
+        assert abs(pk["complete"] / pk["conventional"] - 1) < 0.05
+
+    def test_router_selects_truncated_for_psf(self, simple_tx, simple_rx):
+        """auto + per_scatterer (PSF) → truncated."""
+        sim = ReceptionSDI(simple_tx, simple_rx, method="auto", verbose=False)
+        sim.pulse_echo_rf(np.array([[0, 0, 20]], dtype=np.float32), per_scatterer=True)
+        assert sim._last_method == "truncated"
+
+    def test_explicit_method_overrides_router(self, simple_tx, simple_rx):
+        """A non-auto method is used verbatim (no regime select)."""
+        pos = np.array([[0, 0, 20]], dtype=np.float32)
+        amp = np.array([1.0], dtype=np.float32)
+        sim = ReceptionSDI(simple_tx, simple_rx, method="conventional", verbose=False)
+        sim.pulse_echo_rf(pos, amp)
+        assert sim._last_method == "conventional"
+
+    def test_complete_attenuation_not_supported(self, simple_tx, simple_rx):
+        exc = self._exc()
+        sim = ReceptionSDI(
+            simple_tx,
+            simple_rx,
+            fs=100e6,
+            excitation=exc,
+            alpha0=0.5,
+            method="complete",
+            verbose=False,
+        )
+        with pytest.raises(NotImplementedError, match="attenuation"):
+            sim.pulse_echo_rf(np.array([[0, 0, 20]], dtype=np.float32))
+
+
 class TestReceptionRepr:
     """String representation."""
 

@@ -110,10 +110,13 @@ Two reception classes are available:
   [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes it
   **the fast choice for real arrays** (many patches): cost ~`O(P·M + P·log nfft)`.
   Beats Field II `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
-- `ReceptionSDI` — PE SDI kernel: builds the two-way SIR from the *product* of the
-  two delta trains (16 deltas per TX/RX patch pair, 1 cumsum). Cost ~`O(P·M_tx·M_rx)`
-  — **quadratic in patch count**, so faster only when `M` is small (few-patch /
-  monoelement transducers). Not depth-binned.
+- `ReceptionSDI` — PE SDI kernel: forms the two-way delta train
+  `Δδ_pe = D²h_tx ⊛ D²h_rx` directly (16 deltas per TX/RX patch pair, **no cumsum**),
+  then recovers the two-way SIR by `I⁴ = ÷(jω)⁴` in the frequency domain. Cost
+  ~`O(P·M_tx·M_rx)` — **quadratic in patch count**, so faster only when `M` is small
+  (few-patch / monoelement). This is the *truncated* SDI form; see
+  `PE_SDI_kernel_analysis.md` for the conventional/truncated/complete taxonomy. Not
+  depth-binned.
 
 Both give the same RF; pick by patch count.
 
@@ -141,12 +144,12 @@ methods plus all common state (`set`, patch extraction, validation) live in
 `ReceptionBase` (`reception/base.py`); each subclass adds only its constructor,
 time-grid helper, `_compute_rf_inner`, and the convention wrappers.
 
-The 3 physical derivatives are carried by the exc/IR chain, so neither class applies
-an explicit ∂³: `Reception` uses `(jω)⁰=1`; `ReceptionSDI`'s kernel places the 3 on
-the SIR for speed, then divides by `(jω)³` in the frequency domain (no group delay →
-sample-aligned with `Reception`) to relocate them onto the exc/IR chain. Field II
-shares this convention, so both classes match it corr≈1.0000 at the RF level
-(per-element RF verified 0.997 vs `calc_scat_multi`).
+The physical ∂³ is carried by the exc/IR chain (`v_pe ∝ e ⊛ h_e ⊛ h_r`), so neither
+class adds it. `Reception` builds `h_tx ⊛ h_rx` by FFT directly. `ReceptionSDI` places
+`Δδ_pe = D²h_tx ⊛ D²h_rx` (16 deltas/pair, no cumsum) and recovers the **same** two-way
+SIR via `I⁴ = ÷(jω)⁴` in the frequency domain (no group delay → sample-aligned with
+`Reception`). Both equal `v_pe ⊛ (h_tx ⊛ h_rx)` and match Field II corr≈1.0000 at the
+RF level (per-element RF verified 0.997 vs `calc_scat_multi`).
 
 ```python
 from pyfield.reception import ReceptionSDI  # or Reception for conventional
@@ -189,8 +192,8 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `ReceptionSDI` uses the PE SDI kernel (`compute_pe_sdi`); `pulse_echo_rf` divides by `(jω)³` in freq domain to relocate the kernel's 3 derivatives onto the exc/IR chain (which physically carries them)
-- `Reception` uses conventional FFT-based `h_pe = h_tx ⊛ h_rx` with `(jω)⁰=1` (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
+- `ReceptionSDI` uses the PE SDI kernel (`compute_pe_sdi`, returns raw `Δδ_pe`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
+- `Reception` builds `h_tx ⊛ h_rx` by conventional FFT convolution (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
 - Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
 
@@ -322,14 +325,14 @@ P-outer, E-inner double loop. Pre-allocated `h_pad_buf = zeros((batch_P, nfft), 
 
 ```
 Per RX element e_rx:
-  compute_pe_sdi(pts, tx_all_patches, rx_elem_patches) → Dh_pe (P, T)
-  FFT(Dh_pe) × FFT(v) × FFT(ir_tx) × FFT(ir_rx) × H_att(f, d)
+  compute_pe_sdi(pts, tx_all_patches, rx_elem_patches) → Δδ_pe (P, T)   # raw deltas
+  FFT(Δδ_pe) × (jω)⁻⁴·fs × FFT(v) × FFT(ir_tx) × FFT(ir_rx) × H_att(f, d)
   IFFT → weight by f_m(r) → sum over scatterers → rf[:, e_rx]
   Scale by rho / (2 * c^2)
 ```
 
-- All convolutions become element-wise freq-domain multiplies.
-- IR_tx, IR_rx, V, H_att precomputed once. Only Dh_pe varies per RX element.
+- All convolutions become element-wise freq-domain multiplies; `I⁴ = (jω)⁻⁴·fs`.
+- IR_tx, IR_rx, V, H_att precomputed once. Only Δδ_pe varies per RX element.
 - When IR is None, corresponding FFT term = 1 (identity).
 - Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
 - Memory: O(P × nfft) per RX element iteration — E_rx-independent.
@@ -499,7 +502,8 @@ out[i, k] = np.float32(acc)     # write back float32
 PE SDI places combined deltas at `floor((t_corner_e + t_corner_r - pe_t0)*fs)` with
 **`k_shift = 0`** (in `_place_pe_sdi_deltas`, `transducer_sir_pe.py`).
 
-Rationale: `zeta = d2h_e ⊛ d2h_r`, one cumsum → `Dh_pe`. Discrete convolution adds
+Rationale: `Δδ_pe = d2h_e ⊛ d2h_r` (raw deltas; `I⁴ = ÷(jω)⁴` applied later in
+Fourier). Discrete convolution adds
 indices, so an event at TX bin `floor((t_e-tx_t0)*fs)` and RX bin
 `floor((t_r-rx_t0)*fs)` lands at their sum. Since `pe_t0 = tx_t0 + rx_t0`, that sum
 equals `floor((t_e+t_r-pe_t0)*fs)` (± the floor-of-sum vs sum-of-floors ULP). This
@@ -514,7 +518,7 @@ naive vs PE-SDI is now 0 (Emission and `Reception(method="sdi")` were already la
 **Test gap**: `test_pe_sdi.py` checks only peak ratio (<5%) + correlation (>0.90),
 both lag-insensitive — they did **not** catch the 2-sample shift. `example06` now
 asserts on-axis lag == 0 as a phase-regression guard. Residual raw-RF difference
-(~10%) vs conventional is FFT-`(jω)³` Gibbs ringing, not timing (envelope ~1.4%).
+(~10%) vs conventional is FFT-`(jω)⁴` Gibbs ringing, not timing (envelope ~1.4%).
 
 ### 4. Attenuation y=1 Continuity
 

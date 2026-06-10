@@ -3,7 +3,10 @@
 Standalone module — no dependency on Emission or Reception.  Both import
 from here.
 
-Physics reference: `.claude/rules/attenuation.md` and `physics-context.md §10`.
+Models frequency-dependent tissue attenuation as a power law ``α(ω) = α₀·|ω|^y``
+together with its causal Kramers-Kronig phase dispersion (Szabo 1994; Holm 2019), so
+the transfer function both damps and correctly delays each frequency — a non-causal
+amplitude-only form would produce pre-echo precursors.
 
 Notes
 -----

@@ -1,52 +1,36 @@
-I need you to clean up and reorganize the SIR core modules. The goal is to keep only code that is physically meaningful, readable, and directly comparable to the equations. Avoid unnecessary abstractions and local helper methods.
-
-**Tasks**
-
-1. **hsir module**
-   - `h_sir` was renamed to `hsir` (check all imports).
-   - I deleted `h_derivatives`, `h_SDI`, and other bulky scripts.
-   - I created `transducer_sir.py` as a clean template (rewritten from `farfield_rect_patch`). Use this style: readable, minimal, and physics‑aligned.  
-     Note: `patch_frames` → `patch_nvector`.
-   - `transducer_sir_pe.py` contains the pulse‑echo parts. Adapt it so it mirrors the structure of `transducer_sir.py` and includes functions like `compute_Dh_pe()`.
-   - I added `element_sir.py` and `element_sir_pe.py`. They should mirror the transducer versions but operate per element.
-   - I removed `h_sir.py` entirely; the class was unnecessary.
-
-2. **psimulation module**
-   - It no longer exists. It is now split into:
-     - `emission`
-     - `reception`
-     - `attenuation`
-   - Some modules need new or updated `__init__.py` files.
-   - Several scripts in emission/reception are too long; splitting them into smaller, well‑named modules is required.
-
-
-Some more especific tasks would include:
-
-1) Emission and Reception validation of dependencies of other modules and correct
-deivision of computation per element or global for transducer.
-
-2) Especifically for Reception, create two classes.
-
-These classes computes:
-rf = v_pe ⊛_t h_pe ⊛_r  f_m
-with ⊛ convolution. So they both needs to be sent to fourier domain.
-
-The main difference is :
-Reception: This should admits the 3 methods (sdi, naive, auto) and is the
-conventional fieldii implementation with:
-v_pe = (ρ₀/2c₀²) × E_m ⊛_t ∂³v/∂t³     ← 3 derivatives on excitation
-h_pe = h_tx(r₁→r₅) ⊛_t h_rx(r₅→r₁)     ← no derivatives on SIR
-
-whereas,
-ReceptionSDI: Performs the new SDI formulation and just admits SDI for its nature
-(redistribute all 3 derivatives onto SIR side) turning the equation to:
-rf = v_pe' ⊛_t Dh_pe ⊛_r  f_m
-
-v_pe' = (ρ₀/2c₀²) × E_m × v            ← no derivatives
-Dh_pe = dh_tx/dt ⊛_t d²h_rx/dt² = ∫zeta_pe dt           ← 3 derivatives on SIR
-
-With zeta_pe :
-∫zeta_pe dt = d²h_tx/dt² ⊛_t d²h_rx/dt²   <- convolution of 4 deltas with 4 deltas
-giving 16 deltas (therefore 32 in discrete implementation).
-    .
-
+LinearArrayTransducer initialised in 0.0000 s  (128 elements, 1280 patches).
+No apodization_type given — defaulting to 'rect'.
+LinearArrayTransducer initialised in 0.0000 s  (128 elements, 1280 patches).
+--------------------------------------------------
+idx 1/4: Linear_Domino_Nscat10000_fs100.mat
+N_scat=10000  FieldII mean time: 8.5263 s
+Warming up JIT kernels...
+  naive   : 3.9777 s (std: 0.0334 s)  speedup vs FieldII: 2.1×
+  sdi     : 3.9539 s (std: 0.0200 s)  speedup vs FieldII: 2.2×
+  auto    : 3.9686 s (std: 0.0299 s)  speedup vs FieldII: 2.1×
+  pe_sdi  : 43.7844 s (std: 0.1885 s)  speedup vs FieldII: 0.2×
+Saving Linear_Domino_Nscat10000_fs100_pyfield.npz
+--------------------------------------------------
+idx 2/4: Linear_Domino_Nscat1000_fs100.mat
+N_scat=1000  FieldII mean time: 0.8419 s
+  naive   : 0.4224 s (std: 0.0027 s)  speedup vs FieldII: 2.0×
+  sdi     : 0.4284 s (std: 0.0039 s)  speedup vs FieldII: 2.0×
+  auto    : 0.4310 s (std: 0.0022 s)  speedup vs FieldII: 2.0×
+  pe_sdi  : 4.7628 s (std: 0.0335 s)  speedup vs FieldII: 0.2×
+Saving Linear_Domino_Nscat1000_fs100_pyfield.npz
+--------------------------------------------------
+idx 3/4: Linear_Domino_Nscat100_fs100.mat
+N_scat=100  FieldII mean time: 0.0882 s
+  naive   : 0.0837 s (std: 0.0015 s)  speedup vs FieldII: 1.1×
+  sdi     : 0.0835 s (std: 0.0010 s)  speedup vs FieldII: 1.1×
+  auto    : 0.0849 s (std: 0.0006 s)  speedup vs FieldII: 1.0×
+  pe_sdi  : 0.5589 s (std: 0.0154 s)  speedup vs FieldII: 0.2×
+Saving Linear_Domino_Nscat100_fs100_pyfield.npz
+--------------------------------------------------
+idx 4/4: Linear_Domino_Nscat10_fs100.mat
+N_scat=10  FieldII mean time: 0.0119 s
+  naive   : 0.0305 s (std: 0.0004 s)  speedup vs FieldII: 0.4×
+  sdi     : 0.0307 s (std: 0.0003 s)  speedup vs FieldII: 0.4×
+  auto    : 0.0320 s (std: 0.0008 s)  speedup vs FieldII: 0.4×
+  pe_sdi  : 0.0777 s (std: 0.0003 s)  speedup vs FieldII: 0.2×
+Saving Linear_Domino_Nscat10_fs100_pyfield.npz

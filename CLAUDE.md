@@ -15,6 +15,16 @@ PyField is a Python acoustic field simulator based on the Tupholme–Stepanishen
 Impulse Response (SIR) method. It models arbitrary transducer geometries as collections
 of rectangular patches and computes pressure fields via convolution with excitation pulses.
 
+> **Audience-first documentation (package philosophy).** PyField is written for
+> ultrasound researchers and students, **not for programmers**. Every docstring and
+> comment — public *and* private — must be concise, clear, and **self-sufficient**:
+> a physicist must understand the acoustics being computed (and why) without opening
+> another file. Explain the physics first, inline. **Never cite markdown files**
+> (`ARCHITECTURE.md`, `PE_SDI_kernel_analysis.md`, papers, "see module docstring") from
+> a docstring or comment — they drift and the reader may not have them; the code must
+> explain itself. Full rules: "Documentation & Comment Philosophy" at the top of
+> `.claude/rules/coding-guidelines.md`.
+
 Guidelines load automatically from `.claude/rules/`:
 - **coding-guidelines** — code style, testing, commits (always loaded)
 - **physics-context** — SIR/SDI theory (loaded when touching `hsir/`, `emission/`, `reception/`, `transducers/`)
@@ -124,11 +134,13 @@ default) and `Reception` (conventional Tupholme-Stepanishen), same API, sharing
 derivative of the excitation (`v_pe = ρ₀/2c₀² · E_m ⊛ ∂³v/∂t³`); in practice that
 ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
 (`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither class applies an explicit ∂³.
-`ReceptionSDI`'s kernel puts the 3 derivatives on the SIR for speed, then
-integrates 3× (`÷(jω)³`) to relocate them back onto the exc/IR chain; `Reception`
-never adds them (`n_derivatives=0`). Field II uses the same convention
-(`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — that's the
-adoption parallel, not the justification. Four methods (axis `[emission, reception,
+`ReceptionSDI` places the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx` (16
+deltas/pair, **no cumsum**) and recovers the two-way SIR via `I⁴ = ÷(jω)⁴` in Fourier;
+`Reception` builds `h_tx ⊛ h_rx` by FFT directly. Both equal `v_pe ⊛ (h_tx ⊛ h_rx)`.
+(`ReceptionSDI` is the *truncated* SDI form — see `PE_SDI_kernel_analysis.md` for the
+conventional/truncated/complete taxonomy.) Field II shares the convention
+(`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
+parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
 `sequence_rf` (PW/DW event sweep), `synthetic_aperture_rf` (FMC/`calc_scat_all`,
 per-element DW basis, decimated), `scan_focusline` (one focused B-mode line, RX
@@ -205,28 +217,27 @@ The pulse-echo signal physically carries the 3rd derivative of the excitation:
 
     v_pe(t) = (rho_0/2c_0^2) * E_m(t) *_t d3v/dt3   ∝   e(t) *_t h_e(t) *_t h_r(t)
 
-Those 3 derivatives can ride on either factor of the convolution. In a REAL system
-d3v/dt3 is never formed explicitly — it is baked into the band-limited excitation
-e and the TX/RX impulse responses h_e, h_r (right-hand proportionality). For SPEED
-the PE-SDI kernel instead puts the 3 derivatives on the SIR:
+The ∂³ is baked into the band-limited excitation e and TX/RX impulse responses h_e,
+h_r (never formed explicitly), same as Field II. So the pulse-echo RF is just
+`p_r = v_pe *_t (h_tx *_t h_rx)`.
 
-    zeta_pe = d2h^e *_t d2h^r = 16 Dirac deltas per (m_e, m_r) pair
+PE-SDI builds the two-way SIR from the delta product. Each one-way SIR is the double
+integral of its corner deltas (h = I² d²h), so:
 
-Each TX corner (4) × each RX corner (4) = 16 delta events.
-32 sample writes per pair (16 × 2 bins via interpolation), then 1 cumsum.
+    Δδ_pe = d2h^e *_t d2h^r = 16 Dirac deltas per (m_e, m_r) pair   (deltas ⊛ deltas)
+    h_tx *_t h_rx = I⁴ Δδ_pe
 
-    Dh_pe = integral(zeta_pe)
+Each TX corner (4) × each RX corner (4) = 16 events; 32 sample writes per pair
+(16 × 2 bins via interpolation). `compute_pe_sdi` returns the RAW Δδ_pe — **no cumsum**.
+The public RF applies I⁴ entirely in Fourier as ÷(jω)⁴ (with a ×fs: Δδ_pe holds delta
+*areas*, ÷(jω) weights each sample by dt), folded into the exc/IR multiply:
 
-Received signal (excitation enters at zero derivative — the 3 are in Dh_pe):
+    p_r(t) = (rho_0/2c_0^2) * f_m(r) *_r [(E_m * v) *_t (I⁴ Δδ_pe)(r, t)]
 
-    p_r(t) = (rho_0/2c_0^2) * f_m(r) *_r [(E_m * v) *_t Dh_pe(r, t)]
-
-But the practical chain e *_t h_e *_t h_r ALREADY carries the 3 physical
-derivatives, so using it with Dh_pe would differentiate 6×. The public RF therefore
-INTEGRATES 3× (÷(jω)³) to strip the kernel's copies, relocating the single physical
-set onto the exc/IR chain. Conventional `Reception` simply never adds them
-(`n_derivatives=0`). Field II uses the same convention (no explicit d3 in
-calc_scat/calc_hhp), so both coincide with it.
+This recovers exactly `h_tx *_t h_rx`, so ReceptionSDI ≡ conventional Reception ≡
+Field II. ReceptionSDI is the *truncated* SDI form (integrates the delta product); the
+*complete* form moves I⁴ onto the velocity (w = I⁴ v_pe). Full taxonomy and complexity:
+`PE_SDI_kernel_analysis.md`.
 
 ### 7. Causal Power-Law Attenuation
 

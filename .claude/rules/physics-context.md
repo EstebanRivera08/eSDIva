@@ -195,30 +195,45 @@ truncation, where T = temporal sampling length.
 
 ## 9.1 PE SDI (Combined Pulse-Echo SDI)
 
-Key insight: instead of computing dh_tx and d2h_rx separately then FFT-convolving,
-the combined PE SDI places 16 deltas directly for each (m_e, m_r) patch pair.
+Instead of computing h_tx and h_rx separately then FFT-convolving, PE SDI places 16
+deltas directly for each (m_e, m_r) patch pair, forming the analytic two-way delta
+train (deltas *_t deltas = deltas):
 
-    zeta_pe = d2h^e *_t d2h^r = sum of 16 Dirac deltas per (m_e, m_r) pair
+    Δδ_pe = d2h_tx *_t d2h_rx = sum of 16 Dirac deltas per (m_e, m_r) pair
 
 Each TX corner (4) × each RX corner (4) = 16 delta events.
 Signs: (+1, -1, -1, +1) for each set of 4 corners.
 Delta position: t_event = t_e_corner + t_r_corner.
 Weight: slope_e × slope_r × sign_e × sign_r.
+Discrete: 32 sample writes per pair (16 deltas × 2 bins via linear interpolation).
 
-    Dh_pe = integral(zeta_pe) = 1 cumsum
+Each one-way SIR is the double integral of its corner deltas (h = I2 d2h), so the
+two-way SIR is recovered by FOUR integrations of Δδ_pe:
 
-Discrete implementation: 32 sample writes per (m_e, m_r) pair (16 deltas × 2 bins
-each via linear interpolation), followed by 1 cumulative sum per field point.
+    h_tx *_t h_rx = I4 Δδ_pe
 
-Eliminates FFT convolution between dh_tx and d2h_rx — direct time-domain
-computation of the differentiated pulse-echo SIR.
+`compute_pe_sdi` returns the RAW Δδ_pe (no cumsum). I4 is applied entirely in the
+frequency domain as ÷(jω)^4, folded into the single excitation/IR spectral multiply.
+Doing all four integrations in Fourier (vs a time-domain cumsum) carries zero group
+delay → sample-aligned with conventional `Reception`, and avoids float32 cumsum
+cancellation.
 
-Excitation handling (Reception): v'_pe = (rho_0 / 2c_0^2) * (E_m * v).
-No derivative on v — derivatives already absorbed into Dh_pe.
-This differs from Emission where the signal chain has dv/dt.
+    ×fs: Δδ_pe holds delta *areas* (no width), which a unit-area cumsum sums directly.
+    ÷(jω) is a continuous integrator weighting each sample by dt, so it under-counts by
+    fs=1/dt — `inv_jw_pow` carries one ×fs to restore that gain.
 
-Code: `compute_pe_sdi` in `sir_derivatives.py`. Called once per RX element
-with element-filtered RX patches (Option A — Python element loop).
+Excitation (Reception): v_pe = (rho_0 / 2c_0^2) * (E_m * v). No explicit derivative on
+v — the physical d3v/dt3 is carried by the band-limited excitation/IR chain (same as
+Field II). This differs from Emission where the chain has an explicit dv/dt.
+
+Truncated vs complete: this kernel implements the **truncated** SDI form — it
+integrates the delta PRODUCT Δδ_pe. The **complete** form pushes all four integrals
+onto the velocity (w = I4 v_pe), giving p_pe = Σ_ij a_i a_j w(t − τ_i − τ_j), FFT-free.
+The three formulations (conventional / truncated / complete), with complexity and
+regimes, are analysed in `PE_SDI_kernel_analysis.md`.
+
+Code: `compute_pe_sdi` in `transducer_sir_pe.py`. Called once per RX element with
+element-filtered RX patches.
 
 ## 10. Attenuation in SIR Simulations
 

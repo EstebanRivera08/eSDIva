@@ -12,7 +12,7 @@ from numpy.testing import assert_allclose
 from scipy.fft import irfft, rfft
 
 from pyfield.hsir.farfield_rect_patch import compute_h_sir as _compute_h_sir_ref
-from pyfield.hsir.transducer_sir_pe import compute_pe_sdi
+from pyfield.hsir.transducer_sir_pe import compute_pe_sdi, compute_pe_sdi_summed
 from pyfield.transducers import LinearArrayTransducer
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
@@ -99,16 +99,17 @@ def _build_pe_time_grid(tx, rx, points, c=1540.0, fs=200e6):
 
 
 class TestPeSdiVsReference:
-    """PE SDI kernel must match reference when convolved with excitation.
+    """PE SDI pipeline must match the two-way SIR reference.
 
-    Raw delta-level comparison has float32 interpolation quantization
-    differences between PE SDI (16 direct placements + 1 cumsum) and the
-    reference (separate d2h + FFT conv). These wash out after excitation
-    convolution, which is the actual use case.
+    compute_pe_sdi returns the raw Δδ_pe delta train (D²h_tx ⊛ D²h_rx). Applying
+    I⁴ as ÷(jω)⁴ cancels those four derivatives, so the pipeline reconstructs the
+    two-way SIR h_tx ⊛ h_rx; convolving with the excitation gives the pulse-echo RF.
+    The reference builds h_tx ⊛ h_rx ⊛ exc independently from the one-way SIRs.
+    Float32 placement quantization washes out after the excitation convolution.
     """
 
     def test_pe_sdi_excitation_pipeline_matches_reference(self, simple_tx, simple_rx):
-        """PE SDI + FFT(exc) must match dh_tx * d2h_rx + FFT(exc)."""
+        """PE SDI + I⁴ + FFT(exc) must match (h_tx ⊛ h_rx) ⊛ exc."""
         c, fs = 1540.0, 200e6
         inv_c = 1.0 / c
         dt = 1.0 / fs
@@ -139,7 +140,9 @@ class TestPeSdiVsReference:
         rx_a_e = rx_a[rx_mask]
         rx_d_e = rx_d[rx_mask]
 
-        # PE SDI → FFT conv with excitation (no jw — derivatives in Dh_pe).
+        from scipy.fft import rfftfreq as _rfftfreq
+
+        # Pipeline: raw Δδ_pe → I⁴ via ÷(jω)⁴ → conv excitation.
         Dh_pe = compute_pe_sdi(
             points,
             tx_c,
@@ -159,69 +162,91 @@ class TestPeSdiVsReference:
             dt,
         )
         nfft_pe = _next_pow2(pe_T + L - 1)
+        freqs_pe = _rfftfreq(nfft_pe, d=1.0 / fs)
+        jw_pe = 1j * 2.0 * np.pi * freqs_pe
+        inv4 = np.zeros_like(jw_pe)
+        nz = freqs_pe > 0
+        inv4[nz] = (1.0 / jw_pe[nz]) ** 4
+        inv4 *= fs  # delta areas: ÷(jω) weights samples by dt, restore with fs.
         rf_pe = irfft(
-            rfft(Dh_pe, n=nfft_pe, axis=1) * rfft(excitation, n=nfft_pe),
+            rfft(Dh_pe, n=nfft_pe, axis=1) * inv4 * rfft(excitation, n=nfft_pe),
             n=nfft_pe,
             axis=1,
         )[:, :pe_T]
 
-        # Reference: compute h_tx and h_rx via compute_h_sir, then differentiate
-        # in the frequency domain: dh = IFFT(j*2*pi*f * FFT(h)).
+        # Reference: two-way SIR h_tx ⊛ h_rx (one-way SIRs, no derivatives) ⊛ exc.
         from pyfield.utilities.helper_functions import compute_time_grid as _ctg
-        from scipy.fft import rfftfreq as _rfftfreq
 
         time_grid_tx, _, _, _ = _ctg(
-            1, tx_M, points, tx_c,
-            float(tx_wx.max()), float(tx_wy.max()),
-            c, fs, simple_tx.delays, verbose=False,
+            1,
+            tx_M,
+            points,
+            tx_c,
+            float(tx_wx.max()),
+            float(tx_wy.max()),
+            c,
+            fs,
+            simple_tx.delays,
+            verbose=False,
         )
         h_tx, _ = _compute_h_sir_ref(
-            1, tx_M, tx_T, dt, time_grid_tx,
-            points, tx_c, tx_wx, tx_wy,
-            inv_c, fs, tx_a, tx_d, 0, None, None,
+            1,
+            tx_M,
+            tx_T,
+            dt,
+            time_grid_tx,
+            points,
+            tx_c,
+            tx_wx,
+            tx_wy,
+            inv_c,
+            fs,
+            tx_a,
+            tx_d,
+            0,
+            None,
+            None,
         )  # method_flag=0 (naive) avoids float32 cumsum drift artifact  # (1, tx_T)
 
         M_rx_e = int(rx_mask.sum())
         time_grid_rx_e, _, _, _ = _ctg(
-            1, M_rx_e, points, rx_c_e,
-            float(rx_wx_e.max()), float(rx_wy_e.max()),
-            c, fs, simple_rx.delays, verbose=False,
+            1,
+            M_rx_e,
+            points,
+            rx_c_e,
+            float(rx_wx_e.max()),
+            float(rx_wy_e.max()),
+            c,
+            fs,
+            simple_rx.delays,
+            verbose=False,
         )
         h_rx_e, _ = _compute_h_sir_ref(
-            1, M_rx_e, rx_T, dt, time_grid_rx_e,
-            points, rx_c_e, rx_wx_e, rx_wy_e,
-            inv_c, fs, rx_a_e, rx_d_e, 0, None, None,
+            1,
+            M_rx_e,
+            rx_T,
+            dt,
+            time_grid_rx_e,
+            points,
+            rx_c_e,
+            rx_wx_e,
+            rx_wy_e,
+            inv_c,
+            fs,
+            rx_a_e,
+            rx_d_e,
+            0,
+            None,
+            None,
         )  # (1, rx_T)
 
-        nfft_ref = _next_pow2(tx_T + rx_T + L - 2)
-        freqs_ref = _rfftfreq(nfft_ref, d=1.0 / fs)
-        jw = 1j * 2.0 * np.pi * freqs_ref  # (N_freq,)
-
-        # Hann taper to suppress (jw)^3 amplification of trapezoid sharp-corner
-        # spectral content. Passband 3*fc (15 MHz) is well above the 7.5 MHz
-        # excitation bandwidth; stop at 5*fc (25 MHz). The / fs factor converts
-        # from discrete-conv scaling (= fs × continuous-conv) to match the
-        # continuous-convention delta weights used by compute_pe_sdi.
-        f_pass = 3 * fc
-        f_stop = 5 * fc
-        taper = np.where(
-            freqs_ref <= f_pass,
-            1.0,
-            np.where(
-                freqs_ref <= f_stop,
-                0.5 * (1.0 + np.cos(np.pi * (freqs_ref - f_pass) / (f_stop - f_pass))),
-                0.0,
-            ),
-        )
-
+        nfft_ref = _next_pow2(tx_T + rx_T + L)
         H_tx = rfft(h_tx.astype(np.float64), n=nfft_ref, axis=1)
         H_rx_e = rfft(h_rx_e.astype(np.float64), n=nfft_ref, axis=1)
-        Dh_ref_H = (H_tx * jw) * (H_rx_e * jw**2) * taper / fs
-        Dh_ref = irfft(Dh_ref_H, n=nfft_ref, axis=1)
-
+        # /fs: discrete h_tx ⊛ h_rx FFT-conv = fs × the continuous two-way SIR.
+        h_pe_ref = H_tx * H_rx_e / fs
         rf_ref = irfft(
-            rfft(Dh_ref, n=nfft_ref, axis=1)
-            * rfft(excitation.astype(np.float64), n=nfft_ref),
+            h_pe_ref * rfft(excitation.astype(np.float64), n=nfft_ref),
             n=nfft_ref,
             axis=1,
         )[:, :pe_T]
@@ -320,6 +345,46 @@ class TestPeSdiVsReference:
         )
         assert Dh_pe.shape == (P, pe_T)
         assert Dh_pe.dtype == np.float32
+
+
+class TestPeSdiKernelVariants:
+    """Optimised kernels (§7.2 summed, §7.3 patch-parallel) match the base kernel."""
+
+    def _setup(self, simple_tx, simple_rx, points):
+        c, fs = 1540.0, 200e6
+        tx_c, tx_a, tx_d, _, _, tx_wx, tx_wy, _ = _extract_sub_elem(simple_tx)
+        rx_c, rx_a, rx_d, _, _, rx_wx, rx_wy, _ = _extract_sub_elem(simple_rx)
+        pe_t0, dt, pe_T, *_ = _build_pe_time_grid(simple_tx, simple_rx, points, c, fs)
+        args = (tx_c, tx_wx, tx_wy, tx_a, tx_d, rx_c, rx_wx, rx_wy, rx_a, rx_d)
+        return args, (1.0 / c, pe_t0, pe_T, fs, dt)
+
+    def test_summed_matches_amps_matvec(self, simple_tx, simple_rx):
+        """compute_pe_sdi_summed ≡ amps @ compute_pe_sdi (§7.2)."""
+        points = np.array(
+            [[0.0, 0.0, 15e-3], [1e-3, 0.0, 20e-3], [-1e-3, 0.0, 25e-3]],
+            dtype=np.float32,
+        )
+        amps = np.array([1.0, 0.7, -1.3], dtype=np.float32)
+        args, tail = self._setup(simple_tx, simple_rx, points)
+        full = compute_pe_sdi(points, *args, *tail)
+        summed = compute_pe_sdi_summed(points, *args[:10], amps, *tail)
+        ref = amps @ full
+        assert summed.shape == (full.shape[1],)
+        # rtol loose: the raw delta areas reach ~1e20, where compute_pe_sdi's float32
+        # output has ULP ~1e13 while the summed kernel accumulates in float64 — they
+        # differ by float32 quantization, not logic (gotcha #2 non-associativity).
+        assert_allclose(summed, ref, rtol=1e-3, atol=1e-4 * np.abs(ref).max())
+
+    def test_patch_parallel_matches_point_parallel(self, simple_tx, simple_rx):
+        """P==1 (patch-parallel kernel) ≡ the point-parallel kernel for the same point."""
+        p0 = np.array([[0.5e-3, 0.0, 22e-3]], dtype=np.float32)
+        args, tail = self._setup(simple_tx, simple_rx, p0)
+        single = compute_pe_sdi(p0, *args, *tail)  # P==1 → patch-parallel
+        # P==2 (duplicate point) uses the point-parallel kernel; row 0 is the same point.
+        dup = np.repeat(p0, 2, axis=0)
+        both = compute_pe_sdi(dup, *args, *tail)
+        assert single.shape[0] == 1
+        assert_allclose(single[0], both[0], rtol=1e-5, atol=1e-30)
 
 
 class TestPeSdiBatching:

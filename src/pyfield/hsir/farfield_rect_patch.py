@@ -151,8 +151,16 @@ def compute_parallelized_sir_optimized(
             distance = np.sqrt(dx * dx + dy * dy + dz * dz)
             inv_dist = np.float32(1.0) / distance
             # project direction onto local patch frame (u, v axes)
-            xp = (dx * patch_frames[m, 0] + dy * patch_frames[m, 1] + dz * patch_frames[m, 2]) * inv_dist
-            yp = (dx * patch_frames[m, 3] + dy * patch_frames[m, 4] + dz * patch_frames[m, 5]) * inv_dist
+            xp = (
+                dx * patch_frames[m, 0]
+                + dy * patch_frames[m, 1]
+                + dz * patch_frames[m, 2]
+            ) * inv_dist
+            yp = (
+                dx * patch_frames[m, 3]
+                + dy * patch_frames[m, 4]
+                + dz * patch_frames[m, 5]
+            ) * inv_dist
 
             t1, t2, t3, t4, h_max = compute_rectangle_SIR_params(
                 wx[m],
