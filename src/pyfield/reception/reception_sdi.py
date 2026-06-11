@@ -86,7 +86,7 @@ import warnings
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from pyfield.hsir.transducer_sir_pe import (
+from pyfield.hsir.transducer_sir_pe_sdi import (
     compute_pe_complete,
     compute_pe_sdi,
     compute_pe_sdi_summed,
@@ -442,7 +442,7 @@ class ReceptionSDI(ReceptionBase):
         nfft = _next_pow2(pe_T + len(exc) - 1) if exc is not None else _next_pow2(pe_T)
         freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
 
-        # Pre-compute excitation and IR FFTs (no jw — derivatives in Dh_pe).
+        # Pre-compute excitation and IR FFTs (no jw — derivatives in Δδ_pe).
         fft_v = (
             rfft(exc, n=nfft, workers=-1).astype(np.complex64)
             if exc is not None
@@ -584,7 +584,7 @@ class ReceptionSDI(ReceptionBase):
             # one FFT pair with the shared I⁴/exc/IR filters. Attenuation differs per
             # scatterer, so it keeps the per-scatterer path below.
             if not per_scatterer and not do_attenuation:
-                Dh_sum = compute_pe_sdi_summed(
+                delta_sum = compute_pe_sdi_summed(
                     points_m,
                     self._tx_centers,
                     self._tx_wx,
@@ -607,7 +607,7 @@ class ReceptionSDI(ReceptionBase):
                     rx_eu=rx_eu,
                     rx_ev=rx_ev,
                 )
-                H = rfft(Dh_sum, n=nfft, workers=-1)
+                H = rfft(delta_sum, n=nfft, workers=-1)
                 if inv_jw_pow is not None:
                     H *= inv_jw_pow
                 if fft_v is not None:
@@ -619,7 +619,7 @@ class ReceptionSDI(ReceptionBase):
                 rf[e_rx, :] = (irfft(H, n=nfft)[:pe_T] * scale).astype(np.float32)
                 continue
 
-            Dh_pe = compute_pe_sdi(
+            delta_pe = compute_pe_sdi(
                 points_m,
                 self._tx_centers,
                 self._tx_wx,
@@ -641,8 +641,8 @@ class ReceptionSDI(ReceptionBase):
                 rx_eu=rx_eu,
                 rx_ev=rx_ev,
             )  # (P, pe_T) float32
-            H_pe = rfft(Dh_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
-            del Dh_pe
+            H_pe = rfft(delta_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
+            del delta_pe
             if inv_jw_pow is not None:
                 H_pe *= inv_jw_pow[np.newaxis, :]
             if fft_v is not None:

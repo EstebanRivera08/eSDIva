@@ -3,64 +3,112 @@
 import numpy as np
 from numba import njit, prange
 
-inv_2pi = 1 / (2 * np.pi)
-
-
-# ---------- small helper (njit) for rectangle SIR parameters ----------
+from .helpers import (
+    _compute_rectangle_SIR_params,
+    identity_tangents,
+    pack_tangents,
+)
 
 
 @njit(inline="always")
-def compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
-    """Compute trapezoidal SIR parameters for a rectangular patch.
+def _fully_sampled_trapezoid(
+    h_out, p, k_start, k_end, time_grid, t1, t2, t3, t4, slope, h_max
+):
+    """Fill h_out[p, k_start:k_end] with the continuous trapezoid SIR (naive method).
 
-    Parameters
-    ----------
-    wx : float
-        Patch half-width in the x-direction.
-    wy : float
-        Patch half-width in the y-direction.
-    dx : float
-        Direction component (xp) from patch centre to field point.
-    dy : float
-        Direction component (yp) from patch centre to field point.
-    dist : float
-        Distance from patch centre to field point.
-    inv_c : float
-        Inverse speed of sound (1/c).
-    apod : float
-        Apodization weight for this patch.
-    delay : float
-        Time delay for this patch in seconds.
-    dt : float
-        Time step size.
-
-    Returns
-    -------
-    tuple of float
-        ``(t1, t2, t3, t4, h_max)`` trapezoidal SIR timing parameters.
+    Evaluates the rising / plateau / falling segments of the patch SIR at each time
+    sample and accumulates them — the exact band-unlimited SIR, used as the reference
+    when the patch spans only a few samples.
     """
-    xp_abs = abs(dx) * wx * inv_c
-    yp_abs = abs(dy) * wy * inv_c
-    Dt1 = min(xp_abs, yp_abs)
-    Dt2 = max(xp_abs, yp_abs)
+    for k in range(k_start, k_end):
+        t = time_grid[k]
+        if t < t1 or t >= t4:
+            continue
+        elif t < t2:
+            h_val = slope * (t - t1)
+        elif t < t3:
+            h_val = h_max
+        else:
+            h_val = slope * (t4 - t)
+        h_out[p, k] += h_val
 
-    # enforce minimum to avoid zero width
-    if Dt1 < dt:
-        Dt1 = dt
-    if Dt2 < dt:
-        Dt2 = dt
 
-    area = (wx * wy * inv_2pi) / dist
-    # time-of-flight
-    t1 = dist * inv_c - 0.5 * (Dt1 + Dt2) + delay
-    t2 = t1 + Dt1
-    t3 = t1 + Dt2
-    t4 = t1 + Dt1 + Dt2
+@njit(inline="always")
+def _place_sir_sdi_deltas(d2h, p, idxs, vals, t0, fs, t1, t2, t3, t4, slope):
+    """Place the 4 second-derivative deltas of one trapezoid into d2h[p, :] (SDI method).
 
-    # max height of trapezoid
-    h_max = area * apod / Dt2
+    d²h/dt² of a trapezoid is four signed Diracs at the corners (+,−,−,+), each scaled
+    by the rising slope. Linear interpolation splits every delta across the two adjacent
+    bins (8 writes); the caller recovers h by a double cumulative sum. Cheaper than the
+    naive fill when the patch spans many samples.
+    """
+    evt = 0
+    # t1 (+)
+    k1f = (t1 - t0) * fs + 1
+    k4f = (t4 - t0) * fs + 1
 
-    return t1, t2, t3, t4, h_max
+    kf = k1f
+    kf_floor = int(np.floor(kf))
+    w_ceil = kf - kf_floor
+    w_floor = 1.0 - w_ceil
+
+    idxs[evt] = kf_floor
+    vals[evt] = slope * w_floor
+    evt += 1
+    kf_ceil = kf_floor + 1
+
+    idxs[evt] = kf_ceil
+    vals[evt] = slope * w_ceil
+    evt += 1
+
+    # t2 (-)
+    kf = (t2 - t0) * fs + 1
+    kf_floor = int(np.floor(kf))
+    w_ceil = kf - kf_floor
+
+    w_floor = 1.0 - w_ceil
+    idxs[evt] = kf_floor
+    vals[evt] = -slope * w_floor
+    evt += 1
+
+    kf_ceil = kf_floor + 1
+    idxs[evt] = kf_ceil
+    vals[evt] = -slope * w_ceil
+    evt += 1
+
+    # t3 (-)
+    kf = (t3 - t0) * fs + 1
+    kf_floor = int(np.floor(kf))
+    w_ceil = kf - kf_floor
+
+    w_floor = 1.0 - w_ceil
+    idxs[evt] = kf_floor
+    vals[evt] = -slope * w_floor
+    evt += 1
+
+    kf_ceil = kf_floor + 1
+    idxs[evt] = kf_ceil
+    vals[evt] = -slope * w_ceil
+    evt += 1
+
+    # t4 (+)
+    kf = k4f
+    kf_floor = int(np.floor(kf))
+    w_ceil = kf - kf_floor
+
+    w_floor = 1.0 - w_ceil
+    idxs[evt] = kf_floor
+    vals[evt] = slope * w_floor
+    evt += 1
+
+    kf_ceil = kf_floor + 1
+    idxs[evt] = kf_ceil
+    vals[evt] = slope * w_ceil
+    evt += 1
+
+    for j in range(evt):
+        k_idx = idxs[j]
+        d2h[p, k_idx] += vals[j]
 
 
 # ---------- main SIR computation function (njit, parallel) ----------
@@ -162,7 +210,7 @@ def compute_parallelized_sir_optimized(
                 + dz * patch_frames[m, 5]
             ) * inv_dist
 
-            t1, t2, t3, t4, h_max = compute_rectangle_SIR_params(
+            t1, t2, t3, t4, h_max = _compute_rectangle_SIR_params(
                 wx[m],
                 wy[m],
                 xp,
@@ -222,91 +270,11 @@ def compute_parallelized_sir_optimized(
             slope = h_max / (t2 - t1)
 
             if use_naive:
-                # naive: fill h_out[p,k_start:k_end] with trapezoid values
-                # note: convert t grid index to times on the fly
-                for k in range(k_start, k_end):
-                    t = time_grid[k]
-                    # evaluate continuous trapezoid h(t)
-                    if t < t1 or t >= t4:
-                        continue
-                    elif t < t2:
-                        h_val = slope * (t - t1)
-                    elif t < t3:
-                        h_val = h_max
-                    else:
-                        h_val = slope * (t4 - t)
-                    # accumulate
-                    h_out[p, k] += h_val
+                _fully_sampled_trapezoid(
+                    h_out, p, k_start, k_end, time_grid, t1, t2, t3, t4, slope, h_max
+                )
             else:
-                # SDI: accumulate eight events (floor+ceil weights per time) to d2h[p, ...]
-                evt = 0
-                # t1 (+)
-                k1f = (t1 - t0) * fs + 1
-                k4f = (t4 - t0) * fs + 1
-
-                kf = k1f
-                kf_floor = int(np.floor(kf))
-                w_ceil = kf - kf_floor
-                w_floor = 1.0 - w_ceil
-
-                idxs[evt] = kf_floor
-                vals[evt] = slope * w_floor
-                evt += 1
-                kf_ceil = kf_floor + 1
-
-                idxs[evt] = kf_ceil
-                vals[evt] = slope * w_ceil
-                evt += 1
-
-                # t2 (-)
-                kf = (t2 - t0) * fs + 1
-                kf_floor = int(np.floor(kf))
-                w_ceil = kf - kf_floor
-
-                w_floor = 1.0 - w_ceil
-                idxs[evt] = kf_floor
-                vals[evt] = -slope * w_floor
-                evt += 1
-
-                kf_ceil = kf_floor + 1
-                idxs[evt] = kf_ceil
-                vals[evt] = -slope * w_ceil
-                evt += 1
-
-                # t3 (-)
-                kf = (t3 - t0) * fs + 1
-                kf_floor = int(np.floor(kf))
-                w_ceil = kf - kf_floor
-
-                w_floor = 1.0 - w_ceil
-                idxs[evt] = kf_floor
-                vals[evt] = -slope * w_floor
-                evt += 1
-
-                kf_ceil = kf_floor + 1
-                idxs[evt] = kf_ceil
-                vals[evt] = -slope * w_ceil
-                evt += 1
-
-                # t4 (+)
-                kf = k4f
-                kf_floor = int(np.floor(kf))
-                w_ceil = kf - kf_floor
-
-                w_floor = 1.0 - w_ceil
-                idxs[evt] = kf_floor
-                vals[evt] = slope * w_floor
-                evt += 1
-
-                kf_ceil = kf_floor + 1
-                idxs[evt] = kf_ceil
-                vals[evt] = slope * w_ceil
-                evt += 1
-
-                # apply events to d2h
-                for j in range(evt):
-                    k_idx = idxs[j]
-                    d2h[p, k_idx] += vals[j]
+                _place_sir_sdi_deltas(d2h, p, idxs, vals, t0, fs, t1, t2, t3, t4, slope)
 
         # After all patches for point p processed, if any SDI events were added, integrate
         # We must integrate d2h -> dh -> h and add to h_out
@@ -403,16 +371,10 @@ def compute_h_sir(
         ``range_k_matrix``.
     """
     if eu is None or ev is None:
-        eu_k = np.zeros((M, 3), dtype=np.float32)
-        ev_k = np.zeros((M, 3), dtype=np.float32)
-        eu_k[:, 0] = 1.0
-        ev_k[:, 1] = 1.0
-    else:
-        eu_k = np.asarray(eu, dtype=np.float32)
-        ev_k = np.asarray(ev, dtype=np.float32)
-
-    # Pack (M,3) tangent pairs into one (M,6) array — fewer params reduces parfors alias analysis work.
-    patch_frames = np.ascontiguousarray(np.concatenate([eu_k, ev_k], axis=1))
+        eu, ev = identity_tangents(M)
+    patch_frames = pack_tangents(
+        np.asarray(eu, dtype=np.float32), np.asarray(ev, dtype=np.float32)
+    )
     h_out, range_k_matrix, min_time, max_time = compute_parallelized_sir_optimized(
         P,
         M,

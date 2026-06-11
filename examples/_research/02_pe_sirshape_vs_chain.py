@@ -17,7 +17,7 @@ import scipy.io
 from scipy.fft import irfft, rfft, rfftfreq
 from scipy.signal import hilbert
 
-from pyfield.hsir.transducer_sir import compute_h_sir
+from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.transducers import ConcaveCircularTransducer
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,

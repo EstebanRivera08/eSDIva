@@ -1,12 +1,12 @@
 """Per-element pulse-echo SIR computation.
 
-Mirrors `transducer_sir_pe.py` but returns Dh_pe for each RX element
+Mirrors `transducer_sir_pe_sdi.py` but returns Δδ_pe for each RX element
 separately rather than requiring a pre-filtered patch set.
 """
 
 import numpy as np
 
-from .transducer_sir_pe import compute_pe_sdi
+from .transducer_sir_pe_sdi import compute_pe_sdi
 
 
 def compute_pe_sdi_per_element(
@@ -34,7 +34,7 @@ def compute_pe_sdi_per_element(
     rx_eu=None,
     rx_ev=None,
 ):
-    """Compute Dh_pe independently for each RX element.
+    """Compute the raw Δδ_pe delta train independently for each RX element.
 
     Parameters
     ----------
@@ -85,8 +85,8 @@ def compute_pe_sdi_per_element(
 
     Returns
     -------
-    Dh_pe_per_elem : (P, n_rx_elements, T) float32
-        Pulse-echo differentiated SIR per scatterer and RX element.
+    delta_pe_per_elem : (P, n_rx_elements, T) float32
+        Raw two-way pulse-echo delta train Δδ_pe per scatterer and RX element.
     """
     P = points.shape[0]
     out = np.zeros((P, n_rx_elements, T), dtype=np.float32)
@@ -96,7 +96,7 @@ def compute_pe_sdi_per_element(
             continue
         rx_eu_e = rx_eu[mask] if rx_eu is not None else None
         rx_ev_e = rx_ev[mask] if rx_ev is not None else None
-        Dh_e = compute_pe_sdi(
+        delta_e = compute_pe_sdi(
             points,
             tx_centers,
             tx_wx,
@@ -118,5 +118,5 @@ def compute_pe_sdi_per_element(
             rx_eu=rx_eu_e,
             rx_ev=rx_ev_e,
         )
-        out[:, e, :] = Dh_e  # (P, T)
+        out[:, e, :] = delta_e  # (P, T)
     return out

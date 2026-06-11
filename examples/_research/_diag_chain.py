@@ -2,7 +2,7 @@ import numpy as np
 from scipy.fft import rfft, irfft, rfftfreq
 from scipy.signal import hilbert
 from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.hsir.transducer_sir import compute_h_sir
+from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.utilities.helper_functions import compute_sub_elem_attributes, compute_time_grid
 
 F0, FS, C, ZS = 3e6, 100e6, 1540.0, 30.0

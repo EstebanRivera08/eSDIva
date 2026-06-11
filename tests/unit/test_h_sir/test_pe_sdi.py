@@ -12,7 +12,7 @@ from numpy.testing import assert_allclose
 from scipy.fft import irfft, rfft
 
 from pyfield.hsir.farfield_rect_patch import compute_h_sir as _compute_h_sir_ref
-from pyfield.hsir.transducer_sir_pe import compute_pe_sdi, compute_pe_sdi_summed
+from pyfield.hsir.transducer_sir_pe_sdi import compute_pe_sdi, compute_pe_sdi_summed
 from pyfield.transducers import LinearArrayTransducer
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,

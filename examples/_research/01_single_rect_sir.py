@@ -11,7 +11,7 @@ Tests:
 
 import numpy as np
 
-from pyfield.hsir.transducer_sir import compute_h_sir
+from pyfield.hsir.farfield_rect_patch import compute_h_sir
 
 C = 1540.0
 

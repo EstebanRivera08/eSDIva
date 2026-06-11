@@ -165,8 +165,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\attenuation\\attenuation.py": {
-    "mtime": 1779956563.5309184,
-    "ast_hash": "6499dcd0795ea96fd77ececde3849e83",
+    "mtime": 1781100064.685529,
+    "ast_hash": "a5a8f19664da7eb42d978dd0f0da541a",
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\beamforming\\__init__.py": {
@@ -225,8 +225,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\hsir\\transducer_sir_pe.py": {
-    "mtime": 1781099332.0387716,
-    "ast_hash": "108e98e41a079d04f022d1a1d3e68043",
+    "mtime": 1781182712.8016164,
+    "ast_hash": "5bb437f3d693d966e3df76b47af61625",
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\plotting\\__init__.py": {
@@ -275,13 +275,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\reception\\reception.py": {
-    "mtime": 1780933099.5330105,
-    "ast_hash": "d2cd63f8f5d2b37c95fa318a8f7b1013",
+    "mtime": 1781100653.0855892,
+    "ast_hash": "0e4dc6be6880bef79f880f11cc1a6400",
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\reception\\reception_sdi.py": {
-    "mtime": 1781099502.0472536,
-    "ast_hash": "81cdadb7741a04277ba8ea4da905c37f",
+    "mtime": 1781101056.049736,
+    "ast_hash": "302077e0218cb927e293a3001fb40297",
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\src\\pyfield\\transducers\\__init__.py": {
@@ -490,8 +490,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\.claude\\rules\\coding-guidelines.md": {
-    "mtime": 1779786150.0195131,
-    "ast_hash": "c2f0a7bdf9fb59e7a8eecddfae8e79ec",
+    "mtime": 1781099897.311418,
+    "ast_hash": "de0b07ff07dc2356f37a4aef567f3b0e",
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\.claude\\rules\\physics-context.md": {
@@ -525,13 +525,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\CLAUDE.md": {
-    "mtime": 1781095459.1439817,
-    "ast_hash": "c1b5c7f9decbb1e1c4b0b45955e81994",
-    "semantic_hash": ""
-  },
-  "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\PROMPT.md": {
-    "mtime": 1781091267.899199,
-    "ast_hash": "05376a187627b4f5edea8850f4559ccb",
+    "mtime": 1781099909.596007,
+    "ast_hash": "83dd0f39aa169cd4fc6a1f75a9c934cb",
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\README.md": {
@@ -1080,7 +1075,7 @@
     "semantic_hash": ""
   },
   "C:\\Users\\INSERM\\Documents\\Esteban\\PyField\\PE_SDI_kernel_analysis.md": {
-    "mtime": 1781094184.763844,
+    "mtime": 1781166713.6255412,
     "ast_hash": "c376ed2f7134e5107e153cee92f7ce58",
     "semantic_hash": ""
   }

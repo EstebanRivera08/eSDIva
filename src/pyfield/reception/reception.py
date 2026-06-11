@@ -45,7 +45,7 @@ import time
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from pyfield.hsir.transducer_sir import compute_h_sir
+from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.utilities.helper_functions import compute_time_grid
 
 from ..attenuation import causal_attenuation_tf, compute_reception_distances

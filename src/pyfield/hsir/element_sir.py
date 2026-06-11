@@ -1,6 +1,6 @@
 """Per-element SIR computation.
 
-Mirrors `transducer_sir.py` but groups patches by element index, returning a
+Mirrors `farfield_rect_patch.py` but groups patches by element index, returning a
 separate h_sir signal for each element rather than the sum over all patches.
 """
 
