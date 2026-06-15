@@ -29,7 +29,8 @@
       "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import imageio; print\\(imageio.plugins.ffmpeg.get_exe\\(\\)\\)\")",
       "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import imageio; w = imageio.get_writer\\(''test.mp4''\\); print\\(dir\\(w\\)\\)\")",
       "Bash(\".venv\\\\Scripts\\\\python.exe\" -c \"import imageio; w = imageio.get_writer\\(''test.mp4''\\); print\\(type\\(w.instance\\)\\); print\\(w.format\\)\")",
-      "Bash(uv pip show:*)"
+      "Bash(uv pip show:*)",
+      "Bash(xargs wc -l)"
     ]
   }
 }
