@@ -260,23 +260,56 @@ is therefore the delta placement, which iterates over patch pairs,
 \end{equation}
 
 \emph{quadratic} in the patch count. The paired-delta form trades the conventional
-per-scatterer convolution for this quadratic placement.
+per-scatterer convolution for this quadratic placement. The integration $I^4$ can be
+realised two ways. \emph{(a)} Place the $16$ deltas of every pair into one time buffer and
+apply $\div(j\omega)^4$ in a \emph{single} shared transform (one FFT pair per receive
+element); the cost is the placement above plus $\kappa\,T\log_2 T$. \emph{(b)} Precompute
+$w = I^4\nu_{pe}$ once and convolve it with the delta train by depositing a shifted, scaled
+copy of $w$ per delta; this needs no FFT but costs $\mathcal{O}(N_{\mathrm{fft}})$
+\emph{per pair}, i.e.
+$\mathrm{CT}^{\mathrm{splat}} = 16\,M_e\,M_{E_r}\,N_{\mathrm{fft}}$ — exact, but viable only
+for very small apertures (a single-point / reference cross-check).
 
 \paragraph{Factored SDI form.}
 The factored form (\ref{eq:RF_signal_SDI_TF_annexes}) keeps the convolution in the
 Fourier domain but exploits the additive separability of the two-way delay
 $t_i^e + t_j^r$ to build the transmit and receive spectral sums $\Sigma_{TX}$,
-$\Sigma_{RX}$ independently. The $16$ pairs never appear together: each one-way delta
-train is placed once (or summed analytically), so the placement cost is
+$\Sigma_{RX}$ independently. The $16$ pairs never appear together. There are two ways to
+build the one-way spectra, with \emph{different} costs.
+
+\emph{(i) Placed-train realisation.} Place each one-way corner-delta train once on the
+sample grid ($8$ writes per patch, with linear interpolation) and forward-transform it.
+The placement is
 
 \begin{equation}
     \mathrm{CT}^{\mathrm{fact}}_{\mathrm{place}} = 8\,(M_e + M_{E_r}),
 \end{equation}
 
-\emph{linear} in the patch count, followed by the same single $I^4$/excitation transform
-$\kappa\,T\log_2 T$ as the conventional formulation. Structurally the factored form
-recovers the conventional cost (linear build $+$ transform), but it never materialises the
-sampled one-way SIRs: it uses the closed-form delta spectra (\ref{eq:FT_delta}) instead.
+\emph{linear} in the patch count, followed by the single $I^4$/excitation transform
+$\kappa\,T\log_2 T$. This recovers the conventional cost (linear build $+$ transform) but
+inherits the two-bin interpolation error of the placement.
+
+\emph{(ii) Closed-form (analytic) realisation} (the one implemented in PyField). Evaluate
+the closed-form delta spectra (\ref{eq:FT_delta}) \emph{directly}: no time-domain
+placement and \emph{no forward transform} at all. Each one-way spectrum is a non-uniform
+DFT of its $4M$ corner phasors, evaluated only on the $N_b$ frequencies inside the
+excitation/impulse-response pass-band (the out-of-band bins are annihilated by the shared
+filter $G = I^4\,V\,\mathrm{IR}$, so they need not be formed). With one shared inverse
+transform per receive element,
+
+\begin{equation}
+    \mathrm{CT}^{\mathrm{fact}}_{\mathrm{analytic}}
+        = 4\,(M_e + M_{E_r})\,N_b \;+\; \kappa\,N_{\mathrm{fft}}\log_2 N_{\mathrm{fft}},
+    \qquad N_b \ll N_{\mathrm{fft}}.
+\end{equation}
+
+This realisation is \emph{exact} (no interpolation) and never materialises a sampled SIR.
+Its spectrum build is $\mathcal{O}\!\big((M_e+M_{E_r})\,N_b\big)$ — a non-uniform DFT:
+linear in the patch count but carrying the per-bin factor $N_b$. It is competitive only
+because band-limiting makes $N_b$ small; for a near-delta (wideband) excitation
+$N_b \to N_{\mathrm{fft}}$ and the build degrades to
+$\mathcal{O}\!\big((M_e+M_{E_r})\,N_{\mathrm{fft}}\big)$, i.e. the off-grid DFT cost the
+FFT is designed to avoid.
 
 \paragraph{Comparison.}
 Per scatterer and element, the three options differ only in how they pay for combining the
@@ -307,14 +340,107 @@ transmit and receive sides:
     $\Sigma_{TX}$, $\Sigma_{RX}$ no longer factorise).
 
     \item \textbf{Factored vs conventional.} Both scale as a linear patch build plus a
-    patch-independent transform $\kappa\,T\log_2 T$, so they are asymptotically
-    equivalent; the factored form simply avoids sampling and storing the one-way SIR
-    arrays.
+    patch-independent transform, and the factored form avoids sampling and storing the
+    one-way SIR arrays, is exact, and additionally removes the \emph{forward} transform,
+    replacing it with the band-limited DFT $4(M_e+M_{E_r})\,N_b$. The comparison is
+    \emph{not} purely asymptotic, however: it depends on the scatterer count $P$. The
+    conventional formulation groups the $P$ scatterers into depth bins and amortises the
+    one-way build across all scatterers in a bin, so its build is \emph{sublinear} in $P$,
+    whereas the factored build is strictly \emph{linear} in $P$. The two therefore cross
+    over at a problem-dependent $P^{*}$ (Sec.~\ref{appendix:rf_resources}): below it the
+    factored form is faster (it pays no forward FFT), above it the depth-binned conventional
+    form pulls ahead. On CPU the factored form's robust advantages are thus exactness (no
+    interpolation) and cheap per-path attenuation; its decisive speed-up is expected on GPU
+    (Sec.~\ref{appendix:rf_resources}) rather than on CPU.
 \end{itemize}
 
 In summary, the analytic SDI fuses the SIR build and the convolution into a delta
 product. The paired-delta form pays a quadratic patch-pair price to avoid the transform
 entirely and wins for compact, few-patch or single-point problems
-(\ref{eq:rf_heuristic}); the factored form restores the linear patch cost by separating
-the transmit and receive sums and is the method of choice for large arrays, where
-$M_e M_{E_r}$ would otherwise exceed the $T\log_2 T$ convolution cost.
+(\ref{eq:rf_heuristic}); the factored form keeps the cost linear in the patch count by
+separating the transmit and receive sums (so it never suffers the $M_e M_{E_r}$ blow-up of
+the paired form on large arrays), and the closed-form realisation makes it exact and
+band-limited. On CPU it is competitive with — not decisively faster than — the
+depth-binned conventional formulation; its principal gains are exactness, per-path
+attenuation, and a dense, scatter-free arithmetic structure well suited to GPU
+acceleration, where the absence of any forward FFT and of irregular memory access is
+expected to be decisive.
+
+
+\subsection{Resource considerations: scatterer count, memory, and hardware}
+\label{appendix:rf_resources}
+
+The per-scatterer, per-element cost counts of Sec.~\ref{appendix:rf_heuristic} settle the
+patch-count scaling but deliberately cancel the scatterer count $P$. That cancellation is
+only valid when every formulation is linear in $P$, which is \emph{not} the case once the
+conventional form is depth-binned. This subsection completes the picture along the three
+axes a practitioner actually trades — scatterer count, memory, and target hardware —
+comparing the conventional formulation against the factored SDI form (exposed in the
+implementation as \texttt{method="spectral"}).
+
+\paragraph{Scatterer-count scaling and the crossover $P^{*}$.}
+The factored form evaluates each scatterer's one-way spectra independently, so its build is
+strictly linear, $\mathcal{O}\!\big(P\,(M_e+M_{E_r})\,N_b\big)$. The conventional form groups
+the $P$ scatterers into $B$ depth bins and builds each one-way SIR \emph{once per bin},
+amortising the build across every scatterer that falls in the bin; its cost is
+$\mathcal{O}\!\big(B\,(\text{build}+T\log T)\big)$ plus an $\mathcal{O}(P)$ accumulation, i.e.
+\emph{sublinear} in $P$ until the bins saturate. Consequently the two cross over at a
+problem-dependent $P^{*}$: for $P<P^{*}$ the factored form is faster (it pays no forward
+transform), and for $P>P^{*}$ the conventional form pulls ahead, the gap widening until the
+factored cost becomes purely build-bound. Measured on an 8-core CPU with a 128-element array
+(\,$M_e=M_{E_r}=2304$ patches, $N_b\approx250$\,), summing a random scatterer cloud:
+
+\begin{center}
+\begin{tabular}{r r r r}
+\hline
+$P$ & conventional [s] & factored [s] & factored / conv \\
+\hline
+$100$    & $2.97$  & $2.34$   & $0.79$ \\
+$500$    & $6.82$  & $11.4$   & $1.67$ \\
+$2000$   & $18.9$  & $44.8$   & $2.37$ \\
+$10000$  & $80.1$  & $222$    & $2.77$ \\
+\hline
+\end{tabular}
+\end{center}
+
+so $P^{*}\approx250$ here; the ratio plateaus near $2.8\times$ once the factored form is
+build-bound. The agreement is unaffected (correlation $\geq 0.9997$ throughout). Practical
+guidance: sparse targets, point-spread functions and calibration grids ($P\lesssim$ a few
+hundred) favour the factored form; dense speckle phantoms for B-mode ($P\sim 10^3$–$10^6$)
+favour the depth-binned conventional form.
+
+\paragraph{Memory.}
+The factored form's batched receive build forms an $(E_r, P, N_b)$ complex spectrum
+($\Sigma_{RX}$ for every element and scatterer); at $E_r=128$, $P=10^4$, $N_b\approx250$ this
+is $\sim 5$\,GB in double precision and overflows memory if formed at once. Because the
+two-way response is summed over scatterers, the scatterer axis is an outer sum and is
+\emph{chunk-decomposable}: the implementation tiles $P$ into chunks and accumulates the
+$(E_r, N_b)$ per-element spectrum across chunks, bounding the peak working set to
+$(E_r,\text{chunk},N_b)$ independently of $P$ (and, as a side effect, removing the
+cache-thrashing super-linear slowdown a single giant buffer caused). The accumulation must
+be done in double precision: the summed corner-delta \emph{areas} are large (reaching
+$\sim\!10^{20}$ for sub-sample patches) and must cancel almost completely to leave the small
+in-band signal, which single precision would erode. The conventional form never forms a
+$P$-sized spectrum tensor — depth-binning holds the working set to one bin's SIRs and
+transform buffers, $\mathcal{O}(B\,T)$ plus the $(E_r, T)$ output — so it is naturally
+bounded. Per-scatterer (point-spread) output $(P, E_r, N_t)$ is intrinsically large for both
+forms and is a property of the requested output, not of the method.
+
+\paragraph{Vectorisation and GPU.}
+The factored form is a dense, regular, scatter-free computation: each one-way spectrum is a
+sum of corner phasors swept across a uniform frequency grid by a constant complex
+multiplication (a tight, branch-light inner loop that vectorises cleanly), and the two-way
+combine is a batched complex contraction over $(E_r, P, N_b)$ — a GEMM-like operation with
+high arithmetic intensity, no irregular memory writes, and \emph{no forward FFT}. This maps
+almost directly onto SIMD lanes and onto a GPU map-reduce: build $\Sigma_{TX}$ and
+$\Sigma_{RX}$, contract them, and take one inverse FFT batched over elements. The
+conventional form is harder to accelerate: it depends on many \emph{short} per-depth-bin
+FFTs and on gather/scatter of sampled SIRs into time buffers — short batched FFTs
+under-utilise wide vector units and GPUs, and the depth-bin gather/scatter is irregular.
+The conventional form's CPU advantage (build amortisation by depth-binning) therefore does
+not translate cleanly to massively parallel hardware. The expectation is that the CPU
+crossover \emph{inverts} on GPU: for the dense-$P$ regime where the conventional form wins
+on CPU, the factored form's regular dense structure and absence of a forward transform
+should make it the faster path on GPU. This — together with exactness and free per-path
+attenuation — is the principal motivation for the factored form, and the strongest
+follow-up to implement and measure.

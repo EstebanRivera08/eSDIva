@@ -110,15 +110,23 @@ Two reception classes are available:
   [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes it
   **the fast choice for real arrays** (many patches): cost ~`O(P·M + P·log nfft)`.
   Beats Field II `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
-- `ReceptionSDI` — PE SDI kernel: forms the two-way delta train
-  `Δδ_pe = D²h_tx ⊛ D²h_rx` directly (16 deltas per TX/RX patch pair, **no cumsum**),
-  then recovers the two-way SIR by `I⁴ = ÷(jω)⁴` in the frequency domain. Cost
-  ~`O(P·M_tx·M_rx)` — **quadratic in patch count**, so faster only when `M` is small
-  (few-patch / monoelement). This is the *truncated* SDI form; see
-  `PE_SDI_kernel_analysis.md` for the conventional/truncated/complete taxonomy. Not
-  depth-binned.
+- `ReceptionSDI` — three SDI formulations via `method=` (default `auto`):
+  - `paired` — forms the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx` directly (16
+    deltas per TX/RX patch pair, **no cumsum**), then recovers the two-way SIR by
+    `I⁴ = ÷(jω)⁴`. Cost ~`O(P·M_tx·M_rx)` — **quadratic in patch count**, fastest for
+    small `M` (few-patch / monoelement / PSF). `i4='fft'` applies I⁴ in Fourier;
+    `i4='splat'` lays down `w = I⁴ v_pe` per pair (FFT-free reference).
+  - `factored` — builds each one-way SIR spectrum in closed form from the corner times
+    (`Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**), evaluated on the in-band bins only.
+    Cost ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**, exact (no
+    interpolation), and folds in per-patch one-way attenuation. Best for PSFs and large
+    apertures.
+  - `conventional` — delegates to `Reception` (the depth-binned sampled-SIR path) for a
+    near-delta / wideband drive where band-limiting gives no benefit.
 
-Both give the same RF; pick by patch count.
+  See `PE_SDI_kernel_analysis.md` for the full conventional/paired/factored taxonomy.
+
+All give the same RF (corr ~1.0); `auto` picks by aperture size + bandwidth.
 
 **Public API** (axis order `[emission, reception, Nt]` — channels before time;
 `coords["t0"]` beam-axis referenced). The pulse-echo signal physically carries the
@@ -188,11 +196,13 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 - `alpha0=None` — attenuation in dB/(MHz^y·cm)
 - `freq_power=1.0` — power-law exponent y
 - `excitation=None` — TX excitation `(L,)` float32 (or uses `tx.excitation`)
+- `method="auto"` (`ReceptionSDI`) — `auto`/`conventional`/`paired`/`factored`
+- `i4="fft"` (`ReceptionSDI`) — `paired` I⁴ realization: `fft` or `splat`
 - `verbose=True`
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `ReceptionSDI` uses the PE SDI kernel (`compute_pe_sdi`, returns raw `Δδ_pe`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
+- `ReceptionSDI` evaluates the SDI forms (`paired` via `compute_pe_sdi`/`compute_pe_complete`; `factored` via `compute_oneway_spectrum_band`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
 - `Reception` builds `h_tx ⊛ h_rx` by conventional FFT convolution (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
 - Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
@@ -500,7 +510,7 @@ out[i, k] = np.float32(acc)     # write back float32
 ### 3. PE SDI Delta Placement — `k_shift = 0`
 
 PE SDI places combined deltas at `floor((t_corner_e + t_corner_r - pe_t0)*fs)` with
-**`k_shift = 0`** (in `_place_pe_sdi_deltas`, `transducer_sir_pe.py`).
+**`k_shift = 0`** (in `_place_pe_sdi_deltas`, `transducer_sir_pe_sdi.py`).
 
 Rationale: `Δδ_pe = d2h_e ⊛ d2h_r` (raw deltas; `I⁴ = ÷(jω)⁴` applied later in
 Fourier). Discrete convolution adds

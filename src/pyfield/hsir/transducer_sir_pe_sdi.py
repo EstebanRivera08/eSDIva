@@ -1,28 +1,45 @@
-"""Pulse-echo SDI kernels: combined two-way delta placement (Δδ_pe) and variants.
+"""Pulse-echo SDI kernels for the two analytic forms of `p_pe = v_pe ⊛ h_tx ⊛ h_rx`.
 
 The pulse-echo response of a (TX patch, RX patch) pair is the time convolution of their
 one-way spatial impulse responses, `h_tx ⊛ h_rx`. Each one-way SIR is a trapezoid whose
 second time-derivative is four Dirac deltas, so the *product* of the two delta trains is
 the raw two-way kernel `Δδ_pe = D²h_tx ⊛ D²h_rx` — 16 deltas per patch pair. The smooth
-two-way SIR is recovered by integrating four times, `h_tx ⊛ h_rx = I⁴ Δδ_pe`; here that
-I⁴ is **not** done by cumulative sums but applied downstream in Fourier as ÷(jω)⁴, so
-these kernels return the *raw* delta train.
+two-way SIR is recovered by integrating four times, `h_tx ⊛ h_rx = I⁴ Δδ_pe`.
 
-Three kernels, all sharing the patch geometry:
-- `compute_pe_sdi` — Δδ_pe at every scatterer, `(P, T)`.
-- `compute_pe_sdi_summed` — amplitude-weighted sum over scatterers, `(T,)`, for the
-  no-attenuation single-trace fast path (skips the `(P, T)` buffer).
-- `compute_pe_complete` — the FFT-free reference: splats the already-integrated kernel
-  `w = I⁴ v_pe` directly, so the output is the final RF trace.
+PyField evaluates that pulse-echo signal two ways, each implemented here. They give the
+same RF; they differ only in where the four integrations and the convolution are done:
+
+Paired (TX×RX patch-pair enumeration, 16 deltas per pair — cost ∝ M_tx·M_rx):
+- `compute_pe_complete` — push the four integrations onto the excitation once, forming the
+  integrated pulse-echo waveform `w = I⁴ v_pe`, then for each of the 16 corner events of a
+  pair splat a shifted, scaled copy of `w`. No FFT and no cumulative sum: the output is the
+  final RF trace. Exact but O(len(w)) per pair, so it is the small-aperture / reference path.
+
+Spectral (one-way TX and RX spectra built independently, then multiplied — cost ∝
+M_tx + M_rx, no forward FFT):
+- `compute_oneway_spectrum_band` — the closed-form Fourier transform of one aperture's
+  corner-delta train, a sum of four phasors per patch, evaluated only on the in-band
+  frequencies, `(P, N_band)`, with optional per-patch attenuation. The caller multiplies the
+  TX and RX results (convolution ⇒ product) and applies I⁴ = ÷(jω)⁴ downstream.
+- `compute_oneway_spectrum_band_batched` — the same spectrum for every receive element in a
+  single call, `(E, P, N_band)`, so a multi-element receive aperture costs one kernel
+  dispatch instead of one per element.
 
 Each kernel parallelizes over scatterers (`prange` over P); a single field point (a PSF,
-`P == 1`) instead parallelizes over TX patches so one point still saturates every core.
+`P == 1`) instead parallelizes over patches so one point still saturates every core.
 """
 
 import numpy as np
 from numba import get_num_threads, njit, prange
 
-from .helpers import _compute_rectangle_SIR_params, _prep_pe_arrays
+from pyfield.attenuation.attenuation import _causal_atten_factor
+
+from .helpers import (
+    _compute_rectangle_SIR_params,
+    _prep_pe_arrays,
+    identity_tangents,
+    pack_tangents,
+)
 
 
 @njit(inline="always")
@@ -55,407 +72,465 @@ def _patch_corner_times(
 
 
 # ---------------------------------------------------------------------------
-# PE SDI (combined pulse-echo SDI) — 16 deltas per (m_e, m_r) pair
+# Factored SDI PE: closed-form one-way SIR spectrum (no forward FFT).
+#
+# The factored form never builds a time-domain SIR. The second derivative of one
+# patch's trapezoidal SIR is four corner deltas, so the Fourier transform of that
+# one-way delta train is exact and closed form — a sum of four complex exponentials:
+#
+#     Σ_one-way(ω) = Σ_m slope_m · [ e^{-jω t1} − e^{-jω t2} − e^{-jω t3} + e^{-jω t4} ]
+#
+# (corner signs +,−,−,+). The two-way SIR spectrum is then the product of the TX and
+# RX one-way spectra (convolution ⇒ multiplication), and the four integrations I⁴ that
+# turn ∂²h into h are applied downstream as ÷(jω)⁴. Because the received signal is
+# band-limited by the excitation/impulse-response chain, the spectrum is only evaluated
+# on the in-band frequencies handed in via ``omega`` — the rest of the band contributes
+# nothing once multiplied by the (near-zero) out-of-band filter, so it is skipped.
+#
+# Per-patch one-way attenuation is folded in here for free: the patch-to-point distance
+# is already needed, so each patch term is multiplied by its own causal attenuation
+# factor before being summed. Doing it inside the patch sum (rather than once on the
+# combined SIR) gives a true per-path round trip when TX and RX spectra are multiplied.
 # ---------------------------------------------------------------------------
 
 
 @njit(inline="always")
-def _place_pe_sdi_deltas(
-    out, p, t0, fs, t1e, t2e, t3e, t4e, t1r, t2r, t3r, t4r, weight
-):
-    """Place the 16 Δδ_pe deltas of one (m_e, m_r) pair into out[p, :].
-
-    The two-way delta train is the product of the TX and RX second-derivative trains:
-    each of the 4 TX corners (signs +,−,−,+) times each of the 4 RX corners lands one
-    delta at time ``t_e + t_r`` with the product sign. Linear interpolation splits every
-    delta across the two adjacent bins (32 writes total). The events are placed at the
-    naive ``h_tx ⊛ h_rx`` onset — no extra sample shift (verified against the naive SIR).
-    """
-    signpos1 = np.float32(1.0)
-    signneg1 = np.float32(-1.0)
-    k_shift = np.float32(0.0)
-
-    # Unrolled 4×4 loop for Numba performance.
-    for i_r in range(4):
-        if i_r == 0:
-            sign_i = signpos1
-            t_r = t1r
-        elif i_r == 1:
-            sign_i = signneg1
-            t_r = t2r
-        elif i_r == 2:
-            sign_i = signneg1
-            t_r = t3r
-        else:
-            sign_i = signpos1
-            t_r = t4r
-
-        # TX corner 0 (+1)
-        w1 = signpos1 * sign_i * weight
-        t_event = t1e + t_r
-        kf = (t_event - t0) * fs + k_shift
-        kf_floor = int(np.floor(kf))
-        w_ceil = kf - kf_floor
-        w_floor = signpos1 - w_ceil  # reuse +1 as one
-        out[p, kf_floor] += w1 * w_floor
-        out[p, kf_floor + 1] += w1 * w_ceil
-
-        # TX corner 1 (-1)
-        w2 = signneg1 * sign_i * weight
-        t_event = t2e + t_r
-        kf = (t_event - t0) * fs + k_shift
-        kf_floor = int(np.floor(kf))
-        w_ceil = kf - kf_floor
-        w_floor = signpos1 - w_ceil
-        out[p, kf_floor] += w2 * w_floor
-        out[p, kf_floor + 1] += w2 * w_ceil
-
-        # TX corner 2 (-1)
-        w3 = signneg1 * sign_i * weight
-        t_event = t3e + t_r
-        kf = (t_event - t0) * fs + k_shift
-        kf_floor = int(np.floor(kf))
-        w_ceil = kf - kf_floor
-        w_floor = signpos1 - w_ceil
-        out[p, kf_floor] += w3 * w_floor
-        out[p, kf_floor + 1] += w3 * w_ceil
-
-        # TX corner 3 (+1)
-        w4 = signpos1 * sign_i * weight
-        t_event = t4e + t_r
-        kf = (t_event - t0) * fs + k_shift
-        kf_floor = int(np.floor(kf))
-        w_ceil = kf - kf_floor
-        w_floor = signpos1 - w_ceil
-        out[p, kf_floor] += w4 * w_floor
-        out[p, kf_floor + 1] += w4 * w_ceil
+def _phasor(x):
+    """Unit phasor e^{-jx} = cos x − j sin x."""
+    return complex(np.cos(x), -np.sin(x))
 
 
 @njit(parallel=True, fastmath=True, cache=True)
-def _pe_sdi_points(
+def _oneway_spectrum_points(
     points,
-    tx_centers,
-    tx_wx,
-    tx_wy,
-    tx_tangents,
-    tx_apod,
-    tx_delays,
-    rx_centers,
-    rx_wx,
-    rx_wy,
-    rx_tangents,
-    rx_apod,
-    rx_delays,
+    centers,
+    wx,
+    wy,
+    tangents,
+    apod,
+    delays,
     inv_c,
     t0,
-    T,
-    fs,
+    omega,
     dt,
+    do_atten,
+    alpha0_np,
+    y,
+    tan_y,
+    f0,
+    y_is_one,
 ):
-    """Raw Δδ_pe at each scatterer → (P, T) float64. prange over scatterers.
+    """Closed-form one-way SIR spectrum at each scatterer → (P, N_band) complex128.
 
-    Each scatterer owns its own output row, so the parallel loop writes race-free.
+    For each scatterer (``prange`` over P, race-free rows) sums the analytic four-corner
+    delta spectrum of every patch over the in-band angular frequencies ``omega``. The
+    frequency grid is uniform, so each corner's phasor ``e^{-jω(t_i-t0)}`` advances by a
+    constant factor ``e^{-jΔω(t_i-t0)}`` from one bin to the next — it is swept by
+    repeated complex multiplication instead of calling sin/cos at every bin.
     """
     P = points.shape[0]
-    M_e = tx_centers.shape[0]
-    M_r = rx_centers.shape[0]
-    # float64 buffer: the PE weight slope_e·slope_r can reach ~1e20 for sub-sample
-    # patches (Dt clamped to dt → slope ~ area/dt², squared in the product). A float32
-    # buffer would lose ~1e13 per write to cancellation, leaking DC/ramp (vertical
-    # streaks). float64 ULP at 1e20 is ~2e4 (negligible).
-    out = np.zeros((P, T), dtype=np.float64)
+    M = centers.shape[0]
+    Nb = omega.shape[0]
+    out = np.zeros((P, Nb), dtype=np.complex128)
+    w0 = omega[0]
+    dw = omega[1] - omega[0] if Nb > 1 else 0.0
     for p in prange(P):  # ty: ignore[not-iterable]
-        for m_r in range(M_r):
-            t1r, t2r, t3r, t4r, slope_r = _patch_corner_times(
-                points[p, 0],
-                points[p, 1],
-                points[p, 2],
-                rx_centers[m_r, 0],
-                rx_centers[m_r, 1],
-                rx_centers[m_r, 2],
-                rx_tangents[m_r, 0],
-                rx_tangents[m_r, 1],
-                rx_tangents[m_r, 2],
-                rx_tangents[m_r, 3],
-                rx_tangents[m_r, 4],
-                rx_tangents[m_r, 5],
-                rx_wx[m_r],
-                rx_wy[m_r],
+        px = points[p, 0]
+        py = points[p, 1]
+        pz = points[p, 2]
+        for m in range(M):
+            t1, t2, t3, t4, slope = _patch_corner_times(
+                px,
+                py,
+                pz,
+                centers[m, 0],
+                centers[m, 1],
+                centers[m, 2],
+                tangents[m, 0],
+                tangents[m, 1],
+                tangents[m, 2],
+                tangents[m, 3],
+                tangents[m, 4],
+                tangents[m, 5],
+                wx[m],
+                wy[m],
                 inv_c,
-                rx_apod[m_r],
-                rx_delays[m_r],
+                apod[m],
+                delays[m],
                 dt,
             )
-            if slope_r == 0.0:
+            if slope == 0.0:
                 continue
-            for m_e in range(M_e):
-                t1e, t2e, t3e, t4e, slope_e = _patch_corner_times(
-                    points[p, 0],
-                    points[p, 1],
-                    points[p, 2],
-                    tx_centers[m_e, 0],
-                    tx_centers[m_e, 1],
-                    tx_centers[m_e, 2],
-                    tx_tangents[m_e, 0],
-                    tx_tangents[m_e, 1],
-                    tx_tangents[m_e, 2],
-                    tx_tangents[m_e, 3],
-                    tx_tangents[m_e, 4],
-                    tx_tangents[m_e, 5],
-                    tx_wx[m_e],
-                    tx_wy[m_e],
-                    inv_c,
-                    tx_apod[m_e],
-                    tx_delays[m_e],
-                    dt,
-                )
-                if slope_e == 0.0:
-                    continue
-
-                kstart = (t1e + t1r - t0) * fs
-                kend = (t4e + t4r - t0) * fs + 2
-                if kstart < 1 or kend > T:
-                    print(
-                        f"Warning: event outside time grid in point {p}"
-                        f"and patch pair (m_e, m_r) = ({m_e}, {m_r})"
+            # Distance for the per-path attenuation (only needed when attenuating).
+            dist = 0.0
+            if do_atten:
+                dx = px - centers[m, 0]
+                dy = py - centers[m, 1]
+                dz = pz - centers[m, 2]
+                dist = np.sqrt(dx * dx + dy * dy + dz * dz)
+            # Corner times relative to the window origin, and the per-bin phasor steps.
+            a1 = t1 - t0
+            a2 = t2 - t0
+            a3 = t3 - t0
+            a4 = t4 - t0
+            ph1 = slope * _phasor(w0 * a1)
+            ph2 = slope * _phasor(w0 * a2)
+            ph3 = slope * _phasor(w0 * a3)
+            ph4 = slope * _phasor(w0 * a4)
+            s1 = _phasor(dw * a1)
+            s2 = _phasor(dw * a2)
+            s3 = _phasor(dw * a3)
+            s4 = _phasor(dw * a4)
+            for k in range(Nb):
+                val = ph1 - ph2 - ph3 + ph4
+                if do_atten:
+                    val *= _causal_atten_factor(
+                        omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
                     )
-                    print("k_start:", kstart, "k_end:", kend, "T:", T)
-                    continue
-
-                _place_pe_sdi_deltas(
-                    out,
-                    p,
-                    t0,
-                    fs,
-                    t1e,
-                    t2e,
-                    t3e,
-                    t4e,
-                    t1r,
-                    t2r,
-                    t3r,
-                    t4r,
-                    slope_r * slope_e,
-                )
-
-    # Raw Δδ_pe (= D²h_tx ⊛ D²h_rx); I⁴ applied downstream as ÷(jω)⁴.
+                out[p, k] += val
+                ph1 *= s1
+                ph2 *= s2
+                ph3 *= s3
+                ph4 *= s4
     return out
 
 
 @njit(parallel=True, fastmath=True, cache=True)
-def _pe_sdi_patches(
+def _oneway_spectrum_patches(
     point,
-    tx_centers,
-    tx_wx,
-    tx_wy,
-    tx_tangents,
-    tx_apod,
-    tx_delays,
-    rx_centers,
-    rx_wx,
-    rx_wy,
-    rx_tangents,
-    rx_apod,
-    rx_delays,
+    centers,
+    wx,
+    wy,
+    tangents,
+    apod,
+    delays,
     inv_c,
     t0,
-    T,
-    fs,
+    omega,
     dt,
+    do_atten,
+    alpha0_np,
+    y,
+    tan_y,
+    f0,
+    y_is_one,
 ):
-    """Raw Δδ_pe for one field point → (T,) float64. prange over TX patches.
+    """Closed-form one-way SIR spectrum for one field point → (1, N_band) complex128.
 
-    For a single point (a PSF) `prange` over scatterers would leave every core but one
-    idle, so we parallelize over TX patches instead. Each patch writes its own row of an
-    ``(M_e, T)`` buffer (race-free), summed at the end.
+    ``prange`` over patches (each writes its own row of an ``(M, N_band)`` buffer,
+    race-free) so a single point (a PSF) still saturates every core; the rows are summed.
     """
-    M_e = tx_centers.shape[0]
-    M_r = rx_centers.shape[0]
+    M = centers.shape[0]
+    Nb = omega.shape[0]
+    buf = np.zeros((M, Nb), dtype=np.complex128)
     px = point[0]
     py = point[1]
     pz = point[2]
-    buf = np.zeros((M_e, T), dtype=np.float64)  # one row per TX patch, race-free.
-    for m_e in prange(M_e):  # ty: ignore[not-iterable]
-        t1e, t2e, t3e, t4e, slope_e = _patch_corner_times(
+    w0 = omega[0]
+    dw = omega[1] - omega[0] if Nb > 1 else 0.0
+    for m in prange(M):  # ty: ignore[not-iterable]
+        t1, t2, t3, t4, slope = _patch_corner_times(
             px,
             py,
             pz,
-            tx_centers[m_e, 0],
-            tx_centers[m_e, 1],
-            tx_centers[m_e, 2],
-            tx_tangents[m_e, 0],
-            tx_tangents[m_e, 1],
-            tx_tangents[m_e, 2],
-            tx_tangents[m_e, 3],
-            tx_tangents[m_e, 4],
-            tx_tangents[m_e, 5],
-            tx_wx[m_e],
-            tx_wy[m_e],
+            centers[m, 0],
+            centers[m, 1],
+            centers[m, 2],
+            tangents[m, 0],
+            tangents[m, 1],
+            tangents[m, 2],
+            tangents[m, 3],
+            tangents[m, 4],
+            tangents[m, 5],
+            wx[m],
+            wy[m],
             inv_c,
-            tx_apod[m_e],
-            tx_delays[m_e],
+            apod[m],
+            delays[m],
             dt,
         )
-        if slope_e == 0.0:
+        if slope == 0.0:
             continue
-        for m_r in range(M_r):
-            t1r, t2r, t3r, t4r, slope_r = _patch_corner_times(
-                px,
-                py,
-                pz,
-                rx_centers[m_r, 0],
-                rx_centers[m_r, 1],
-                rx_centers[m_r, 2],
-                rx_tangents[m_r, 0],
-                rx_tangents[m_r, 1],
-                rx_tangents[m_r, 2],
-                rx_tangents[m_r, 3],
-                rx_tangents[m_r, 4],
-                rx_tangents[m_r, 5],
-                rx_wx[m_r],
-                rx_wy[m_r],
-                inv_c,
-                rx_apod[m_r],
-                rx_delays[m_r],
-                dt,
-            )
-            if slope_r == 0.0:
-                continue
-            kstart = (t1e + t1r - t0) * fs
-            kend = (t4e + t4r - t0) * fs + 2
-            if kstart < 1 or kend > T:
-                continue
-            _place_pe_sdi_deltas(
-                buf,
-                m_e,
-                t0,
-                fs,
-                t1e,
-                t2e,
-                t3e,
-                t4e,
-                t1r,
-                t2r,
-                t3r,
-                t4r,
-                slope_r * slope_e,
-            )
-    return buf.sum(axis=0)
+        dist = 0.0
+        if do_atten:
+            dx = px - centers[m, 0]
+            dy = py - centers[m, 1]
+            dz = pz - centers[m, 2]
+            dist = np.sqrt(dx * dx + dy * dy + dz * dz)
+        a1 = t1 - t0
+        a2 = t2 - t0
+        a3 = t3 - t0
+        a4 = t4 - t0
+        ph1 = slope * _phasor(w0 * a1)
+        ph2 = slope * _phasor(w0 * a2)
+        ph3 = slope * _phasor(w0 * a3)
+        ph4 = slope * _phasor(w0 * a4)
+        s1 = _phasor(dw * a1)
+        s2 = _phasor(dw * a2)
+        s3 = _phasor(dw * a3)
+        s4 = _phasor(dw * a4)
+        for k in range(Nb):
+            val = ph1 - ph2 - ph3 + ph4
+            if do_atten:
+                val *= _causal_atten_factor(
+                    omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
+                )
+            buf[m, k] += val
+            ph1 *= s1
+            ph2 *= s2
+            ph3 *= s3
+            ph4 *= s4
+    out = np.zeros((1, Nb), dtype=np.complex128)
+    for m in range(M):
+        out[0] += buf[m]
+    return out
 
 
-# No cache=True: get_num_threads() is a dynamic global, which numba refuses to cache
-# (and the warning would trip pytest's filterwarnings=error). Recompiles per session.
-@njit(parallel=True, fastmath=True)
-def _pe_sdi_summed(
+def compute_oneway_spectrum_band(
     points,
-    tx_centers,
-    tx_wx,
-    tx_wy,
-    tx_tangents,
-    tx_apod,
-    tx_delays,
-    rx_centers,
-    rx_wx,
-    rx_wy,
-    rx_tangents,
-    rx_apod,
-    rx_delays,
-    amps,
+    centers,
+    wx,
+    wy,
+    apod,
+    delays,
     inv_c,
     t0,
-    T,
-    fs,
+    omega,
     dt,
+    *,
+    eu=None,
+    ev=None,
+    alpha0_np=None,
+    freq_power=1.0,
+    f0_hz=0.0,
 ):
-    """Amplitude-weighted sum over scatterers of Δδ_pe → (T,) float64.
+    """Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form).
 
-    Same deltas as `_pe_sdi_points` but accumulated (× ``amps``) into one trace, so the
-    caller skips the ``amps @ (P, T)`` matvec and the ``(P, T)`` buffer. The output is a
-    single shared ``(T,)`` trace, so — unlike the other kernels — we cannot give each
-    parallel iteration its own output row; instead each thread owns one row of a small
-    ``(n_threads, T)`` buffer (a contiguous chunk of scatterers), race-free, reduced
-    after the loop. No-attenuation summed path only.
+    Evaluates the analytic Fourier transform of one aperture's spatial-impulse-response
+    second derivative — a sum over patches of four corner phasors,
+    ``Σ_m slope_m (e^{-jωt1} − e^{-jωt2} − e^{-jωt3} + e^{-jωt4})`` — directly at the
+    requested angular frequencies, with NO time sampling and NO forward FFT. The two-way
+    SIR spectrum is the product of the TX and RX results; the integrations I⁴ are applied
+    by the caller as ÷(jω)⁴. Optional per-patch causal attenuation
+    ``exp(−α|f|^y d)·(K-K phase)`` is folded into each patch term using its own
+    patch-to-point distance, so the TX×RX product carries the true round-trip loss.
+
+    Parameters
+    ----------
+    points : (P, 3) numpy.ndarray
+        Scatterer positions in metres.
+    centers : (M, 3) numpy.ndarray
+        Patch centres in metres (this aperture's patches, or one element's).
+    wx, wy : (M,) numpy.ndarray
+        Patch widths in the two in-plane directions (metres).
+    apod : (M,) numpy.ndarray
+        Apodization weight per patch.
+    delays : (M,) numpy.ndarray
+        Delay per patch (seconds).
+    inv_c : float
+        Inverse speed of sound 1/c (s/m).
+    t0 : float
+        Window origin (seconds); corner times are referenced to it so the inverse
+        transform lands the trace at the window start.
+    omega : (N_band,) numpy.ndarray
+        In-band angular frequencies 2πf (rad/s), uniformly spaced.
+    dt : float
+        Time step 1/fs (seconds); clamps sub-sample patch edge crossings.
+    eu, ev : (M, 3) numpy.ndarray or None, default None
+        Patch tangent frames; None → flat-patch identity tangents.
+    alpha0_np : float or None, default None
+        Absorption coefficient in Np/(Hz^y·m). None disables attenuation.
+    freq_power : float, default 1.0
+        Attenuation power-law exponent y.
+    f0_hz : float, default 0.0
+        Reference frequency (Hz) for the y = 1 dispersion term.
+
+    Returns
+    -------
+    (P, N_band) numpy.ndarray
+        One-way SIR-delta spectrum at each scatterer (complex64).
     """
+    points = np.asarray(points, dtype=np.float32)
+    centers = np.asarray(centers, dtype=np.float32)
+    wx = np.asarray(wx, dtype=np.float32)
+    wy = np.asarray(wy, dtype=np.float32)
+    apod = np.asarray(apod, dtype=np.float32)
+    delays = np.asarray(delays, dtype=np.float32)
+    omega = np.ascontiguousarray(np.asarray(omega, dtype=np.float64))
+    inv_c, t0, dt = float(inv_c), float(t0), float(dt)
+    M = centers.shape[0]
+    if eu is None or ev is None:
+        eu, ev = identity_tangents(M)
+    tangents = pack_tangents(
+        np.asarray(eu, dtype=np.float32), np.asarray(ev, dtype=np.float32)
+    )
+
+    do_atten = alpha0_np is not None
+    y = float(freq_power)
+    y_is_one = abs(y - 1.0) < 1e-10
+    tan_y = float(np.tan(y * np.pi / 2.0)) if not y_is_one else 0.0
+    a0 = float(alpha0_np) if alpha0_np is not None else 0.0
+    f0 = float(f0_hz)
+
+    args = (
+        centers,
+        wx,
+        wy,
+        tangents,
+        apod,
+        delays,
+        inv_c,
+        t0,
+        omega,
+        dt,
+        do_atten,
+        a0,
+        y,
+        tan_y,
+        f0,
+        y_is_one,
+    )
+    if points.shape[0] == 1:
+        return _oneway_spectrum_patches(points[0], *args).astype(np.complex64)
+    return _oneway_spectrum_points(points, *args).astype(np.complex64)
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _oneway_spectrum_batched(
+    points, centers, wx, wy, tangents, apod, delays, inv_c, t0, omega, dt
+):
+    """Closed-form one-way SIR spectrum for EVERY receive element at once → (E, P, N_band).
+
+    The single-element kernel `_oneway_spectrum_points` evaluated once per receive element
+    pays a full kernel dispatch for each one, even though each element holds only ~M/E
+    patches. Here the elements are stacked along a leading axis and swept in one parallel
+    loop (`prange` over E, each element owning a race-free output block): same four-corner
+    phasor sum per patch, same per-bin complex-multiply sweep across the uniform in-band
+    grid (no per-bin sin/cos). Elements may have different patch counts; the array is padded
+    to the largest with ``apod = 0`` rows, whose slope vanishes so they are skipped. No
+    attenuation here — this serves the summed, attenuation-free receive path.
+    """
+    E = centers.shape[0]
     P = points.shape[0]
-    M_e = tx_centers.shape[0]
-    M_r = rx_centers.shape[0]
-    n_threads = get_num_threads()
-    buf = np.zeros((n_threads, T), dtype=np.float64)
-    chunk = (P + n_threads - 1) // n_threads
-    for c in prange(n_threads):  # ty: ignore[not-iterable]
-        start = c * chunk
-        end = min(start + chunk, P)
-        for p in range(start, end):
-            ap = amps[p]
+    M = centers.shape[1]
+    Nb = omega.shape[0]
+    out = np.zeros((E, P, Nb), dtype=np.complex128)
+    w0 = omega[0]
+    dw = omega[1] - omega[0] if Nb > 1 else 0.0
+    for e in prange(E):  # ty: ignore[not-iterable]
+        for p in range(P):
             px = points[p, 0]
             py = points[p, 1]
             pz = points[p, 2]
-            for m_r in range(M_r):
-                t1r, t2r, t3r, t4r, slope_r = _patch_corner_times(
+            for m in range(M):
+                t1, t2, t3, t4, slope = _patch_corner_times(
                     px,
                     py,
                     pz,
-                    rx_centers[m_r, 0],
-                    rx_centers[m_r, 1],
-                    rx_centers[m_r, 2],
-                    rx_tangents[m_r, 0],
-                    rx_tangents[m_r, 1],
-                    rx_tangents[m_r, 2],
-                    rx_tangents[m_r, 3],
-                    rx_tangents[m_r, 4],
-                    rx_tangents[m_r, 5],
-                    rx_wx[m_r],
-                    rx_wy[m_r],
+                    centers[e, m, 0],
+                    centers[e, m, 1],
+                    centers[e, m, 2],
+                    tangents[e, m, 0],
+                    tangents[e, m, 1],
+                    tangents[e, m, 2],
+                    tangents[e, m, 3],
+                    tangents[e, m, 4],
+                    tangents[e, m, 5],
+                    wx[e, m],
+                    wy[e, m],
                     inv_c,
-                    rx_apod[m_r],
-                    rx_delays[m_r],
+                    apod[e, m],
+                    delays[e, m],
                     dt,
                 )
-                if slope_r == 0.0:
+                if slope == 0.0:
                     continue
-                for m_e in range(M_e):
-                    t1e, t2e, t3e, t4e, slope_e = _patch_corner_times(
-                        px,
-                        py,
-                        pz,
-                        tx_centers[m_e, 0],
-                        tx_centers[m_e, 1],
-                        tx_centers[m_e, 2],
-                        tx_tangents[m_e, 0],
-                        tx_tangents[m_e, 1],
-                        tx_tangents[m_e, 2],
-                        tx_tangents[m_e, 3],
-                        tx_tangents[m_e, 4],
-                        tx_tangents[m_e, 5],
-                        tx_wx[m_e],
-                        tx_wy[m_e],
-                        inv_c,
-                        tx_apod[m_e],
-                        tx_delays[m_e],
-                        dt,
-                    )
-                    if slope_e == 0.0:
-                        continue
-                    kstart = (t1e + t1r - t0) * fs
-                    kend = (t4e + t4r - t0) * fs + 2
-                    if kstart < 1 or kend > T:
-                        continue
-                    _place_pe_sdi_deltas(
-                        buf,
-                        c,
-                        t0,
-                        fs,
-                        t1e,
-                        t2e,
-                        t3e,
-                        t4e,
-                        t1r,
-                        t2r,
-                        t3r,
-                        t4r,
-                        slope_r * slope_e * ap,
-                    )
-    return buf.sum(axis=0)
+                a1 = t1 - t0
+                a2 = t2 - t0
+                a3 = t3 - t0
+                a4 = t4 - t0
+                ph1 = slope * _phasor(w0 * a1)
+                ph2 = slope * _phasor(w0 * a2)
+                ph3 = slope * _phasor(w0 * a3)
+                ph4 = slope * _phasor(w0 * a4)
+                s1 = _phasor(dw * a1)
+                s2 = _phasor(dw * a2)
+                s3 = _phasor(dw * a3)
+                s4 = _phasor(dw * a4)
+                for k in range(Nb):
+                    out[e, p, k] += ph1 - ph2 - ph3 + ph4
+                    ph1 *= s1
+                    ph2 *= s2
+                    ph3 *= s3
+                    ph4 *= s4
+    return out
+
+
+def compute_oneway_spectrum_band_batched(
+    points, centers, wx, wy, apod, delays, eu, ev, inv_c, t0, omega, dt
+):
+    """`compute_oneway_spectrum_band` for all E receive elements in one call → (E, P, N_band).
+
+    The receive-element patch sets are stacked into rectangular ``(E, m_max, …)`` arrays
+    (pad rows carry ``apod = 0`` so they contribute nothing), so the whole receive aperture
+    is evaluated with a single kernel dispatch instead of one per element. Same closed-form
+    analytic spectrum as the single-aperture function; attenuation is not applied here (the
+    summed receive path that uses it is attenuation-free).
+
+    Parameters
+    ----------
+    points : (P, 3) numpy.ndarray
+        Scatterer positions in metres.
+    centers : (E, m_max, 3) numpy.ndarray
+        Per-element patch centres in metres (zero-padded to the largest element).
+    wx, wy : (E, m_max) numpy.ndarray
+        Per-element patch widths in the two in-plane directions (metres).
+    apod : (E, m_max) numpy.ndarray
+        Per-element apodization weight per patch; pad rows must be 0.
+    delays : (E, m_max) numpy.ndarray
+        Per-element delay per patch (seconds).
+    eu, ev : (E, m_max, 3) numpy.ndarray
+        Per-element patch tangent frames (in-plane unit vectors).
+    inv_c : float
+        Inverse speed of sound 1/c (s/m).
+    t0 : float
+        Window origin (seconds) the corner phasors are referenced to.
+    omega : (N_band,) numpy.ndarray
+        In-band angular frequencies 2πf (rad/s), uniformly spaced.
+    dt : float
+        Time step 1/fs (seconds); clamps sub-sample patch edge crossings.
+
+    Returns
+    -------
+    (E, P, N_band) numpy.ndarray
+        One-way SIR-delta spectrum at each scatterer, per receive element (complex64).
+    """
+    points = np.asarray(points, dtype=np.float32)
+    centers = np.ascontiguousarray(np.asarray(centers, dtype=np.float32))
+    wx = np.ascontiguousarray(np.asarray(wx, dtype=np.float32))
+    wy = np.ascontiguousarray(np.asarray(wy, dtype=np.float32))
+    apod = np.ascontiguousarray(np.asarray(apod, dtype=np.float32))
+    delays = np.ascontiguousarray(np.asarray(delays, dtype=np.float32))
+    omega = np.ascontiguousarray(np.asarray(omega, dtype=np.float64))
+    # Pack the two tangent vectors into one contiguous (E, m, 6) frame (cols 0-2 = u, 3-5 = v).
+    E, m = centers.shape[:2]
+    tangents = np.empty((E, m, 6), dtype=np.float32)
+    tangents[..., :3] = eu
+    tangents[..., 3:] = ev
+    out = _oneway_spectrum_batched(
+        points,
+        centers,
+        wx,
+        wy,
+        np.ascontiguousarray(tangents),
+        apod,
+        delays,
+        float(inv_c),
+        float(t0),
+        omega,
+        float(dt),
+    )
+    return out.astype(np.complex64)
 
 
 # ---------------------------------------------------------------------------
@@ -729,341 +804,6 @@ def _pe_complete_patches(
                 nfft,
             )
     return buf.sum(axis=0)[:T]
-
-
-def compute_pe_sdi(
-    points,
-    tx_centers,
-    tx_wx,
-    tx_wy,
-    tx_apod,
-    tx_delays,
-    rx_centers,
-    rx_wx,
-    rx_wy,
-    rx_apod,
-    rx_delays,
-    inv_c,
-    t0,
-    T,
-    fs,
-    dt,
-    *,
-    tx_eu=None,
-    tx_ev=None,
-    rx_eu=None,
-    rx_ev=None,
-    batch_size_points=None,
-):
-    """Pulse-echo SDI: raw Δδ_pe = D²h_tx ⊛ D²h_rx via combined delta placement.
-
-    Computes the RAW two-way delta train for one RX element (rx patches = patches of that
-    element). For a full reception: call once per RX element with the element's rx
-    patches. I⁴ = ÷(jω)⁴ is applied downstream in Fourier — there is no cumsum here.
-
-    16 deltas per (m_e, m_r) pair → 32 sample writes. Parallelized over field points,
-    except a single point (``P == 1``, e.g. a PSF) which parallelizes over TX patches
-    instead (`_pe_sdi_patches`).
-
-    Parameters
-    ----------
-    points : (P, 3) float32
-        Scatterer positions in metres.
-    tx_centers : (M_e, 3) float32
-        TX patch centre coordinates in metres.
-    tx_wx : (M_e,) float32
-        TX patch width in x (metres).
-    tx_wy : (M_e,) float32
-        TX patch width in y (metres).
-    tx_apod : (M_e,) float32
-        TX apodization weight per patch.
-    tx_delays : (M_e,) float32
-        TX delay per patch (seconds).
-    rx_centers : (M_r, 3) float32
-        RX patch centre coordinates in metres (one element's patches).
-    rx_wx : (M_r,) float32
-        RX patch width in x (metres).
-    rx_wy : (M_r,) float32
-        RX patch width in y (metres).
-    rx_apod : (M_r,) float32
-        RX apodization weight per patch.
-    rx_delays : (M_r,) float32
-        RX delay per patch (seconds).
-    inv_c : float
-        Inverse speed of sound 1/c (s/m).
-    t0 : float
-        Start of time grid (seconds).
-    T : int
-        Number of time samples.
-    fs : float
-        Sampling frequency (Hz).
-    dt : float
-        Time step 1/fs (seconds).
-    tx_eu, tx_ev : (M_e, 3) numpy.ndarray or None, default None
-        TX patch tangent vectors; None → flat-patch identity tangents.
-    rx_eu, rx_ev : (M_r, 3) numpy.ndarray or None, default None
-        RX patch tangent vectors; None → flat-patch identity tangents.
-    batch_size_points : int or None
-        Chunk P into batches at Python level. None = no batching.
-
-    Returns
-    -------
-    (P, T) float32 ndarray
-        Raw two-way pulse-echo delta train Δδ_pe at each scatterer.
-    """
-    (
-        points,
-        tx_centers,
-        tx_wx,
-        tx_wy,
-        tx_apod,
-        tx_delays,
-        tx_tangents,
-        rx_centers,
-        rx_wx,
-        rx_wy,
-        rx_apod,
-        rx_delays,
-        rx_tangents,
-        inv_c,
-        t0,
-        fs,
-        dt,
-        T,
-    ) = _prep_pe_arrays(
-        points,
-        tx_centers,
-        tx_wx,
-        tx_wy,
-        tx_apod,
-        tx_delays,
-        rx_centers,
-        rx_wx,
-        rx_wy,
-        rx_apod,
-        rx_delays,
-        inv_c,
-        t0,
-        T,
-        fs,
-        dt,
-        tx_eu,
-        tx_ev,
-        rx_eu,
-        rx_ev,
-    )
-    P = points.shape[0]
-
-    # Single point (e.g. PSF): prange over P is useless — parallelize over patches.
-    if P == 1:
-        row = _pe_sdi_patches(
-            points[0],
-            tx_centers,
-            tx_wx,
-            tx_wy,
-            tx_tangents,
-            tx_apod,
-            tx_delays,
-            rx_centers,
-            rx_wx,
-            rx_wy,
-            rx_tangents,
-            rx_apod,
-            rx_delays,
-            inv_c,
-            t0,
-            T,
-            fs,
-            dt,
-        )
-        return row.reshape(1, T).astype(np.float32)
-
-    if batch_size_points is None or batch_size_points >= P:
-        return _pe_sdi_points(
-            points,
-            tx_centers,
-            tx_wx,
-            tx_wy,
-            tx_tangents,
-            tx_apod,
-            tx_delays,
-            rx_centers,
-            rx_wx,
-            rx_wy,
-            rx_tangents,
-            rx_apod,
-            rx_delays,
-            inv_c,
-            t0,
-            T,
-            fs,
-            dt,
-        ).astype(np.float32)
-
-    out = np.zeros((P, T), dtype=np.float32)
-    for start in range(0, P, batch_size_points):
-        end = min(start + batch_size_points, P)
-        out[start:end] = _pe_sdi_points(
-            points[start:end],
-            tx_centers,
-            tx_wx,
-            tx_wy,
-            tx_tangents,
-            tx_apod,
-            tx_delays,
-            rx_centers,
-            rx_wx,
-            rx_wy,
-            rx_tangents,
-            rx_apod,
-            rx_delays,
-            inv_c,
-            t0,
-            T,
-            fs,
-            dt,
-        )
-    return out
-
-
-def compute_pe_sdi_summed(
-    points,
-    tx_centers,
-    tx_wx,
-    tx_wy,
-    tx_apod,
-    tx_delays,
-    rx_centers,
-    rx_wx,
-    rx_wy,
-    rx_apod,
-    rx_delays,
-    amps,
-    inv_c,
-    t0,
-    T,
-    fs,
-    dt,
-    *,
-    tx_eu=None,
-    tx_ev=None,
-    rx_eu=None,
-    rx_ev=None,
-):
-    """Amplitude-weighted sum over scatterers of Δδ_pe → ``(T,)`` float32.
-
-    Equivalent to ``amps @ compute_pe_sdi(...)`` but accumulates inside the kernel,
-    avoiding the ``(P, T)`` buffer and the matvec. Summed, no-attenuation fast path.
-
-    Parameters
-    ----------
-    points : (P, 3) numpy.ndarray
-        Scatterer positions in metres.
-    tx_centers : (M_e, 3) numpy.ndarray
-        TX patch centres in metres.
-    tx_wx : (M_e,) numpy.ndarray
-        TX patch width in x (metres).
-    tx_wy : (M_e,) numpy.ndarray
-        TX patch width in y (metres).
-    tx_apod : (M_e,) numpy.ndarray
-        TX apodization weight per patch.
-    tx_delays : (M_e,) numpy.ndarray
-        TX delay per patch (seconds).
-    rx_centers : (M_r, 3) numpy.ndarray
-        RX patch centres in metres (one element's patches).
-    rx_wx : (M_r,) numpy.ndarray
-        RX patch width in x (metres).
-    rx_wy : (M_r,) numpy.ndarray
-        RX patch width in y (metres).
-    rx_apod : (M_r,) numpy.ndarray
-        RX apodization weight per patch.
-    rx_delays : (M_r,) numpy.ndarray
-        RX delay per patch (seconds).
-    amps : (P,) numpy.ndarray
-        Scattering amplitude per scatterer.
-    inv_c : float
-        Inverse speed of sound 1/c (s/m).
-    t0 : float
-        Start of the time grid (seconds).
-    T : int
-        Number of time samples.
-    fs : float
-        Sampling frequency (Hz).
-    dt : float
-        Time step 1/fs (seconds).
-    tx_eu, tx_ev : (M_e, 3) numpy.ndarray or None, default None
-        TX patch tangent vectors; None → flat-patch identity tangents.
-    rx_eu, rx_ev : (M_r, 3) numpy.ndarray or None, default None
-        RX patch tangent vectors; None → flat-patch identity tangents.
-
-    Returns
-    -------
-    (T,) numpy.ndarray
-        Amplitude-summed Δδ_pe delta train (float32).
-    """
-    (
-        points,
-        tx_centers,
-        tx_wx,
-        tx_wy,
-        tx_apod,
-        tx_delays,
-        tx_tangents,
-        rx_centers,
-        rx_wx,
-        rx_wy,
-        rx_apod,
-        rx_delays,
-        rx_tangents,
-        inv_c,
-        t0,
-        fs,
-        dt,
-        T,
-    ) = _prep_pe_arrays(
-        points,
-        tx_centers,
-        tx_wx,
-        tx_wy,
-        tx_apod,
-        tx_delays,
-        rx_centers,
-        rx_wx,
-        rx_wy,
-        rx_apod,
-        rx_delays,
-        inv_c,
-        t0,
-        T,
-        fs,
-        dt,
-        tx_eu,
-        tx_ev,
-        rx_eu,
-        rx_ev,
-    )
-    amps = np.asarray(amps, dtype=np.float32)
-    return _pe_sdi_summed(
-        points,
-        tx_centers,
-        tx_wx,
-        tx_wy,
-        tx_tangents,
-        tx_apod,
-        tx_delays,
-        rx_centers,
-        rx_wx,
-        rx_wy,
-        rx_tangents,
-        rx_apod,
-        rx_delays,
-        amps,
-        inv_c,
-        t0,
-        T,
-        fs,
-        dt,
-    ).astype(np.float32)
 
 
 def compute_pe_complete(

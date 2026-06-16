@@ -27,6 +27,7 @@ user unit.
 """
 
 import numpy as np
+from numba import njit
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +151,64 @@ def causal_attenuation_tf(
         H = absorption * np.exp(1j * phase)
 
     return H  # complex128, shape (..., N_freq)
+
+
+# ---------------------------------------------------------------------------
+# Scalar njit form (one frequency, one path) — shared with the SDI kernels
+# ---------------------------------------------------------------------------
+
+
+@njit(inline="always")
+def _causal_atten_factor(omega, dist, alpha0_np, y, tan_y, f0_hz, y_is_one):
+    """Causal power-law attenuation H_att for one angular frequency over one path.
+
+    Scalar twin of `causal_attenuation_tf`, written for the Numba SDI kernels so the
+    analytic one-way spectrum can attenuate each patch's contribution *per path* as it
+    is summed (the patch-to-point distance is already in hand). Same physics: a
+    band-damping magnitude times a Kramers-Kronig phase that keeps the pulse causal.
+
+    The formulas are stated in linear frequency ``f = ω/2π`` (Hz), matching
+    `causal_attenuation_tf`. With absorption coefficient ``α₀`` in Np/(Hz^y·m):
+
+        y ≠ 1 :  H = exp(−α₀|f|^y d) · exp(−j α₀ sign(f) |f|^y tan(yπ/2) d)
+        y = 1 :  H = exp(−α₀|f|  d) · exp(−j (2α₀/π) f ln(|f|/f₀) d)   (O'Donnell 1981)
+
+    Parameters
+    ----------
+    omega : float
+        Angular frequency 2πf (rad/s).
+    dist : float
+        Propagation path length d (metres).
+    alpha0_np : float
+        Absorption coefficient in Np/(Hz^y·m) (already converted from dB/(MHz^y·cm)
+        with `convert_alpha0_to_nepers`).
+    y : float
+        Power-law exponent.
+    tan_y : float
+        Precomputed ``tan(yπ/2)`` (ignored on the y = 1 branch; pass any value).
+    f0_hz : float
+        Reference frequency f₀ (Hz) for the y = 1 logarithmic dispersion.
+    y_is_one : bool
+        True selects the y = 1 logarithmic-dispersion branch.
+
+    Returns
+    -------
+    complex
+        Complex attenuation factor (``|H| ≤ 1``); 1 at f = 0.
+    """
+    f = omega / (2.0 * np.pi)
+    f_abs = abs(f)
+    if f_abs == 0.0:
+        return complex(1.0, 0.0)
+    if y_is_one:
+        absorption = np.exp(-alpha0_np * f_abs * dist)
+        phase = -(2.0 * alpha0_np / np.pi) * f * np.log(f_abs / f0_hz) * dist
+    else:
+        f_pow_y = f_abs**y
+        absorption = np.exp(-alpha0_np * f_pow_y * dist)
+        sign_f = 1.0 if f > 0.0 else -1.0
+        phase = -alpha0_np * sign_f * f_pow_y * tan_y * dist
+    return absorption * complex(np.cos(phase), np.sin(phase))
 
 
 # ---------------------------------------------------------------------------

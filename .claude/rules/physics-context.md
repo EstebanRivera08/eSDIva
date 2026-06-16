@@ -193,47 +193,57 @@ Redistributing derivatives onto SIRs (associativity of convolution):
 mean SDI can be truncated before integration stage. Saves O(T) operations per
 truncation, where T = temporal sampling length.
 
-## 9.1 PE SDI (Combined Pulse-Echo SDI)
+## 9.1 PE SDI: three ways to evaluate the same pulse-echo RF
 
-Instead of computing h_tx and h_rx separately then FFT-convolving, PE SDI places 16
-deltas directly for each (m_e, m_r) patch pair, forming the analytic two-way delta
-train (deltas *_t deltas = deltas):
+The pulse-echo RF of one scatterer is p_pe = v_pe *_t h_tx *_t h_rx. Each one-way SIR is
+a trapezoid whose 2nd derivative is four corner deltas (d2h = sum of 4 signed Diracs,
+signs +,-,-,+, each scaled by the rising slope). PyField evaluates p_pe three ways; all
+agree to corr ~1.0 with each other and Field II. ReceptionSDI's `method=` picks one:
 
-    Δδ_pe = d2h_tx *_t d2h_rx = sum of 16 Dirac deltas per (m_e, m_r) pair
+**conventional** — sample both one-way SIRs (place corner deltas, double-cumsum to a
+trapezoid) and FFT-convolve. SIR build is linear in patch count M; the convolution is
+M-independent. (`Reception`, with a depth-bin fast path.)
 
-Each TX corner (4) × each RX corner (4) = 16 delta events.
-Signs: (+1, -1, -1, +1) for each set of 4 corners.
-Delta position: t_event = t_e_corner + t_r_corner.
-Weight: slope_e × slope_r × sign_e × sign_r.
-Discrete: 32 sample writes per pair (16 deltas × 2 bins via linear interpolation).
+**paired** — convolve the two corner-delta trains *analytically* (deltas *_t deltas =
+deltas), giving the two-way train
 
-Each one-way SIR is the double integral of its corner deltas (h = I2 d2h), so the
-two-way SIR is recovered by FOUR integrations of Δδ_pe:
+    Δδ_pe = d2h_tx *_t d2h_rx = 16 Dirac deltas per (m_e, m_r) patch pair
 
-    h_tx *_t h_rx = I4 Δδ_pe
+at t_event = t_e_corner + t_r_corner, weight slope_e·slope_r·sign_e·sign_r (32 sample
+writes per pair: 16 deltas × 2 bins linear interp). Cost ∝ M_tx·M_rx (the patch-pair
+count) — best for compact apertures. The four integrations recovering the two-way SIR,
+h_tx *_t h_rx = I4 Δδ_pe, are realized two ways (`i4`): `fft` applies I4 = ÷(jω)^4 in
+one spectral multiply (`compute_pe_sdi` returns the RAW Δδ_pe, no cumsum); `splat`
+pushes I4 onto the excitation, w = I4 v_pe, and lays down p_pe = Σ_ij a_i a_j w(t − τ_i
+− τ_j), FFT-free (`compute_pe_complete`).
 
-`compute_pe_sdi` returns the RAW Δδ_pe (no cumsum). I4 is applied entirely in the
-frequency domain as ÷(jω)^4, folded into the single excitation/IR spectral multiply.
-Doing all four integrations in Fourier (vs a time-domain cumsum) carries zero group
-delay → sample-aligned with conventional `Reception`, and avoids float32 cumsum
+**factored** — never form the pairs. The Fourier transform of one aperture's corner
+train is closed form (a sum of four phasors per patch),
+
+    Σ(ω) = Σ_m slope_m [ e^{-jω t1} − e^{-jω t2} − e^{-jω t3} + e^{-jω t4} ]
+
+so the two-way SIR spectrum is the PRODUCT of the one-way spectra (convolution ⇒
+multiply), Σ_TX·Σ_RX = F{Δδ_pe}, and h_tx *_t h_rx = ÷(jω)^4 · Σ_TX·Σ_RX. This builds no
+time-domain SIR and does NO forward FFT — cost is linear in patch count (M_tx + M_rx),
+and exact (no time sampling, no interpolation). Because the received signal is
+band-limited by the excitation/IR, Σ is evaluated only on the in-band bins
+(N_band ≪ N_freq); the TX spectrum is built once and reused for every RX element.
+(`compute_oneway_spectrum_band`.) Per-patch one-way attenuation (§10) is multiplied into
+each patch phasor for free, using the patch-to-point distance — the TX×RX product then
+carries the true round-trip loss, which conventional cannot do cheaply.
+
+**I4 scaling.** Δδ_pe / Σ hold delta *areas* (no width). ÷(jω) is a continuous
+integrator weighting each sample by dt, under-counting by fs=1/dt, so `inv_jw_pow`
+carries one ×fs. Doing all four integrations in Fourier (vs a time-domain cumsum) carries
+zero group delay → sample-aligned with conventional, and avoids float32 cumsum
 cancellation.
 
-    ×fs: Δδ_pe holds delta *areas* (no width), which a unit-area cumsum sums directly.
-    ÷(jω) is a continuous integrator weighting each sample by dt, so it under-counts by
-    fs=1/dt — `inv_jw_pow` carries one ×fs to restore that gain.
+**Excitation.** v_pe = (rho_0 / 2c_0^2) · (E_m * v). No explicit derivative on v — the
+physical d3v/dt3 is carried by the band-limited excitation/IR chain (same as Field II).
+This differs from Emission, where the chain has an explicit dv/dt.
 
-Excitation (Reception): v_pe = (rho_0 / 2c_0^2) * (E_m * v). No explicit derivative on
-v — the physical d3v/dt3 is carried by the band-limited excitation/IR chain (same as
-Field II). This differs from Emission where the chain has an explicit dv/dt.
-
-Truncated vs complete: this kernel implements the **truncated** SDI form — it
-integrates the delta PRODUCT Δδ_pe. The **complete** form pushes all four integrals
-onto the velocity (w = I4 v_pe), giving p_pe = Σ_ij a_i a_j w(t − τ_i − τ_j), FFT-free.
-The three formulations (conventional / truncated / complete), with complexity and
-regimes, are analysed in `PE_SDI_kernel_analysis.md`.
-
-Code: `compute_pe_sdi` in `transducer_sir_pe.py`. Called once per RX element with
-element-filtered RX patches.
+Code: `compute_pe_sdi` / `compute_pe_complete` / `compute_oneway_spectrum_band` in
+`transducer_sir_pe_sdi.py`, called once per RX element with element-filtered RX patches.
 
 ## 10. Attenuation in SIR Simulations
 

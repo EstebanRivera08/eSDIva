@@ -235,12 +235,26 @@ class TestReceptionSequence:
 
 
 class TestReceptionFormulations:
-    """method flag: auto router + truncated/complete/conventional equivalence."""
+    """method selector: auto router + conventional/spectral/paired equivalence."""
 
     @staticmethod
     def _exc(fs=100e6, fc=5e6):
         t = np.arange(0, 2.0 / fc, 1.0 / fs)
         return (np.sin(2 * np.pi * fc * t) * np.hanning(len(t))).astype(np.float32)
+
+    @staticmethod
+    def _big_tx(n=32):
+        # Many patches per element (3×6) so the paired M² placement clearly exceeds the
+        # patch-independent transform cost → the router leaves the paired regime.
+        return LinearArrayTransducer(
+            n_elements=n,
+            element_width_mm=0.25,
+            element_height_mm=10.0,
+            kerf_mm=0.05,
+            no_sub_x=3,
+            no_sub_y=6,
+            frequency_Hz=5e6,
+        )
 
     def test_invalid_method_raises(self, simple_tx, simple_rx):
         with pytest.raises(ValueError, match="Unknown method"):
@@ -249,41 +263,78 @@ class TestReceptionFormulations:
         with pytest.raises(ValueError, match="Unknown method"):
             sim.set("method", "bogus")
 
-    def test_three_methods_agree(self, simple_tx, simple_rx):
-        """truncated ≈ complete ≈ conventional produce the same physical RF."""
+    def test_all_methods_agree(self, simple_tx, simple_rx):
+        """conventional ≈ spectral ≈ paired produce the same physical RF."""
         exc = self._exc()
-        simple_tx.impulse_response = exc  # band-limited chain → complete is exact
+        simple_tx.impulse_response = exc  # band-limited chain → splat is exact
         simple_rx.impulse_response = exc
         pos = np.array([[0, 0, 18], [1.0, 0, 22], [-1.5, 0, 26]], dtype=np.float32)
         amp = np.array([1.0, 0.8, 1.2], dtype=np.float32)
+        cases = {
+            "conventional": {"method": "conventional"},
+            "spectral": {"method": "spectral"},
+            "paired": {"method": "paired"},
+        }
         out = {}
-        for m in ("truncated", "complete", "conventional"):
+        for name, kw in cases.items():
             sim = ReceptionSDI(
                 simple_tx,
                 simple_rx,
                 fs=100e6,
                 c=1540,
                 excitation=exc,
-                method=m,
                 verbose=False,
+                **kw,
             )
-            out[m], _ = sim.pulse_echo_rf(pos, amp)
+            out[name], _ = sim.pulse_echo_rf(pos, amp)
         n = min(v.shape[-1] for v in out.values())
 
         def corr(a, b):
             return np.corrcoef(a[..., :n].ravel(), b[..., :n].ravel())[0, 1]
 
-        assert corr(out["truncated"], out["conventional"]) > 0.99
-        assert corr(out["complete"], out["conventional"]) > 0.99
-        pk = {m: float(np.abs(v).max()) for m, v in out.items()}
-        assert abs(pk["truncated"] / pk["conventional"] - 1) < 0.05
-        assert abs(pk["complete"] / pk["conventional"] - 1) < 0.05
+        ref = out["conventional"]
+        pk_ref = float(np.abs(ref).max())
+        for name, v in out.items():
+            assert corr(v, ref) > 0.99, name
+            assert abs(float(np.abs(v).max()) / pk_ref - 1) < 0.05, name
 
-    def test_router_selects_truncated_for_psf(self, simple_tx, simple_rx):
-        """auto + per_scatterer (PSF) → truncated."""
-        sim = ReceptionSDI(simple_tx, simple_rx, method="auto", verbose=False)
+    def test_router_paired_for_monoelement(self):
+        """auto on a near-monoelement aperture → paired (its splat cost is tiny there).
+
+        `paired` splats the full integrated drive per patch pair, so it only undercuts the
+        transform when there are barely any patches — a single 1×1 element each way.
+        """
+        exc = self._exc()
+        mono = LinearArrayTransducer(
+            n_elements=1,
+            element_width_mm=0.25,
+            element_height_mm=5.0,
+            kerf_mm=0.05,
+            no_sub_x=1,
+            no_sub_y=1,
+            frequency_Hz=5e6,
+        )
+        sim = ReceptionSDI(mono, mono, excitation=exc, verbose=False)
         sim.pulse_echo_rf(np.array([[0, 0, 20]], dtype=np.float32), per_scatterer=True)
-        assert sim._last_method == "truncated"
+        assert sim._last_method == "paired"
+
+    def test_router_spectral_for_large_aperture(self):
+        """auto on a many-patch aperture with band-limited drive → spectral."""
+        exc = self._exc()
+        sim = ReceptionSDI(
+            self._big_tx(), self._big_tx(), excitation=exc, verbose=False
+        )
+        sim.pulse_echo_rf(np.array([[0, 0, 30]], dtype=np.float32))
+        assert sim._last_method == "spectral"
+
+    def test_router_conventional_without_band_limit(self):
+        """auto with no excitation/impulse-response on a large aperture → conventional."""
+        sim = ReceptionSDI(self._big_tx(), self._big_tx(), verbose=False)  # wideband
+        sim.pulse_echo_rf(
+            np.array([[0, 0, 30]], dtype=np.float32),
+            amplitudes=np.array([1.0], dtype=np.float32),
+        )
+        assert sim._last_method == "conventional"
 
     def test_explicit_method_overrides_router(self, simple_tx, simple_rx):
         """A non-auto method is used verbatim (no regime select)."""
@@ -293,7 +344,7 @@ class TestReceptionFormulations:
         sim.pulse_echo_rf(pos, amp)
         assert sim._last_method == "conventional"
 
-    def test_complete_attenuation_not_supported(self, simple_tx, simple_rx):
+    def test_paired_attenuation_not_supported(self, simple_tx, simple_rx):
         exc = self._exc()
         sim = ReceptionSDI(
             simple_tx,
@@ -301,11 +352,40 @@ class TestReceptionFormulations:
             fs=100e6,
             excitation=exc,
             alpha0=0.5,
-            method="complete",
+            method="paired",
             verbose=False,
         )
         with pytest.raises(NotImplementedError, match="attenuation"):
             sim.pulse_echo_rf(np.array([[0, 0, 20]], dtype=np.float32))
+
+    def test_spectral_attenuation_decays_with_depth(self, simple_tx, simple_rx):
+        """spectral folds per-patch attenuation in: deeper scatterers echo weaker."""
+        exc = self._exc()
+        pos = np.array([[0, 0, 20], [0, 0, 40]], dtype=np.float32)
+        amp = np.ones(2, dtype=np.float32)
+        sim_att = ReceptionSDI(
+            simple_tx,
+            simple_rx,
+            fs=100e6,
+            excitation=exc,
+            alpha0=0.8,
+            method="spectral",
+            verbose=False,
+        )
+        sim_no = ReceptionSDI(
+            simple_tx,
+            simple_rx,
+            fs=100e6,
+            excitation=exc,
+            method="spectral",
+            verbose=False,
+        )
+        psf_att, _ = sim_att.pulse_echo_rf(pos, amp, per_scatterer=True)
+        psf_no, _ = sim_no.pulse_echo_rf(pos, amp, per_scatterer=True)
+        r20 = np.abs(psf_att[0]).max() / np.abs(psf_no[0]).max()
+        r40 = np.abs(psf_att[1]).max() / np.abs(psf_no[1]).max()
+        assert r20 < 1.0  # attenuation reduces amplitude
+        assert r40 < r20  # deeper scatterer attenuates more
 
 
 class TestReceptionRepr:

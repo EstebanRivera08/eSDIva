@@ -27,57 +27,50 @@ where the far-field trapezoidal rectangular-patch SIR is.
 
 Three evaluations of the SAME RF equation. Write ``p_pe`` for one scatterer's bracket
 ``v_pe ⊛ h_tx ⊛ h_rx`` (the full RF is then ``Σ_p σ_p · p_pe`` as above). Each one-way SIR
-is the double time-integral of its piecewise-constant second derivative, which is a
-sparse train of corner deltas (h_tx = I² D²h_tx). Substituting into ``p_pe`` and moving
-the four integrations through the convolutions yields one identity chain; each equality
-is one ``method``::
+is the double time-integral of its piecewise-constant second derivative, a sparse train of
+trapezoid-corner deltas (``h_tx = I² D²h_tx``); ``D²h`` of a patch is four signed Diracs at
+its corners. Two ways to recombine the TX and RX corner trains give the two SDI methods,
+alongside the conventional sampled convolution::
 
-    p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                                    ← (1) Conventional
-         = v_pe ⊛ I⁴(D²h_tx ⊛ D²h_rx) = v_pe ⊛ (I⁴ Δδ_pe)          ← (2) Truncated SDI PE
-         = (I⁴ v_pe) ⊛ Δδ_pe = w ⊛ Δδ_pe
-         = Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)                       ← (3) Complete SDI PE
+    p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                                    ← conventional
+         = (I⁴ v_pe) ⊛ (D²h_tx ⊛ D²h_rx) = w ⊛ Δδ_pe              ← paired
+         = v_pe ⊛ I⁴ F⁻¹{ Σ_TX(ω) · Σ_RX(ω) }                      ← spectral
 
-    Δδ_pe ≡ D²h_tx ⊛ D²h_rx   (analytic; deltas ⊛ deltas = deltas, 16·M_tx·M_Erx of them)
-    w     ≡ I⁴ v_pe           (analytic; precomputed once)
-    I⁴ = ÷(jω)⁴               four time-integrations, applied in the Fourier domain.
-    a_i, a_j / τ_i, τ_j       TX-patch i and RX-patch j apodization weights / two-way
-                              delays — these build one scatterer's SIR and are NOT the
-                              scatterer amplitude σ_p, which multiplies the whole bracket.
+    Δδ_pe ≡ D²h_tx ⊛ D²h_rx   (16·M_tx·M_Erx deltas: 4 TX corners × 4 RX corners per pair)
+    Σ_TX(ω) ≡ F{D²h_tx} = Σ_{m,i} slope σ_i e^{-jω t_i}   (closed form, 4 corners per patch)
+    I⁴ = ÷(jω)⁴               four time-integrations; ``w = I⁴ v_pe`` is the integrated drive.
 
-The three differ only in HOW ``p_pe`` is evaluated — at which stage the four integrations
-are applied, and whether the two-way SIR is kept factored or expanded:
+The methods differ only in HOW the TX and RX corner trains are combined:
 
-1. Conventional — ``p_pe = v_pe ⊛ (h_tx ⊛ h_rx)``. Build each one-way SIR by placing its
-   second-derivative corner deltas and double-integrating (cumulative sum) to recover
-   ``h_tx`` and ``h_rx``, then two FFT convolutions. The convolution is independent of the
-   patch count M, but the SIR *build* is linear in M.
-2. Truncated (this class's default) — ``p_pe = v_pe ⊛ (I⁴ Δδ_pe)``. Form ``Δδ_pe``
-   directly as the analytic convolution of the two corner-delta trains (deltas ⊛ deltas =
-   deltas → 16 deltas per TX-RX patch pair, the 4 TX corners × 4 RX corners), then realize
-   ``I⁴`` entirely in Fourier as ``÷(jω)⁴`` folded into the single spectral multiply with
-   ``v_pe`` and the impulse responses — no time-domain cumulative sum (which also avoids
-   float32 cancellation when sub-sample patches give very large trapezoid slopes). One FFT
-   convolution.
-3. Complete — push all four integrations onto the excitation, ``w = I⁴ v_pe`` (precomputed
-   once), so the convolution collapses to a closed sum of shifted, scaled kernels,
-   ``p_pe = Σ_i Σ_j a_i a_j w(t − τ_i − τ_j)``. No FFT and no cumulative sum — just
-   ``16·M_tx·M_Erx`` scaled, shifted copies of ``w`` (M_tx, M_Erx = TX and per-element RX
-   patch counts). All three give the same RF (correlation ~1.0 with each other and Field II).
+* ``conventional`` — sample each one-way SIR (place its corner deltas, double-integrate by
+  cumulative sum) and FFT-convolve them. The convolution is independent of the patch count
+  M, but the SIR *build* is linear in M. Delegated to `Reception`.
+* ``paired`` — convolve the two corner-delta trains analytically (deltas ⊛ deltas = deltas)
+  into the 16-delta two-way train ``Δδ_pe``, enumerating all ``M_tx·M_Erx`` TX–RX patch
+  pairs. The four integrations are pushed onto the drive ONCE, forming the integrated
+  pulse-echo waveform ``w = I⁴ v_pe``; each of the 16 corner events of a pair then lays down
+  a shifted, scaled copy of ``w`` (``Σ_i Σ_j a_i a_j w(t − τ_i − τ_j)``) — no FFT, no
+  cumulative sum, the output is the RF directly. Cost is quadratic in the patch count and
+  carries the full kernel length per event, so this is the exact reference path, used for
+  tiny apertures (a point-spread function, a monoelement) and cross-checks.
+* ``spectral`` — never form the pairs. Each one-way SIR spectrum is the closed-form sum of
+  four corner phasors per patch (``Σ_TX``, ``Σ_RX``), built independently and multiplied
+  (convolution ⇒ product), so the cost is linear in the patch count (``M_tx + M_Erx``) with
+  NO forward FFT at all. Because the received signal is band-limited by the excitation and
+  impulse responses, the spectra are evaluated only on the in-band frequencies (the rest is
+  multiplied by a near-zero filter); the TX spectrum is built once, and every receive
+  element's RX spectrum is built in a single batched kernel call. This removes the
+  per-scatterer forward FFT that dominates the conventional cost, so ``spectral`` is the fast
+  default for both compact apertures and large arrays — and it is exact (no time sampling,
+  no interpolation). Per-patch one-way attenuation is folded into each phasor for free.
 
-Why a router, not one method. Separability sets the convolution cost. The pair weights
-``a_i a_j`` are rank-1 (an outer product ``a_tx ⊗ a_rx``) and the delays ``τ_i + τ_j`` are
-an outer sum, so the double sum is a separable bilinear form. FFT convolution (conventional,
-truncated) exploits that — cost ``~T·log T``, independent of patch count. Pair enumeration
-(complete) discards it and pays the ``M²`` patch-pair count to rediscover it. Convolving two
-sparse delta trains is fundamentally ``min(M², T·log T)``: enumeration wins only when the
-patch count is tiny (a point-spread function or monoelement), or when the physics breaks
-separability — e.g. per-path attenuation, where each patch-pair path has its own distance so
-the weights are no longer rank-1 and enumeration is forced. ``method="auto"`` picks the
-cheaper side per call.
-
-Derivative bookkeeping: the ``Δδ_pe``-based forms place ∂² on each one-way SIR (six
-derivatives total via D² ⊛ D²), so the public RF applies ``I⁴`` to leave exactly the single
-physical ∂³ on the excitation/IR chain — matching the conventional form and Field II.
+All three give the same RF (correlation ~1.0 with each other and with Field II). The
+SDI forms place ∂² on each one-way SIR (six derivatives via D² ⊛ D²), so the public RF
+applies ``I⁴`` to leave exactly the single physical ∂³ on the excitation/IR chain — matching
+the conventional form and Field II. ``method="auto"`` picks ``spectral`` whenever the
+excitation is band-limited (the usual case) and falls back to ``conventional`` for a
+near-delta / wideband excitation where band-limiting gives no benefit; ``paired`` is reserved
+for tiny apertures where its quadratic placement is cheap.
 """
 
 import time
@@ -87,13 +80,13 @@ import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
 from pyfield.hsir.transducer_sir_pe_sdi import (
+    compute_oneway_spectrum_band,
+    compute_oneway_spectrum_band_batched,
     compute_pe_complete,
-    compute_pe_sdi,
-    compute_pe_sdi_summed,
 )
 from pyfield.utilities.helper_functions import compute_time_grid
 
-from ..attenuation import causal_attenuation_tf, compute_reception_distances
+from ..attenuation import convert_alpha0_to_nepers
 from .base import (
     ReceptionBase,
     _anti_alias_decimate,
@@ -103,14 +96,14 @@ from .base import (
 )
 
 # Formulation selector values (see ReceptionSDI.method).
-_VALID_METHODS = ("auto", "conventional", "truncated", "complete")
+_VALID_METHODS = ("auto", "conventional", "paired", "spectral")
 
-# Router constant scaling the FFT-cost side of `16·M_tx·M_Erx ⋛ k·T·log₂T` (truncated
-# pair-placement cost vs conventional FFT cost). A delta write is far cheaper than an FFT
-# op, so k > 1 keeps mid-size apertures on the (measured-faster) truncated path while
-# still routing large arrays to conventional. Approximate — calibrated from a couple of
-# points (mid-size M_tx≈512, pair/fft≈1.2 → truncated; large M_tx≈1280, ≈20 → conventional);
-# re-tune against measured timings on a different CPU.
+# Router crossover scale (see `_regime_select`): `paired` splats the full integrated drive
+# `w` for each of the 16·M_tx·M_Erx corner events, so its cost is `16·M_tx·M_Erx · len(w)`;
+# `spectral`/`conventional` pay one ~T·log₂T transform (patch-independent). Both carry a
+# factor ~T (= len(w) ≈ nfft), so the comparison reduces to `16·M_tx·M_Erx` vs `k·log₂T`:
+# paired wins only for a handful of patches (a PSF, a monoelement). The constant absorbs the
+# lower cost of a sample write vs an FFT op. Approximate — re-tune against measured timings.
 _PE_FFT_CONST = 4.0
 
 
@@ -119,30 +112,33 @@ class ReceptionSDI(ReceptionBase):
 
     Implements Jensen's spatial-impulse-response pulse-echo model
     ``p_pe = v_pe ⊛ h_tx ⊛ h_rx`` under the Tupholme-Stepanishen far-field trapezoidal
-    rectangular-patch SIR (full model and citations in the module docstring above). The
-    SIR convolution is evaluated by SDI: each aperture's one-way SIR is the double
-    integral of a sparse train of trapezoid-corner deltas, so the two-way SIR follows
-    from the corner-delta product ``Δδ_pe = D²h_tx ⊛ D²h_rx`` (16 deltas per TX-RX patch
-    pair) with the four integrations ``I⁴ = ÷(jω)⁴`` applied in the Fourier domain — no
-    time-domain cumsum. This default ("truncated") form, the direct-convolution
-    ("conventional") form, and the FFT-free ("complete") form are the same RF equation
-    evaluated at different stages; they agree to correlation ~1.0 with each other and
-    with Field II.
+    rectangular-patch SIR (full model and citations in the module docstring above). Each
+    aperture's one-way SIR is the double integral of a sparse train of trapezoid-corner
+    deltas; the two-way SIR is then recovered either from the TX–RX corner-delta product
+    (``paired``) or from the product of the two one-way spectra (``spectral``), with the
+    four integrations ``I⁴ = ÷(jω)⁴``. All formulations are the same RF equation and agree to
+    correlation ~1.0 with each other and with Field II.
 
-    The formulation is chosen by ``method`` (see the module docstring for the full
-    identity chain relating them):
+    The formulation is chosen by ``method`` (see the module docstring for the derivation):
 
-    * ``"truncated"`` — this class's PE-SDI kernel: place ``Δδ_pe`` then apply ``I⁴`` and
-      the excitation/IR filters in one Fourier multiply. Best for small ``M`` (point-
-      spread function, monoelement, few patches); the FFT is amortized over scatterers.
-    * ``"conventional"`` — build ``h_tx`` and ``h_rx`` and convolve directly (delegated
-      to `Reception`, including its depth-bin fast path). Best for arrays / many
-      scatterers, where the patch-pair count ``16·M_tx·M_Erx`` exceeds the FFT cost.
-    * ``"complete"`` — move ``I⁴`` onto the excitation (``w = I⁴ v_pe``) and accumulate
-      shifted, scaled copies of ``w`` per patch pair. FFT-free and exact, but slowest at
-      scale — a reference / single-scatterer backend. No attenuation support yet.
-    * ``"auto"`` (default) — pick by regime: arrays → conventional, small ``M`` / point-
-      spread function → truncated. Makes the fast formulation the default.
+    * ``"spectral"`` (default fast path) — build each one-way SIR spectrum in closed form
+      from the trapezoid corner times (a sum of four phasors per patch), evaluate it only
+      on the in-band frequencies, and multiply the TX and RX spectra. No forward FFT and
+      cost linear in the patch count ``M_tx + M_Erx``, so it is the fast choice for both
+      compact apertures and large arrays. Exact (no time sampling). Folds per-patch one-way
+      attenuation in for free.
+    * ``"conventional"`` — build ``h_tx`` and ``h_rx`` by sampling and convolve directly
+      (delegated to `Reception`, including its depth-bin fast path). The reference path;
+      chosen by ``auto`` for a near-delta / wideband excitation where band-limiting the
+      ``spectral`` spectra gives no benefit.
+    * ``"paired"`` — convolve the two corner-delta trains analytically into ``Δδ_pe`` (16
+      deltas per TX–RX patch pair) over all ``M_tx·M_Erx`` pairs, then lay down the
+      integrated drive ``w = I⁴ v_pe`` at each corner event (no FFT, no cumsum). Cost is
+      quadratic in the patch count and carries the full kernel length per event, so it is the
+      exact reference path for tiny apertures (a point-spread function, a monoelement) or a
+      cross-check. Attenuation is not supported here (use ``spectral`` or ``conventional``).
+    * ``"auto"`` (default) — ``spectral`` when the excitation is band-limited (the usual
+      case), else ``conventional``; ``paired`` only for a handful of patches.
 
     Parameters
     ----------
@@ -165,8 +161,8 @@ class ReceptionSDI(ReceptionBase):
     excitation : numpy.ndarray or None, default None
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
     method : str, default "auto"
-        Pulse-echo formulation: ``"auto"`` / ``"conventional"`` / ``"truncated"`` /
-        ``"complete"``. All produce the same RF; they trade speed by regime.
+        Pulse-echo formulation: ``"auto"`` / ``"conventional"`` / ``"spectral"`` /
+        ``"paired"``. All produce the same RF; they trade speed by regime.
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -178,7 +174,7 @@ class ReceptionSDI(ReceptionBase):
         "alpha0": ((float, type(None)), "Attenuation dB/(MHz^y cm) or None"),
         "freq_power": (float, "Attenuation exponent"),
         "excitation": ((np.ndarray, type(None)), "Excitation pulse or None"),
-        "method": (str, "Formulation: auto/conventional/truncated/complete"),
+        "method": (str, "Formulation: auto/conventional/spectral/paired"),
         "verbose": (bool, "Print diagnostics"),
     }
 
@@ -223,16 +219,16 @@ class ReceptionSDI(ReceptionBase):
     def set(self, name, value):
         """Update a parameter at runtime, then invalidate the conventional delegate.
 
-        Extends `ReceptionBase.set` with validation of the ``"method"`` selector and
-        by dropping the cached `Reception` (rebuilt on the next conventional call,
-        picking up the new tx/rx/medium/excitation state).
+        Extends `ReceptionBase.set` with validation of the ``"method"`` selector and by
+        dropping the cached `Reception` (rebuilt on the next conventional call, picking up
+        the new tx/rx/medium/excitation state).
 
         Parameters
         ----------
         name : str
             Parameter name (a key of ``_SETTABLE``, ``"tx"``, or ``"rx"``).
         value : object
-            New value; for ``"method"`` it must be one of ``_VALID_METHODS``.
+            New value; for ``"method"`` it must be a valid selector.
         """
         if name == "method":
             value = self._validate_method(value)
@@ -250,9 +246,26 @@ class ReceptionSDI(ReceptionBase):
         bytes_per_point = nfft * 4 + 2 * N_freq * 8
         return max(1, int(400 * 1024**2 // bytes_per_point))
 
+    @staticmethod
+    def _batch_P_spectral(n_out, n_band):
+        """Scatterers per chunk for the batched RX-spectrum build (256 MB budget).
+
+        The batched kernel holds an ``(E, chunk, N_band)`` complex128 buffer (16 B/entry),
+        which dominates the spectral summed path's memory. Capping it keeps a dense field
+        (10⁴+ scatterers) within RAM at the cost of more, smaller kernel calls.
+        """
+        bytes_per_scat = n_out * n_band * 16  # complex128 (E, ·, N_band) row
+        return max(1, int(256 * 1024**2 // bytes_per_scat))
+
     def _compute_pe_time_grid(self, points_m):
-        """Compute time grid covering both TX and RX propagation paths."""
-        _, tx_t0, tx_dt, tx_T = compute_time_grid(
+        """Time grid covering both TX and RX propagation paths.
+
+        Returns the combined pulse-echo window (``pe_t0``, ``dt``, ``pe_T``) and the two
+        one-way windows (``tx_t0``, ``tx_T``, ``rx_t0``, ``rx_T``). The spectral form
+        references its TX and RX spectra to ``tx_t0`` / ``rx_t0`` so their product lands at
+        ``pe_t0 = tx_t0 + rx_t0``.
+        """
+        tx_t0, tx_T = compute_time_grid(
             points_m.shape[0],
             self._tx_M,
             points_m,
@@ -263,8 +276,8 @@ class ReceptionSDI(ReceptionBase):
             self.fs,
             self.tx.delays,
             verbose=False,
-        )
-        _, rx_t0, rx_dt, rx_T = compute_time_grid(
+        )[1::2]
+        rx_t0, rx_T = compute_time_grid(
             points_m.shape[0],
             self._rx_M,
             points_m,
@@ -275,11 +288,11 @@ class ReceptionSDI(ReceptionBase):
             self.fs,
             self.rx.delays,
             verbose=False,
-        )
+        )[1::2]
         dt = 1.0 / self.fs
         pe_t0 = tx_t0 + rx_t0
         pe_T = tx_T + rx_T - 1
-        return pe_t0, dt, pe_T
+        return pe_t0, dt, pe_T, tx_t0, tx_T, rx_t0, rx_T
 
     # ------------------------------------------------------------------
     # Formulation router + conventional delegate
@@ -316,23 +329,30 @@ class ReceptionSDI(ReceptionBase):
     def _regime_select(self, points_m, per_scatterer, focused_sum):
         """Pick the formulation for ``method="auto"`` by estimated cost.
 
-        Truncated places ``16·M_tx·M_Erx`` delta pairs per scatterer; conventional
-        instead pays one FFT of length ``~T`` (independent of patch count). So a
-        point-spread / single-scatterer run (``per_scatterer``) and small apertures go
-        to truncated (its FFT cost is amortized over scatterers), while large arrays —
-        where the pair count ``16·M_tx·M_Erx`` exceeds the FFT cost ``~T·log₂T`` — go to
-        conventional. Attenuated arrays also route to conventional, which applies the
-        per-scatterer attenuation transfer function ``H_att``.
+        ``paired`` splats the full integrated drive ``w`` for each of the
+        ``16·M_tx·M_Erx`` corner events, so its cost grows with the patch count squared (and
+        carries the kernel length per event) — only cheap for a handful of patches (a
+        monoelement, a point-spread function), prohibitive otherwise. The patch-independent
+        alternative costs one ``~T·log₂T`` transform: ``spectral`` when the drive is
+        band-limited (the usual case — it builds the SIR spectra on the in-band bins only and
+        is exact), else ``conventional`` (samples the SIR, bandwidth-agnostic). So a few-patch
+        aperture goes to ``paired``; everything else goes to ``spectral`` (or ``conventional``
+        for a near-delta / wideband drive).
         """
-        if per_scatterer:
-            return "truncated"
+        exc = self._resolve_excitation()
+        ir = getattr(self.tx, "impulse_response", None)
+        large_aperture_method = (
+            "spectral" if (exc is not None or ir is not None) else "conventional"
+        )
         n_rx = int(self.rx.delays.shape[0])
         # focused_sum sums every RX patch in one kernel call → M_Erx = all RX patches.
         m_erx = self._rx_M if focused_sum else max(1, self._rx_M // max(1, n_rx))
-        _, _, pe_T = self._compute_pe_time_grid(points_m)
+        _, _, pe_T = self._compute_pe_time_grid(points_m)[:3]
+        # Both sides carry a ~pe_T factor (paired's w length ≈ the transform length), so it
+        # cancels: paired wins only while its pair count beats k·log₂T (i.e. very few patches).
         pair_cost = 16.0 * self._tx_M * m_erx
-        fft_cost = _PE_FFT_CONST * pe_T * np.log2(max(pe_T, 2))
-        return "truncated" if pair_cost < fft_cost else "conventional"
+        fft_cost = _PE_FFT_CONST * np.log2(max(pe_T, 2))
+        return "paired" if pair_cost < fft_cost else large_aperture_method
 
     def _resolve_method(self, points_m, per_scatterer, focused_sum):
         if self.method != "auto":
@@ -353,11 +373,11 @@ class ReceptionSDI(ReceptionBase):
         per_scatterer=False,
         focused_sum=False,
     ):
-        """Dispatch to the resolved formulation (conventional / truncated / complete).
+        """Dispatch to the resolved formulation (conventional / spectral / paired).
 
         Signature is the one `pulse_echo_rf` / `_focused_sum_rf` and the
         `ReceptionBase` wrappers rely on. ``n_integrations`` is the PE-SDI integration
-        count (4 = full I⁴) used by the truncated/complete cores; the conventional
+        count (4 = full I⁴) used by the spectral/paired cores; the conventional
         branch ignores it (it builds ``h_tx ⊛ h_rx`` directly, Field II convention).
 
         Parameters
@@ -398,7 +418,7 @@ class ReceptionSDI(ReceptionBase):
                 per_scatterer=per_scatterer,
                 focused_sum=focused_sum,
             )
-        core = self._rf_complete if resolved == "complete" else self._rf_truncated
+        core = self._rf_paired if resolved == "paired" else self._rf_spectral
         return core(
             points_m,
             amps,
@@ -412,8 +432,31 @@ class ReceptionSDI(ReceptionBase):
     # Shared setup + finalisation for the SDI cores
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _band_range(band_mag, tol=1e-4):
+        """In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible.
+
+        The received signal is shaped by the excitation × impulse-response magnitude
+        ``band_mag``; outside the band where it exceeds ``tol`` of its peak the result is
+        ~0, so the spectral form's spectra need not be evaluated there. Returns the contiguous
+        span covering every significant bin (the whole range if the drive is wideband).
+        """
+        peak = float(band_mag.max()) if band_mag.size else 0.0
+        if peak <= 0.0:
+            return 0, band_mag.size
+        sig = np.nonzero(band_mag >= tol * peak)[0]
+        if sig.size == 0:
+            return 0, band_mag.size
+        return int(sig[0]), int(sig[-1]) + 1
+
     def _pe_setup(self, points_m, *, n_integrations, per_scatterer, focused_sum, label):
-        """Common time-grid, FFT-filter, attenuation and ``inv_jw_pow`` setup."""
+        """Common time-grid, FFT-filter, band-range and ``inv_jw_pow`` setup.
+
+        Returns a dict of everything the spectral/paired cores share. ``do_attenuation`` is a
+        bare flag: the spectral core folds per-patch attenuation into each phasor itself
+        (using the patch-to-point distance already in hand), and the paired core does not
+        support attenuation — so no combined round-trip distance is precomputed here.
+        """
         P = points_m.shape[0]
         n_rx = int(self.rx.delays.shape[0])
         # focused_sum: one group = all RX patches (kernel sums → beamformed line).
@@ -435,7 +478,9 @@ class ReceptionSDI(ReceptionBase):
         n_out = len(rx_groups)
         show = self.verbose and not focused_sum  # focused_sum is the quiet primitive
 
-        pe_t0, dt, pe_T = self._compute_pe_time_grid(points_m)
+        pe_t0, dt, pe_T, tx_t0, _tx_T, rx_t0, _rx_T = self._compute_pe_time_grid(
+            points_m
+        )
         exc = self._resolve_excitation()
         ir_tx = getattr(self.tx, "impulse_response", None)
         ir_rx = getattr(self.rx, "impulse_response", None)
@@ -464,18 +509,6 @@ class ReceptionSDI(ReceptionBase):
         )
 
         do_attenuation = self.alpha0 is not None
-        distances_pe = None
-        if do_attenuation:
-            tx_center_m = np.asarray(self.tx.element_centers, dtype=np.float64).mean(
-                axis=0
-            )
-            rx_elem_centers_m = np.asarray(self.rx.element_centers, dtype=np.float64)
-            # focused_sum collapses the RX axis, so use one aperture-centroid path.
-            if focused_sum:
-                rx_elem_centers_m = rx_elem_centers_m.mean(axis=0, keepdims=True)
-            distances_pe = compute_reception_distances(
-                points_m.astype(np.float64), tx_center_m, rx_elem_centers_m
-            )  # (P, n_out)
 
         # Frequency-domain integration ÷(jω)^n (÷(jω)⁴ for n_integrations=4): exact
         # inverse of the analytic (jω) derivative, so ZERO group delay (a cumsum would
@@ -491,6 +524,15 @@ class ReceptionSDI(ReceptionBase):
             inv *= self.fs
             inv_jw_pow = inv.astype(np.complex64)
 
+        # Band-limiting (spectral): the excitation × impulse-response magnitude bounds the
+        # frequency support, so the analytic SIR spectra are evaluated only on this slice.
+        band_mag = np.ones(freqs.shape[0], dtype=np.float64)
+        for filt in (fft_v, fft_ir_tx, fft_ir_rx):
+            if filt is not None:
+                band_mag *= np.abs(filt).astype(np.float64)
+        b0, b1 = self._band_range(band_mag)
+        omega_band = (2.0 * np.pi * freqs[b0:b1]).astype(np.float64)
+
         if show:
             att = (
                 f"alpha0={self.alpha0} dB/(MHz^{self.freq_power} cm)"
@@ -502,12 +544,15 @@ class ReceptionSDI(ReceptionBase):
             print(f"  TX patches : {self._tx_M}")
             print(f"  RX elements: {n_rx} ({self._rx_M} patches total)")
             print(f"  PE T       : {pe_T} samples   nfft: {nfft}")
+            print(f"  Band bins  : {b1 - b0} / {freqs.shape[0]}")
             print(f"  Attenuation: {att}")
 
         return {
             "rx_groups": rx_groups,
             "n_out": n_out,
             "pe_t0": pe_t0,
+            "tx_t0": tx_t0,
+            "rx_t0": rx_t0,
             "dt": dt,
             "pe_T": pe_T,
             "inv_c": np.float32(1.0 / self.c),
@@ -517,8 +562,10 @@ class ReceptionSDI(ReceptionBase):
             "fft_ir_tx": fft_ir_tx,
             "fft_ir_rx": fft_ir_rx,
             "inv_jw_pow": inv_jw_pow,
+            "b0": b0,
+            "b1": b1,
+            "omega_band": omega_band,
             "do_attenuation": do_attenuation,
-            "distances_pe": distances_pe,
             "scale": np.float32(self.rho / (2.0 * self.c**2)),
             "show": show,
         }
@@ -537,11 +584,41 @@ class ReceptionSDI(ReceptionBase):
             coords["dt"] = dt * step
         return rf, coords
 
+    @staticmethod
+    def _stack_rx_groups(rx_groups):
+        """Pad-and-stack the per-element patch tuples into ``(E, m_max, …)`` arrays.
+
+        Each receive element supplies its own patch set (centres, widths, apodization,
+        delays, tangent frame), and elements may differ in patch count. They are padded to
+        the largest with ``apod = 0`` rows — those have zero slope and are skipped in the
+        kernel, so the padding is physically inert and just lets one contiguous array feed
+        the batched spectrum kernel. Returns ``(centers, wx, wy, apod, delays, eu, ev)``.
+        """
+        E = len(rx_groups)
+        m_max = max(g[0].shape[0] for g in rx_groups)
+        centers = np.zeros((E, m_max, 3), dtype=np.float32)
+        wx = np.zeros((E, m_max), dtype=np.float32)
+        wy = np.zeros((E, m_max), dtype=np.float32)
+        apod = np.zeros((E, m_max), dtype=np.float32)  # pad = 0 → skipped
+        delays = np.zeros((E, m_max), dtype=np.float32)
+        eu = np.zeros((E, m_max, 3), dtype=np.float32)
+        ev = np.zeros((E, m_max, 3), dtype=np.float32)
+        for e, (rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev) in enumerate(rx_groups):
+            m = rx_c.shape[0]
+            centers[e, :m] = rx_c
+            wx[e, :m] = rx_wx
+            wy[e, :m] = rx_wy
+            apod[e, :m] = rx_ap
+            delays[e, :m] = rx_dl
+            eu[e, :m] = rx_eu
+            ev[e, :m] = rx_ev
+        return centers, wx, wy, apod, delays, eu, ev
+
     # ------------------------------------------------------------------
-    # Method 2 — truncated SDI PE: v_pe ⊛ (I⁴ Δδ_pe)
+    # spectral SDI PE: F⁻¹{ Σ_TX(ω) · Σ_RX(ω) · I⁴ · exc · IR } on the in-band slice
     # ------------------------------------------------------------------
 
-    def _rf_truncated(
+    def _rf_spectral(
         self,
         points_m,
         amps,
@@ -551,24 +628,72 @@ class ReceptionSDI(ReceptionBase):
         per_scatterer,
         focused_sum,
     ):
-        """Truncated SDI PE core: place Δδ_pe, apply I⁴ + exc/IR filters in Fourier."""
+        """Spectral SDI PE core: closed-form one-way spectra, multiplied — no forward FFT.
+
+        Builds the TX one-way SIR spectrum ``Σ_TX`` once (a sum of corner phasors per
+        patch, evaluated only on the in-band frequencies). The RX spectra ``Σ_RX`` are then
+        built for every receive element — in ONE batched kernel call for the summed,
+        attenuation-free path, or per element when attenuation is on (folded per patch) or
+        each scatterer is kept separate. The two-way SIR spectrum is the TX×RX product; the
+        shared filter ``G = I⁴ · exc · IR`` and the scatterer sum are applied in the
+        frequency domain, and one batched inverse FFT returns the RF. Per-patch one-way
+        attenuation is folded into ``Σ_TX`` and ``Σ_RX`` so their product carries the true
+        round-trip loss. Exact (no time sampling).
+        """
         s = self._pe_setup(
             points_m,
             n_integrations=n_integrations,
             per_scatterer=per_scatterer,
             focused_sum=focused_sum,
-            label="ReceptionSDI [truncated]",
+            label="ReceptionSDI [spectral]",
         )
+        if s["inv_jw_pow"] is None:
+            raise ValueError("method='spectral' requires n_integrations > 0 (full I⁴).")
         P = points_m.shape[0]
         nfft, pe_t0, pe_T, dt = s["nfft"], s["pe_t0"], s["pe_T"], s["dt"]
-        fft_v, fft_ir_tx, fft_ir_rx = s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]
-        inv_jw_pow, scale = s["inv_jw_pow"], s["scale"]
-        do_attenuation, distances_pe = s["do_attenuation"], s["distances_pe"]
-        t_wall = time.time()
-        rf = np.zeros(
-            (P, s["n_out"], pe_T) if per_scatterer else (s["n_out"], pe_T),
-            dtype=np.float32,
+        b0, b1, omega_band = s["b0"], s["b1"], s["omega_band"]
+        n_freq = s["freqs"].shape[0]
+        scale = s["scale"]
+        inv_c = s["inv_c"]
+
+        # Shared in-band filter G = ÷(jω)⁴ · exc · ir_tx · ir_rx (applied once per bin).
+        g_band = s["inv_jw_pow"][b0:b1].astype(np.complex64)
+        for filt in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
+            if filt is not None:
+                g_band = g_band * filt[b0:b1]
+
+        # Per-patch attenuation: convert α₀ to Np/(Hz^y·m) once; folded in the kernels.
+        alpha0 = self.alpha0
+        a0_np = (
+            convert_alpha0_to_nepers(alpha0, self.freq_power)
+            if alpha0 is not None
+            else None
         )
+        atten_kw = {
+            "alpha0_np": a0_np,
+            "freq_power": self.freq_power,
+            "f0_hz": self.tx.fc,
+        }
+
+        t_wall = time.time()
+        # TX one-way spectrum is identical for every receive element → build it once.
+        h_tx = compute_oneway_spectrum_band(
+            points_m,
+            self._tx_centers,
+            self._tx_wx,
+            self._tx_wy,
+            self._tx_apod,
+            self._tx_delays,
+            inv_c,
+            s["tx_t0"],
+            omega_band,
+            dt,
+            eu=self._tx_eu,
+            ev=self._tx_ev,
+            **atten_kw,
+        )  # (P, N_band) complex64
+
+        n_band = omega_band.shape[0]
         el_iter = (
             _wrap_tqdm(
                 range(s["n_out"]), desc="RX elements", total=s["n_out"], leave=True
@@ -576,113 +701,89 @@ class ReceptionSDI(ReceptionBase):
             if s["show"]
             else range(s["n_out"])
         )
-        for e_rx in el_iter:
+
+        def _h_rx(e_rx):
             rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = s["rx_groups"][e_rx]
-
-            # Fast path: amplitude-accumulate the deltas IN the kernel → one
-            # (pe_T,) trace, skipping the (P, pe_T) buffer and the amps@Dh matvec; then
-            # one FFT pair with the shared I⁴/exc/IR filters. Attenuation differs per
-            # scatterer, so it keeps the per-scatterer path below.
-            if not per_scatterer and not do_attenuation:
-                delta_sum = compute_pe_sdi_summed(
-                    points_m,
-                    self._tx_centers,
-                    self._tx_wx,
-                    self._tx_wy,
-                    self._tx_apod,
-                    self._tx_delays,
-                    rx_c,
-                    rx_wx,
-                    rx_wy,
-                    rx_ap,
-                    rx_dl,
-                    amps,
-                    s["inv_c"],
-                    pe_t0,
-                    pe_T,
-                    self.fs,
-                    dt,
-                    tx_eu=self._tx_eu,
-                    tx_ev=self._tx_ev,
-                    rx_eu=rx_eu,
-                    rx_ev=rx_ev,
-                )
-                H = rfft(delta_sum, n=nfft, workers=-1)
-                if inv_jw_pow is not None:
-                    H *= inv_jw_pow
-                if fft_v is not None:
-                    H *= fft_v
-                if fft_ir_tx is not None:
-                    H *= fft_ir_tx
-                if fft_ir_rx is not None:
-                    H *= fft_ir_rx
-                rf[e_rx, :] = (irfft(H, n=nfft)[:pe_T] * scale).astype(np.float32)
-                continue
-
-            delta_pe = compute_pe_sdi(
+            return compute_oneway_spectrum_band(
                 points_m,
-                self._tx_centers,
-                self._tx_wx,
-                self._tx_wy,
-                self._tx_apod,
-                self._tx_delays,
                 rx_c,
                 rx_wx,
                 rx_wy,
                 rx_ap,
                 rx_dl,
-                s["inv_c"],
-                pe_t0,
-                pe_T,
-                self.fs,
+                inv_c,
+                s["rx_t0"],
+                omega_band,
                 dt,
-                tx_eu=self._tx_eu,
-                tx_ev=self._tx_ev,
-                rx_eu=rx_eu,
-                rx_ev=rx_ev,
-            )  # (P, pe_T) float32
-            H_pe = rfft(delta_pe, n=nfft, axis=1, workers=-1)  # (P, N_freq)
-            del delta_pe
-            if inv_jw_pow is not None:
-                H_pe *= inv_jw_pow[np.newaxis, :]
-            if fft_v is not None:
-                H_pe *= fft_v[np.newaxis, :]
-            if fft_ir_tx is not None:
-                H_pe *= fft_ir_tx[np.newaxis, :]
-            if fft_ir_rx is not None:
-                H_pe *= fft_ir_rx[np.newaxis, :]
-            if do_attenuation and distances_pe is not None:
-                H_att = causal_attenuation_tf(
-                    s["freqs"].astype(np.float64),
-                    distances_pe[:, e_rx],
-                    self.alpha0,
-                    self.freq_power,
-                    self.tx.fc,
-                ).astype(np.complex64)
-                H_pe *= H_att
-            rf_pe = irfft(H_pe, n=nfft, axis=1, workers=-1)[:, :pe_T]  # (P, pe_T)
-            del H_pe
-            if per_scatterer:
+                eu=rx_eu,
+                ev=rx_ev,
+                **atten_kw,
+            )  # (P, N_band)
+
+        if per_scatterer:
+            rf = np.zeros((P, s["n_out"], pe_T), dtype=np.float32)
+            for e_rx in el_iter:
+                sp_band = (h_tx * _h_rx(e_rx)) * g_band[np.newaxis, :]  # (P, N_band)
+                full = np.zeros((P, n_freq), dtype=np.complex64)
+                full[:, b0:b1] = sp_band
+                rf_pe = irfft(full, n=nfft, axis=1)[:, :pe_T]  # (P, pe_T)
                 rf[:, e_rx, :] = (rf_pe * amps[:, np.newaxis] * scale).astype(
                     np.float32
                 )
-            else:
-                rf[e_rx, :] = (
-                    (rf_pe * amps[:, np.newaxis]).sum(axis=0) * scale
-                ).astype(np.float32)
-            del rf_pe
+        elif s["do_attenuation"]:
+            # Attenuation is folded per patch into Σ_RX, which differs per element, so the
+            # RX spectra are built element by element (the batched kernel is unattenuated).
+            s_all = np.zeros((s["n_out"], n_band), dtype=np.complex64)
+            for e_rx in el_iter:
+                s_all[e_rx] = np.einsum("p,pf,pf->f", amps, h_tx, _h_rx(e_rx))
+            full = np.zeros((s["n_out"], n_freq), dtype=np.complex64)
+            full[:, b0:b1] = s_all * g_band[np.newaxis, :]
+            rf = (irfft(full, n=nfft, axis=1)[:, :pe_T] * scale).astype(np.float32)
+        else:
+            # Summed, attenuation-free: build every element's RX spectrum in ONE batched
+            # kernel call (Σ_RX for all E at once → (E, Pc, N_band)) and amplitude-sum the
+            # two-way spectrum over scatterers in frequency. That (E, P, N_band) buffer is
+            # the memory bottleneck, so scatterers are processed in chunks; the scatterer
+            # sum (the einsum over p) is chunk-decomposable, so the per-element spectrum
+            # ``s_all`` is accumulated chunk by chunk — peak memory is (E, chunk, N_band),
+            # not (E, P, N_band). One batched inverse transform closes it out. The
+            # accumulator is complex128: the summed corner-delta areas are large and must
+            # cancel to the small in-band signal, which complex64 accumulation would erode.
+            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = self._stack_rx_groups(
+                s["rx_groups"]
+            )
+            chunk = self._batch_P_spectral(s["n_out"], n_band)
+            s_all = np.zeros((s["n_out"], n_band), dtype=np.complex128)
+            for c0 in range(0, P, chunk):
+                sl = slice(c0, min(c0 + chunk, P))
+                h_rx_c = compute_oneway_spectrum_band_batched(
+                    points_m[sl],
+                    rx_c,
+                    rx_wx,
+                    rx_wy,
+                    rx_ap,
+                    rx_dl,
+                    rx_eu,
+                    rx_ev,
+                    inv_c,
+                    s["rx_t0"],
+                    omega_band,
+                    dt,
+                )  # (E, Pc, N_band)
+                s_all += np.einsum("p,pf,epf->ef", amps[sl], h_tx[sl], h_rx_c)
+            full = np.zeros((s["n_out"], n_freq), dtype=np.complex64)
+            full[:, b0:b1] = (s_all * g_band[np.newaxis, :]).astype(np.complex64)
+            rf = (irfft(full, n=nfft, axis=1)[:, :pe_T] * scale).astype(np.float32)
 
         if s["show"]:
-            print(
-                f"ReceptionSDI [truncated] computed in {time.time() - t_wall:.2f} s\n"
-            )
+            print(f"ReceptionSDI [spectral] computed in {time.time() - t_wall:.2f} s\n")
         return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
     # ------------------------------------------------------------------
-    # Method 3 — complete SDI PE: Σ a_i a_j w(t − τ_i − τ_j),  w = I⁴ v_pe
+    # paired SDI PE: Σ a_i a_j w(t − τ_i − τ_j),  w = I⁴ v_pe (no FFT, no cumsum)
     # ------------------------------------------------------------------
 
-    def _rf_complete(
+    def _rf_paired(
         self,
         points_m,
         amps,
@@ -692,34 +793,37 @@ class ReceptionSDI(ReceptionBase):
         per_scatterer,
         focused_sum,
     ):
-        """Complete SDI PE core: precompute ``w = I⁴ v_pe`` once, splat it per pair.
+        """Paired SDI PE core: precompute ``w = I⁴ v_pe`` once, splat it per patch pair.
 
-        Exact reference (≡ truncated ≡ conventional): the per-pair circular splat of
-        the full-length kernel ``w`` reproduces the truncated path's FFT convolution.
-        O(nfft) per pair, so the slowest path — never auto-selected, reference / single
-        scatterer use. Attenuation is not supported here (it would need a separate
-        integrated kernel per depth); use ``conventional`` or ``truncated`` instead.
+        Pushes the four integrations onto the drive once (``w = I⁴ v_pe``), then for each of
+        the 16 corner events of every TX–RX patch pair lays down a shifted, scaled copy of
+        ``w`` — no FFT and no cumulative sum, the output is the RF directly. Exact (it
+        reproduces the Fourier convolution), but O(len(w)) per pair, so it is the small-
+        aperture / cross-check path. Attenuation is not supported here (it would need a
+        separate integrated kernel per depth); use ``method='spectral'`` or ``'conventional'``.
         """
         s = self._pe_setup(
             points_m,
             n_integrations=n_integrations,
             per_scatterer=per_scatterer,
             focused_sum=focused_sum,
-            label="ReceptionSDI [complete]",
+            label="ReceptionSDI [paired]",
         )
         if s["do_attenuation"]:
             raise NotImplementedError(
-                "method='complete' does not support attenuation yet; "
-                "use method='conventional' or 'truncated'."
+                "method='paired' does not support attenuation; "
+                "use method='spectral' or 'conventional'."
             )
         if s["inv_jw_pow"] is None:
-            raise ValueError("method='complete' requires n_integrations > 0 (full I⁴).")
+            raise ValueError(
+                "method='paired' requires n_integrations > 0 (full I⁴)."
+            )
 
         pe_t0, pe_T, dt = s["pe_t0"], s["pe_T"], s["dt"]
-        # w = I⁴ v_pe = irfft( ÷(jω)⁴ · fft_v · fft_ir_tx · fft_ir_rx ) on the pe_T grid
-        # — exactly the spectrum the truncated path convolves with Δδ_pe. ÷(jω)⁴ is
-        # zero-phase and delocalized, so the per-pair splat must be circular over the
-        # full nfft (sliced to pe_T) to match truncated; hence the full-length kernel.
+        # w = I⁴ v_pe = irfft( ÷(jω)⁴ · fft_v · fft_ir_tx · fft_ir_rx ) on the pe_T grid.
+        # ÷(jω)⁴ is zero-phase and delocalized, so the per-pair splat must be circular over
+        # the full nfft (sliced to pe_T) to match the FFT convolution; hence the full-length
+        # kernel.
         filt = s["inv_jw_pow"].astype(np.complex128)
         for f in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
             if f is not None:
@@ -772,7 +876,7 @@ class ReceptionSDI(ReceptionBase):
                 rf[e_rx, :] = ((amps @ rf_pe) * s["scale"]).astype(np.float32)
 
         if s["show"]:
-            print(f"ReceptionSDI [complete] computed in {time.time() - t_wall:.2f} s\n")
+            print(f"ReceptionSDI [paired] computed in {time.time() - t_wall:.2f} s\n")
         return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
     def pulse_echo_rf(
@@ -786,14 +890,14 @@ class ReceptionSDI(ReceptionBase):
         """Pulse-echo RF from point scatterers.
 
         The core reception primitive: amplitude-weighted superposition of each
-        scatterer's pulse-echo response. The three physical excitation derivatives
-        are carried by the band-limited excitation and impulse responses
-        (``e ⊛ h_e ⊛ h_r``), so the three the PE-SDI kernel placed on the SIR are
-        removed by three frequency-domain integrations (``÷(jω)³``) — leaving the
-        single physical set on the excitation/IR chain. Frequency-domain
-        integration carries no group delay, so the SDI result stays sample-aligned
-        with conventional `Reception`. Field II uses the same convention, so this
-        equals Field II ``calc_scat`` (≡ ``calc_hhp`` for a unit point, corr 1.0000).
+        scatterer's pulse-echo response. The SDI cores carry a second derivative on
+        each one-way SIR (``D²h_tx``, ``D²h_rx``), so the public RF applies the four
+        integrations ``I⁴ = ÷(jω)⁴`` in the frequency domain to recover the two-way SIR
+        ``h_tx ⊛ h_rx``; the single physical ∂³ stays on the band-limited excitation /
+        impulse-response chain (``e ⊛ h_e ⊛ h_r``). Frequency-domain integration carries
+        no group delay, so the result stays sample-aligned with conventional `Reception`.
+        Field II uses the same convention, so this equals Field II ``calc_scat``
+        (≡ ``calc_hhp`` for a unit point, corr 1.0000).
 
         ``per_scatterer=True`` keeps each scatterer separate (PSF); ``False`` sums
         them. ``coords["t0"]`` is beam-axis referenced (TX bulk ``delays.max()``
@@ -851,5 +955,5 @@ class ReceptionSDI(ReceptionBase):
         return (
             f"ReceptionSDI(tx={self.tx}, rx={self.rx}, c={self.c} m/s, "
             f"fs={self.fs} Hz, alpha0={self.alpha0}, "
-            f"freq_power={self.freq_power})"
+            f"freq_power={self.freq_power}, method='{self.method}')"
         )

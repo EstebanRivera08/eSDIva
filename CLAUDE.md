@@ -134,11 +134,16 @@ default) and `Reception` (conventional Tupholme-Stepanishen), same API, sharing
 derivative of the excitation (`v_pe = ρ₀/2c₀² · E_m ⊛ ∂³v/∂t³`); in practice that
 ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
 (`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither class applies an explicit ∂³.
-`ReceptionSDI` places the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx` (16
-deltas/pair, **no cumsum**) and recovers the two-way SIR via `I⁴ = ÷(jω)⁴` in Fourier;
-`Reception` builds `h_tx ⊛ h_rx` by FFT directly. Both equal `v_pe ⊛ (h_tx ⊛ h_rx)`.
-(`ReceptionSDI` is the *truncated* SDI form — see `PE_SDI_kernel_analysis.md` for the
-conventional/truncated/complete taxonomy.) Field II shares the convention
+`ReceptionSDI` exposes three formulations of `v_pe ⊛ (h_tx ⊛ h_rx)` via `method=`
+(default `auto`): **`conventional`** (sample both SIRs, FFT-convolve — delegates to
+`Reception`); **`paired`** (the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16
+deltas/pair; pushes `I⁴` onto the drive `w = I⁴ v_pe` once and splats a copy of `w` per
+corner event — **no FFT, no cumsum**, cost ∝ M²·len(w), the exact reference path);
+**`spectral`** (closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**,
+cost ∝ M, exact, band-limited bins only, every RX element's spectrum built in one batched
+kernel call, supports per-patch one-way attenuation). `auto` → `paired` only for a
+near-monoelement aperture, else `spectral` (band-limited drive) or `conventional`
+(wideband). Field II shares the convention
 (`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
 parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
@@ -227,17 +232,18 @@ integral of its corner deltas (h = I² d²h), so:
     Δδ_pe = d2h^e *_t d2h^r = 16 Dirac deltas per (m_e, m_r) pair   (deltas ⊛ deltas)
     h_tx *_t h_rx = I⁴ Δδ_pe
 
-Each TX corner (4) × each RX corner (4) = 16 events; 32 sample writes per pair
-(16 × 2 bins via interpolation). `compute_pe_sdi` returns the RAW Δδ_pe — **no cumsum**.
-The public RF applies I⁴ entirely in Fourier as ÷(jω)⁴ (with a ×fs: Δδ_pe holds delta
-*areas*, ÷(jω) weights each sample by dt), folded into the exc/IR multiply:
+Each TX corner (4) × each RX corner (4) = 16 events per pair (×fs: Δδ_pe holds delta
+*areas*, ÷(jω) weights each sample by dt). The two SDI forms apply I⁴ differently:
 
     p_r(t) = (rho_0/2c_0^2) * f_m(r) *_r [(E_m * v) *_t (I⁴ Δδ_pe)(r, t)]
 
-This recovers exactly `h_tx *_t h_rx`, so ReceptionSDI ≡ conventional Reception ≡
-Field II. ReceptionSDI is the *truncated* SDI form (integrates the delta product); the
-*complete* form moves I⁴ onto the velocity (w = I⁴ v_pe). Full taxonomy and complexity:
-`PE_SDI_kernel_analysis.md`.
+Both recover exactly `h_tx *_t h_rx`, so all formulations ≡ Field II. Three `method=`:
+**`paired`** forms the integrated drive `w = I⁴ v_pe` once and splats a copy of `w` per
+corner event (`compute_pe_complete`, **no FFT, no cumsum**, cost ∝ M²·len(w) — exact
+reference); **`spectral`** uses the closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`
+(`compute_oneway_spectrum_band[_batched]`, no forward FFT, applies ÷(jω)⁴ in Fourier, cost
+∝ M not M², exact, per-patch attenuation); **`conventional`** samples and convolves. Full
+taxonomy and complexity: `PE_SDI_kernel_analysis.md`.
 
 ### 7. Causal Power-Law Attenuation
 
@@ -271,7 +277,7 @@ Quick checklist — full rationale, locations, and history in
 
 1. **SDI float32 cumsum cancellation** — all `_cumsum_*` must use float64 accumulator + float32 write-back. Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
 2. **d2h_all ≠ d2h_per_element.sum()** — float32 non-associativity (~5e-8). Never compare with `atol=0`.
-3. **PE SDI delta placement uses `k_shift = 0`** (in `transducer_sir_pe.py`). Was wrongly 2.0 → 2-sample lag. `example06` asserts on-axis lag == 0 as regression guard.
+3. **PE SDI delta placement uses `k_shift = 0`** (in `transducer_sir_pe_sdi.py`). Was wrongly 2.0 → 2-sample lag. `example06` asserts on-axis lag == 0 as regression guard.
 4. **Attenuation y=1 continuity** — `tan(y*pi/2)` diverges near y=1; test the y=1 branch independently.
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
 6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect":
