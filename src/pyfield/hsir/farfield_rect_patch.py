@@ -34,81 +34,22 @@ def _fully_sampled_trapezoid(
 
 
 @njit(inline="always")
-def _place_sir_sdi_deltas(d2h, p, idxs, vals, t0, fs, t1, t2, t3, t4, slope):
+def _place_sir_sdi_deltas(d2h, p, t0, fs, t1, t2, t3, t4, slope):
     """Place the 4 second-derivative deltas of one trapezoid into d2h[p, :] (SDI method).
 
-    d²h/dt² of a trapezoid is four signed Diracs at the corners (+,−,−,+), each scaled
-    by the rising slope. Linear interpolation splits every delta across the two adjacent
-    bins (8 writes); the caller recovers h by a double cumulative sum. Cheaper than the
-    naive fill when the patch spans many samples.
+    d²h/dt² of a trapezoid is four signed Diracs at its corners with signs (+,−,−,+),
+    each scaled by the rising slope. Each delta is split across its two neighbouring
+    sample bins by linear interpolation (the +1 keeps the same lattice the double
+    cumulative sum integrates back on); the caller recovers h by that double cumsum.
+    Cheaper than the naive fill when the patch spans many samples.
     """
-    evt = 0
-    # t1 (+)
-    k1f = (t1 - t0) * fs + 1
-    k4f = (t4 - t0) * fs + 1
-
-    kf = k1f
-    kf_floor = int(np.floor(kf))
-    w_ceil = kf - kf_floor
-    w_floor = 1.0 - w_ceil
-
-    idxs[evt] = kf_floor
-    vals[evt] = slope * w_floor
-    evt += 1
-    kf_ceil = kf_floor + 1
-
-    idxs[evt] = kf_ceil
-    vals[evt] = slope * w_ceil
-    evt += 1
-
-    # t2 (-)
-    kf = (t2 - t0) * fs + 1
-    kf_floor = int(np.floor(kf))
-    w_ceil = kf - kf_floor
-
-    w_floor = 1.0 - w_ceil
-    idxs[evt] = kf_floor
-    vals[evt] = -slope * w_floor
-    evt += 1
-
-    kf_ceil = kf_floor + 1
-    idxs[evt] = kf_ceil
-    vals[evt] = -slope * w_ceil
-    evt += 1
-
-    # t3 (-)
-    kf = (t3 - t0) * fs + 1
-    kf_floor = int(np.floor(kf))
-    w_ceil = kf - kf_floor
-
-    w_floor = 1.0 - w_ceil
-    idxs[evt] = kf_floor
-    vals[evt] = -slope * w_floor
-    evt += 1
-
-    kf_ceil = kf_floor + 1
-    idxs[evt] = kf_ceil
-    vals[evt] = -slope * w_ceil
-    evt += 1
-
-    # t4 (+)
-    kf = k4f
-    kf_floor = int(np.floor(kf))
-    w_ceil = kf - kf_floor
-
-    w_floor = 1.0 - w_ceil
-    idxs[evt] = kf_floor
-    vals[evt] = slope * w_floor
-    evt += 1
-
-    kf_ceil = kf_floor + 1
-    idxs[evt] = kf_ceil
-    vals[evt] = slope * w_ceil
-    evt += 1
-
-    for j in range(evt):
-        k_idx = idxs[j]
-        d2h[p, k_idx] += vals[j]
+    for tc, sign in ((t1, 1.0), (t2, -1.0), (t3, -1.0), (t4, 1.0)):
+        kf = (tc - t0) * fs + 1.0
+        k_floor = int(np.floor(kf))
+        w_ceil = kf - k_floor
+        signed_slope = sign * slope
+        d2h[p, k_floor] += np.float32(signed_slope * (1.0 - w_ceil))
+        d2h[p, k_floor + 1] += np.float32(signed_slope * w_ceil)
 
 
 # ---------- main SIR computation function (njit, parallel) ----------
@@ -184,10 +125,6 @@ def compute_parallelized_sir_optimized(
     threshold_term = 8.0 + 2.0 * (T / M)
 
     for p in prange(P):  # ty: ignore[not-iterable]
-        # per-point local event buffers for SDI (max 8*M entries)
-        idxs = np.empty(8 * M, dtype=np.int32)
-        vals = np.empty(8 * M, dtype=np.float32)
-
         p_min_time = np.float32(1e30)
         p_max_time = np.float32(-1e30)
 
@@ -274,7 +211,7 @@ def compute_parallelized_sir_optimized(
                     h_out, p, k_start, k_end, time_grid, t1, t2, t3, t4, slope, h_max
                 )
             else:
-                _place_sir_sdi_deltas(d2h, p, idxs, vals, t0, fs, t1, t2, t3, t4, slope)
+                _place_sir_sdi_deltas(d2h, p, t0, fs, t1, t2, t3, t4, slope)
 
         # After all patches for point p processed, if any SDI events were added, integrate
         # We must integrate d2h -> dh -> h and add to h_out

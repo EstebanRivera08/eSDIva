@@ -111,20 +111,22 @@ Two reception classes are available:
   **the fast choice for real arrays** (many patches): cost ~`O(P·M + P·log nfft)`.
   Beats Field II `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
 - `ReceptionSDI` — three SDI formulations via `method=` (default `auto`):
-  - `paired` — forms the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx` directly (16
-    deltas per TX/RX patch pair, **no cumsum**), then recovers the two-way SIR by
-    `I⁴ = ÷(jω)⁴`. Cost ~`O(P·M_tx·M_rx)` — **quadratic in patch count**, fastest for
-    small `M` (few-patch / monoelement / PSF). `i4='fft'` applies I⁴ in Fourier;
-    `i4='splat'` lays down `w = I⁴ v_pe` per pair (FFT-free reference).
-  - `factored` — builds each one-way SIR spectrum in closed form from the corner times
-    (`Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**), evaluated on the in-band bins only.
-    Cost ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**, exact (no
-    interpolation), and folds in per-patch one-way attenuation. Best for PSFs and large
-    apertures.
+  - `paired` — forms the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx` over all TX/RX
+    patch pairs (16 corner events per pair, **no cumsum, no FFT**): pushes the four
+    integrations onto the drive once (`w = I⁴ v_pe`) and splats a shifted, scaled copy of
+    `w` per corner event. Cost ~`O(P·M_tx·M_rx·len(w))` — **quadratic in patch count**,
+    the exact reference path for small `M` (few-patch / monoelement / PSF)
+    (`compute_pe_complete`).
+  - `spectral` — builds each one-way SIR spectrum in closed form from the corner times
+    (`Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**), evaluated on the in-band bins only, then
+    applies `I⁴ = ÷(jω)⁴`. Cost ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**,
+    exact (no interpolation), and folds in per-patch one-way attenuation. Best for PSFs
+    and large apertures (`compute_oneway_spectrum_band` per element for the PSF;
+    `compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF).
   - `conventional` — delegates to `Reception` (the depth-binned sampled-SIR path) for a
     near-delta / wideband drive where band-limiting gives no benefit.
 
-  See `PE_SDI_kernel_analysis.md` for the full conventional/paired/factored taxonomy.
+  See `PE_SDI_kernel_analysis.md` for the full conventional/paired/spectral taxonomy.
 
 All give the same RF (corr ~1.0); `auto` picks by aperture size + bandwidth.
 
@@ -147,7 +149,8 @@ it:
 decimation + size guard; `scan_focusline` recomputes TX **and** RX focus/apod (RX
 mirrors TX by default; `rx_FoverD`/`rx_apodization_type` override) then beamforms on
 receive INSIDE the SIR kernel (`focused_sum=True`: all RX patches summed in one
-`compute_pe_sdi`/`compute_h_sir` call → one FFT pair, no external DAS). These shared
+`compute_twoway_spectrum_summed`/`compute_h_sir` call → one FFT pair, no external DAS).
+These shared
 methods plus all common state (`set`, patch extraction, validation) live in
 `ReceptionBase` (`reception/base.py`); each subclass adds only its constructor,
 time-grid helper, `_compute_rf_inner`, and the convention wrappers.
@@ -196,13 +199,13 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 - `alpha0=None` — attenuation in dB/(MHz^y·cm)
 - `freq_power=1.0` — power-law exponent y
 - `excitation=None` — TX excitation `(L,)` float32 (or uses `tx.excitation`)
-- `method="auto"` (`ReceptionSDI`) — `auto`/`conventional`/`paired`/`factored`
-- `i4="fft"` (`ReceptionSDI`) — `paired` I⁴ realization: `fft` or `splat`
+- `method="auto"` (`ReceptionSDI`) — `auto`/`conventional`/`paired`/`spectral`
+- `n_depth_bins="auto"` — depth bins for the summed-RF fast path (`"auto"` or int; `1` disables)
 - `verbose=True`
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `ReceptionSDI` evaluates the SDI forms (`paired` via `compute_pe_sdi`/`compute_pe_complete`; `factored` via `compute_oneway_spectrum_band`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
+- `ReceptionSDI` evaluates the SDI forms (`paired` via `compute_pe_complete`; `spectral` via `compute_oneway_spectrum_band` / `compute_twoway_spectrum_summed`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
 - `Reception` builds `h_tx ⊛ h_rx` by conventional FFT convolution (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
 - Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
@@ -252,7 +255,7 @@ plot2D_transient_slices(p_4d, coords=coords)
 - Scale convention: PyField uses `rho/(2c²)`, Field II uses `rho/2`. Raw amplitude differs by `c²≈2.37e6`. Normalised PSF unaffected.
 
 **Modifying SIR Computation**:
-- Core implementation: `src/pyfield/h_sir/farfield_rect_patch.py`
+- Core implementation: `src/pyfield/hsir/farfield_rect_patch.py`
 - Uses Numba JIT compilation for performance
 - Parallelized over field points (not patches)
 
@@ -334,15 +337,20 @@ P-outer, E-inner double loop. Pre-allocated `h_pad_buf = zeros((batch_P, nfft), 
 ### Data Flow
 
 ```
-Per RX element e_rx:
-  compute_pe_sdi(pts, tx_all_patches, rx_elem_patches) → Δδ_pe (P, T)   # raw deltas
-  FFT(Δδ_pe) × (jω)⁻⁴·fs × FFT(v) × FFT(ir_tx) × FFT(ir_rx) × H_att(f, d)
-  IFFT → weight by f_m(r) → sum over scatterers → rf[:, e_rx]
+spectral (default), per RX element e_rx:
+  Σ_TX·Σ_RX(ω) on the in-band bins   ← closed-form corner phasors, NO forward FFT
+     (compute_twoway_spectrum_summed fuses TX×RX, summing over scatterers in one pass;
+      per-patch one-way H_att folded into each phasor)
+  × I⁴=(jω)⁻⁴·fs × FFT(v) × FFT(ir_tx) × FFT(ir_rx)
+  IFFT (band-limited) → weight by f_m(r) → rf[:, e_rx]
   Scale by rho / (2 * c^2)
+
+paired:       splat w = I⁴ v_pe per corner event (compute_pe_complete; no FFT, no cumsum).
+conventional: build h_tx, h_rx by sampling and FFT-convolve (delegates to Reception).
 ```
 
 - All convolutions become element-wise freq-domain multiplies; `I⁴ = (jω)⁻⁴·fs`.
-- IR_tx, IR_rx, V, H_att precomputed once. Only Δδ_pe varies per RX element.
+- IR_tx, IR_rx, V precomputed once; only the RX spectrum `Σ_RX` varies per RX element.
 - When IR is None, corresponding FFT term = 1 (identity).
 - Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
 - Memory: O(P × nfft) per RX element iteration — E_rx-independent.
@@ -487,48 +495,43 @@ CORRECT (current): h_pad_buf = zeros((batch_P, nfft), float32) ONCE
 
 ### 1. SDI Tail Artifact — float32 Cumsum Cancellation
 
-**Location**: `sir_derivatives.py` cumsum functions, `farfield_rect_patch.py` integration.
+**Location**: the inline double cumsum in `compute_parallelized_sir_optimized`
+(`farfield_rect_patch.py`).
 
-d2h events are ~4e10 in magnitude. Float32 ULP at that scale = 4096. When large positive/negative events cancel, residual is ±4096 (1 ULP), not the true ~±2048. This leaves a DC offset in dh that becomes a linear ramp in h after double cumsum.
+d2h events are large in magnitude. At that scale the float32 ULP is coarse: when large positive/negative corner events cancel, the residual is ±1 ULP, not the true value. This leaves a DC offset in dh that becomes a linear ramp in h after the double cumsum.
 
-**Mitigation**: float64 accumulator + float32 write-back in all `_cumsum_2d`/`_cumsum_3d`:
+**Mitigation**: float64 accumulator + float32 write-back in the cumsum (the kernel runs a float64 scalar `acc`/`acc2` and writes back to the float32 `d2h`/`h_out`); the delta placement in `_place_sir_sdi_deltas` also casts each split write with `np.float32(...)` before the `+=`, matching that rounding:
 ```python
-acc = np.float64(0.0)           # MANDATORY float64
-acc += np.float64(arr[i, k])    # promote to float64
-out[i, k] = np.float32(acc)     # write back float32
+acc = 0.0                       # MANDATORY float64 accumulator
+acc += d2h[p, k]                # accumulate in float64
+d2h[p, k] = acc                 # write back float32 (d2h is float32)
 ```
 
 **Residual after fix**: ~0.004% of SIR peak — physically negligible but breaks exact comparison.
 **Test tolerance**: `rtol=0.005, atol=0.005 × peak` for all SIR comparisons.
 
-### 2. d2h_all ≠ d2h_per_element.sum() — Float32 Non-Associativity
+### 2. All-patches SIR ≠ Σ per-element SIR — Float32 Non-Associativity
 
-`compute_d2h` (all patches) vs `compute_d2h_per_element` (per-element grouping) accumulate in different orders. Float32 addition is not associative. Difference = up to 1 ULP of event magnitude (4096 at 4e10 scale). After cumsum, persistent constant offset in tail.
+Building the SIR over all patches at once vs grouping patches by element and summing (the per-element path in `Emission`/`Reception`) accumulates in different orders. Float32 addition is not associative, so the two differ by up to ~1 ULP of the event magnitude; after the cumsum this is a persistent small constant offset in the tail.
 
 **Impact**: relative error ~5e-8. Physically zero. Never compare with atol=0.
 
-### 3. PE SDI Delta Placement — `k_shift = 0`
+### 3. PE SDI On-Axis Lag Must Be 0
 
-PE SDI places combined deltas at `floor((t_corner_e + t_corner_r - pe_t0)*fs)` with
-**`k_shift = 0`** (in `_place_pe_sdi_deltas`, `transducer_sir_pe_sdi.py`).
+The pulse-echo event of a (TX corner, RX corner) pair occurs at the combined time
+`t_e + t_r`. Both PE-SDI forms reference it to `pe_t0 = tx_t0 + rx_t0`: `spectral` puts a
+phasor at each corner time and multiplies the TX and RX spectra (phases add), `paired`
+splats `w = I⁴ v_pe` at the combined corner sum. Because `pe_t0 = tx_t0 + rx_t0`, the
+combined onset matches the naive `h_tx ⊛ h_rx` onset exactly — **no extra sample shift**.
 
-Rationale: `Δδ_pe = d2h_e ⊛ d2h_r` (raw deltas; `I⁴ = ÷(jω)⁴` applied later in
-Fourier). Discrete convolution adds
-indices, so an event at TX bin `floor((t_e-tx_t0)*fs)` and RX bin
-`floor((t_r-rx_t0)*fs)` lands at their sum. Since `pe_t0 = tx_t0 + rx_t0`, that sum
-equals `floor((t_e+t_r-pe_t0)*fs)` (± the floor-of-sum vs sum-of-floors ULP). This
-matches the naive `h_tx ⊛ h_rx` onset exactly — single-SDI `h` is already correctly
-timed (no net +1), so no extra shift is needed.
+**History**: an earlier kernel added a +2-sample shift (derived on the wrong premise that
+single-SDI added +1 per side), placing `ReceptionSDI` 2 samples late vs
+`Reception(method="naive"|"sdi")` (= 20 ns at 100 MHz). Removing it made the on-axis lag
+of naive vs PE-SDI 0 (Emission and `Reception(method="sdi")` were already lag-0).
 
-**History**: was `k_shift = 2.0`, derived on the wrong premise that single-SDI added
-+1 per side. Empirically that placed `ReceptionSDI` 2 samples late vs
-`Reception(method="naive"|"sdi")` (= 20 ns at 100 MHz). Verified fix: on-axis lag of
-naive vs PE-SDI is now 0 (Emission and `Reception(method="sdi")` were already lag-0).
-
-**Test gap**: `test_pe_sdi.py` checks only peak ratio (<5%) + correlation (>0.90),
-both lag-insensitive — they did **not** catch the 2-sample shift. `example06` now
-asserts on-axis lag == 0 as a phase-regression guard. Residual raw-RF difference
-(~10%) vs conventional is FFT-`(jω)⁴` Gibbs ringing, not timing (envelope ~1.4%).
+**Test gap**: `test_pe_sdi.py` checks only peak ratio (<5%) + correlation (>0.90), both
+lag-insensitive — they did **not** catch the 2-sample shift. `example06` asserts on-axis
+lag == 0 as a phase-regression guard.
 
 ### 4. Attenuation y=1 Continuity
 
@@ -544,13 +547,9 @@ Global path tiles `(L,) → (L, E)` and calls same element-loop as per-element p
 
 After editing Numba kernels, `.nbi`/`.nbc` cache files may retain old compiled versions. Symptom: fix "has no effect." Clear cache:
 ```powershell
-Get-ChildItem -Path "src\pyfield\h_sir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+Get-ChildItem -Path "src\pyfield\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
 ```
 
-### 7. h_sir.__call__ Is Broken (Pre-existing)
-
-`h_sir.__call__` unpacks 4 values from `check_valid_field_points` which returns 1 value. Do NOT call it — use `compute_derivative` method or `Emission`/`Reception` classes directly.
-
-### 8. `from_sir_to_pressure` Attenuation with No Excitation
+### 7. `from_sir_to_pressure` Attenuation with No Excitation
 
 When `excitation=None`, `from_sir_to_pressure` returns h_sir directly — no IRFFT step. Attenuation parameter is silently ignored. Callers relying on attenuation must provide excitation.

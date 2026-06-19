@@ -21,7 +21,10 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.signal import decimate, hilbert
 
-from pyfield.utilities.helper_functions import compute_sub_elem_attributes
+from pyfield.utilities.helper_functions import (
+    compute_sub_elem_attributes,
+    compute_time_grid,
+)
 
 # Output-size threshold above which the heavy methods warn / auto-decimate.
 _SIZE_WARN_BYTES = 2 * 1024**3  # 2 GiB
@@ -219,6 +222,102 @@ class ReceptionBase:
                 )
             )
         return slices
+
+    def _rx_groups(self, focused_sum):
+        """Receive patch groups feeding the per-element / per-line SIR.
+
+        ``focused_sum`` → ONE group holding every RX patch (the kernel sums it into a
+        single beamformed line, Field II ``calc_scat``'s internal receive sum); else
+        one group per receive element → raw per-channel RF. Each group is the tuple
+        ``(centers, wx, wy, apod, delays, eu, ev)`` of that group's patch arrays.
+        """
+        if focused_sum:
+            return [
+                (
+                    self._rx_centers,
+                    self._rx_wx,
+                    self._rx_wy,
+                    self._rx_apod,
+                    self._rx_delays,
+                    self._rx_eu,
+                    self._rx_ev,
+                )
+            ]
+        return self._extract_rx_element_patches()
+
+    def _oneway_time_grid(self, points_m, aperture):
+        """Far-field SIR sample grid for one aperture (``"tx"`` or ``"rx"``).
+
+        Wraps ``compute_time_grid`` with that aperture's patch centres, largest patch
+        dimensions and focusing delays. Returns ``(time_grid, t0, dt, T)``: the sampled
+        time axis and its origin ``t0`` (s), step ``dt`` (s) and length ``T`` (samples),
+        sized to cover the trapezoidal SIR of every scatterer.
+        """
+        if aperture == "tx":
+            M, centers, wx_max, wy_max, delays = (
+                self._tx_M,
+                self._tx_centers,
+                self._tx_wx_max,
+                self._tx_wy_max,
+                self.tx.delays,
+            )
+        else:
+            M, centers, wx_max, wy_max, delays = (
+                self._rx_M,
+                self._rx_centers,
+                self._rx_wx_max,
+                self._rx_wy_max,
+                self.rx.delays,
+            )
+        return compute_time_grid(
+            points_m.shape[0],
+            M,
+            points_m,
+            centers,
+            wx_max,
+            wy_max,
+            self.c,
+            self.fs,
+            delays,
+            verbose=False,
+        )
+
+    def _finalize(self, rf, pe_t0, dt, focused_sum, downsampling):
+        """Beam-axis ``t0``, coords dict, and optional anti-aliased decimation.
+
+        The pulse-echo origin ``pe_t0`` is shifted to the beam axis by subtracting the TX
+        focusing bulk ``tx.delays.max()`` (the last-firing element's delay) so downstream
+        beamforming needs no per-line correction; ``focused_sum`` also bakes the RX focus
+        into the line, so the RX bulk is subtracted too.
+        """
+        t0 = pe_t0 - float(np.max(self.tx.delays))
+        if focused_sum:
+            t0 -= float(np.max(self.rx.delays))
+        coords = {"t0": t0, "dt": dt}
+        if downsampling is not None and int(downsampling) > 1:
+            step = int(downsampling)
+            rf = _anti_alias_decimate(rf, step)  # anti-aliased along last (time) axis
+            coords["dt"] = dt * step
+        return rf, coords
+
+    def _accumulate_depth_bins(self, points_m, n_bins, per_bin_fn):
+        """Sum per-depth-bin RF back onto one shared global sample lattice.
+
+        Scatterers are ordered by distance from the transmit aperture centroid and split
+        into ``n_bins`` depth groups; each spans a tight arrival window so its RF uses a
+        short FFT. ``per_bin_fn(idx)`` returns ``(rf_bin, n0)`` — that bin's RF and the
+        integer sample offset where it starts on the global lattice — and the bins simply
+        add at ``n0`` (no resampling, since every bin shares the lattice).
+        """
+        center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
+        order = np.argsort(np.linalg.norm(points_m - center, axis=1))
+        results = [per_bin_fn(idx) for idx in np.array_split(order, n_bins) if idx.size]
+        n_out = results[0][0].shape[0]
+        nt_total = max(off + r.shape[1] for r, off in results)
+        rf = np.zeros((n_out, nt_total), dtype=np.float32)
+        for r, off in results:
+            rf[:, off : off + r.shape[1]] += r
+        return rf
 
     def _auto_depth_bins(self, points_m, n_out):
         """Number of depth bins for the fast path (1 = no binning).

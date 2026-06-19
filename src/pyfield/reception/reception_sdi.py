@@ -84,12 +84,10 @@ from pyfield.hsir.transducer_sir_pe_sdi import (
     compute_pe_complete,
     compute_twoway_spectrum_summed,
 )
-from pyfield.utilities.helper_functions import compute_time_grid
 
 from ..attenuation import convert_alpha0_to_nepers
 from .base import (
     ReceptionBase,
-    _anti_alias_decimate,
     _next_pow2,
     _warn_if_rx_delays_apods_not_default,
     _wrap_tqdm,
@@ -98,12 +96,9 @@ from .base import (
 # Formulation selector values (see ReceptionSDI.method).
 _VALID_METHODS = ("auto", "conventional", "paired", "spectral")
 
-# Router crossover scale (see `_regime_select`): `paired` splats the full integrated drive
-# `w` for each of the 16·M_tx·M_Erx corner events, so its cost is `16·M_tx·M_Erx · len(w)`;
-# `spectral`/`conventional` pay one ~T·log₂T transform (patch-independent). Both carry a
-# factor ~T (= len(w) ≈ nfft), so the comparison reduces to `16·M_tx·M_Erx` vs `k·log₂T`:
-# paired wins only for a handful of patches (a PSF, a monoelement). The constant absorbs the
-# lower cost of a sample write vs an FFT op. Approximate — re-tune against measured timings.
+# Router crossover constant (see `_regime_select`): compares paired's pair count
+# `16·M_tx·M_Erx` against the patch-independent transform cost `k·log₂T`, so paired wins
+# only for a handful of patches. Approximate — re-tune against measured timings.
 _PE_FFT_CONST = 4.0
 
 
@@ -112,33 +107,23 @@ class ReceptionSDI(ReceptionBase):
 
     Implements Jensen's spatial-impulse-response pulse-echo model
     ``p_pe = v_pe ⊛ h_tx ⊛ h_rx`` under the Tupholme-Stepanishen far-field trapezoidal
-    rectangular-patch SIR (full model and citations in the module docstring above). Each
-    aperture's one-way SIR is the double integral of a sparse train of trapezoid-corner
-    deltas; the two-way SIR is then recovered either from the TX–RX corner-delta product
-    (``paired``) or from the product of the two one-way spectra (``spectral``), with the
-    four integrations ``I⁴ = ÷(jω)⁴``. All formulations are the same RF equation and agree to
-    correlation ~1.0 with each other and with Field II.
+    rectangular-patch SIR (full derivation of the three formulations in the module
+    docstring above). Each one-way SIR is the double integral of a sparse train of
+    trapezoid-corner deltas; the two-way SIR is recovered with the four integrations
+    ``I⁴ = ÷(jω)⁴``. All formulations evaluate the same RF equation and agree to
+    correlation ~1.0 with each other and with Field II. ``method`` picks how the TX/RX
+    corner trains are combined (speed trade-off only):
 
-    The formulation is chosen by ``method`` (see the module docstring for the derivation):
-
-    * ``"spectral"`` (default fast path) — build each one-way SIR spectrum in closed form
-      from the trapezoid corner times (a sum of four phasors per patch), evaluate it only
-      on the in-band frequencies, and multiply the TX and RX spectra. No forward FFT and
-      cost linear in the patch count ``M_tx + M_Erx``, so it is the fast choice for both
-      compact apertures and large arrays. Exact (no time sampling). Folds per-patch one-way
-      attenuation in for free.
-    * ``"conventional"`` — build ``h_tx`` and ``h_rx`` by sampling and convolve directly
-      (delegated to `Reception`, including its depth-bin fast path). The reference path;
-      chosen by ``auto`` for a near-delta / wideband excitation where band-limiting the
-      ``spectral`` spectra gives no benefit.
-    * ``"paired"`` — convolve the two corner-delta trains analytically into ``Δδ_pe`` (16
-      deltas per TX–RX patch pair) over all ``M_tx·M_Erx`` pairs, then lay down the
-      integrated drive ``w = I⁴ v_pe`` at each corner event (no FFT, no cumsum). Cost is
-      quadratic in the patch count and carries the full kernel length per event, so it is the
-      exact reference path for tiny apertures (a point-spread function, a monoelement) or a
-      cross-check. Attenuation is not supported here (use ``spectral`` or ``conventional``).
-    * ``"auto"`` (default) — ``spectral`` when the excitation is band-limited (the usual
-      case), else ``conventional``; ``paired`` only for a handful of patches.
+    * ``"spectral"`` (fast default) — multiply the two closed-form one-way SIR spectra on
+      the in-band bins only. No forward FFT, cost linear in patches, exact, and folds
+      per-patch one-way attenuation in for free.
+    * ``"conventional"`` — sample ``h_tx``/``h_rx`` and convolve (delegated to `Reception`).
+      Chosen by ``auto`` for a near-delta / wideband excitation where band-limiting helps not.
+    * ``"paired"`` — splat the integrated drive ``w = I⁴ v_pe`` at the 16 corner events of
+      every TX–RX patch pair (no FFT, no cumsum). Exact but quadratic in patches, so the
+      reference path for tiny apertures (PSF, monoelement). No attenuation.
+    * ``"auto"`` (default) — ``paired`` for a handful of patches, else ``spectral`` (band-
+      limited drive) or ``conventional`` (wideband).
 
     Parameters
     ----------
@@ -257,31 +242,8 @@ class ReceptionSDI(ReceptionBase):
         references its TX and RX spectra to ``tx_t0`` / ``rx_t0`` so their product lands at
         ``pe_t0 = tx_t0 + rx_t0``.
         """
-        tx_t0, tx_T = compute_time_grid(
-            points_m.shape[0],
-            self._tx_M,
-            points_m,
-            self._tx_centers,
-            self._tx_wx_max,
-            self._tx_wy_max,
-            self.c,
-            self.fs,
-            self.tx.delays,
-            verbose=False,
-        )[1::2]
-        rx_t0, rx_T = compute_time_grid(
-            points_m.shape[0],
-            self._rx_M,
-            points_m,
-            self._rx_centers,
-            self._rx_wx_max,
-            self._rx_wy_max,
-            self.c,
-            self.fs,
-            self.rx.delays,
-            verbose=False,
-        )[1::2]
-        dt = 1.0 / self.fs
+        _, tx_t0, dt, tx_T = self._oneway_time_grid(points_m, "tx")
+        _, rx_t0, _, rx_T = self._oneway_time_grid(points_m, "rx")
         pe_t0 = tx_t0 + rx_t0
         pe_T = tx_T + rx_T - 1
         return pe_t0, dt, pe_T, tx_t0, tx_T, rx_t0, rx_T
@@ -318,7 +280,7 @@ class ReceptionSDI(ReceptionBase):
                 )
         return self._conv
 
-    def _regime_select(self, points_m, per_scatterer, focused_sum):
+    def _regime_select(self, points_m, focused_sum):
         """Pick the formulation for ``method="auto"`` by estimated cost.
 
         ``paired`` splats the full integrated drive ``w`` for each of the
@@ -346,10 +308,10 @@ class ReceptionSDI(ReceptionBase):
         fft_cost = _PE_FFT_CONST * np.log2(max(pe_T, 2))
         return "paired" if pair_cost < fft_cost else large_aperture_method
 
-    def _resolve_method(self, points_m, per_scatterer, focused_sum):
+    def _resolve_method(self, points_m, focused_sum):
         if self.method != "auto":
             return self.method
-        return self._regime_select(points_m, per_scatterer, focused_sum)
+        return self._regime_select(points_m, focused_sum)
 
     # ------------------------------------------------------------------
     # Public API
@@ -396,7 +358,7 @@ class ReceptionSDI(ReceptionBase):
         """
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
-        resolved = self._resolve_method(points_m, per_scatterer, focused_sum)
+        resolved = self._resolve_method(points_m, focused_sum)
         self._last_method = resolved  # introspection hook (tests / diagnostics)
 
         if resolved == "conventional":
@@ -405,7 +367,6 @@ class ReceptionSDI(ReceptionBase):
             return conv._compute_rf_inner(
                 points_m,
                 amps,
-                n_derivatives=0,  # Field II convention; derivatives in exc/IR chain
                 downsampling=downsampling,
                 per_scatterer=per_scatterer,
                 focused_sum=focused_sum,
@@ -466,22 +427,7 @@ class ReceptionSDI(ReceptionBase):
         """
         P = points_m.shape[0]
         n_rx = int(self.rx.delays.shape[0])
-        # focused_sum: one group = all RX patches (kernel sums → beamformed line).
-        # otherwise: one group per RX element → per-channel RF.
-        if focused_sum:
-            rx_groups = [
-                (
-                    self._rx_centers,
-                    self._rx_wx,
-                    self._rx_wy,
-                    self._rx_apod,
-                    self._rx_delays,
-                    self._rx_eu,
-                    self._rx_ev,
-                )
-            ]
-        else:
-            rx_groups = self._extract_rx_element_patches()
+        rx_groups = self._rx_groups(focused_sum)
         n_out = len(rx_groups)
         show = self.verbose and not focused_sum  # focused_sum is the quiet primitive
 
@@ -579,20 +525,6 @@ class ReceptionSDI(ReceptionBase):
             "scale": np.float32(self.rho / (2.0 * self.c**2)),
             "show": show,
         }
-
-    def _finalize(self, rf, pe_t0, dt, focused_sum, downsampling):
-        """Beam-axis ``t0``, coords, and optional anti-aliased decimation."""
-        # Subtract the TX focusing bulk so downstream beamforming needs no per-line
-        # correction; focused_sum also bakes the RX focus into the line → subtract it too.
-        t0 = pe_t0 - float(np.max(self.tx.delays))
-        if focused_sum:
-            t0 -= float(np.max(self.rx.delays))
-        coords = {"t0": t0, "dt": dt}
-        if downsampling is not None and int(downsampling) > 1:
-            step = int(downsampling)
-            rf = _anti_alias_decimate(rf, step)  # anti-aliased along last (time) axis
-            coords["dt"] = dt * step
-        return rf, coords
 
     # ------------------------------------------------------------------
     # spectral SDI PE: F⁻¹{ Σ_TX(ω) · Σ_RX(ω) · I⁴ · exc · IR } on the in-band slice
@@ -716,22 +648,6 @@ class ReceptionSDI(ReceptionBase):
     def _n_spectral_out(self, focused_sum):
         """Number of output channels the spectral core produces (1 if focused_sum)."""
         return 1 if focused_sum else int(self.rx.delays.shape[0])
-
-    def _rx_groups(self, focused_sum):
-        """RX patch groups: one group of all patches if focused_sum, else one per element."""
-        if focused_sum:
-            return [
-                (
-                    self._rx_centers,
-                    self._rx_wx,
-                    self._rx_wy,
-                    self._rx_apod,
-                    self._rx_delays,
-                    self._rx_eu,
-                    self._rx_ev,
-                )
-            ]
-        return self._extract_rx_element_patches()
 
     @staticmethod
     def _build_rx_csr(rx_groups):
@@ -872,65 +788,54 @@ class ReceptionSDI(ReceptionBase):
         """
         # Global lattice origin (also the reported t0); every bin snaps to it.
         t0_g, dt, _pe_T, _txt0, _txT, _rxt0, _rxT = self._compute_pe_time_grid(points_m)
-        center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
-        order = np.argsort(np.linalg.norm(points_m - center, axis=1))  # by depth
         # RX aperture layout is bin-independent → build the element-CSR once for all bins.
         rx_csr = self._build_rx_csr(self._rx_groups(focused_sum))
 
-        # Per-bin setup prints would spam; print one summary, silence the bin loop.
-        verbose = self.verbose
-        self.verbose = False
-        results = []  # (rf_bin, n0)
-        try:
-            for idx in np.array_split(order, n_bins):
-                if idx.size == 0:
-                    continue
-                pts, am = points_m[idx], amps[idx]
-                pe_t0_nat, _dt, pe_T_nat, tx_t0_b, _txTb, rx_t0_b, _rxTb = (
-                    self._compute_pe_time_grid(pts)
-                )
-                # Snap the bin's pe window to the global lattice: round t0 down to a
-                # sample, shift the TX reference by the (sub-sample) remainder so the
-                # product still lands at the snapped origin. +1 sample covers the snap.
-                n0 = int(np.floor((pe_t0_nat - t0_g) / dt))
-                pe_t0_snap = t0_g + n0 * dt
-                shift = pe_t0_nat - pe_t0_snap  # in [0, dt)
-                grid_override = (
+        def per_bin(idx):
+            pts, am = points_m[idx], amps[idx]
+            pe_t0_nat, _dt, pe_T_nat, tx_t0_b, _txTb, rx_t0_b, _rxTb = (
+                self._compute_pe_time_grid(pts)
+            )
+            # Snap the bin's pe window to the global lattice: round t0 down to a sample,
+            # shift the TX reference by the (sub-sample) remainder so the product still
+            # lands at the snapped origin. +1 sample covers the snap.
+            n0 = int(np.floor((pe_t0_nat - t0_g) / dt))
+            pe_t0_snap = t0_g + n0 * dt
+            shift = pe_t0_nat - pe_t0_snap  # in [0, dt)
+            s = self._pe_setup(
+                pts,
+                n_integrations=n_integrations,
+                per_scatterer=False,
+                focused_sum=focused_sum,
+                label="ReceptionSDI [spectral]",
+                grid_override=(
                     pe_t0_snap,
                     dt,
                     pe_T_nat + 1,
                     tx_t0_b - shift,  # tx_t0_eff + rx_t0_b = pe_t0_snap
                     rx_t0_b,
+                ),
+            )
+            if s["inv_jw_pow"] is None:
+                raise ValueError(
+                    "method='spectral' requires n_integrations > 0 (full I⁴)."
                 )
-                s = self._pe_setup(
-                    pts,
-                    n_integrations=n_integrations,
-                    per_scatterer=False,
-                    focused_sum=focused_sum,
-                    label="ReceptionSDI [spectral]",
-                    grid_override=grid_override,
-                )
-                if s["inv_jw_pow"] is None:
-                    raise ValueError(
-                        "method='spectral' requires n_integrations > 0 (full I⁴)."
-                    )
-                results.append(
-                    (self._spectral_summed_from_setup(s, pts, am, rx_csr), n0)
-                )
+            return self._spectral_summed_from_setup(s, pts, am, rx_csr), n0
+
+        # Per-bin setup prints would spam; silence the bin loop, print one summary.
+        verbose = self.verbose
+        self.verbose = False
+        try:
+            rf = self._accumulate_depth_bins(points_m, n_bins, per_bin)
         finally:
             self.verbose = verbose
-
-        n_out = self._n_spectral_out(focused_sum)
-        nt_total = max(off + r.shape[1] for r, off in results)
-        rf = np.zeros((n_out, nt_total), dtype=np.float32)
-        for r, off in results:
-            rf[:, off : off + r.shape[1]] += r
 
         if verbose and not focused_sum:
             print(
                 f"\n--- ReceptionSDI [spectral, {n_bins} depth bins] ---\n"
-                f"  Scatterers : {points_m.shape[0]}   RX elements: {n_out}\n"
-                f"  Nt         : {nt_total}"
+                f"  Scatterers : {points_m.shape[0]}   "
+                f"RX elements: {self._n_spectral_out(focused_sum)}\n"
+                f"  Nt         : {rf.shape[1]}"
             )
         return self._finalize(rf, t0_g, dt, focused_sum, downsampling)
 

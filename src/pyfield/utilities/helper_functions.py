@@ -186,9 +186,6 @@ def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
         simulation_struct["dz"],
     )
 
-    # if z0 <= 0.1:
-    #     z0 = 0.1  # avoid z=0 plane
-
     Nx = int((xf - x0) / dx) if (dx != 0 and abs(xf - x0) > 1e-10) else 1
     Ny = int((yf - y0) / dy) if (dy != 0 and abs(yf - y0) > 1e-10) else 1
     Nz = int((zf - z0) / dz) if (dz != 0 and abs(zf - z0) > 1e-10) else 1
@@ -422,8 +419,6 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
     # Dt1 and Dt2 max are wx/c and wy/c respectively
     # So:
     min_time = (min_dist - 0.5 * size_patch) / c  # us (or unit)
-    # min_time = max(min_time, 0.0)
-
     max_time = (max_dist + size_patch) / c + max_delay  # us (or unit)
 
     dt = 1.0 / fs
@@ -445,7 +440,6 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
             "Consider a coarser grid if memory is limited.\n"
         )
 
-    # next power of two
     t_grid = min_time + np.arange(T, dtype=np.float32) * dt
     if verbose:
         print(

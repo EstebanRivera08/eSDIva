@@ -1,7 +1,9 @@
 ---
 paths:
-  - "src/pyfield/psimulation/**"
-  - "src/pyfield/h_sir/**"
+  - "src/pyfield/attenuation/**"
+  - "src/pyfield/emission/**"
+  - "src/pyfield/reception/**"
+  - "src/pyfield/hsir/**"
 ---
 
 # Attenuation Implementation Rules

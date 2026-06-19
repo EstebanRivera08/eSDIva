@@ -241,9 +241,11 @@ Both recover exactly `h_tx *_t h_rx`, so all formulations ≡ Field II. Three `m
 **`paired`** forms the integrated drive `w = I⁴ v_pe` once and splats a copy of `w` per
 corner event (`compute_pe_complete`, **no FFT, no cumsum**, cost ∝ M²·len(w) — exact
 reference); **`spectral`** uses the closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`
-(`compute_oneway_spectrum_band[_batched]`, no forward FFT, applies ÷(jω)⁴ in Fourier, cost
-∝ M not M², exact, per-patch attenuation); **`conventional`** samples and convolves. Full
-taxonomy and complexity: `PE_SDI_kernel_analysis.md`.
+(`compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF;
+`compute_oneway_spectrum_band` builds one element's spectrum for the per-scatterer PSF —
+no forward FFT, applies ÷(jω)⁴ in Fourier, cost ∝ M not M², exact, per-patch attenuation);
+**`conventional`** samples and convolves. Full taxonomy and complexity:
+`PE_SDI_kernel_analysis.md`.
 
 ### 7. Causal Power-Law Attenuation
 
@@ -275,17 +277,16 @@ Constraint: `sin^2(theta_x) + sin^2(theta_y) <= 1`.
 Quick checklist — full rationale, locations, and history in
 [`ARCHITECTURE.md` § Risky Implementations](ARCHITECTURE.md#risky-implementations).
 
-1. **SDI float32 cumsum cancellation** — all `_cumsum_*` must use float64 accumulator + float32 write-back. Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
+1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`farfield_rect_patch.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
 2. **d2h_all ≠ d2h_per_element.sum()** — float32 non-associativity (~5e-8). Never compare with `atol=0`.
-3. **PE SDI delta placement uses `k_shift = 0`** (in `transducer_sir_pe_sdi.py`). Was wrongly 2.0 → 2-sample lag. `example06` asserts on-axis lag == 0 as regression guard.
+3. **PE SDI on-axis lag must be 0** — the delta placement in `transducer_sir_pe_sdi.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
 4. **Attenuation y=1 continuity** — `tan(y*pi/2)` diverges near y=1; test the y=1 branch independently.
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
 6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect":
    ```powershell
-   Get-ChildItem -Path "src\pyfield\h_sir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+   Get-ChildItem -Path "src\pyfield\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
    ```
-7. **`h_sir.__call__` is broken** (pre-existing) — do NOT call; use `compute_derivative` or `Emission`/`Reception`.
-8. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
+7. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
 
 ## graphify
 

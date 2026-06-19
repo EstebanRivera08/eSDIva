@@ -42,7 +42,7 @@ this docstring and understand the physics being computed?"* If not, rewrite it.
 
 ## Project Status
 
-Close to release. Be careful with core engine `h_sir`. Transducers and utilities
+Close to release. Be careful with core engine `hsir`. Transducers and utilities
 under constant development — suggest breaking API changes when they improve design
 and readability for adoption.
 
@@ -159,8 +159,8 @@ Format: `<type>(<scope>): <short summary>`
 
 Types: feat, fix, docs, style, refactor, perf, test, chore
 
-Scopes: `h_sir`, `transducers`, `psimulation`, `plotting`, `utilities`,
-`io`, `atlas`, `docs`, `tests`
+Scopes: `hsir`, `transducers`, `emission`, `reception`, `attenuation`,
+`beamforming`, `plotting`, `utilities`, `io`, `atlas`, `docs`, `tests`
 
 ## Testing Guidelines
 

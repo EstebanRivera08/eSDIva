@@ -1,7 +1,8 @@
 ---
 paths:
-  - "src/pyfield/h_sir/**"
-  - "src/pyfield/psimulation/**"
+  - "src/pyfield/hsir/**"
+  - "src/pyfield/emission/**"
+  - "src/pyfield/reception/**"
   - "src/pyfield/transducers/**"
 ---
 
@@ -209,15 +210,13 @@ deltas), giving the two-way train
 
     Δδ_pe = d2h_tx *_t d2h_rx = 16 Dirac deltas per (m_e, m_r) patch pair
 
-at t_event = t_e_corner + t_r_corner, weight slope_e·slope_r·sign_e·sign_r (32 sample
-writes per pair: 16 deltas × 2 bins linear interp). Cost ∝ M_tx·M_rx (the patch-pair
-count) — best for compact apertures. The four integrations recovering the two-way SIR,
-h_tx *_t h_rx = I4 Δδ_pe, are realized two ways (`i4`): `fft` applies I4 = ÷(jω)^4 in
-one spectral multiply (`compute_pe_sdi` returns the RAW Δδ_pe, no cumsum); `splat`
-pushes I4 onto the excitation, w = I4 v_pe, and lays down p_pe = Σ_ij a_i a_j w(t − τ_i
-− τ_j), FFT-free (`compute_pe_complete`).
+at t_event = t_e_corner + t_r_corner (4 TX corners × 4 RX corners). Push the four
+integrations onto the excitation once, w = I4 v_pe, then for each of a pair's 16 corner
+events splat a shifted, scaled copy of w: p_pe = Σ_ij a_i a_j w(t − τ_i − τ_j). No FFT,
+no cumsum — the output is the RF directly. Cost ∝ M_tx·M_rx·len(w), so it is the exact
+reference path for compact apertures (a PSF, a monoelement). (`compute_pe_complete`.)
 
-**factored** — never form the pairs. The Fourier transform of one aperture's corner
+**spectral** — never form the pairs. The Fourier transform of one aperture's corner
 train is closed form (a sum of four phasors per patch),
 
     Σ(ω) = Σ_m slope_m [ e^{-jω t1} − e^{-jω t2} − e^{-jω t3} + e^{-jω t4} ]
@@ -227,8 +226,10 @@ multiply), Σ_TX·Σ_RX = F{Δδ_pe}, and h_tx *_t h_rx = ÷(jω)^4 · Σ_TX·Σ
 time-domain SIR and does NO forward FFT — cost is linear in patch count (M_tx + M_rx),
 and exact (no time sampling, no interpolation). Because the received signal is
 band-limited by the excitation/IR, Σ is evaluated only on the in-band bins
-(N_band ≪ N_freq); the TX spectrum is built once and reused for every RX element.
-(`compute_oneway_spectrum_band`.) Per-patch one-way attenuation (§10) is multiplied into
+(N_band ≪ N_freq). For the summed RF, `compute_twoway_spectrum_summed` builds the TX
+spectrum once per scatterer and reuses it across every RX element, summing Σ_TX·Σ_RX over
+scatterers in one fused pass; for the per-scatterer PSF, `compute_oneway_spectrum_band`
+builds one element's Σ at a time. Per-patch one-way attenuation (§10) is multiplied into
 each patch phasor for free, using the patch-to-point distance — the TX×RX product then
 carries the true round-trip loss, which conventional cannot do cheaply.
 
@@ -242,8 +243,9 @@ cancellation.
 physical d3v/dt3 is carried by the band-limited excitation/IR chain (same as Field II).
 This differs from Emission, where the chain has an explicit dv/dt.
 
-Code: `compute_pe_sdi` / `compute_pe_complete` / `compute_oneway_spectrum_band` in
-`transducer_sir_pe_sdi.py`, called once per RX element with element-filtered RX patches.
+Code: `compute_pe_complete` (paired) / `compute_oneway_spectrum_band` +
+`compute_twoway_spectrum_summed` (spectral) in `transducer_sir_pe_sdi.py`. The
+conventional path delegates to `Reception` (`farfield_rect_patch.compute_h_sir`).
 
 ## 10. Attenuation in SIR Simulations
 
