@@ -336,6 +336,46 @@ class TestReceptionFormulations:
         )
         assert sim._last_method == "conventional"
 
+    def test_spectral_binning_matches_single_window(self):
+        """Depth-binned spectral RF == single-window spectral RF (binning is exact).
+
+        Many scatterers spread over depth force depth binning (>1 bin); each bin's window
+        is snapped to one global sample lattice and added back at an integer offset, so the
+        binned RF must reproduce the unbinned single-window result. This also exercises the
+        fused two-way kernel that builds the summed spectrum.
+        """
+        exc = self._exc()
+        tx = self._big_tx()
+        rng = np.random.default_rng(0)
+        P = 1500
+        pos = np.column_stack(
+            [rng.uniform(-5, 5, P), np.zeros(P), rng.uniform(20, 60, P)]
+        ).astype(np.float32)
+        amp = rng.standard_normal(P).astype(np.float32)
+
+        binned = ReceptionSDI(
+            tx, tx, fs=100e6, excitation=exc, method="spectral", verbose=False
+        )
+        n_bins = binned._auto_depth_bins(pos * 1e-3, max(int(tx.delays.shape[0]), 2))
+        assert n_bins > 1, "test needs a depth spread that triggers binning"
+        rf_b, _ = binned.pulse_echo_rf(pos, amp)
+        assert binned._last_method == "spectral"
+
+        single = ReceptionSDI(
+            tx,
+            tx,
+            fs=100e6,
+            excitation=exc,
+            method="spectral",
+            n_depth_bins=1,
+            verbose=False,
+        )
+        rf_s, _ = single.pulse_echo_rf(pos, amp)
+
+        n = min(rf_b.shape[-1], rf_s.shape[-1])
+        corr = np.corrcoef(rf_b[..., :n].ravel(), rf_s[..., :n].ravel())[0, 1]
+        assert corr > 0.999
+
     def test_explicit_method_overrides_router(self, simple_tx, simple_rx):
         """A non-auto method is used verbatim (no regime select)."""
         pos = np.array([[0, 0, 20]], dtype=np.float32)

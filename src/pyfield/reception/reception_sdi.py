@@ -82,6 +82,7 @@ from scipy.fft import irfft, rfft, rfftfreq
 from pyfield.hsir.transducer_sir_pe_sdi import (
     compute_oneway_spectrum_band,
     compute_pe_complete,
+    compute_twoway_spectrum_summed,
 )
 from pyfield.utilities.helper_functions import compute_time_grid
 
@@ -162,6 +163,12 @@ class ReceptionSDI(ReceptionBase):
     method : str, default "auto"
         Pulse-echo formulation: ``"auto"`` / ``"conventional"`` / ``"spectral"`` /
         ``"paired"``. All produce the same RF; they trade speed by regime.
+    n_depth_bins : "auto" or int, default "auto"
+        Spectral speed knob. Scatterers are grouped into this many depth bins so each bin
+        uses a short time window — a small ``nfft`` and hence few in-band frequency bins,
+        the spectral form's dominant cost factor — with the per-bin results added back on a
+        shared sample lattice (big speedup at high scatterer counts). ``"auto"`` sizes it
+        from the arrival-time spread; ``1`` disables binning. Applies to the summed RF only.
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -206,12 +213,6 @@ class ReceptionSDI(ReceptionBase):
         self.method = self._validate_method(method)
         self.verbose = verbose
         self.n_depth_bins = n_depth_bins
-        # Dtype for summing the per-scatterer two-way spectra over scatterers. The
-        # one-way spectrum is built in its cancellation-free factored form (a real
-        # sin-envelope times one phasor per patch), so each term stays bounded by the
-        # physical plateau instead of the inflated corner-delta area — complex64 then
-        # matches complex128 to ~1e-7. Set to complex128 if a pathological case needs it.
-        self.spectral_accum_dtype = np.complex64
         self._conv = None  # lazily-built Reception for the conventional branch
         self._refresh_sub_elem_attributes()
         _warn_if_rx_delays_apods_not_default(self.rx)
@@ -633,7 +634,9 @@ class ReceptionSDI(ReceptionBase):
             # n_out<2 (e.g. focused_sum) still benefits — binning shrinks nfft regardless
             # of channel count, so bypass the auto rule's n_out>=2 gate.
             n_bins = (
-                self._auto_depth_bins(points_m, max(self._n_spectral_out(focused_sum), 2))
+                self._auto_depth_bins(
+                    points_m, max(self._n_spectral_out(focused_sum), 2)
+                )
                 if n_bins == "auto"
                 else int(n_bins)
             )
@@ -660,7 +663,8 @@ class ReceptionSDI(ReceptionBase):
 
         if not per_scatterer:
             t_wall = time.time()
-            rf = self._spectral_summed_from_setup(s, points_m, amps)
+            rx_csr = self._build_rx_csr(s["rx_groups"])
+            rf = self._spectral_summed_from_setup(s, points_m, amps, rx_csr)
             if s["show"]:
                 print(
                     f"ReceptionSDI [spectral] computed in {time.time() - t_wall:.2f} s\n"
@@ -713,6 +717,47 @@ class ReceptionSDI(ReceptionBase):
         """Number of output channels the spectral core produces (1 if focused_sum)."""
         return 1 if focused_sum else int(self.rx.delays.shape[0])
 
+    def _rx_groups(self, focused_sum):
+        """RX patch groups: one group of all patches if focused_sum, else one per element."""
+        if focused_sum:
+            return [
+                (
+                    self._rx_centers,
+                    self._rx_wx,
+                    self._rx_wy,
+                    self._rx_apod,
+                    self._rx_delays,
+                    self._rx_eu,
+                    self._rx_ev,
+                )
+            ]
+        return self._extract_rx_element_patches()
+
+    @staticmethod
+    def _build_rx_csr(rx_groups):
+        """Lay the per-element RX patch arrays out element-by-element, CSR-style.
+
+        The fused two-way kernel reads the whole receive aperture as one set of patch
+        arrays in which receive element ``e`` occupies the contiguous block
+        ``ptr[e]:ptr[e+1]``. This concatenates the per-element groups into that layout and
+        returns the patch arrays, their tangent frames, and the offsets ``ptr``.
+        """
+
+        def cat(i):
+            return np.concatenate([g[i] for g in rx_groups])
+
+        counts = [g[0].shape[0] for g in rx_groups]
+        return {
+            "centers": cat(0).astype(np.float32),
+            "wx": cat(1).astype(np.float32),
+            "wy": cat(2).astype(np.float32),
+            "apod": cat(3).astype(np.float32),
+            "delays": cat(4).astype(np.float32),
+            "eu": cat(5).astype(np.float32),
+            "ev": cat(6).astype(np.float32),
+            "ptr": np.concatenate([[0], np.cumsum(counts)]).astype(np.int64),
+        }
+
     def _spectral_filters(self, s):
         """Shared in-band filter ``G = ÷(jω)⁴·exc·ir_tx·ir_rx`` and attenuation kwargs.
 
@@ -755,57 +800,53 @@ class ReceptionSDI(ReceptionBase):
             **atten_kw,
         )
 
-    def _spectral_summed_from_setup(self, s, points_m, amps):
+    def _spectral_summed_from_setup(self, s, points_m, amps, rx_csr):
         """Summed spectral RF for one (sub-field, window) → ``(n_out, pe_T)`` float32.
 
-        Builds ``Σ_TX`` once, then per RX element forms the two-way spectrum ``Σ_TX·Σ_RX``
-        and amplitude-sums over scatterers in the frequency domain (the analogue of
-        conventional's ``amps @ H_pe``), applies the shared filter ``G`` and one inverse
-        FFT per element. Reused for the single-window path and for each depth bin (the
-        window — hence ``nfft`` and the band-bin count — comes from ``s``).
+        Forms the two-way SIR spectrum ``Σ_TX·Σ_RX`` for every receive element and
+        amplitude-sums it over scatterers in a single fused parallel pass (the analogue of
+        conventional's ``amps @ H_pe``): the transmit one-way spectrum is built once per
+        scatterer and reused across all receive elements, with nothing of size
+        ``(P, N_band)`` materialised. The shared filter ``G = I⁴·exc·IR`` is then applied
+        per bin and one inverse FFT per element returns the RF. Reused for the single-window
+        path and for each depth bin (the window — hence ``nfft`` and the band-bin count —
+        comes from ``s``); ``rx_csr`` is the receive aperture laid out element-by-element.
 
-        The scatterer sum accumulates in ``self.spectral_accum_dtype`` (complex128 by
-        default): the summed corner-delta areas are large and cancel to the small in-band
-        signal, so complex64 can erode it — depth binning shrinks each window and makes
-        complex64 viable (verify per case).
+        The fused kernel accumulates the scatterer sum in complex128 internally — cheap
+        because ``N_band`` is the small in-band bin count, and well conditioned because the
+        one-way spectrum is built in its cancellation-free factored form.
         """
         nfft, pe_T = s["nfft"], s["pe_T"]
         b0, b1, omega_band = s["b0"], s["b1"], s["omega_band"]
         n_freq = s["freqs"].shape[0]
         scale, inv_c, dt = s["scale"], s["inv_c"], s["dt"]
-        n_band = omega_band.shape[0]
         g_band, atten_kw = self._spectral_filters(s)
 
-        # TX one-way spectrum is identical for every receive element → build it once.
-        h_tx = compute_oneway_spectrum_band(
+        s_all = compute_twoway_spectrum_summed(
             points_m,
+            amps,
             self._tx_centers,
             self._tx_wx,
             self._tx_wy,
             self._tx_apod,
             self._tx_delays,
-            inv_c,
             s["tx_t0"],
+            rx_csr["centers"],
+            rx_csr["wx"],
+            rx_csr["wy"],
+            rx_csr["apod"],
+            rx_csr["delays"],
+            s["rx_t0"],
+            rx_csr["ptr"],
+            inv_c,
             omega_band,
             dt,
-            eu=self._tx_eu,
-            ev=self._tx_ev,
+            tx_eu=self._tx_eu,
+            tx_ev=self._tx_ev,
+            rx_eu=rx_csr["eu"],
+            rx_ev=rx_csr["ev"],
             **atten_kw,
-        )  # (P, N_band) complex64
-
-        accum = self.spectral_accum_dtype
-        amps_c = amps.astype(np.float64 if accum == np.complex128 else np.float32)
-        el_iter = (
-            _wrap_tqdm(
-                range(s["n_out"]), desc="RX elements", total=s["n_out"], leave=True
-            )
-            if s["show"]
-            else range(s["n_out"])
-        )
-        s_all = np.zeros((s["n_out"], n_band), dtype=accum)
-        for e_rx in el_iter:
-            h_rx = self._spectral_h_rx(s, e_rx, points_m, omega_band, dt, atten_kw)
-            s_all[e_rx] = amps_c @ (h_tx * h_rx)
+        )  # (n_out, N_band) complex128
         full = np.zeros((s["n_out"], n_freq), dtype=np.complex64)
         full[:, b0:b1] = (s_all * g_band[np.newaxis, :]).astype(np.complex64)
         return (irfft(full, n=nfft, axis=1)[:, :pe_T] * scale).astype(np.float32)
@@ -833,6 +874,8 @@ class ReceptionSDI(ReceptionBase):
         t0_g, dt, _pe_T, _txt0, _txT, _rxt0, _rxT = self._compute_pe_time_grid(points_m)
         center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
         order = np.argsort(np.linalg.norm(points_m - center, axis=1))  # by depth
+        # RX aperture layout is bin-independent → build the element-CSR once for all bins.
+        rx_csr = self._build_rx_csr(self._rx_groups(focused_sum))
 
         # Per-bin setup prints would spam; print one summary, silence the bin loop.
         verbose = self.verbose
@@ -871,7 +914,9 @@ class ReceptionSDI(ReceptionBase):
                     raise ValueError(
                         "method='spectral' requires n_integrations > 0 (full I⁴)."
                     )
-                results.append((self._spectral_summed_from_setup(s, pts, am), n0))
+                results.append(
+                    (self._spectral_summed_from_setup(s, pts, am, rx_csr), n0)
+                )
         finally:
             self.verbose = verbose
 

@@ -402,6 +402,396 @@ def compute_oneway_spectrum_band(
 
 
 # ---------------------------------------------------------------------------
+# Fused two-way (pulse-echo) spectrum, summed over scatterers.
+#
+# The pulse-echo SIR spectrum of a (TX aperture, RX element) pair is the PRODUCT of their
+# one-way SIR spectra (time convolution ⇒ frequency multiplication). For a field of point
+# scatterers the recorded two-way spectrum per receive element is the amplitude-weighted
+# sum over scatterers of that product:
+#
+#     S_e(ω) = Σ_p a_p · Σ_TX(ω; r_p) · Σ_RX,e(ω; r_p) .
+#
+# The fused kernel below evaluates this directly: for each scatterer it builds the TX
+# one-way spectrum ONCE (shared by every receive element) and reuses it while sweeping the
+# elements, accumulating straight into the per-element output. Nothing of size
+# (P, N_band) is ever materialised, and the whole field of receive elements is produced in
+# a single parallel pass — the fast path for the depth-binned spectral reception, where the
+# per-bin work is otherwise dominated by per-element launch and memory traffic.
+# ---------------------------------------------------------------------------
+
+
+@njit(inline="always")
+def _accum_oneway_band(
+    acc,
+    px,
+    py,
+    pz,
+    centers,
+    wx,
+    wy,
+    tangents,
+    apod,
+    delays,
+    lo,
+    hi,
+    inv_c,
+    t0,
+    omega,
+    dt,
+    do_atten,
+    alpha0_np,
+    y,
+    tan_y,
+    f0,
+    y_is_one,
+):
+    """Add one aperture's closed-form one-way SIR spectrum into ``acc`` over patches lo:hi.
+
+    Each rectangular patch's one-way SIR is a trapezoid with corner times
+    ``t1,t2,t3,t4 = t1, t1+Δt1, t1+Δt2, t1+Δt1+Δt2``. Its spectrum (the Fourier transform
+    of the trapezoid's second derivative, a four-corner delta train) factors, via
+    ``1-e^{-jx} = 2j·sin(x/2)·e^{-jx/2}``, into a real envelope times a single phasor at the
+    patch-centre arrival ``t_c = (t1+t4)/2 = l/c``:
+
+        S_patch(ω) = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c-t0)} .
+
+    The two sines are read off the imaginary parts of swept half-angle phasors, so the term
+    is never formed as a subtraction of near-equal phasors — it stays bounded by the
+    physical plateau (``4·slope·sin(ωΔt1/2) → 2·h_max·ω`` for thin patches) and the sum is
+    well conditioned in complex64/float32. Optional per-patch causal attenuation
+    ``exp(-α|f|^y d)·(dispersion phase)`` is folded in using the patch-to-point distance.
+    """
+    Nb = omega.shape[0]
+    w0 = omega[0]
+    dw = omega[1] - omega[0] if Nb > 1 else 0.0
+    for m in range(lo, hi):
+        t1, t2, t3, t4, slope = _patch_corner_times(
+            px,
+            py,
+            pz,
+            centers[m, 0],
+            centers[m, 1],
+            centers[m, 2],
+            tangents[m, 0],
+            tangents[m, 1],
+            tangents[m, 2],
+            tangents[m, 3],
+            tangents[m, 4],
+            tangents[m, 5],
+            wx[m],
+            wy[m],
+            inv_c,
+            apod[m],
+            delays[m],
+            dt,
+        )
+        if slope == 0.0:
+            continue
+        dist = 0.0
+        if do_atten:
+            dx = px - centers[m, 0]
+            dy = py - centers[m, 1]
+            dz = pz - centers[m, 2]
+            dist = np.sqrt(dx * dx + dy * dy + dz * dz)
+        half1 = np.float32(0.5) * (t2 - t1)
+        half2 = np.float32(0.5) * (t3 - t1)
+        tc = np.float32(0.5) * (t1 + t4) - t0
+        amp = -4.0 * slope
+        pc = _phasor(w0 * tc)
+        q1 = _phasor(w0 * half1)
+        q2 = _phasor(w0 * half2)
+        spc = _phasor(dw * tc)
+        sq1 = _phasor(dw * half1)
+        sq2 = _phasor(dw * half2)
+        for k in range(Nb):
+            val = (amp * q1.imag * q2.imag) * pc  # -4·slope·sin·sin·phasor
+            if do_atten:
+                val *= _causal_atten_factor(
+                    omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
+                )
+            acc[k] += val
+            pc *= spc
+            q1 *= sq1
+            q2 *= sq2
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _twoway_summed_points(
+    points,
+    amps,
+    tx_centers,
+    tx_wx,
+    tx_wy,
+    tx_tangents,
+    tx_apod,
+    tx_delays,
+    tx_t0,
+    rx_centers,
+    rx_wx,
+    rx_wy,
+    rx_tangents,
+    rx_apod,
+    rx_delays,
+    rx_t0,
+    rx_ptr,
+    inv_c,
+    omega,
+    dt,
+    do_atten,
+    alpha0_np,
+    y,
+    tan_y,
+    f0,
+    y_is_one,
+    n_chunks,
+):
+    """Σ_p a_p · Σ_TX(p) · Σ_RX,e(p) → (n_out, N_band) complex128, one parallel pass.
+
+    Parallelises over ``n_chunks`` scatterer chunks (each chunk owns a private
+    ``(n_out, N_band)`` buffer, summed at the end — race-free; pass the thread count for
+    chunks). Per scatterer the TX one-way spectrum is built ONCE and reused while sweeping
+    the receive elements; element ``e`` covers the patch range ``rx_ptr[e]:rx_ptr[e+1]`` of
+    the receive aperture laid out element-by-element. The complex128 accumulation is cheap
+    (``N_band`` is the in-band bin count, small for a band-limited drive) and the factored
+    one-way form keeps it well conditioned.
+    """
+    P = points.shape[0]
+    Nb = omega.shape[0]
+    n_out = rx_ptr.shape[0] - 1
+    Mtx = tx_centers.shape[0]
+    nthr = n_chunks
+    buf = np.zeros((nthr, n_out, Nb), dtype=np.complex128)
+    for ci in prange(nthr):  # ty: ignore[not-iterable]
+        lo = ci * P // nthr
+        hi = (ci + 1) * P // nthr
+        tx_acc = np.zeros(Nb, dtype=np.complex128)
+        rx_acc = np.zeros(Nb, dtype=np.complex128)
+        for p in range(lo, hi):
+            px = points[p, 0]
+            py = points[p, 1]
+            pz = points[p, 2]
+            tx_acc[:] = 0.0
+            _accum_oneway_band(
+                tx_acc,
+                px,
+                py,
+                pz,
+                tx_centers,
+                tx_wx,
+                tx_wy,
+                tx_tangents,
+                tx_apod,
+                tx_delays,
+                0,
+                Mtx,
+                inv_c,
+                tx_t0,
+                omega,
+                dt,
+                do_atten,
+                alpha0_np,
+                y,
+                tan_y,
+                f0,
+                y_is_one,
+            )
+            a = amps[p]
+            for e in range(n_out):
+                rx_acc[:] = 0.0
+                _accum_oneway_band(
+                    rx_acc,
+                    px,
+                    py,
+                    pz,
+                    rx_centers,
+                    rx_wx,
+                    rx_wy,
+                    rx_tangents,
+                    rx_apod,
+                    rx_delays,
+                    rx_ptr[e],
+                    rx_ptr[e + 1],
+                    inv_c,
+                    rx_t0,
+                    omega,
+                    dt,
+                    do_atten,
+                    alpha0_np,
+                    y,
+                    tan_y,
+                    f0,
+                    y_is_one,
+                )
+                for k in range(Nb):
+                    buf[ci, e, k] += a * tx_acc[k] * rx_acc[k]
+    out = np.zeros((n_out, Nb), dtype=np.complex128)
+    for ci in range(nthr):
+        out += buf[ci]
+    return out
+
+
+def compute_twoway_spectrum_summed(
+    points,
+    amps,
+    tx_centers,
+    tx_wx,
+    tx_wy,
+    tx_apod,
+    tx_delays,
+    tx_t0,
+    rx_centers,
+    rx_wx,
+    rx_wy,
+    rx_apod,
+    rx_delays,
+    rx_t0,
+    rx_ptr,
+    inv_c,
+    omega,
+    dt,
+    *,
+    tx_eu=None,
+    tx_ev=None,
+    rx_eu=None,
+    rx_ev=None,
+    alpha0_np=None,
+    freq_power=1.0,
+    f0_hz=0.0,
+):
+    """Amplitude-summed two-way (pulse-echo) SIR spectrum per receive element.
+
+    The pulse-echo SIR spectrum of a (TX aperture, RX element) pair is the product of their
+    one-way SIR spectra (time convolution ⇒ frequency product). This returns, per receive
+    element ``e``, the scatterer sum
+
+        S_e(ω) = Σ_p amps[p] · Σ_TX(ω; r_p) · Σ_RX,e(ω; r_p) ,
+
+    on the in-band frequencies ``omega``, building each ``Σ_TX`` once per scatterer and
+    reusing it across the receive elements (a single fused parallel pass; no ``(P, N_band)``
+    intermediate). The caller multiplies by the shared filter ``I⁴·exc·IR`` and inverse-FFTs.
+    Optional per-patch one-way attenuation is folded into both apertures, so the product
+    carries the true round-trip loss.
+
+    Parameters
+    ----------
+    points : (P, 3) numpy.ndarray
+        Scatterer positions in metres.
+    amps : (P,) numpy.ndarray
+        Scattering amplitude per scatterer.
+    tx_centers : (M_tx, 3) numpy.ndarray
+        Transmit patch centres in metres.
+    tx_wx, tx_wy : (M_tx,) numpy.ndarray
+        Transmit patch widths in the two in-plane directions (metres).
+    tx_apod : (M_tx,) numpy.ndarray
+        Transmit apodization weight per patch.
+    tx_delays : (M_tx,) numpy.ndarray
+        Transmit delay per patch (seconds).
+    tx_t0 : float
+        Transmit window origin (seconds); corner times are referenced to it.
+    rx_centers : (M_rx, 3) numpy.ndarray
+        Receive patch centres in metres, laid out element-by-element (element ``e`` is the
+        contiguous block ``rx_ptr[e]:rx_ptr[e+1]``).
+    rx_wx, rx_wy : (M_rx,) numpy.ndarray
+        Receive patch widths (metres).
+    rx_apod : (M_rx,) numpy.ndarray
+        Receive apodization weight per patch.
+    rx_delays : (M_rx,) numpy.ndarray
+        Receive delay per patch (seconds).
+    rx_t0 : float
+        Receive window origin (seconds).
+    rx_ptr : (n_out + 1,) numpy.ndarray
+        CSR offsets delimiting each receive element's patch block in the receive arrays.
+    inv_c : float
+        Inverse speed of sound 1/c (s/m).
+    omega : (N_band,) numpy.ndarray
+        In-band angular frequencies 2πf (rad/s), uniformly spaced.
+    dt : float
+        Time step 1/fs (seconds); clamps sub-sample patch edge crossings.
+    tx_eu, tx_ev : (M_tx, 3) numpy.ndarray or None, default None
+        Transmit patch tangent frames; None → flat-patch identity tangents.
+    rx_eu, rx_ev : (M_rx, 3) numpy.ndarray or None, default None
+        Receive patch tangent frames; None → flat-patch identity tangents.
+    alpha0_np : float or None, default None
+        Absorption coefficient in Np/(Hz^y·m). None disables attenuation.
+    freq_power : float, default 1.0
+        Attenuation power-law exponent y.
+    f0_hz : float, default 0.0
+        Reference frequency (Hz) for the y = 1 dispersion term.
+
+    Returns
+    -------
+    (n_out, N_band) numpy.ndarray
+        Amplitude-summed two-way SIR spectrum per receive element (complex128).
+    """
+    points = np.asarray(points, dtype=np.float32)
+    amps = np.asarray(amps, dtype=np.float64)
+    tx_centers = np.asarray(tx_centers, dtype=np.float32)
+    tx_wx = np.asarray(tx_wx, dtype=np.float32)
+    tx_wy = np.asarray(tx_wy, dtype=np.float32)
+    tx_apod = np.asarray(tx_apod, dtype=np.float32)
+    tx_delays = np.asarray(tx_delays, dtype=np.float32)
+    rx_centers = np.asarray(rx_centers, dtype=np.float32)
+    rx_wx = np.asarray(rx_wx, dtype=np.float32)
+    rx_wy = np.asarray(rx_wy, dtype=np.float32)
+    rx_apod = np.asarray(rx_apod, dtype=np.float32)
+    rx_delays = np.asarray(rx_delays, dtype=np.float32)
+    rx_ptr = np.ascontiguousarray(np.asarray(rx_ptr, dtype=np.int64))
+    omega = np.ascontiguousarray(np.asarray(omega, dtype=np.float64))
+    inv_c, tx_t0, rx_t0, dt = float(inv_c), float(tx_t0), float(rx_t0), float(dt)
+
+    if tx_eu is None or tx_ev is None:
+        tx_eu, tx_ev = identity_tangents(tx_centers.shape[0])
+    if rx_eu is None or rx_ev is None:
+        rx_eu, rx_ev = identity_tangents(rx_centers.shape[0])
+    tx_tangents = pack_tangents(
+        np.asarray(tx_eu, dtype=np.float32), np.asarray(tx_ev, dtype=np.float32)
+    )
+    rx_tangents = pack_tangents(
+        np.asarray(rx_eu, dtype=np.float32), np.asarray(rx_ev, dtype=np.float32)
+    )
+
+    do_atten = alpha0_np is not None
+    y = float(freq_power)
+    y_is_one = abs(y - 1.0) < 1e-10
+    tan_y = float(np.tan(y * np.pi / 2.0)) if not y_is_one else 0.0
+    a0 = float(alpha0_np) if alpha0_np is not None else 0.0
+    f0 = float(f0_hz)
+    # Chunk count = thread count (resolved here, in Python, so the cached kernel never
+    # references the get_num_threads runtime pointer — which would block Numba caching).
+    n_chunks = max(1, min(get_num_threads(), points.shape[0]))
+
+    return _twoway_summed_points(
+        points,
+        amps,
+        tx_centers,
+        tx_wx,
+        tx_wy,
+        tx_tangents,
+        tx_apod,
+        tx_delays,
+        tx_t0,
+        rx_centers,
+        rx_wx,
+        rx_wy,
+        rx_tangents,
+        rx_apod,
+        rx_delays,
+        rx_t0,
+        rx_ptr,
+        inv_c,
+        omega,
+        dt,
+        do_atten,
+        a0,
+        y,
+        tan_y,
+        f0,
+        y_is_one,
+        n_chunks,
+    )
+
+
+# ---------------------------------------------------------------------------
 # Complete SDI PE: splat w = I⁴ v_pe per pair (no FFT, no cumsum).
 # Each of the 16 corner events convolves a 2-bin linear-interp delta with w, i.e. adds a
 # shifted, scaled copy of w. Output is the final per-element RF trace (still ×scale and

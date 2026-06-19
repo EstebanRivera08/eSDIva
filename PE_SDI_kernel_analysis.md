@@ -1,11 +1,12 @@
-# Pulse-Echo Reception — three formulations, complexity, and optimization plan
+# Pulse-Echo Reception — three formulations, complexity, and the spectral fast path
 
-Working document for choosing and optimizing the pulse-echo RF kernels. It states
-the three formulations that compute the same physical signal, derives the
-computational complexity of each (including SIR build, cumsum, and FFT/iFFT costs),
-tabulates their bottlenecks and advantages, anchors the orders against measured
-Domino timings, and lists the concrete optimizations worth applying. The final
-section is written as a prompt/context block to drive an implementation plan.
+Working document for the pulse-echo RF kernels in `ReceptionSDI` / `Reception`. It
+states the three formulations that compute the same physical signal, derives each one's
+computational complexity (SIR build, cumsum, FFT/iFFT, closed-form spectrum), tabulates
+their bottlenecks, and — the focus of the current revision — explains **why the spectral
+formulation is the fast path at high scatterer counts**, including the three changes that
+made it so: the cancellation-free factored one-way spectrum, depth-binning of the spectral
+window, and the fused multi-element two-way kernel.
 
 Companion to `ARCHITECTURE.md` → "Pulse-Echo Post-Processing & Depth Binning".
 
@@ -13,314 +14,315 @@ Companion to `ARCHITECTURE.md` → "Pulse-Echo Post-Processing & Depth Binning".
 
 ## 0. Notation
 
-| Symbol | Meaning | Domino value |
+| Symbol | Meaning | Reference value |
 |---|---|---|
-| `P` | number of point scatterers | 10–10⁴ |
-| `E` | RX output channels (= RX elements) | 128 |
-| `M_tx` | total TX patches (whole active aperture) | 1280 |
-| `M_Erx` | patches per **single** RX element | 10 |
-| `T` | RF / SIR time-series length (samples) | ~10³ |
-| `L` | excitation-chain length `exc ⊛ ir_tx ⊛ ir_rx` (samples) | ~46 |
-| `L_w` | length of integrated kernel `w = I⁴ v_pe` | ~`L` |
-| `N_d` | attenuation depth bins (atten variant only) | 20–50 |
+| `P` | number of point scatterers | 10 – 10⁵ |
+| `E` | RX output channels (= RX elements) | 64 – 128 |
+| `M_tx` | total TX patches (whole active aperture) | ~1500 |
+| `M_Erx` | patches per **single** RX element | `no_sub_x·no_sub_y` ~ 24 |
+| `M_rx` | total RX patches = `E·M_Erx` | ~1500 |
+| `T` | RF / SIR time-series length (samples) | ~10³–10⁴ |
+| `L` | excitation-chain length `exc ⊛ ir_tx ⊛ ir_rx` (samples) | ~50–100 |
+| `fs`, `BW` | sample rate / signal bandwidth | 100 MHz / ~5 MHz |
 | `nfft` | FFT length, `next_pow2(T + L − 1)` | ~2·T |
+| `N_band` | in-band frequency bins, `≈ (BW/fs)·nfft` | see §4 |
 | `C_fft` | one transform cost `≈ nfft·log₂ nfft` | — |
 | `I` | time-integration operator; `I⁴` = ÷(jω)⁴ in frequency | — |
 | `⊛` | temporal convolution | — |
 
-One **linear convolution via FFT** = 1 rfft + spectral multiply + 1 irfft
-≈ `2·C_fft + nfft`. Below, "1 FFT-conv" means this whole cost.
-
 Geometry facts used throughout:
-- Every scatterer sees the **whole** TX aperture (`M_tx` patches) and **one** RX
-  element at a time (`M_Erx` patches). So `M_tx ≫ M_Erx` — the exploitable asymmetry.
-- TX is **shared across RX elements** within one transmit event (hoistable).
+- Every scatterer sees the **whole** TX aperture (`M_tx` patches) and (for per-channel RF)
+  **one** RX element at a time (`M_Erx` patches). TX is **shared across RX elements** within
+  one transmit event (hoistable / reusable).
 - RF is **linear in scatterers** (superposition → amortizable over `P`).
+- The received signal is **band-limited** by `exc ⊛ ir_tx ⊛ ir_rx`: only `N_band` of the
+  `nfft/2` frequency bins carry signal.
 
 ---
 
 ## 1. The unifying identity (why there are only three forms)
 
-All three methods compute the **same** `p_pe`. Each one-way SIR is the double integral
-of its piecewise-constant 2nd derivative (a set of corner deltas):
-`h_tx = I² D²h_tx`, `h_rx = I² D²h_rx`. Substituting and moving integrals through the
-convolutions gives one identity chain — each equality *is* one of the three methods:
+All three methods compute the **same** pulse-echo response `p_pe = v_pe ⊛ h_tx ⊛ h_rx`.
+Each one-way SIR is the double integral of its piecewise-constant 2nd derivative — a
+sparse train of trapezoid-corner deltas: `h_tx = I² D²h_tx`, `h_rx = I² D²h_rx`. `D²h` of
+one rectangular patch is **four signed Diracs** at its corner times. Substituting and moving
+integrals through the convolutions gives one identity chain; each equality *is* one method:
 
-    p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                                    ← (1) Conventional
-         = v_pe ⊛ I⁴(D²h_tx ⊛ D²h_rx) = v_pe ⊛ (I⁴ Δδ_pe)          ← (2) Truncated SDI PE
-         = (I⁴ v_pe) ⊛ Δδ_pe = w ⊛ Δδ_pe
-         = Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)                       ← (3) Complete SDI PE
+    p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                                  ← (1) Conventional
+         = (I⁴ v_pe) ⊛ (D²h_tx ⊛ D²h_rx) = w ⊛ Δδ_pe            ← (2) Paired
+         = F⁻¹{ V_pe·(jω)⁻⁴ · Σ_TX(ω) · Σ_RX(ω) }                ← (3) Spectral
 
-    Δδ_pe ≡ D²h_tx ⊛ D²h_rx   (analytic; deltas ⊛ deltas = deltas, 16·M_tx·M_Erx of them)
-    w     ≡ I⁴ v_pe           (analytic; precomputed once)
+    Δδ_pe ≡ D²h_tx ⊛ D²h_rx   (deltas ⊛ deltas = deltas: 16·M_tx·M_Erx of them)
+    w     ≡ I⁴ v_pe           (the integrated drive, precomputed once)
+    Σ_TX(ω) ≡ F{D²h_tx}       (closed-form sum of 4 corner phasors per patch)
 
-They differ only in **how `p_pe` is evaluated** — at which stage the four integrals are
-applied and whether the two-way SIR is kept factored or expanded:
+They differ only in **how** the same product is evaluated:
 
-1. **Conventional** — `p_pe = v_pe ⊛ (h_tx ⊛ h_rx)`. Build each one-way SIR by
-   placing its 2nd-derivative deltas (`8·M` sample-writes) and **double-cumsuming**
-   (`2T`) to recover `h_tx`, `h_rx`; then **two FFT-convs**. The convolution is
-   M-independent, but **the SIR build is linear in M** (`8M` writes + `2T` per SIR).
-2. **Truncated SDI PE** — `p_pe = v_pe ⊛ (I⁴ Δδ_pe)`, where
-   `Δδ_pe ≡ D²h_tx ⊛ D²h_rx` is the **analytic** convolution of the two
-   second-derivative delta trains. Convolution of deltas is again deltas → `Δδ_pe`
-   is `16·M_tx·M_Erx` deltas (4 TX-corner × 4 RX-corner per patch pair). Place them,
-   then realize `I⁴` **entirely in Fourier** as `÷(jω)⁴`, folded into the single
-   spectral multiply with `v_pe` — **no time-domain cumsum** (this also removes the
-   float32 cumsum-cancellation hazard, gotcha #1). **1 FFT-conv** total.
-3. **Complete SDI PE** — push all four integrals onto the velocity,
-   `w ≡ I⁴ v_pe` (analytic, precomputed once), so the convolution collapses to a
-   closed sum of shifted kernels: `p_pe = Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)`.
-   **No FFT, no cumsum** — just `16·M_tx·M_Erx` scaled, shifted copies of `w`.
+1. **Conventional** — build each one-way SIR by sampling (place its corner deltas,
+   double-cumsum to recover `h_tx`, `h_rx`), then convolve by FFT. The convolution is
+   patch-count independent, but the SIR build is linear in M. (Delegated to `Reception`.)
+2. **Paired** — convolve the two corner-delta trains analytically into the 16-delta two-way
+   train `Δδ_pe`, enumerating all `M_tx·M_Erx` patch pairs; push the four integrations onto
+   the drive once (`w = I⁴ v_pe`) and splat a shifted copy of `w` per corner event. No FFT,
+   no cumsum — exact, but `O(M²)`. (`compute_pe_complete`.)
+3. **Spectral** — never form the pairs and never sample the SIR. Each one-way SIR spectrum
+   `Σ_TX(ω)`, `Σ_RX(ω)` is written in **closed form** (a sum of corner phasors per patch),
+   evaluated only on the in-band frequencies, and the two are multiplied (convolution ⇒
+   product). The four integrations `I⁴` and the exc/IR chain are one downstream spectral
+   multiply, and a single inverse FFT per element returns the RF.
+   (`compute_twoway_spectrum_summed` + `compute_oneway_spectrum_band`.)
 
-**Separability is the whole story for the convolution stage.** The weights
-`a_i a_j = a_tx ⊗ a_rx` are **rank-1** and the shifts `τ_i + τ_j = τ_tx ⊕ τ_rx` are an
-**outer sum** → the inner double sum is a separable bilinear form. FFT-convolution
-*exploits* that separability (cost `T log T`, **independent of patch count**); pair
-enumeration (methods 2, 3) *discards* it and pays `M²` to rediscover it. Convolution
-of two sparse delta trains is fundamentally `min(M², T log T)` — no rewrite beats that.
-Enumeration only wins when `M` is tiny, or when the physics **breaks separability**
-(per-path attenuation, §6) and forces enumeration anyway. (Note: even the conventional
-path is not globally M-free — its *SIR build* is linear in M; only its *convolution* is.)
+**Separability is the structure being exploited or paid for.** The two-way weights
+`a_i a_j` are rank-1 and the shifts `τ_i + τ_j` are an outer sum, so the two-way SIR is a
+separable bilinear form. Conventional FFT-conv and the spectral product both *exploit* this
+(cost independent of the pair count); paired enumeration *discards* it and pays `M²` to
+rediscover it. Paired only wins when `M` is tiny or when the physics **breaks separability**
+(per-path attenuation, §7) and forces enumeration anyway.
 
 ---
 
 ## 2. Method 1 — Conventional `Reception` : `v_pe ⊛ (h_tx ⊛ h_rx)`
 
-Builds the two one-way SIRs separately and convolves. SIR build via `naive`
-(per-sample trapezoid loop) or `sdi` (delta train + cumsum).
+Builds the two one-way SIRs (sampled) and convolves by FFT. Includes a depth-binned fast
+path: scatterers are grouped by depth so each bin uses a short time window → small `nfft`.
 
-### Algorithmic flow
-```
-precompute  fft_v = rfft(v_pe)                                   # once
-for p in scatterers:
-    build h_tx(p)            # M_tx patches → SIR(T)   [naive: M_tx·T ; sdi: M_tx + cumsum T]
-    g(p) = v_pe ⊛ h_tx(p)    # hoisted TX side: 1 FFT-conv          (shared over all E)
-    for e in RX elements:
-        build h_rx(p,e)      # M_Erx patches → SIR(T)
-        p_pe(p,e) = g(p) ⊛ h_rx(p,e)    # 1 FFT-conv
-        RF[e] += a_p · p_pe(p,e)
-```
+### Complexity (summed, depth-binned)
+| Phase | Cost |
+|---|---|
+| TX SIR build | `P·(M_tx + T_bin)` |
+| RX SIR build | `P·E·(M_Erx + T_bin)` |
+| Forward FFTs (per scatterer, per element) | **`P·E · C_fft(nfft_bin)`**  ← dominant |
+| Scatterer sum + 1 inverse FFT / element | `E · C_fft(nfft_bin)` |
+| **Total** | **`O(P·E · nfft_bin·log nfft_bin)`** |
+
+The forward-FFT term is the floor — it is the **same FFT Field II runs**. Depth-binning
+shrinks `nfft_bin` (hence the floor) but cannot remove the `P·E` forward transforms.
+
+---
+
+## 3. Method 2 — Paired SDI PE : `Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)`
+
+Precompute `w = I⁴ v_pe` once; for each of the 16 corner events of every TX–RX patch pair
+add a shifted, scaled copy of `w`. No FFT, no cumsum.
 
 ### Complexity
 | Phase | Cost |
 |---|---|
-| TX SIR build | `P·(M_tx + T)`  (sdi) or `P·M_tx·T` (naive) |
-| TX hoisted conv | `P · C_fft` |
-| RX SIR build | `P·E·(M_Erx + T)` |
-| RX two-way conv | **`P·E · C_fft`**  ← dominant |
-| **Total** | **`O(P·E·T·log T)`** |
+| Precompute `w` | `O(nfft)` (once) |
+| Pair accumulation | **`P·E · 16·M_tx·M_Erx · len(w)`**  ← dominant |
+| **Total** | **`O(P·E · M_tx·M_Erx · len(w))`** |
 
-The `naive`/`sdi` choice only changes the sub-dominant SIR build, so total time is
-nearly identical between them (confirmed empirically: `naive ≈ sdi`). The two-way FFT
-conv `P·E·C_fft` is the floor, and it is the **same FFT Field II runs** — so the
-speedup over Field II comes only from the faster SIR build and from PyField's batched
-FFT, landing at ~2× (Amdahl: SIR is a small fraction of the budget).
+Slowest at array scale (the `M²·len(w)` wall). Its value: FFT-free, **exact** (continuous
+shift `τ_i+τ_j`, no sample-binning or cumsum-cancellation error), and **per-path attenuation
+rides free** (§7). Used for tiny apertures (PSF, monoelement) and as the golden reference.
 
 ---
 
-## 3. Method 2 — Truncated SDI PE : `v_pe ⊛ (I⁴ Δδ_pe)`  (current `ReceptionSDI`)
+## 4. Method 3 — Spectral SDI PE : `F⁻¹{ V_pe·(jω)⁻⁴ · Σ_TX · Σ_RX }`  (the fast path)
 
-Forms `Δδ_pe = D²h_tx ⊛ D²h_rx` **explicitly** (the kernel places 16 deltas per patch
-pair), then realizes the full `I⁴` in the frequency domain as `÷(jω)⁴`
-(`n_integrations=4`) — **no time-domain cumsum** (removed: it added ½-sample group
-delay and risked float32 cancellation, gotcha #1). The kernel's three SIR derivatives
-are relocated onto the exc/IR chain by the same spectral multiply.
+The spectral form is the default for band-limited drives and the focus of this revision.
+It builds each one-way SIR spectrum analytically and multiplies — **no forward FFT at all**.
 
-### Algorithmic flow
-```
-precompute  fft_v, fft_ir_tx, fft_ir_rx, (jω)^-4                 # once
-for e in RX elements:
-    Δδ_pe = compute_pe_sdi(...)        # (P, T): place 16·M_tx·M_Erx deltas → prange over P
-    if summed & no atten:
-        Δ_sum = a · Δδ_pe              # collapse scatterers (BLAS matvec)
-        RF[e] = irfft( rfft(Δ_sum) · (jω)^-4 · fft_v · fft_ir_tx · fft_ir_rx )   # 1 FFT-conv
-    else:                              # per_scatterer or attenuation
-        H = rfft(Δδ_pe, axis=1)        # P FFTs (no amortization)
-        ...· (jω)^-4 · filters / per-scatterer H_att...
-        RF[e] = Σ_p a_p · irfft(H)
-```
+### 4.1 The closed-form one-way spectrum, in cancellation-free factored form
 
-### Complexity (summed, no attenuation)
-| Phase | Cost |
-|---|---|
-| Pair-product placement | **`P·E · 16·M_tx·M_Erx`**  ← dominant for arrays |
-| FFT (amortized over P) | `E · C_fft` |
-| **Total** | **`O(P·E · M_tx·M_Erx)`** |
+`D²h` of one patch is four corner deltas at `t1,t2,t3,t4`, so its Fourier transform is a
+four-phasor sum. Using the corner-time structure `t2=t1+Δt1, t3=t1+Δt2, t4=t1+Δt1+Δt2`,
+that sum **factors**:
 
-No cumsum term — `I⁴` is now entirely in the FFT multiply (`÷(jω)⁴`).
+    e^{-jωt1} − e^{-jωt2} − e^{-jωt3} + e^{-jωt4}
+        = e^{-jω t1}·(1 − e^{-jωΔt1})·(1 − e^{-jωΔt2}) ,
 
-### Complexity (per_scatterer **or** attenuation)
-FFT amortization is lost — `P` forward FFTs per element:
-`O(P·E·M_tx·M_Erx + P·E·C_fft)` — **both** terms worse than Method 1 → never use for arrays.
+and with `1 − e^{-jx} = 2j·sin(x/2)·e^{-jx/2}` it collapses to a **real envelope times one
+phasor** at the patch-centre arrival `t_c = (t1+t4)/2 = l/c`:
 
-### Why it loses on arrays
-Method 2 replaces Method 1's `P·E·C_fft` with `P·E·16·M_tx·M_Erx`. The crossover is
+    S_patch(ω) = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c − t0)} .
 
-    16·M_tx·M_Erx   vs   C_fft ≈ T·log₂ T
+The aperture spectrum is `Σ_TX(ω) = Σ_patches S_patch`, swept over the uniform `omega` grid
+by complex-multiply recurrence (the half-angle phasors advance by a constant factor; no
+`sin`/`cos` per bin). Per-patch causal attenuation `exp(-α|f|^y d)·(dispersion)` is folded
+into each patch term using the patch-to-point distance, so the TX×RX product carries the
+true round-trip loss.
 
-Domino: `16·1280·10 = 204 800` vs `T·log₂T ≈ 10³·10 ≈ 2×10⁴` → ~**10× worse**, matching
-the measured `pe_sdi 0.2×` vs `conventional 2.2×` (≈11× gap). The `M_tx·M_Erx` pair
-count is irreducible by construction — it is the M²-in-patches wall.
+**Why the factored form matters numerically.** The naive four-phasor sum adds `±slope`
+terms — and `slope = h_max/Δt1` is *large* for thin patches — relying on cancellation to
+land the small physical value. That cancellation is what forced complex128 accumulation. The
+factored form computes the small value **directly** via `sin`: for small `Δt1`,
+`4·slope·sin(ωΔt1/2) → 2·h_max·ω`, bounded by the physical plateau and never inflated. The
+scatterer sum is then well conditioned, so complex64/float32 works (validated:
+complex64 vs complex128 relerr ≈ 2·10⁻⁷). It also uses **3 swept phasors instead of 4**.
 
----
+### 4.2 Cost, and the depth-span trap that depth-binning removes
 
-## 4. Method 3 — Complete SDI PE : `Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)`
+For one window (no binning), the summed spectral RF costs, per RX element:
 
-Precompute the single integrated waveform `w = I⁴ v_pe` once, then accumulate shifted,
-scaled copies — **no FFT, no cumsum**.
+    build Σ_RX,e : P·M_Erx·N_band     product+sum : P·N_band     1 inverse FFT : C_fft
 
-### Algorithmic flow
-```
-w = I⁴ v_pe            # once: 4 integrations of the exc/IR chain (length L_w)
-for e in RX elements:
-    for p in scatterers:
-        for i in TX patches (M_tx):
-            for j in RX patches (M_Erx):
-                RF[e, k:k+L_w] += a_p · a_i · a_j · w   at offset τ_i + τ_j
-```
+plus the shared TX build `P·M_tx·N_band` (once). Total over `E` elements:
 
-### Complexity
-| Phase | Cost |
-|---|---|
-| Precompute `w` | `O(L_w)` (once) |
-| Pair accumulation | **`P·E · 16·M_tx·M_Erx · L_w`**  ← dominant |
-| **Total** | **`O(P·E · M_tx·M_Erx · L_w)`** |
+    O( P·N_band·(M_tx + M_rx)  +  P·E·N_band  +  E·C_fft ) ,   M_rx = E·M_Erx.
 
-Strictly Method 2 × `L_w` (it splats a length-`L_w` copy per pair instead of one delta
-+ a single shared FFT). So for arrays it is the slowest. Its value is elsewhere:
+The dominant factor is `N_band`. Crucially **`N_band = (BW/fs)·nfft` and `nfft ∝ T` spans
+the arrival window of *all* scatterers**, so a deep or wide field inflates `N_band` linearly
+with depth span. (Earlier this was wrongly assumed bandwidth-only; it is not — it scales
+with the time record.) A single-window spectral run on a deep field therefore carries a
+large `N_band` and loses.
 
-- **FFT-free** — no `nfft` padding, no spectral setup.
-- **Exact** — `w` evaluated at the continuous shifted time `τ_i + τ_j`: no SDI
-  sample-binning interpolation error and no float32 cumsum cancellation
-  (gotcha #1). Ideal as a **golden reference** for a single scatterer / monoelement.
-- **Per-path attenuation rides free** (§6) — the unique regime where enumeration is
-  not a fallback but the *correct* method.
+**Depth-binning fixes this.** Group scatterers by depth into bins; each bin spans a tight
+arrival window → small `nfft_bin` → small `N_band_bin = (BW/fs)·nfft_bin`. All bins share one
+global sample lattice, so each bin's RF adds back at an integer sample offset (no
+resampling). The bin count is **floor-aware** (`_auto_depth_bins`, shared with conventional):
+shrink windows only until `nfft_bin` hits its `next_pow2(L)` floor — past that, extra bins do
+not shrink `nfft` and only add overhead. Per-bin cost has the small `N_band_bin`; summed over
+bins the total is `O(P·N_band_floor·(M_tx + M_rx))` — **independent of the field's depth
+span**. (Conventional already binned; this session brought the same trick to spectral.)
+
+### 4.3 The fused multi-element two-way kernel
+
+The summed two-way spectrum per element, `S_e(ω) = Σ_p a_p·Σ_TX(ω;r_p)·Σ_RX,e(ω;r_p)`, is
+evaluated by one fused kernel (`_twoway_summed_points`) rather than a Python loop over
+elements. Per scatterer the TX spectrum `Σ_TX` is built **once** and reused while sweeping
+all RX elements; the result accumulates straight into the per-element output. This removes,
+relative to the earlier per-element loop:
+
+- the **per-element kernel relaunch** (one launch per bin instead of `E` per bin),
+- the **re-streaming of `Σ_TX`** from memory `E` times (it stays in cache, reused),
+- every **`(P, N_band)` intermediate** (nothing of that size is materialized).
+
+It parallelizes over scatterer chunks (race-free per-chunk buffers) and accumulates in
+complex128 internally — cheap because `N_band` is small after binning, and well conditioned
+thanks to the factored form (§4.1). RX patches are laid out element-by-element (CSR offsets
+`rx_ptr`), so `focused_sum` (the beamformed scan line) is just the single-group case.
 
 ---
 
-## 5. Master comparison
+## 5. Why the spectral path is faster than conventional / Field II
 
-### Complexity (dominant term)
-| | Method 1 Conventional | Method 2 Truncated SDI | Method 3 Complete SDI |
+Compare the two dominant terms directly (depth-binned, summed, no attenuation):
+
+    Conventional :  P·E · nfft_bin·log₂(nfft_bin)        (forward FFTs — the Field II floor)
+    Spectral     :  P·N_band_bin·(M_tx + M_rx) + P·E·N_band_bin
+
+With a full aperture both sides (`M_tx = M_rx = E·M_Erx`) the spectral build dominates and
+`≈ 2·P·E·M_Erx·N_band_bin`. Substituting `N_band_bin = (BW/fs)·nfft_bin`, the ratio is
+
+    spectral / conventional  ≈  2·M_Erx·N_band_bin / ( nfft_bin·log₂ nfft_bin )
+                             =  2·M_Erx·(BW/fs) / log₂(nfft_bin) .
+
+The `nfft_bin` **cancels** — the ratio is set by three things, none of them the record
+length:
+
+1. **No forward FFT (the big one).** Conventional pays `P·E` forward transforms (one per
+   scatterer per element); that is the same FFT Field II runs and its irreducible floor.
+   Spectral has **zero** forward FFTs — the spectrum is closed form — and only `E` inverse
+   FFTs per bin (after the scatterer sum), which is negligible. The whole `nfft·log` floor is
+   gone, replaced by the analytic build.
+2. **Band-limiting.** Spectral evaluates only the `N_band` in-band bins; the FFT processes the
+   full `nfft` length regardless. The `(BW/fs)` factor is this saving.
+3. **Few patches per element.** The remaining cost scales with `M_Erx` (patches per element),
+   typically small (`no_sub_x·no_sub_y`).
+
+So spectral wins whenever `2·M_Erx·(BW/fs) < log₂(nfft_bin)` — i.e. band-limited drives
+(small `BW/fs`), modest per-element subdivision, and deep windows (large `log`). For the
+reference probe (`M_Erx=24`, `BW/fs≈0.05`, `log₂(256)≈8`) the ratio is `≈0.3`, i.e. ~3× — the
+measured ~0.7–0.8× also pays the shared TX build (`P·M_tx·N_band`), the inverse FFTs, and
+Python/setup overhead, which the asymptotic ratio omits.
+
+The three implementation changes map onto this directly: **factored form** makes the analytic
+build cheap and float32-safe (enabling the no-FFT path to stay accurate); **depth-binning**
+keeps `N_band_bin` at its floor regardless of field extent; **the fused kernel** removes the
+per-element launch/streaming overhead that otherwise dominated at the small per-bin sizes.
+
+---
+
+## 6. Master comparison
+
+### Complexity (dominant term, summed, no attenuation)
+| | M1 Conventional | M2 Paired | M3 Spectral |
 |---|---|---|---|
-| Form | `v_pe ⊛ h_tx ⊛ h_rx` | `v_pe ⊛ I⁴Δδ_pe` | `Σ a_i a_j w(t−τ_i−τ_j)` |
-| SIR build | `P(M_tx+T) + PE(M_Erx+T)` | (folded into pair product) | (folded into pair product) |
-| Pair work | — | `PE·16·M_tx·M_Erx` | `PE·16·M_tx·M_Erx·L_w` |
-| Cumsum | `PE·T` (SIR build) | none (`÷(jω)⁴` in FFT) | none |
-| FFT/iFFT | `PE·C_fft` | `E·C_fft` (summed) / `PE·C_fft` (atten) | none |
-| **Total** | **`O(PE·T·logT)`** | **`O(PE·M_tx·M_Erx)`** | **`O(PE·M_tx·M_Erx·L_w)`** |
-| Crossover vs M1 | — | wins iff `16 M_tx M_Erx < T·logT` | wins iff `16 M_tx M_Erx L_w < T·logT` |
+| Form | `v_pe ⊛ h_tx ⊛ h_rx` | `Σ a_i a_j w(t−τ_i−τ_j)` | `F⁻¹{V_pe(jω)⁻⁴ Σ_TX Σ_RX}` |
+| Forward FFT | `P·E·C_fft` (floor) | none | **none** |
+| Inverse FFT | `E·C_fft` | none | `E·C_fft` (per bin) |
+| Patch work | SIR build `P(M_tx+M_rx)` | `P·E·16·M_tx·M_Erx·len(w)` | spectrum build `P·N_band·(M_tx+M_rx)` |
+| Cumsum | in SIR build | none | none |
+| **Total** | **`O(PE·nfft_bin·log)`** | **`O(PE·M_tx·M_Erx·len(w))`** | **`O(P·N_band_bin·(M_tx+M_rx))`** |
 
-### Bottlenecks & advantages
-| Method | Bottleneck | Advantage | Best regime |
-|---|---|---|---|
-| **1 Conventional** | `PE` FFT-convs (same FFT as Field II) | M-independent; rank-1 separability exploited; depth-binning shrinks `T` | **Arrays, many scatterers, weak/no atten** |
-| **2 Truncated SDI** | `M_tx·M_Erx` pair product per (scat,elem) | FFT amortized over `P` → `E` FFTs; FFT-light for small `M` | **Small `M` (PSF, monoelement, few patches)** |
-| **3 Complete SDI** | `M_tx·M_Erx·L_w` (slowest at scale) | FFT-free; **exact** (no interp/cumsum error); **per-path attenuation free** | **Reference / single scatterer / per-path-atten near-field** |
+### Bottlenecks & best regime
+| Method | Bottleneck | Best regime |
+|---|---|---|
+| **1 Conventional** | `P·E` forward FFTs (Field II floor) | wideband / near-delta drive; fallback |
+| **2 Paired** | `M_tx·M_Erx·len(w)` | tiny aperture (PSF, monoelement); per-path attenuation; reference |
+| **3 Spectral** | analytic build `P·N_band·M` (no forward FFT) | **band-limited drive — arrays + high P (default)** |
 
-### Empirical anchor — Domino linear (128 elem, M_tx=1280, M_Erx=10, fs=100MHz)
-| `P` | Field II | Conventional (M1) | ReceptionSDI (M2) | M2/M1 |
-|---|---|---|---|---|
-| 10 | 0.012 s | 0.031 s (0.4×) | 0.078 s (0.2×) | 2.5× |
-| 100 | 0.088 s | 0.084 s (1.0×) | 0.559 s (0.2×) | 6.6× |
-| 1 000 | 0.842 s | 0.428 s (2.0×) | 4.76 s (0.2×) | 11× |
-| 10 000 | 8.526 s | 3.95 s (2.2×) | 43.8 s (0.2×) | 11× |
+`method="auto"`: spectral when a band-limited excitation/IR is present (the usual case),
+conventional for a near-delta/wideband drive (no band-limiting benefit), paired only for a
+handful of patches.
 
-All methods linear in `P` (separable superposition). M2's ~11× constant penalty at
-scale = the predicted `16·M_tx·M_Erx / T·logT`. **For arrays, Method 1 is correct and
-Method 2 is the worst option** — exactly what the benchmark shows.
+### Empirical anchor — 64-element linear, `M_tx = M_rx = 1536`, `M_Erx = 24`, `fs = 100 MHz`, `fc = 5 MHz`
+Depth-binned spectral (current, fused) vs conventional (depth-binned, Field II-style):
 
----
+| `P` | depth (mm) | bins | conventional | spectral | spectral/conv |
+|---|---|---|---|---|---|
+| 6 000 | 20–90 | 46 | 2.12 s | 1.47 s | **0.69×** |
+| 20 000 | 20–130 | 112 | 5.04 s | 4.13 s | **0.82×** |
 
-## 6. Attenuation — the regime that flips the verdict
-
-Power-law attenuation `H_att(ω, d)` depends on propagation distance `d`. Current
-`ReceptionSDI` applies it **per scatterer-center** (`reception_sdi.py:411`, one
-distance `d_pe` per (scatterer, element)) — an approximation, and it costs M2 its FFT
-amortization (`P` FFTs/element). True attenuation is **per path**: pair `(i,j)`
-travels `d_ij = c·(TOF_tx,i + TOF_rx,j)` (geometric TOF, **not** electronic-delayed
-`τ`). The exact weight `a_i a_j · H_att(ω, d_ij)` depends on **both** `i` and `j` →
-**no longer rank-1 separable** → **FFT (Method 1) cannot factor it**. Enumeration is
-forced — and Method 3 carries it for free:
-
-    precompute  w_d = I⁴ v_pe ⊛ h_att(d)   for N_d depth bins        # N_d FFTs, GLOBAL, shared
-    RF[e] = Σ_p a_p Σ_{i,j} a_i a_j · w_{bin(d_ij)}(t − τ_i − τ_j)    # per-pair kernel lookup
-
-Same `O(PE·M_tx·M_Erx·L_w)` as plain Method 3 — attenuation becomes a table lookup.
-This is **more accurate** than the per-scatterer approximation wherever the aperture
-path-spread is large (near field, strong focusing, low F-number) and is a capability
-the separable FFT path structurally cannot provide. Novel vs both PyField-now and
-Field II (which also approximates per-scatterer). Niche: **per-path attenuated PSF /
-monoelement / near-field focused**.
+Spectral is faster than conventional at high `P`, and the margin grows with the scatterer
+count (more bins × elements = more per-element overhead removed by the fused kernel). Binned
+spectral reproduces the single-window spectral RF exactly (correlation 1.0); complex64 vs
+complex128 accumulation agrees to ~2·10⁻⁷ (the factored form). Before this session's three
+changes the same spectral path was ~1.3× *slower* than conventional at `P=20 000`.
 
 ---
 
-## 7. Optimization opportunities in the current implementation
+## 7. Attenuation — the regime that flips the verdict toward paired
 
-Ordered by leverage. Each is independent unless noted.
-
-1. **Regime router (highest leverage).** Dispatch on the cheap inequality
-   `16·M_tx·M_Erx  ⋛  T·log₂T` (and `attenuation` flag, `per_scatterer` flag):
-   arrays/weak-atten → Method 1; small `M` → Method 2; reference/per-path-atten →
-   Method 3. The benchmark proves a single class cannot win all regimes. Add
-   `_regime_select(M_tx, M_Erx, T, attenuation, per_scatterer)` and route in
-   `ReceptionBase.pulse_echo_rf`. Calibrate the constant once against measured timings.
-
-2. **Accumulate-in-kernel before the FFT (Method 2, summed/no-atten).** The cumsum is
-   now gone, but `compute_pe_sdi` still returns a full `(P, T)` delta buffer that
-   `reception_sdi.py:383` collapses with `a @ Δδ_pe`. Amplitude-accumulate **all**
-   scatterers' deltas into one `(T,)` buffer **inside** the kernel instead: memory
-   `(P,T)·8B → (T,)·8B` (Domino P=10⁴: 320 MB → 32 KB, cache-resident) and kills the
-   matvec. Caveat: `prange` over `P` then races the shared buffer → thread-local
-   buffers + reduction, or re-tile the parallel axis (ties into the patch-vs-scatterer
-   parallelization question in §8). Summed-no-atten path only.
-
-3. **prange granularity for PSF.** `compute_pe_sdi` parallelizes over `P`
-   (`transducer_sir_pe.py:175`); useless when `P=1` (single-point PSF) — the
-   `M_tx` loop runs serial. Add a `per_scatterer`/`P==1` path that pranges over
-   `m_e` (TX patches) instead.
-
-4. **Per-path attenuated Method 3 (new capability).** Implement the depth-binned
-   kernel family `w_d` (§6) as the attenuation backend for small-`M`/reference runs.
-   Gated behind the router (only when enumeration is already chosen). Validate the
-   near-field accuracy gain vs the per-scatterer approximation before committing.
-
-5. **Route attenuated arrays to Method 1.** Current M2 attenuation path is worst-case
-   (`P` FFTs/elem **and** the pair product). The router (1) already covers this:
-   `attenuation && large M → Method 1 + per-scatterer H_att`.
-
-6. **Confirm TX-hoist in Method 1.** Verify `g(p) = v_pe ⊛ h_tx(p)` is computed once
-   per scatterer and reused across `E` (not recomputed per element). If not, it is a
-   free `E×` cut on the TX-conv term.
-
-7. **Depth-binning / decimation on Method 1** (the only `T·logT`-shrinking lever for
-   arrays — already exposed as `downsampling=`; see `ARCHITECTURE.md`). This is what
-   pushes Method 1 past Field II's 2× toward larger margins at high `P`.
+Power-law attenuation `H_att(ω, d)` depends on propagation distance. The **spectral** path
+folds it **per patch** (each one-way patch term carries its own patch-to-point distance), so
+the TX×RX product gives a true per-path round trip at no extra asymptotic cost — the fast
+path supports attenuation directly. The **conventional** path applies it per scatterer-center
+(one distance per scatterer/element), an approximation. **Paired** carries the exact per-path
+form for free via a depth-binned kernel family `w_d = I⁴ v_pe ⊛ h_att(d)`: the pair weight
+becomes a table lookup `w_{bin(d_ij)}`, where `d_ij` is the true geometric two-way TOF of the
+pair — `O(PE·M_tx·M_Erx·len(w))` as plain paired. This is the unique regime where enumeration
+is the *correct* method, not a fallback: the per-path weight depends on both `i` and `j`, so
+it is **not rank-1 separable** and the FFT/spectral product structurally cannot factor it.
+Niche: per-path attenuated PSF / monoelement / near-field focused.
 
 ---
 
-## 8. Planning prompt / context
+## 8. Implementation status & remaining optimizations
 
-> **Goal:** restructure PyField `ReceptionSDI` to expose the three
-> mathematically-equivalent pulse-echo formulations behind a `method` flag (mirroring
-> `Reception`): `conventional` (Method 1), `truncated` (Method 2), `complete`
-> (Method 3) — so the three formalisms can be run and compared on identical inputs.
-> Each has a different complexity regime and set of advantages (§5). I still think
-> `truncated`/`complete` may have a faster *implementation* than `conventional` even
-> though the algorithm differs — e.g. parallelizing over patches instead of
-> scatterers, batching over scatterers (rarely >500k), or vectorizing the pair sum.
-> Treat the M² wall (§1) as the thing to push against in wall-clock for realistic `P`,
-> not assume insurmountable.
->
-> **Invariants:** all three forms must remain bit-comparable to Field II `calc_scat`
-> (corr ~1.0) on the no-attenuation path; `coords["t0"]` beam-axis referencing
-> unchanged; public `pulse_echo_rf` / `sequence_rf` / `synthetic_aperture_rf` /
-> `scan_focusline` signatures unchanged (`method` is an internal dispatch flag).
->
-> **Decision gates:** profile `compute_pe_sdi` (placement vs FFT) on Domino
-> `P∈{10²,10³,10⁴}` before committing a parallelization rewrite — confirms whether the
-> patch-pair placement or the FFT dominates. Before the per-path attenuation kernel
-> (§6), run the accuracy harness quantifying per-path vs per-scatterer error vs
-> depth/F-number — confirms it is worth the `L_w` cost.
+**Implemented this session:**
+- **Spectral formulation** (`compute_oneway_spectrum_band`, `compute_twoway_spectrum_summed`)
+  in cancellation-free **factored-sin** form — closed-form one-way spectra, no forward FFT,
+  float32/complex64-safe.
+- **Depth-binning of the spectral path** (`_rf_spectral_binned`) with a **floor-aware,
+  shared** `_auto_depth_bins` (bins until `nfft_bin` hits the `next_pow2(L)` floor; same rule
+  for conventional and spectral).
+- **Fused multi-element two-way kernel** (`_twoway_summed_points`): `Σ_TX` built once per
+  scatterer and reused across all RX elements; no `(P, N_band)` intermediates; one launch per
+  bin. Makes binned spectral beat conventional at high `P` (§6).
+- `method="auto"` router: spectral (band-limited) / conventional (wideband) / paired (few
+  patches).
 
+**Remaining opportunities (not yet done), by leverage:**
+1. **Far-field element collapse (Dirichlet).** In the factored form each patch is
+   `envelope(ω)·e^{-jω t_c}`; for subpatches on a regular grid the phasor sum is a geometric
+   series → product of two Dirichlet kernels, collapsing the per-element patch count. Valid
+   per-axis where the *group* extent satisfies the Fraunhofer bound `L ≫ D²/λ` (holds laterally
+   at imaging depths; fails in elevation for tall elements until deep field). Adaptive,
+   per-axis; removes the `M` factor from the build where it applies.
+2. **GPU port of the spectral kernel.** The `P×M×N_band` factored-sin loop is memory-light,
+   phasor-recurrence, complex64-friendly — ideal for CUDA/cupy; 10–100× ceiling at production
+   channel/frame counts.
+3. **Working-rate decimation.** Run the internal grid at `fs' ≈ 4·BW` instead of decimating
+   after; shrinks `nfft`, `N_band`, `len(w)` for all paths (spectral is analytic in ω, so
+   nearly free).
+4. **Minimal analytic ω grid.** Spectral can use any ω grid; a sub-band grid + chirp-Z back to
+   the sample lattice would cut `N_band` further (needs the CZT resample step).
+5. **Per-path attenuated paired kernel** (§7) — the depth-binned `w_d` family, gated behind the
+   router for small-`M`/reference runs.
+
+**Invariants** (must stay true): all formulations bit-comparable to Field II `calc_scat`
+(corr ~1.0) on the no-attenuation path; `coords["t0"]` beam-axis referencing unchanged;
+public `pulse_echo_rf` / `sequence_rf` / `synthetic_aperture_rf` / `scan_focusline`
+signatures unchanged (`method` is an internal dispatch flag).

@@ -245,7 +245,9 @@ class ReceptionBase:
         exc = self._resolve_excitation()
         # Window length below which nfft stops shrinking (the next_pow2(L) floor).
         win_floor = max(128.0, float(len(exc)) if exc is not None else 0.0)
-        n_bins = max(1, round(spread / win_floor))  # windows down to the nfft floor only
+        n_bins = max(
+            1, round(spread / win_floor)
+        )  # windows down to the nfft floor only
         return max(1, min(n_bins, P // _MIN_SCATTERERS_PER_BIN))
 
     def _validate_scatterer_inputs(self, positions_mm, amplitudes):
