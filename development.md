@@ -238,13 +238,20 @@ With batched forward and inverse transforms,
 
 \begin{equation}
     \mathrm{CT}^{\mathrm{conv}}_{\mathrm{fft}} =
-        \kappa\,N_{\mathrm{fft}}\log_2 N_{\mathrm{fft}}
-    \approx \kappa\,T\log_2 T,
+        N_{\mathrm{tr}}^{\mathrm{conv}}\,c_{\mathrm{fft}}\,N_{\mathrm{fft}}\log_2 N_{\mathrm{fft}}
+    \approx N_{\mathrm{tr}}^{\mathrm{conv}}\,c_{\mathrm{fft}}\,T\log_2 T,
+    \qquad N_{\mathrm{tr}}^{\mathrm{conv}}\ge 2,
 \end{equation}
 
-where $\kappa$ collects the (constant number of) transforms and spectral multiplies. This
-convolution cost is \emph{independent} of the patch counts $M_e, M_{E_r}$. The
-conventional cost is thus a linear one-way build plus a patch-independent transform.
+where $c_{\mathrm{fft}}$ is the cost of a single length-$N_{\mathrm{fft}}$ transform (plus its
+spectral multiply) and $N_{\mathrm{tr}}^{\mathrm{conv}}$ is the number of transforms the
+conventional convolution pays: the \emph{forward} transforms of the two one-way SIR spectra
+plus the shared \emph{inverse} ($N_{\mathrm{tr}}^{\mathrm{conv}}\ge 2$; the forward transforms
+are precisely what the factored form removes). Writing the count explicitly --- rather than
+hiding it in a lumped constant --- keeps it visible in the factored-vs-conventional comparison
+below, where the two forms pay a \emph{different} number of transforms. This convolution cost
+is \emph{independent} of the patch counts $M_e, M_{E_r}$. The conventional cost is thus a
+linear one-way build plus a patch-independent transform.
 
 \paragraph{Paired-delta SDI form.}
 The paired-delta form (\ref{eq:RF_SDI_paired}) skips building the one-way SIRs and skips
@@ -263,7 +270,7 @@ is therefore the delta placement, which iterates over patch pairs,
 per-scatterer convolution for this quadratic placement. The integration $I^4$ can be
 realised two ways. \emph{(a)} Place the $16$ deltas of every pair into one time buffer and
 apply $\div(j\omega)^4$ in a \emph{single} shared transform (one FFT pair per receive
-element); the cost is the placement above plus $\kappa\,T\log_2 T$. \emph{(b)} Precompute
+element); the cost is the placement above plus $c_{\mathrm{fft}}\,T\log_2 T$. \emph{(b)} Precompute
 $w = I^4\nu_{pe}$ once and convolve it with the delta train by depositing a shifted, scaled
 copy of $w$ per delta; this needs no FFT but costs $\mathcal{O}(N_{\mathrm{fft}})$
 \emph{per pair}, i.e.
@@ -286,7 +293,8 @@ The placement is
 \end{equation}
 
 \emph{linear} in the patch count, followed by the single $I^4$/excitation transform
-$\kappa\,T\log_2 T$. This recovers the conventional cost (linear build $+$ transform) but
+$1\cdot c_{\mathrm{fft}}\,T\log_2 T$ (one inverse only). This recovers the conventional cost
+(linear build $+$ transform) but
 inherits the two-bin interpolation error of the placement.
 
 \emph{(ii) Closed-form (analytic) realisation} (the one implemented in PyField). Evaluate
@@ -299,7 +307,9 @@ transform per receive element,
 
 \begin{equation}
     \mathrm{CT}^{\mathrm{fact}}_{\mathrm{analytic}}
-        = 4\,(M_e + M_{E_r})\,N_b \;+\; \kappa\,N_{\mathrm{fft}}\log_2 N_{\mathrm{fft}},
+        = 4\,(M_e + M_{E_r})\,N_b
+        \;+\; \underbrace{1}_{\text{inverse only}}\cdot c_{\mathrm{fft}}\,
+          N_{\mathrm{fft}}\log_2 N_{\mathrm{fft}},
     \qquad N_b \ll N_{\mathrm{fft}}.
 \end{equation}
 
@@ -317,10 +327,10 @@ transmit and receive sides:
 
 \begin{itemize}
     \item \textbf{Paired-delta vs conventional.} The paired-delta form replaces the
-    patch-independent convolution $\kappa\,T\log_2 T$ by the patch-quadratic placement
+    patch-independent convolution $c_{\mathrm{fft}}\,T\log_2 T$ by the patch-quadratic placement
     $16\,M_e M_{E_r}$. It is cheaper iff
     \begin{equation}
-        16\,M_e\,M_{E_r} \;\ll\; \kappa\,T\log_2 T,
+        16\,M_e\,M_{E_r} \;\ll\; c_{\mathrm{fft}}\,T\log_2 T,
         \tag{\ref{eq:rf_heuristic}}
     \end{equation}
     which holds for compact apertures, few patches, and single-point responses
@@ -353,6 +363,66 @@ transmit and receive sides:
     interpolation) and cheap per-path attenuation; its decisive speed-up is expected on GPU
     (Sec.~\ref{appendix:rf_resources}) rather than on CPU.
 \end{itemize}
+
+\paragraph{Equal-$P$ comparison and the role of the bandwidth $N_b$.}
+If the conventional form is \emph{not} depth-binned --- every scatterer builds its own
+one-way SIRs --- both forms are linear in the scatterer count $P$, the factor $P$ cancels,
+and the comparison reduces to the per-scatterer, per-element cost. Keeping \emph{every} term
+--- the conventional SDI builds $8M_e+2T$ and $8M_{E_r}+2T$ of the two one-way SIRs and its
+forward$+$inverse transform pair ($N_{\mathrm{tr}}^{\mathrm{conv}}=2$), against the spectral
+band DFT and its single inverse --- the spectral form is cheaper iff
+\begin{equation}
+    \underbrace{4\,(M_e+M_{E_r})\,N_b}_{\text{spectral band DFT}}
+    + \underbrace{c_{\mathrm{fft}}\,T\log_2 T}_{\text{1 inverse}}
+    \;<\;
+    \underbrace{8\,(M_e+M_{E_r}) + 4T}_{\text{2 SDI builds}}
+    + \underbrace{N_{\mathrm{tr}}^{\mathrm{conv}}\,c_{\mathrm{fft}}\,T\log_2 T}_{\text{forward $+$ inverse}}.
+\end{equation}
+Isolating the in-band sample count $N_b$, with $M\equiv M_e+M_{E_r}$,
+\begin{equation}
+    N_b \;<\; 2 \;+\; \frac{4T + (N_{\mathrm{tr}}^{\mathrm{conv}}-1)\,c_{\mathrm{fft}}\,T\log_2 T}{4\,M}.
+    \label{eq:heuristic_spectral}
+\end{equation}
+Two effects govern this bound, and together they explain the benchmark below. \emph{(i) The
+patch count $M$ nearly cancels.} Both sides carry a term \emph{linear} in $M$ --- the spectral
+band DFT $4MN_b$ on the left, the conventional sampling build $8M$ on the right --- so once $M$
+is large these dominate their respective ($M$-independent) transform terms and the cost
+\emph{ratio} becomes almost independent of $M$. Crucially, this is only true because the
+conventional build $8M$ was \emph{kept}: had it been dropped, the left side would scale with
+$M$ while the right did not, predicting a spurious $M$-driven blow-up of the spectral form.
+\emph{(ii) The bandwidth $N_b$ sets the level.} What survives the cancellation is $N_b$: a
+narrow band keeps $4MN_b$ below the build plus the saved forward transform and the spectral
+form wins; a wide (near-delta) excitation, $N_b\to N_{\mathrm{fft}}$, inflates the band DFT and
+the inequality flips.
+
+This is exactly what a CPU sweep shows. Using the same 1-D array for transmit and receive,
+$P=200$ scatterers, and $4\times6$ sub-patches per element (so $M=24\,n_{\mathrm{el}}$), the
+spectral/conventional wall-clock ratio across a $16\times$ range of $M$ is:
+
+\begin{center}
+\begin{tabular}{r r r}
+\hline
+$M$ & spectral/conv (narrowband, small $N_b$) & spectral/conv (wideband, $N_b\!\to\!N_{\mathrm{fft}}$) \\
+\hline
+$384$  & $0.61$ & $1.29$ \\
+$768$  & $0.61$ & $1.27$ \\
+$1536$ & $0.56$ & $1.26$ \\
+$3072$ & $0.60$ & $1.22$ \\
+$6144$ & $0.61$ & $1.35$ \\
+\hline
+\end{tabular}
+\end{center}
+
+As predicted by (\ref{eq:heuristic_spectral}) the ratio is essentially \emph{flat} in $M$ ---
+both forms scale linearly in $M$, so it cancels --- while the \emph{bandwidth} sets its level:
+$\approx0.6$ (spectral $\sim1.7\times$ faster) for the band-limited tone burst, and
+$\approx1.3$ (spectral $\sim1.3\times$ slower) for the near-delta excitation. The two outputs
+are numerically identical (correlation $\geq0.9999$ throughout), so this is a pure cost
+trade, not an accuracy one. Practical rule: prefer the spectral form for band-limited
+excitations and the conventional form for wideband/near-delta pulses --- the patch count
+itself barely shifts the balance. (Separately, depth-binning makes the conventional build
+\emph{sublinear} in $P$; that is what creates the scatterer-count crossover $P^{*}$ of the
+next subsection, an effect orthogonal to the bandwidth trade described here.)
 
 In summary, the analytic SDI fuses the SIR build and the convolution into a delta
 product. The paired-delta form pays a quadratic patch-pair price to avoid the transform

@@ -20,10 +20,8 @@ M_tx + M_rx, no forward FFT):
 - `compute_oneway_spectrum_band` — the closed-form Fourier transform of one aperture's
   corner-delta train, a sum of four phasors per patch, evaluated only on the in-band
   frequencies, `(P, N_band)`, with optional per-patch attenuation. The caller multiplies the
-  TX and RX results (convolution ⇒ product) and applies I⁴ = ÷(jω)⁴ downstream.
-- `compute_oneway_spectrum_band_batched` — the same spectrum for every receive element in a
-  single call, `(E, P, N_band)`, so a multi-element receive aperture costs one kernel
-  dispatch instead of one per element.
+  TX and RX results (convolution ⇒ product) and applies I⁴ = ÷(jω)⁴ downstream. The caller
+  loops over receive elements, calling this once per element.
 
 Each kernel parallelizes over scatterers (`prange` over P); a single field point (a PSF,
 `P == 1`) instead parallelizes over patches so one point still saturates every core.
@@ -168,30 +166,38 @@ def _oneway_spectrum_points(
                 dy = py - centers[m, 1]
                 dz = pz - centers[m, 2]
                 dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-            # Corner times relative to the window origin, and the per-bin phasor steps.
-            a1 = t1 - t0
-            a2 = t2 - t0
-            a3 = t3 - t0
-            a4 = t4 - t0
-            ph1 = slope * _phasor(w0 * a1)
-            ph2 = slope * _phasor(w0 * a2)
-            ph3 = slope * _phasor(w0 * a3)
-            ph4 = slope * _phasor(w0 * a4)
-            s1 = _phasor(dw * a1)
-            s2 = _phasor(dw * a2)
-            s3 = _phasor(dw * a3)
-            s4 = _phasor(dw * a4)
+            # Factored, cancellation-free corner sum. The four corner times satisfy
+            # t2 = t1+Δt1, t3 = t1+Δt2, t4 = t1+Δt1+Δt2, so the signed corner-phasor sum
+            # factors as  e^{-jω(t1-t0)}·(1-e^{-jωΔt1})·(1-e^{-jωΔt2}). Using
+            # 1-e^{-jx} = 2j·sin(x/2)·e^{-jx/2} turns it into a real envelope times a
+            # single phasor at the patch-centre arrival t_c = (t1+t4)/2 = l/c:
+            #     S = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c-t0)} .
+            # The sines are evaluated directly (the imaginary parts of the swept half-angle
+            # phasors), never as a subtraction of near-equal phasors, so the term stays
+            # bounded by the physical plateau (4·slope·sin(ωΔt1/2) → 2·h_max·ω for thin
+            # patches) instead of blowing up to slope ≈ h_max/Δt1. The sum is then well
+            # conditioned and complex64/float32 accumulation holds.
+            half1 = np.float32(0.5) * (t2 - t1)
+            half2 = np.float32(0.5) * (t3 - t1)
+            tc = np.float32(0.5) * (t1 + t4) - t0
+            amp = -4.0 * slope
+            pc = _phasor(w0 * tc)
+            q1 = _phasor(w0 * half1)
+            q2 = _phasor(w0 * half2)
+            spc = _phasor(dw * tc)
+            sq1 = _phasor(dw * half1)
+            sq2 = _phasor(dw * half2)
             for k in range(Nb):
-                val = ph1 - ph2 - ph3 + ph4
+                env = amp * q1.imag * q2.imag  # -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)
+                val = env * pc
                 if do_atten:
                     val *= _causal_atten_factor(
                         omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
                     )
                 out[p, k] += val
-                ph1 *= s1
-                ph2 *= s2
-                ph3 *= s3
-                ph4 *= s4
+                pc *= spc
+                q1 *= sq1
+                q2 *= sq2
     return out
 
 
@@ -393,144 +399,6 @@ def compute_oneway_spectrum_band(
     if points.shape[0] == 1:
         return _oneway_spectrum_patches(points[0], *args).astype(np.complex64)
     return _oneway_spectrum_points(points, *args).astype(np.complex64)
-
-
-@njit(parallel=True, fastmath=True, cache=True)
-def _oneway_spectrum_batched(
-    points, centers, wx, wy, tangents, apod, delays, inv_c, t0, omega, dt
-):
-    """Closed-form one-way SIR spectrum for EVERY receive element at once → (E, P, N_band).
-
-    The single-element kernel `_oneway_spectrum_points` evaluated once per receive element
-    pays a full kernel dispatch for each one, even though each element holds only ~M/E
-    patches. Here the elements are stacked along a leading axis and swept in one parallel
-    loop (`prange` over E, each element owning a race-free output block): same four-corner
-    phasor sum per patch, same per-bin complex-multiply sweep across the uniform in-band
-    grid (no per-bin sin/cos). Elements may have different patch counts; the array is padded
-    to the largest with ``apod = 0`` rows, whose slope vanishes so they are skipped. No
-    attenuation here — this serves the summed, attenuation-free receive path.
-    """
-    E = centers.shape[0]
-    P = points.shape[0]
-    M = centers.shape[1]
-    Nb = omega.shape[0]
-    out = np.zeros((E, P, Nb), dtype=np.complex128)
-    w0 = omega[0]
-    dw = omega[1] - omega[0] if Nb > 1 else 0.0
-    for e in prange(E):  # ty: ignore[not-iterable]
-        for p in range(P):
-            px = points[p, 0]
-            py = points[p, 1]
-            pz = points[p, 2]
-            for m in range(M):
-                t1, t2, t3, t4, slope = _patch_corner_times(
-                    px,
-                    py,
-                    pz,
-                    centers[e, m, 0],
-                    centers[e, m, 1],
-                    centers[e, m, 2],
-                    tangents[e, m, 0],
-                    tangents[e, m, 1],
-                    tangents[e, m, 2],
-                    tangents[e, m, 3],
-                    tangents[e, m, 4],
-                    tangents[e, m, 5],
-                    wx[e, m],
-                    wy[e, m],
-                    inv_c,
-                    apod[e, m],
-                    delays[e, m],
-                    dt,
-                )
-                if slope == 0.0:
-                    continue
-                a1 = t1 - t0
-                a2 = t2 - t0
-                a3 = t3 - t0
-                a4 = t4 - t0
-                ph1 = slope * _phasor(w0 * a1)
-                ph2 = slope * _phasor(w0 * a2)
-                ph3 = slope * _phasor(w0 * a3)
-                ph4 = slope * _phasor(w0 * a4)
-                s1 = _phasor(dw * a1)
-                s2 = _phasor(dw * a2)
-                s3 = _phasor(dw * a3)
-                s4 = _phasor(dw * a4)
-                for k in range(Nb):
-                    out[e, p, k] += ph1 - ph2 - ph3 + ph4
-                    ph1 *= s1
-                    ph2 *= s2
-                    ph3 *= s3
-                    ph4 *= s4
-    return out
-
-
-def compute_oneway_spectrum_band_batched(
-    points, centers, wx, wy, apod, delays, eu, ev, inv_c, t0, omega, dt
-):
-    """`compute_oneway_spectrum_band` for all E receive elements in one call → (E, P, N_band).
-
-    The receive-element patch sets are stacked into rectangular ``(E, m_max, …)`` arrays
-    (pad rows carry ``apod = 0`` so they contribute nothing), so the whole receive aperture
-    is evaluated with a single kernel dispatch instead of one per element. Same closed-form
-    analytic spectrum as the single-aperture function; attenuation is not applied here (the
-    summed receive path that uses it is attenuation-free).
-
-    Parameters
-    ----------
-    points : (P, 3) numpy.ndarray
-        Scatterer positions in metres.
-    centers : (E, m_max, 3) numpy.ndarray
-        Per-element patch centres in metres (zero-padded to the largest element).
-    wx, wy : (E, m_max) numpy.ndarray
-        Per-element patch widths in the two in-plane directions (metres).
-    apod : (E, m_max) numpy.ndarray
-        Per-element apodization weight per patch; pad rows must be 0.
-    delays : (E, m_max) numpy.ndarray
-        Per-element delay per patch (seconds).
-    eu, ev : (E, m_max, 3) numpy.ndarray
-        Per-element patch tangent frames (in-plane unit vectors).
-    inv_c : float
-        Inverse speed of sound 1/c (s/m).
-    t0 : float
-        Window origin (seconds) the corner phasors are referenced to.
-    omega : (N_band,) numpy.ndarray
-        In-band angular frequencies 2πf (rad/s), uniformly spaced.
-    dt : float
-        Time step 1/fs (seconds); clamps sub-sample patch edge crossings.
-
-    Returns
-    -------
-    (E, P, N_band) numpy.ndarray
-        One-way SIR-delta spectrum at each scatterer, per receive element (complex64).
-    """
-    points = np.asarray(points, dtype=np.float32)
-    centers = np.ascontiguousarray(np.asarray(centers, dtype=np.float32))
-    wx = np.ascontiguousarray(np.asarray(wx, dtype=np.float32))
-    wy = np.ascontiguousarray(np.asarray(wy, dtype=np.float32))
-    apod = np.ascontiguousarray(np.asarray(apod, dtype=np.float32))
-    delays = np.ascontiguousarray(np.asarray(delays, dtype=np.float32))
-    omega = np.ascontiguousarray(np.asarray(omega, dtype=np.float64))
-    # Pack the two tangent vectors into one contiguous (E, m, 6) frame (cols 0-2 = u, 3-5 = v).
-    E, m = centers.shape[:2]
-    tangents = np.empty((E, m, 6), dtype=np.float32)
-    tangents[..., :3] = eu
-    tangents[..., 3:] = ev
-    out = _oneway_spectrum_batched(
-        points,
-        centers,
-        wx,
-        wy,
-        np.ascontiguousarray(tangents),
-        apod,
-        delays,
-        float(inv_c),
-        float(t0),
-        omega,
-        float(dt),
-    )
-    return out.astype(np.complex64)
 
 
 # ---------------------------------------------------------------------------

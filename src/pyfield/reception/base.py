@@ -26,6 +26,10 @@ from pyfield.utilities.helper_functions import compute_sub_elem_attributes
 # Output-size threshold above which the heavy methods warn / auto-decimate.
 _SIZE_WARN_BYTES = 2 * 1024**3  # 2 GiB
 
+# Pulse-echo fast path splits scatterers into depth bins (see _auto_depth_bins).
+# Keep at least this many scatterers per bin so each batch stays cache-resident.
+_MIN_SCATTERERS_PER_BIN = 128
+
 
 def _next_pow2(n):
     return 1 << (int(n - 1).bit_length())
@@ -215,6 +219,34 @@ class ReceptionBase:
                 )
             )
         return slices
+
+    def _auto_depth_bins(self, points_m, n_out):
+        """Number of depth bins for the fast path (1 = no binning).
+
+        Scatterers at very different depths echo at very different times, so a single
+        FFT (or spectral inverse transform) must span the whole arrival spread — a long,
+        mostly-empty time grid whose ``nfft`` (and therefore the spectral form's in-band
+        bin count ``N_band = BW/fs·nfft``) grows with the depth span. Grouping scatterers
+        by depth lets each bin use a short grid, which dominates the cost.
+
+        The count is driven by the arrival-time spread, but capped where shrinking stops
+        paying: ``nfft = next_pow2(pe_T + L)`` cannot drop below ``next_pow2(L)`` (the
+        excitation length floor), so once a bin's window is ≈ ``max(128, L)`` samples,
+        more bins only multiply the fixed per-bin transform/setup overhead — pure waste
+        at very high scatterer counts. Bins are then capped to keep each batch
+        cache-resident (≥ ``_MIN_SCATTERERS_PER_BIN`` scatterers/bin).
+        """
+        P = points_m.shape[0]
+        if P < _MIN_SCATTERERS_PER_BIN or n_out < 2:
+            return 1
+        center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
+        arrival = 2.0 * np.linalg.norm(points_m - center, axis=1) / self.c
+        spread = float(arrival.max() - arrival.min()) * self.fs  # samples
+        exc = self._resolve_excitation()
+        # Window length below which nfft stops shrinking (the next_pow2(L) floor).
+        win_floor = max(128.0, float(len(exc)) if exc is not None else 0.0)
+        n_bins = max(1, round(spread / win_floor))  # windows down to the nfft floor only
+        return max(1, min(n_bins, P // _MIN_SCATTERERS_PER_BIN))
 
     def _validate_scatterer_inputs(self, positions_mm, amplitudes):
         """Normalise and validate positions + amplitudes, return (points_m, amps)."""

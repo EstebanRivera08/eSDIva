@@ -66,11 +66,6 @@ def _method_to_flag(method):
     return None  # auto
 
 
-# Pulse-echo fast path splits scatterers into depth bins (see _auto_depth_bins).
-# Best ≈ this many scatterers per bin; override per instance with n_depth_bins.
-_SCATTERERS_PER_BIN = 200
-
-
 class Reception(ReceptionBase):
     """Pulse-echo RF by direct two-way SIR convolution (Jensen's model).
 
@@ -202,25 +197,6 @@ class Reception(ReceptionBase):
     # ------------------------------------------------------------------
     # Depth-binned fast path (Field II-style bounded windows)
     # ------------------------------------------------------------------
-
-    def _auto_depth_bins(self, points_m, n_out):
-        """Number of depth bins for the fast path (1 = no binning).
-
-        Scatterers at very different depths echo at very different times, so a single
-        FFT must span the whole arrival spread (a long, mostly-empty time grid). Grouping
-        them by depth lets each bin use a short grid (small FFT), which dominates the
-        cost. The count balances two needs: keep each bin's grid short (≈ arrival-time
-        spread in samples / 128) and keep its scatterer batch cache-resident
-        (≈ ``_SCATTERERS_PER_BIN`` scatterers/bin).
-        """
-        P = points_m.shape[0]
-        if P < 128 or n_out < 2:
-            return 1
-        center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
-        arrival = 2.0 * np.linalg.norm(points_m - center, axis=1) / self.c
-        spread = float(arrival.max() - arrival.min()) * self.fs  # samples
-        n_bins = max(round(spread / 128), round(P / _SCATTERERS_PER_BIN))
-        return max(1, min(n_bins, P // 128))  # keep ≥128 scatterers/bin
 
     def _lattice_grid(self, pts, M, centers, wx_max, wy_max, delays, t0_global):
         """Time grid for ``pts`` snapped to the global sample lattice.
@@ -527,28 +503,27 @@ class Reception(ReceptionBase):
         # n=3 → textbook Born ∂³ (derivative-free excitation only).
         jw_pow = (1j * 2.0 * np.pi * freqs) ** n_derivatives
 
-        # Pre-compute excitation * (jω)^n FFT.
-        if exc is not None:
-            fft_v = rfft(exc.astype(np.float64), n=nfft, workers=-1)
-            fft_v_pe = (fft_v * jw_pow).astype(np.complex64)
-        else:
-            # Delta excitation: FFT(delta) = 1 → V_pe(f) = (j*2*pi*f)^n.
-            fft_v_pe = jw_pow.astype(np.complex64)
+        fft_v = (
+            rfft(exc.astype(np.float64), n=nfft, workers=-1).astype(np.complex64)
+            if exc is not None
+            else 1
+        )
 
         fft_ir_tx = (
             rfft(np.asarray(ir_tx, dtype=np.float64), n=nfft, workers=-1).astype(
                 np.complex64
             )
             if ir_tx is not None
-            else None
+            else 1
         )
         fft_ir_rx = (
             rfft(np.asarray(ir_rx, dtype=np.float64), n=nfft, workers=-1).astype(
                 np.complex64
             )
             if ir_rx is not None
-            else None
+            else 1
         )
+        fft_v_pe = fft_v * fft_ir_tx * fft_ir_rx  # (N_freq,) complex64
 
         do_attenuation = self.alpha0 is not None
         distances_pe = None
@@ -681,22 +656,16 @@ class Reception(ReceptionBase):
             # path below. (The forward SIR FFTs stay per-scatterer: each scatterer has
             # its own h_tx/h_rx.)
             if not per_scatterer and not do_attenuation:
-                H_sum = amps @ H_pe  # (N_freq,) — BLAS matvec
+                H_sum = amps @ H_pe  # (N_freq,) — matvec
                 del H_pe
                 H_sum = H_sum * fft_v_pe
-                if fft_ir_tx is not None:
-                    H_sum *= fft_ir_tx
-                if fft_ir_rx is not None:
-                    H_sum *= fft_ir_rx
                 rf[e_rx, :] = (irfft(H_sum, n=nfft)[:pe_T] * scale).astype(np.float32)
                 continue
 
-            # Apply 3rd derivative on excitation, IR, attenuation.
-            H_pe *= fft_v_pe[np.newaxis, :]
-            if fft_ir_tx is not None:
-                H_pe *= fft_ir_tx[np.newaxis, :]
-            if fft_ir_rx is not None:
-                H_pe *= fft_ir_rx[np.newaxis, :]
+            # Apply the excitation/IR chain and attenuation. fft_v_pe is scalar 1 when
+            # no exc/IR is set; it broadcasts against H_pe's (P, N_freq) either way, so
+            # no explicit newaxis is needed.
+            H_pe *= fft_v_pe
             if do_attenuation and distances_pe is not None:
                 H_att = causal_attenuation_tf(
                     freqs,
