@@ -287,12 +287,10 @@ class ReceptionBase:
 
         The pulse-echo origin ``pe_t0`` is shifted to the beam axis by subtracting the TX
         focusing bulk ``tx.delays.max()`` (the last-firing element's delay) so downstream
-        beamforming needs no per-line correction; ``focused_sum`` also bakes the RX focus
-        into the line, so the RX bulk is subtracted too.
+        beamforming needs no per-line correction; we also bakes the RX focus if any,
+        so the RX bulk is subtracted too.
         """
-        t0 = pe_t0 - float(np.max(self.tx.delays))
-        if focused_sum:
-            t0 -= float(np.max(self.rx.delays))
+        t0 = pe_t0 - float(np.max(self.tx.delays)) - float(np.max(self.rx.delays))
         coords = {"t0": t0, "dt": dt}
         if downsampling is not None and int(downsampling) > 1:
             step = int(downsampling)

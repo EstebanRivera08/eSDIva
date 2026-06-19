@@ -547,6 +547,28 @@ class TransducerBase(ABC):
         d = np.atleast_1d(delays).astype(float)
         self.delays = d - d.min()
 
+    def set_impulse_response(self, ir: Optional[np.ndarray]) -> None:
+        """Set the transducers impulse response.
+
+        Parameters
+        ----------
+        ir : ndarray or None
+            Impulse response array. Converted to 1-D float32 and ravelled.
+            None = ideal (delta) response.
+        """
+        self.impulse_response = ir
+
+    def set_excitation(self, exc: Optional[np.ndarray]) -> None:
+        """Set the transducers excitation pulse.
+
+        Parameters
+        ----------
+        exc : ndarray or None
+            Excitation array. Converted to 1-D float32 and ravelled.
+            None = impulse (delta) excitation.
+        """
+        self.excitation = exc
+
     def get_mesh(self) -> pv.PolyData:
         """
         Build a PyVista surface mesh of the transducer.
