@@ -95,32 +95,36 @@ class TestZeroSteering:
 
 class TestXzPlaneSteering:
     def test_delays_monotone_for_positive_angle(self, linear_8elem):
-        """Positive θ_x: rightmost element fires first (max x → min delay)."""
+        """Positive θ_x: min-x element fires first (delay grows with x).
+
+        Plane wave along n = [sinθ, 0, cosθ]: element emit time ∝ projection r·n,
+        so the smallest projection (min x for θ>0) fires first at zero delay.
+        """
         d = linear_8elem.compute_delays(angle_steering_deg=20.0)
         # Element centers sorted by x (linear array)
-        x_centers = linear_8elem.element_centers[:, 0]
-        sort_idx = np.argsort(x_centers)
-        d_sorted = d[sort_idx]
-        # Delays must be monotonically non-increasing as x increases
-        assert np.all(np.diff(d_sorted) <= 1e-15)
-
-    def test_delays_monotone_for_negative_angle(self, linear_8elem):
-        """Negative θ_x: leftmost element fires first."""
-        d = linear_8elem.compute_delays(angle_steering_deg=-20.0)
         x_centers = linear_8elem.element_centers[:, 0]
         sort_idx = np.argsort(x_centers)
         d_sorted = d[sort_idx]
         # Delays must be monotonically non-decreasing as x increases
         assert np.all(np.diff(d_sorted) >= -1e-15)
 
+    def test_delays_monotone_for_negative_angle(self, linear_8elem):
+        """Negative θ_x: max-x element fires first (delay falls with x)."""
+        d = linear_8elem.compute_delays(angle_steering_deg=-20.0)
+        x_centers = linear_8elem.element_centers[:, 0]
+        sort_idx = np.argsort(x_centers)
+        d_sorted = d[sort_idx]
+        # Delays must be monotonically non-increasing as x increases
+        assert np.all(np.diff(d_sorted) <= 1e-15)
+
     def test_delays_proportional_to_x_position(self, linear_8elem):
-        """For xz-plane only: delays ∝ (x_max - x_i) * sin(θ) / c."""
+        """For xz-plane only: delays ∝ (x_i - x_min) * sin(θ) / c."""
         theta_deg = 15.0
         c = linear_8elem.speed_of_sound_mps
         d = linear_8elem.compute_delays(angle_steering_deg=theta_deg)
         x = linear_8elem.element_centers[:, 0]
         sin_theta = np.sin(np.deg2rad(theta_deg))
-        expected = (x.max() - x) * sin_theta / c
+        expected = (x - x.min()) * sin_theta / c
         np.testing.assert_allclose(d, expected, rtol=1e-8)
 
     def test_opposite_angles_mirror_delays(self, linear_8elem):

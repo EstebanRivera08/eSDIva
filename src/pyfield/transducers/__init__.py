@@ -80,14 +80,23 @@ __all__ = [
 
 
 def available_transducers() -> list:
-    """Return a list of all available transducer class names.
+    """Return the names of the concrete transducer classes.
+
+    Excludes the abstract base and the Field II factory functions — only the
+    instantiable transducer types.
 
     Returns
     -------
     list of str
-        Names of all exported transducer classes.
+        Names of all concrete transducer classes.
     """
-    return [name for name in __all__ if not name.startswith("_")]
+    return [
+        name
+        for name in __all__
+        if isinstance(obj := globals()[name], type)
+        and issubclass(obj, TransducerBase)
+        and obj is not TransducerBase
+    ]
 
 
 def create_transducer(kind: str, **kwargs):

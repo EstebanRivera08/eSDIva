@@ -85,12 +85,15 @@ from pyfield.hsir.transducer_sir_pe_sdi import (
     compute_twoway_spectrum_summed,
 )
 
+from pyfield.utilities.helper_functions import (
+    next_pow2 as _next_pow2,
+    wrap_tqdm as _wrap_tqdm,
+)
+
 from ..attenuation import convert_alpha0_to_nepers
 from .base import (
     ReceptionBase,
-    _next_pow2,
     _warn_if_rx_delays_apods_not_default,
-    _wrap_tqdm,
 )
 
 # Formulation selector values (see ReceptionSDI.method).
@@ -359,6 +362,20 @@ class ReceptionSDI(ReceptionBase):
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
         resolved = self._resolve_method(points_m, focused_sum)
+
+        # Per-element excitation (L, E) needs each TX element's pulse folded into its own
+        # partial SIR. The spectral/paired cores build one fused TX spectrum, so they
+        # cannot; the conventional core (a per-element SIR loop) can — route there.
+        exc = self._resolve_excitation()
+        if exc is not None and exc.ndim == 2 and resolved != "conventional":
+            warnings.warn(
+                "Per-element excitation (L, E) is only supported by the conventional "
+                f"core; falling back from method='{resolved}' to 'conventional'.",
+                UserWarning,
+                stacklevel=2,
+            )
+            resolved = "conventional"
+
         self._last_method = resolved  # introspection hook (tests / diagnostics)
 
         if resolved == "conventional":
@@ -799,9 +816,7 @@ class ReceptionSDI(ReceptionBase):
             # Snap the bin's pe window to the global lattice: round t0 down to a sample,
             # shift the TX reference by the (sub-sample) remainder so the product still
             # lands at the snapped origin. +1 sample covers the snap.
-            n0 = int(np.floor((pe_t0_nat - t0_g) / dt))
-            pe_t0_snap = t0_g + n0 * dt
-            shift = pe_t0_nat - pe_t0_snap  # in [0, dt)
+            n0, pe_t0_snap, shift = self._snap_to_lattice(pe_t0_nat, t0_g, dt)
             s = self._pe_setup(
                 pts,
                 n_integrations=n_integrations,

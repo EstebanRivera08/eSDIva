@@ -50,6 +50,7 @@ Spherical bowl (concave transducer)::
 
 from __future__ import annotations
 
+import warnings
 from typing import Callable, List, Optional, Tuple
 
 import numpy as np
@@ -123,7 +124,6 @@ def subdivide_spherical_cap(
     tv_list: List[np.ndarray] = []
     wu_list: List[float] = []
     wv_list: List[float] = []
-    flag_oversize_warning = False
 
     # Build ring schedule: (theta_center, dtheta_ring) for each ring.
     # Outer rings (coarse) + inner rings (refined near the pole).
@@ -211,10 +211,12 @@ def subdivide_spherical_cap(
         max_wv = float(np.max(wv_arr))
         max_ratio = max(max_wu, max_wv) / R
         if max_ratio > 0.3:
-            print(
-                f"Warning: Patch overlap detected near the pole (max patch/R ratio = "
+            warnings.warn(
+                f"Patch overlap detected near the pole (max patch/R ratio = "
                 f"{max_ratio:.2f}). To reduce overlap: increase no_sub, "
                 f"decrease ratio_big_patches, or increase refine_factor.",
+                UserWarning,
+                stacklevel=2,
             )
 
     print(
@@ -336,10 +338,7 @@ def subdivide_parametric_surface(
         drdu = (surface_fn(uc + eps_u, vc) - surface_fn(uc - eps_u, vc)) / (2.0 * eps_u)
         drdv = (surface_fn(uc, vc + eps_v) - surface_fn(uc, vc - eps_v)) / (2.0 * eps_v)
 
-        # Limit maximum tangent length to avoid extreme patch overlap at singularities
-        # drdu = np.clip(drdu, 0, 2)
-        # drdv = np.clip(drdv, 0, 2)
-
+        # Limit maximum tangent length to avoid extreme patch overlap at singularities.
         len_u = float(np.linalg.norm(drdu))
         len_v = float(np.linalg.norm(drdv))
         if len_u > 1.5:  # limit to 150%
@@ -478,9 +477,11 @@ def subdivide_parametric_surface(
 
     # Coverage warning: flag if patch area significantly exceeds surface area
     if coverage > 1.02:
-        print(
-            f"Warning: Patch coverage is {coverage:.1%} (> 105%).  This may indicate "
-            "patch overlap.  Increase no_sub_diameter or decrease ratio_big_patches.",
+        warnings.warn(
+            f"Patch coverage is {coverage:.1%} (> 102%).  This may indicate patch "
+            "overlap.  Increase no_sub_diameter or decrease ratio_big_patches.",
+            UserWarning,
+            stacklevel=2,
         )
 
     print(

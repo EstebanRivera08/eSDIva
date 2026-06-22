@@ -22,7 +22,7 @@ _inv_2pi = np.float32(1.0 / (2.0 * np.pi))
 
 
 @njit(inline="always")
-def _compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
+def _compute_rectangle_SIR_params(wx, wy, ux, uy, dist, inv_c, apod, delay, dt):
     """Trapezoidal SIR corner times and plateau height for one rectangular patch.
 
     The spatial impulse response of a small rectangle, seen from a field point in the
@@ -33,9 +33,10 @@ def _compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     ----------
     wx, wy : float
         Patch widths in the two in-plane directions (metres).
-    dx, dy : float
-        Direction cosines from patch centre to field point, projected onto the patch
-        in-plane axes (dimensionless, already divided by distance).
+    ux, uy : float
+        Direction cosines from patch centre to field point along the patch in-plane axes
+        (dimensionless, already divided by distance) — the `u`/`v` projections of the
+        unit vector, not position deltas.
     dist : float
         Distance from patch centre to field point (metres).
     inv_c : float
@@ -55,8 +56,8 @@ def _compute_rectangle_SIR_params(wx, wy, dx, dy, dist, inv_c, apod, delay, dt):
     h_max : float
         Trapezoid plateau height (the patch-area-weighted SIR amplitude).
     """
-    xp_abs = abs(dx) * wx * inv_c
-    yp_abs = abs(dy) * wy * inv_c
+    xp_abs = abs(ux) * wx * inv_c
+    yp_abs = abs(uy) * wy * inv_c
     Dt1 = min(xp_abs, yp_abs)  # shorter edge crossing.
     Dt2 = max(xp_abs, yp_abs)  # longer edge crossing.
     if Dt1 < dt:

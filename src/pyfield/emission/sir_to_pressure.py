@@ -6,14 +6,11 @@ from concurrent.futures import ThreadPoolExecutor
 import numpy as np
 
 from pyfield.utilities.helper_functions import (
+    next_pow2 as _next_pow2,
     reshape_to_mapped_points,
 )
 
 from ..attenuation import causal_attenuation_tf
-
-
-def _next_pow2(n):
-    return 1 << (int(n - 1).bit_length())
 
 
 def from_sir_to_monochromatic_pressure(
@@ -29,7 +26,6 @@ def from_sir_to_monochromatic_pressure(
     f0_hz=None,
     distances_m=None,
     batch_size=2048,
-    max_workers=None,
     verbose=False,
 ):
     """
@@ -63,9 +59,6 @@ def from_sir_to_monochromatic_pressure(
         ``alpha0`` is not ``None``.
     batch_size : int, optional
         Number of field points processed per FFT batch. Default is 2048.
-    max_workers : int, optional
-        Maximum number of worker threads. ``None`` lets ``ThreadPoolExecutor``
-        choose. Default is None.
     verbose : bool, optional
         If True, print timing information. Default is False.
 
@@ -80,7 +73,7 @@ def from_sir_to_monochromatic_pressure(
     # FFT batch memory vs full fft. fc < fs/2 always holds for ultrasound.
     freq_vect = np.fft.rfftfreq(T, d=1.0 / fs)
     idx = int(np.argmin(np.abs(freq_vect - fc)))
-    Hsir = np.zeros(n_points, dtype=np.float32)
+    h_at_fc = np.zeros(n_points, dtype=np.float32)
 
     do_attenuation = alpha0 is not None and distances_m is not None
     if do_attenuation:
@@ -107,23 +100,23 @@ def from_sir_to_monochromatic_pressure(
                 f0_hz,
             )  # (cols, 1)
             vals = vals * np.abs(H_att[:, 0]).astype(np.float32)
-        Hsir[start:end] = vals
+        h_at_fc[start:end] = vals
 
     if x is None or y is None or z is None:
         if verbose:
             print(
-                f"Monochromatic pressure with shape {Hsir.shape} (no meshgrid) "
+                f"Monochromatic pressure with shape {h_at_fc.shape} (no meshgrid) "
                 f"computed from SIR in {time.time() - start_time:.2f} seconds..."
             )
-        return Hsir
+        return h_at_fc
     else:
-        Pressure_at_fc = reshape_to_mapped_points(x, y, z, Hsir)
+        pressure_at_fc = reshape_to_mapped_points(x, y, z, h_at_fc)
         if verbose:
             print(
-                f"Monochromatic pressure with shape {Hsir.shape} computed from SIR in"
+                f"Monochromatic pressure with shape {h_at_fc.shape} computed from SIR in"
                 f" {time.time() - start_time:.2f} seconds..."
             )
-    return Pressure_at_fc[0]
+    return pressure_at_fc[0]
 
 
 def from_sir_to_pressure(
@@ -202,7 +195,7 @@ def from_sir_to_pressure(
         T, n_points = h_sir.shape
 
         if excitation is None:
-            Pressure_flat = h_sir
+            pressure_flat = h_sir
         else:
             # Backward diff d/dt matches compute_dh SDI convention: (v[n]-v[n-1])*fs.
             # Using forward diff (diff(exc)) introduces a 1-sample phase shift relative
@@ -220,7 +213,7 @@ def from_sir_to_pressure(
                 distances_arr = np.asarray(distances_m)
                 freqs_att = np.fft.rfftfreq(nfft, d=1.0 / fs)
 
-            Pressure_flat = np.zeros((T, n_points), dtype=np.float32)
+            pressure_flat = np.zeros((T, n_points), dtype=np.float32)
 
             def _process_batch(start):
                 """Convolve one batch of SIR columns with the excitation derivative."""
@@ -232,7 +225,7 @@ def from_sir_to_pressure(
                 # rfft, multiply, irfft
                 H_batch = np.fft.rfft(h_pad, axis=0)
                 # broadcast multiply: (nfreqs, cols) * (nfreqs, 1)
-                fft_Pressure = H_batch * fft_dExcitation
+                fft_pressure = H_batch * fft_dExcitation
                 if do_attenuation:
                     H_att = causal_attenuation_tf(
                         freqs_att,
@@ -241,18 +234,18 @@ def from_sir_to_pressure(
                         freq_power,
                         f0_hz,
                     )  # (cols, N_freq)
-                    fft_Pressure = fft_Pressure * H_att.T  # (N_freq, cols)
-                outputfft = np.fft.irfft(fft_Pressure, n=nfft, axis=0)
+                    fft_pressure = fft_pressure * H_att.T  # (N_freq, cols)
+                outputfft = np.fft.irfft(fft_pressure, n=nfft, axis=0)
                 # replicate previous behaviour: take first T samples (causal alignment)
-                Pressure_batch = np.abs(outputfft[:T, :])
-                return start, end, Pressure_batch
+                pressure_batch = np.abs(outputfft[:T, :])
+                return start, end, pressure_batch
 
-            # Parallel loop: collect blocks and write to Pressure_flat
+            # Parallel loop: collect blocks and write to pressure_flat
             with ThreadPoolExecutor(max_workers=max_workers) as executor:
                 for start, end, out in executor.map(
                     _process_batch, range(0, n_points, batch_size)
                 ):
-                    Pressure_flat[:, start:end] = out.astype(np.float32, copy=False)
+                    pressure_flat[:, start:end] = out.astype(np.float32, copy=False)
 
     except Exception as e:
         raise ValueError(f"Error FFT processing: {e}")
@@ -261,12 +254,12 @@ def from_sir_to_pressure(
     if x is None or y is None or z is None:
         if verbose:
             print(
-                f"Pressure with shape {Pressure_flat.shape} (no meshgrid) computed from SIR in"
+                f"Pressure with shape {pressure_flat.shape} (no meshgrid) computed from SIR in"
                 f" {time.time() - start_time:.2f} seconds..."
             )
-        return Pressure_flat
+        return pressure_flat
     else:
-        pressure_field = reshape_to_mapped_points(x, y, z, Pressure_flat) * rho
+        pressure_field = reshape_to_mapped_points(x, y, z, pressure_flat) * rho
         if verbose:
             print(
                 f"Pressure with shape {pressure_field.shape} computed from SIR"

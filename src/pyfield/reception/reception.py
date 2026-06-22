@@ -40,22 +40,17 @@ import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
 from pyfield.hsir.farfield_rect_patch import compute_h_sir
+from pyfield.utilities.helper_functions import (
+    method_to_flag as _method_to_flag,
+    next_pow2 as _next_pow2,
+    wrap_tqdm as _wrap_tqdm,
+)
 
 from ..attenuation import causal_attenuation_tf, compute_reception_distances
 from .base import (
     ReceptionBase,
-    _next_pow2,
     _warn_if_rx_delays_apods_not_default,
-    _wrap_tqdm,
 )
-
-
-def _method_to_flag(method):
-    if method == "naive":
-        return 0
-    if method in ("sdi", "SDI"):
-        return 1
-    return None  # auto
 
 
 class Reception(ReceptionBase):
@@ -174,9 +169,11 @@ class Reception(ReceptionBase):
         """
         dt = 1.0 / self.fs
         _, t0, _, T = self._oneway_time_grid(pts, aperture)
-        n0 = int(np.floor((t0 - t0_global) / dt))
-        T += int(round((t0 - (t0_global + n0 * dt)) / dt)) + 1
-        grid = (t0_global + (n0 + np.arange(T)) * dt).astype(np.float32)
+        # Snap the bin's start onto the global lattice; +1 sample covers the snap
+        # (the sub-sample remainder is < dt, so it never adds a second sample).
+        n0, t0_snap, _shift = self._snap_to_lattice(t0, t0_global, dt)
+        T += 1
+        grid = (t0_snap + np.arange(T) * dt).astype(np.float32)
         return grid, n0, T
 
     def _fast_rf_binned(
@@ -328,10 +325,26 @@ class Reception(ReceptionBase):
         )  # focused_sum is the quiet loop primitive
         method_flag = _method_to_flag(self.method)
 
+        # Per-element excitation (L, E): one pulse per TX element. It must be folded into
+        # each element's partial SIR, which the inline path below does; the depth-binned
+        # fast path builds one combined h_tx, so it is skipped for this mode.
+        exc = self._resolve_excitation()
+        n_tx = int(self.tx.delays.shape[0])
+        per_elem_exc = exc is not None and exc.ndim == 2
+        if per_elem_exc and exc.shape[1] != n_tx:
+            raise ValueError(
+                f"Per-element excitation must have shape (L, E={n_tx}), got {exc.shape}."
+            )
+
         # Depth-binned fast path: per-element RF, no attenuation. Bounded per-bin
         # time grids → smaller nfft → big speedup at high scatterer counts. Bin count
         # from self.n_depth_bins ("auto" or int).
-        if not per_scatterer and not focused_sum and self.alpha0 is None:
+        if (
+            not per_scatterer
+            and not focused_sum
+            and self.alpha0 is None
+            and not per_elem_exc
+        ):
             n_bins = self.n_depth_bins
             n_bins = (
                 self._auto_depth_bins(points_m, n_out)
@@ -358,35 +371,27 @@ class Reception(ReceptionBase):
         pe_t0 = t0_tx + t0_rx
         pe_T = T_tx + T_rx - 1
 
-        exc = self._resolve_excitation()
         ir_tx = getattr(self.tx, "impulse_response", None)
         ir_rx = getattr(self.rx, "impulse_response", None)
+        # exc / per_elem_exc resolved above (needed for the fast-path guard). Per-element
+        # exc is folded into each TX element's partial SIR in the H_tx build below; a
+        # global pulse joins the shared IRs in fft_v.
 
-        L = len(exc) if exc is not None else 0
+        L = exc.shape[0] if exc is not None else 0
         nfft = _next_pow2(pe_T + L)
         freqs = rfftfreq(nfft, d=1.0 / self.fs)  # (N_freq,) float64 for precision
 
-        fft_v = (
-            rfft(exc.astype(np.float64), n=nfft, workers=-1).astype(np.complex64)
-            if exc is not None
-            else 1
-        )
+        def _rfft64(sig):
+            return rfft(np.asarray(sig, dtype=np.float64), n=nfft, workers=-1).astype(
+                np.complex64
+            )
 
-        fft_ir_tx = (
-            rfft(np.asarray(ir_tx, dtype=np.float64), n=nfft, workers=-1).astype(
-                np.complex64
-            )
-            if ir_tx is not None
-            else 1
-        )
-        fft_ir_rx = (
-            rfft(np.asarray(ir_rx, dtype=np.float64), n=nfft, workers=-1).astype(
-                np.complex64
-            )
-            if ir_rx is not None
-            else 1
-        )
-        fft_v_pe = fft_v * fft_ir_tx * fft_ir_rx  # (N_freq,) complex64
+        # ir_tx and ir_rx are shared by every patch, so they stay in the post-sum filter
+        # for both excitation modes; only a global excitation joins them in fft_v.
+        fft_ir_tx = _rfft64(ir_tx) if ir_tx is not None else 1
+        fft_ir_rx = _rfft64(ir_rx) if ir_rx is not None else 1
+        fft_v = _rfft64(exc) if (exc is not None and not per_elem_exc) else 1
+        post_filter = fft_v * fft_ir_tx * fft_ir_rx  # (N_freq,) complex64 or scalar 1
 
         do_attenuation = self.alpha0 is not None
         distances_pe = None
@@ -425,32 +430,73 @@ class Reception(ReceptionBase):
 
         t_wall = time.time()
 
-        # Compute h_tx once for all scatterers: (P, T_tx).
-        h_tx, _ = compute_h_sir(
-            P,
-            self._tx_M,
-            T_tx,
-            dt,
-            time_grid_tx,
-            points_m,
-            self._tx_centers,
-            self._tx_wx,
-            self._tx_wy,
-            inv_c,
-            self.fs,
-            self._tx_apod,
-            self._tx_delays,
-            method_flag,
-            self._tx_eu,
-            self._tx_ev,
-        )  # (P, T_tx) float32
-
-        # FFT the SIR in float32 (→complex64): the SIR is float32 already and the
-        # exc/IR band-pass tolerates it (matches ReceptionSDI, which also FFTs in
-        # float32). Upcasting to float64 here doubled the FFT cost — the dominant
-        # term — for negligible accuracy gain.
-        H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)  # (P, N_freq) complex64
-        del h_tx
+        # Build the transmit SIR spectrum H_tx (P, N_freq). FFT in float32 (→complex64):
+        # the SIR is float32 already and the exc/IR band-pass tolerates it (matches
+        # ReceptionSDI). Upcasting to float64 here doubled the dominant FFT cost for
+        # negligible accuracy gain.
+        if per_elem_exc:
+            # One pulse per TX element: sum each element's SIR spectrum weighted by its
+            # own excitation FFT, H_tx = Σ_e FFT(h_tx_e)·FFT(exc[:, e]).
+            tx_groups = self._group_patches_by_element(
+                n_tx,
+                self._tx_sub_el_idx,
+                (
+                    self._tx_centers,
+                    self._tx_wx,
+                    self._tx_wy,
+                    self._tx_apod,
+                    self._tx_delays,
+                    self._tx_eu,
+                    self._tx_ev,
+                ),
+            )
+            H_tx = np.zeros((P, freqs.shape[0]), dtype=np.complex64)
+            for e in range(n_tx):
+                c_e, wx_e, wy_e, ap_e, dl_e, eu_e, ev_e = tx_groups[e]
+                if c_e.shape[0] == 0:
+                    continue
+                h_e, _ = compute_h_sir(
+                    P,
+                    c_e.shape[0],
+                    T_tx,
+                    dt,
+                    time_grid_tx,
+                    points_m,
+                    c_e,
+                    wx_e,
+                    wy_e,
+                    inv_c,
+                    self.fs,
+                    ap_e,
+                    dl_e,
+                    method_flag,
+                    eu_e,
+                    ev_e,
+                )  # (P, T_tx) float32
+                H_tx += rfft(h_e, n=nfft, axis=1, workers=-1) * _rfft64(exc[:, e])
+                del h_e
+        else:
+            # Compute h_tx once for all scatterers from every TX patch: (P, T_tx).
+            h_tx, _ = compute_h_sir(
+                P,
+                self._tx_M,
+                T_tx,
+                dt,
+                time_grid_tx,
+                points_m,
+                self._tx_centers,
+                self._tx_wx,
+                self._tx_wy,
+                inv_c,
+                self.fs,
+                self._tx_apod,
+                self._tx_delays,
+                method_flag,
+                self._tx_eu,
+                self._tx_ev,
+            )  # (P, T_tx) float32
+            H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)  # (P, N_freq) complex64
+            del h_tx
 
         rf = np.zeros(
             (P, n_out, pe_T) if per_scatterer else (n_out, pe_T), dtype=np.float32
@@ -505,14 +551,14 @@ class Reception(ReceptionBase):
             if not per_scatterer and not do_attenuation:
                 H_sum = amps @ H_pe  # (N_freq,) — matvec
                 del H_pe
-                H_sum = H_sum * fft_v_pe
+                H_sum = H_sum * post_filter
                 rf[e_rx, :] = (irfft(H_sum, n=nfft)[:pe_T] * scale).astype(np.float32)
                 continue
 
-            # Apply the excitation/IR chain and attenuation. fft_v_pe is scalar 1 when
-            # no exc/IR is set; it broadcasts against H_pe's (P, N_freq) either way, so
-            # no explicit newaxis is needed.
-            H_pe *= fft_v_pe
+            # Apply the post-sum filter (global exc and/or IRs) and attenuation.
+            # post_filter is scalar 1 when none are set; it broadcasts against H_pe's
+            # (P, N_freq) either way, so no explicit newaxis is needed.
+            H_pe *= post_filter
             if do_attenuation and distances_pe is not None:
                 H_att = causal_attenuation_tf(
                     freqs,

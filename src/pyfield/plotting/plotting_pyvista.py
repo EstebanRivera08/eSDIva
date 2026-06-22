@@ -145,8 +145,7 @@ def add_3D_vol(
         if key not in kwargs:
             kwargs[key] = value
 
-    vol = plotter.add_volume(vol_3D, **kwargs)
-    # vol.prop.interpolation_type = "linear"
+    plotter.add_volume(vol_3D, **kwargs)
     plotter.add_axes()
     return plotter
 

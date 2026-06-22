@@ -1,5 +1,7 @@
 """Far-field rectangular patch SIR computation kernels."""
 
+import warnings
+
 import numpy as np
 from numba import njit, prange
 
@@ -70,6 +72,7 @@ def compute_parallelized_sir_optimized(
     fs,
     dt,
     method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
+    return_deltak,  # if True, fill range_k_matrix (per-patch trapezoid width in samples)
 ):
     """Compute SIR in parallel over field points.
 
@@ -106,6 +109,11 @@ def compute_parallelized_sir_optimized(
         Time step size.
     method_flag : int
         0 for naive, 1 for SDI, 2 for auto.
+    return_deltak : bool
+        If True, fill and return the per-patch trapezoid width Δk (samples) in
+        ``range_k_matrix``. If False, skip that ``(P, M)`` allocation entirely
+        (a ``(1, 1)`` placeholder is returned) — the width is still computed as
+        a scalar for the auto method decision.
 
     Returns
     -------
@@ -113,13 +121,29 @@ def compute_parallelized_sir_optimized(
         ``(h_out, range_k_matrix, min_time, max_time)``.
     """
     h_out = np.zeros((P, T), dtype=np.float32)
-    d2h = np.zeros((P, T), dtype=np.float32)  # used if SDI path chosen
-    range_k_matrix = np.zeros((P, M), dtype=np.int32)
+    # SDI scratch for the 2nd-derivative delta train (double-integrated into h_out
+    # below). Only the SDI and auto paths ever write it; the naive path
+    # (method_flag == 0) leaves it untouched, so skip the full (P, T) allocation there
+    # and keep a (1, 1) placeholder — halves the big-buffer footprint of naive runs.
+    if method_flag != 0:
+        d2h = np.zeros((P, T), dtype=np.float32)
+    else:
+        d2h = np.zeros((1, 1), dtype=np.float32)
+    # Only allocate the full Δk matrix when the caller wants it; the scalar
+    # range_k below still drives the auto naive/SDI decision either way.
+    if return_deltak:
+        range_k_matrix = np.zeros((P, M), dtype=np.int32)
+    else:
+        range_k_matrix = np.zeros((1, 1), dtype=np.int32)
     t0 = time_grid[0]
 
     # Per-point min/max to avoid race conditions in prange
     local_min_time = np.empty(P, dtype=np.float32)
     local_max_time = np.empty(P, dtype=np.float32)
+    # Out-of-grid flag per point (race-safe: each p writes its own slot). The caller
+    # warns once if any patch event fell outside the time grid — never print inside
+    # prange (garbled and slow under parallel threads).
+    oob = np.zeros(P, dtype=np.int8)
 
     # precompute threshold term for auto decision (8 + 2*T/M)
     threshold_term = 8.0 + 2.0 * (T / M)
@@ -164,7 +188,6 @@ def compute_parallelized_sir_optimized(
             if t4 > p_max_time:
                 p_max_time = t4
             if h_max < 1e-6:
-                range_k_matrix[p, m] = 0
                 continue
 
             # compute discrete indices (floats)
@@ -172,25 +195,14 @@ def compute_parallelized_sir_optimized(
             k_start = int(np.floor((t1 - t0) * fs))
             k_end = int(np.ceil((t4 - t0) * fs) + 1)
 
-            # If out of time range skip point
+            # If out of time range, flag the point and skip this patch (warn in caller).
             if k_end < 0 or k_start >= T:
-                print("Warning: event outside time grid in point ", p)
-                print(
-                    "t1 (us):",
-                    t1 * 1e6,
-                    "t4 (us):",
-                    t4 * 1e6,
-                    "k_start:",
-                    k_start,
-                    "k_end:",
-                    k_end,
-                    "T:",
-                    T,
-                )
+                oob[p] = 1
                 continue
 
             range_k = k_end - k_start
-            range_k_matrix[p, m] = range_k
+            if return_deltak:
+                range_k_matrix[p, m] = range_k
 
             # decide method for this patch
             use_naive = True
@@ -241,7 +253,7 @@ def compute_parallelized_sir_optimized(
         if local_max_time[p] > max_time:
             max_time = local_max_time[p]
 
-    return h_out, range_k_matrix, min_time, max_time
+    return h_out, range_k_matrix, min_time, max_time, oob
 
 
 # ---------- computes h_sir ----------
@@ -262,6 +274,7 @@ def compute_h_sir(
     method_flag=1,
     eu=None,
     ev=None,
+    return_deltak=False,
 ):
     """Compute the SIR impulse response for field points and patches.
 
@@ -299,20 +312,24 @@ def compute_h_sir(
         Local u-tangent unit vectors per patch. None = global x-axis.
     ev : ndarray, shape (M, 3), optional
         Local v-tangent unit vectors per patch. None = global y-axis.
+    return_deltak : bool, optional
+        If True, include ``range_k_matrix`` (per-patch trapezoid width in
+        samples, shape ``(P, M)``) in the returned info dict. Default False
+        skips that allocation — most callers never read it.
 
     Returns
     -------
     tuple
         ``(h_out, info_struct)`` where ``h_out`` is shape ``(P, T)`` and
-        ``info_struct`` is a dict with ``min_time``, ``max_time``, and
-        ``range_k_matrix``.
+        ``info_struct`` is a dict with ``min_time``, ``max_time``, and (only
+        when ``return_deltak=True``) ``range_k_matrix``.
     """
     if eu is None or ev is None:
         eu, ev = identity_tangents(M)
     patch_frames = pack_tangents(
         np.asarray(eu, dtype=np.float32), np.asarray(ev, dtype=np.float32)
     )
-    h_out, range_k_matrix, min_time, max_time = compute_parallelized_sir_optimized(
+    h_out, range_k_matrix, min_time, max_time, oob = compute_parallelized_sir_optimized(
         P,
         M,
         T,
@@ -328,11 +345,20 @@ def compute_h_sir(
         fs,
         dt,
         method_flag,
+        return_deltak,
     )
 
-    info_data = {
-        "min_time": min_time,
-        "max_time": max_time,
-        "range_k_matrix": range_k_matrix,
-    }
+    n_oob = int(oob.sum())
+    if n_oob:
+        warnings.warn(
+            f"{n_oob} field point(s) had patch SIR events outside the time grid; "
+            "those contributions were dropped. Widen the time grid or check the "
+            "geometry (points coincident with the aperture).",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    info_data = {"min_time": min_time, "max_time": max_time}
+    if return_deltak:
+        info_data["range_k_matrix"] = range_k_matrix
     return h_out, info_data

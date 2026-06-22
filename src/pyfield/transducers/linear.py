@@ -17,7 +17,7 @@ from typing import List, Optional, Tuple
 
 import numpy as np
 
-from . import validators
+from . import geometry_utils, validators
 from .base import TransducerBase
 
 
@@ -216,42 +216,25 @@ class LinearArrayTransducer(TransducerBase):
         if z_foc <= 0:
             print("z_foc <= 0: computing diverging-wave apodization.")
 
-        N = self.n_elements
-
         if apodization_type is None:
             print("No apodization_type given — defaulting to 'rect'.")
             apodization_type = "rect"
 
-        if apodization_type == "none":
-            apod = np.ones(N, dtype=float)
-        else:
+        if apodization_type != "none":
             if FoverD is not None:
                 self.FoverD = float(FoverD)
             if self.FoverD is None:
                 print("F/D not set — defaulting to 1.0.")
                 self.FoverD = 1.0
 
-            D = abs(z_foc) / self.FoverD
-            # Number of elements spanning aperture D (must match parity of N)
-            N_virt = int(round((D / (N * self.pitch)) * N / 2) * 2 + (N % 2))
-            N_ext = max(1, N_virt)
-
-            if apodization_type == "rect":
-                wins = np.ones(N_ext)
-            elif apodization_type == "hanning":
-                wins = np.hanning(N_ext)
-            else:
-                wins = np.hamming(N_ext)
-
-            # Slide window so its centre aligns with x_foc
-            shift_elems = int(np.round(x_foc / self.pitch)) - 1
-            shift_elems = np.clip(shift_elems, -(N - 1) // 2, (N - 1) // 2 + 1)
-
-            center_idx = (N_ext - 1) // 2 - shift_elems
-            idxs = np.arange(N_ext) - center_idx + N // 2
-            valid = (idxs >= 0) & (idxs < N)
-            apod = np.zeros(N)
-            apod[idxs[valid]] = wins[valid]
+        apod = geometry_utils.windowed_apodization_1d(
+            self.n_elements,
+            self.pitch,
+            x_foc,
+            z_foc,
+            self.FoverD if self.FoverD is not None else 1.0,
+            apodization_type,
+        )
 
         if inline:
             self.apodization = apod
@@ -500,42 +483,28 @@ class ConvexArrayTransducer(TransducerBase):
         if focus_mm is None:
             raise ValueError("focus_mm is required for multi-element transducers.")
 
-        # Reuse linear apodization — the arc curvature only matters for delays
+        # The arc curvature only affects delays; lateral apodization is the same
+        # windowed sub-aperture as the flat linear array.
         focus_m = validators.validate_focus_coordinates(focus_mm)
         x_foc, z_foc = focus_m[0], focus_m[2]
 
         if apodization_type is None:
             apodization_type = "rect"
 
-        N = self.n_elements
-        if apodization_type == "none":
-            apod = np.ones(N, dtype=float)
-        else:
+        if apodization_type != "none":
             if FoverD is not None:
                 self.FoverD = float(FoverD)
             if self.FoverD is None:
                 self.FoverD = 1.0
-            D = abs(z_foc) / self.FoverD
-            N_virt = int(round((D / (N * self.pitch)) * N / 2) * 2 + (N % 2))
-            N_virt = max(1, N_virt)
 
-            if apodization_type == "rect":
-                wins = np.ones(N_virt)
-            elif apodization_type == "hanning":
-                wins = np.hanning(N_virt)
-            else:
-                wins = np.hamming(N_virt)
-
-            if N_virt > N:
-                N_virt = N
-                wins = wins[:N]
-
-            shift_elems = int(np.round(x_foc / self.pitch))
-            center_idx = (N_virt - 1) // 2 - shift_elems
-            idxs = np.arange(N_virt) - center_idx + N // 2
-            valid = (idxs >= 0) & (idxs < N)
-            apod = np.zeros(N)
-            apod[idxs[valid]] = wins[valid]
+        apod = geometry_utils.windowed_apodization_1d(
+            self.n_elements,
+            self.pitch,
+            x_foc,
+            z_foc,
+            self.FoverD if self.FoverD is not None else 1.0,
+            apodization_type,
+        )
 
         if inline:
             self.apodization = apod

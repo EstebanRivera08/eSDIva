@@ -41,54 +41,6 @@ def validate_positive(value: float, name: str, strict: bool = False) -> float:
     return value
 
 
-def validate_range(
-    value: float,
-    name: str,
-    min_val: Optional[float] = None,
-    max_val: Optional[float] = None,
-    inclusive: bool = True,
-) -> float:
-    """
-    Validate that a value is within a specified range.
-
-    Parameters
-    ----------
-    value : float
-        The value to validate.
-    name : str
-        The name of the parameter (for error messages).
-    min_val : float, optional
-        Minimum allowed value.
-    max_val : float, optional
-        Maximum allowed value.
-    inclusive : bool, optional
-        If True, bounds are inclusive. Default is True.
-
-    Returns
-    -------
-    float
-        The validated value.
-
-    Raises
-    ------
-    ValueError
-        If validation fails.
-    """
-    if min_val is not None:
-        if inclusive and value < min_val:
-            raise ValueError(f"{name} must be >= {min_val}, got {value}")
-        elif not inclusive and value <= min_val:
-            raise ValueError(f"{name} must be > {min_val}, got {value}")
-
-    if max_val is not None:
-        if inclusive and value > max_val:
-            raise ValueError(f"{name} must be <= {max_val}, got {value}")
-        elif not inclusive and value >= max_val:
-            raise ValueError(f"{name} must be < {max_val}, got {value}")
-
-    return value
-
-
 def validate_integer(value: Union[int, float], name: str, min_val: int = 1) -> int:
     """
     Validate that a value is a positive integer.
@@ -227,45 +179,6 @@ def validate_focus_coordinates(
         )
 
     return focus_3d * 1e-3  # Convert mm to meters
-
-
-def validate_f_over_d(f_over_d: Optional[float], focus_depth_mm: float) -> float:
-    """
-    Validate F/D ratio.
-
-    Parameters
-    ----------
-    f_over_d : float or None
-        F/D ratio (focal length / diameter).
-    focus_depth_mm : float
-        Focal depth in millimeters (for sanity checks).
-
-    Returns
-    -------
-    float
-        The validated F/D ratio, or 1.0 if None.
-
-    Raises
-    ------
-    ValueError
-        If F/D ratio is invalid.
-    """
-    if f_over_d is None:
-        return 1.0
-
-    if f_over_d <= 0:
-        raise ValueError(f"F/D ratio must be positive, got {f_over_d}")
-
-    if f_over_d < 0.1:
-        import warnings
-
-        warnings.warn(
-            f"F/D ratio ({f_over_d}) is very small. This may result in "
-            "a very tight aperture.",
-            UserWarning,
-        )
-
-    return float(f_over_d)
 
 
 def validate_apodization_weights(

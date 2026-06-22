@@ -7,214 +7,72 @@ across all transducer types.
 """
 
 import numpy as np
-from typing import List, Tuple, Optional
+from typing import List
 import pyvista as pv
 
 
-def compute_1d_element_centers(
+def windowed_apodization_1d(
     n_elements: int,
-    element_size_m: float,
-    kerf_m: float,
+    pitch_m: float,
+    x_foc_m: float,
+    z_foc_m: float,
+    f_over_d: float,
+    apodization_type: str,
 ) -> np.ndarray:
-    """
-    Compute element center positions for a 1D linear arrangement.
+    """Windowed sub-aperture apodization for a 1-D array (linear / convex).
+
+    The active aperture spans the F-number footprint ``D = |z_foc| / (F/D)``; the
+    window (``rect`` / ``hanning`` / ``hamming``) is sized to the nearest number of
+    elements covering ``D`` (parity matched to ``n_elements`` so an odd array keeps a
+    centre element) and slid so its centre lands on the element nearest the lateral
+    focus ``x_foc``.
+
+    Centring is parity-symmetric: ``offset = (N - N_virt)//2 + round(x_foc/pitch)``
+    puts the window middle on the array middle for both even and odd ``N`` (an on-axis
+    focus therefore yields a strictly symmetric profile — the physical requirement).
 
     Parameters
     ----------
     n_elements : int
-        Number of elements.
-    element_size_m : float
-        Size of each element in meters (width or diameter).
-    kerf_m : float
-        Gap between elements in meters.
+        Number of array elements ``N``.
+    pitch_m : float
+        Element-to-element spacing in metres.
+    x_foc_m, z_foc_m : float
+        Lateral and axial focus coordinates in metres.
+    f_over_d : float
+        F-number (focal length / aperture). Sets the active-aperture width.
+    apodization_type : {"none", "rect", "hanning", "hamming"}
+        Window shape. ``"none"`` returns uniform full-aperture weights.
 
     Returns
     -------
-    ndarray, shape (n_elements,)
-        Element positions along the axis (x-coordinates for linear arrays).
+    (n_elements,) numpy.ndarray
+        Per-element apodization weights (zero outside the active sub-aperture).
     """
-    pitch = element_size_m + kerf_m
-    total_width = n_elements * element_size_m + (n_elements - 1) * kerf_m
-    start_pos = -total_width / 2 + element_size_m / 2
+    N = int(n_elements)
+    if apodization_type == "none":
+        return np.ones(N, dtype=float)
 
-    return np.array([start_pos + i * pitch for i in range(n_elements)])
+    # Active-aperture width D → element count, parity-matched to N (keeps a centre
+    # element for odd arrays), clamped to the physical aperture.
+    D = abs(z_foc_m) / f_over_d
+    n_virt = int(round((D / (N * pitch_m)) * N / 2) * 2 + (N % 2))
+    n_virt = max(1, min(n_virt, N))
 
+    if apodization_type == "rect":
+        wins = np.ones(n_virt)
+    elif apodization_type == "hanning":
+        wins = np.hanning(n_virt)
+    else:  # hamming
+        wins = np.hamming(n_virt)
 
-def compute_2d_element_centers(
-    n_elem_x: int,
-    n_elem_y: int,
-    element_size_x_m: float,
-    element_size_y_m: float,
-    kerf_x_m: float,
-    kerf_y_m: float,
-) -> np.ndarray:
-    """
-    Compute element center positions for a 2D rectangular grid arrangement.
-
-    Parameters
-    ----------
-    n_elem_x : int
-        Number of elements in x-direction.
-    n_elem_y : int
-        Number of elements in y-direction.
-    element_size_x_m : float
-        Element size in x-direction (meters).
-    element_size_y_m : float
-        Element size in y-direction (meters).
-    kerf_x_m : float
-        Kerf (gap) in x-direction (meters).
-    kerf_y_m : float
-        Kerf (gap) in y-direction (meters).
-
-    Returns
-    -------
-    ndarray, shape (n_elem_x * n_elem_y, 2)
-        Element centers as (x, y) coordinates.
-    """
-    pitch_x = element_size_x_m + kerf_x_m
-    pitch_y = element_size_y_m + kerf_y_m
-
-    total_w = n_elem_x * element_size_x_m + (n_elem_x - 1) * kerf_x_m
-    total_h = n_elem_y * element_size_y_m + (n_elem_y - 1) * kerf_y_m
-
-    start_x = -total_w / 2 + element_size_x_m / 2
-    start_y = -total_h / 2 + element_size_y_m / 2
-
-    centers_2d = []
-    for iy in range(n_elem_y):
-        y = start_y + iy * pitch_y
-        for ix in range(n_elem_x):
-            x = start_x + ix * pitch_x
-            centers_2d.append([x, y])
-
-    return np.array(centers_2d)
-
-
-def build_rectangular_subdivisions(
-    element_center: np.ndarray,
-    element_width_m: float,
-    element_height_m: float,
-    no_sub_x: int,
-    no_sub_y: int,
-    elevation_curvature_m: Optional[float] = None,
-) -> Tuple[List[np.ndarray], float]:
-    """
-    Build rectangular subdivision patches for a single element.
-
-    Parameters
-    ----------
-    element_center : ndarray, shape (3,)
-        3D center position of the element.
-    element_width_m : float
-        Width of the element in x-direction (meters).
-    element_height_m : float
-        Height of the element in y-direction (meters).
-    no_sub_x : int
-        Number of subdivisions in x-direction.
-    no_sub_y : int
-        Number of subdivisions in y-direction.
-    elevation_curvature_m : float, optional
-        Elevation focus radius for curved surface. If None, flat surface.
-
-    Returns
-    -------
-    quads : list of ndarray
-        List of quad vertices. Each quad is shape (4, 3) with vertices in order:
-        [bottom-left, bottom-right, top-right, top-left].
-    patch_area : float
-        Area of each patch in square meters.
-    """
-    # Local grid edges in element coordinates
-    xs = np.linspace(-element_width_m / 2, element_width_m / 2, no_sub_x + 1)
-    ys = np.linspace(-element_height_m / 2, element_height_m / 2, no_sub_y + 1)
-
-    patch_area = (element_width_m / no_sub_x) * (element_height_m / no_sub_y)
-    quads = []
-
-    for i in range(no_sub_x):
-        for j in range(no_sub_y):
-            # Four corners of the patch in local coordinates
-            corners_local = np.array(
-                [
-                    [xs[i], ys[j], 0.0],
-                    [xs[i + 1], ys[j], 0.0],
-                    [xs[i + 1], ys[j + 1], 0.0],
-                    [xs[i], ys[j + 1], 0.0],
-                ],
-                dtype=float,
-            )
-
-            # Translate to global coordinates
-            corners = corners_local.copy()
-            corners[:, 0] += element_center[0]
-            corners[:, 1] += element_center[1]
-
-            # Apply elevation curvature (curved surface in z)
-            if elevation_curvature_m is not None and elevation_curvature_m > 0:
-                y_vals = corners[:, 1]
-                z_offset = elevation_curvature_m - np.sqrt(
-                    np.clip(elevation_curvature_m**2 - y_vals**2, 0, None)
-                )
-                corners[:, 2] += z_offset
-            else:
-                corners[:, 2] += element_center[2]
-
-            quads.append(corners)
-
-    return quads, patch_area
-
-
-def build_all_subdivisions(
-    element_centers: np.ndarray,
-    element_width_m: float,
-    element_height_m: float,
-    no_sub_x: int,
-    no_sub_y: int,
-    elevation_curvature_m: Optional[float] = None,
-) -> Tuple[List[np.ndarray], float, List[int]]:
-    """
-    Build all subdivision patches for all elements.
-
-    Parameters
-    ----------
-    element_centers : ndarray, shape (n_elements, 3)
-        3D center positions of all elements.
-    element_width_m : float
-        Width of each element (meters).
-    element_height_m : float
-        Height of each element (meters).
-    no_sub_x : int
-        Number of subdivisions per element in x-direction.
-    no_sub_y : int
-        Number of subdivisions per element in y-direction.
-    elevation_curvature_m : float, optional
-        Elevation focus radius. If None, flat surfaces.
-
-    Returns
-    -------
-    sub_quad_verts : list of ndarray
-        List of all subdivision quad vertices.
-    sub_area : float
-        Area of each patch (same for all).
-    sub_el_idx : list of int
-        Element index for each patch (maps patch to its element).
-    """
-    sub_quad_verts = []
-    sub_el_idx = []
-
-    for idx, center in enumerate(element_centers):
-        quads, patch_area = build_rectangular_subdivisions(
-            center,
-            element_width_m,
-            element_height_m,
-            no_sub_x,
-            no_sub_y,
-            elevation_curvature_m,
-        )
-        sub_quad_verts.extend(quads)
-        sub_el_idx.extend([idx] * len(quads))
-
-    return sub_quad_verts, patch_area, sub_el_idx
+    # Slide the window so its centre sits on the element nearest x_foc.
+    offset = (N - n_virt) // 2 + int(np.round(x_foc_m / pitch_m))
+    idxs = np.arange(n_virt) + offset
+    valid = (idxs >= 0) & (idxs < N)
+    apod = np.zeros(N, dtype=float)
+    apod[idxs[valid]] = wins[valid]
+    return apod
 
 
 def create_mesh_from_quads(
@@ -278,45 +136,6 @@ def create_mesh_from_quads(
     mesh.cell_data["Delays"] = np.array(cell_delays)
 
     return mesh
-
-
-def normalize_delays(delays: np.ndarray) -> np.ndarray:
-    """
-    Normalize delays so minimum is zero.
-
-    Parameters
-    ----------
-    delays : ndarray
-        Delay values in seconds.
-
-    Returns
-    -------
-    ndarray
-        Normalized delays.
-    """
-    return delays - np.min(delays)
-
-
-def compute_distances_to_point(
-    element_centers: np.ndarray,
-    focus_point_m: np.ndarray,
-) -> np.ndarray:
-    """
-    Compute distances from element centers to a focal point.
-
-    Parameters
-    ----------
-    element_centers : ndarray, shape (n_elements, 3)
-        3D positions of element centers in meters.
-    focus_point_m : ndarray, shape (3,)
-        3D focal point coordinates in meters.
-
-    Returns
-    -------
-    ndarray, shape (n_elements,)
-        Euclidean distances from each element to focus point.
-    """
-    return np.linalg.norm(element_centers - focus_point_m, axis=1)
 
 
 def rotation_matrix_z_to_normal(normal: np.ndarray) -> np.ndarray:

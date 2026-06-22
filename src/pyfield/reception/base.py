@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, Any
 import numpy as np
 from scipy.signal import decimate, hilbert
 
+from pyfield.simulation_base import SimulationBase
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
@@ -32,20 +33,6 @@ _SIZE_WARN_BYTES = 2 * 1024**3  # 2 GiB
 # Pulse-echo fast path splits scatterers into depth bins (see _auto_depth_bins).
 # Keep at least this many scatterers per bin so each batch stays cache-resident.
 _MIN_SCATTERERS_PER_BIN = 128
-
-
-def _next_pow2(n):
-    return 1 << (int(n - 1).bit_length())
-
-
-def _wrap_tqdm(iterable, **kwargs):
-    """Wrap with tqdm if importable, else return plain iterable."""
-    try:
-        from tqdm import tqdm
-
-        return tqdm(iterable, **kwargs)
-    except ImportError:
-        return iterable
 
 
 def _warn_if_rx_delays_apods_not_default(rx):
@@ -93,7 +80,7 @@ def _countdown(est_bytes, label, enabled):
     print(" " * 20, end="\r")
 
 
-class ReceptionBase:
+class ReceptionBase(SimulationBase):
     """Shared state + public API for `Reception` and `ReceptionSDI`.
 
     Subclasses provide the constructor (setting ``tx``/``rx``/``c``/``fs``/…),
@@ -135,7 +122,6 @@ class ReceptionBase:
             self._tx_apod,
             self._tx_delays,
             self._tx_M,
-            _,
             self._tx_wx,
             self._tx_wy,
             self._tx_sub_el_idx,
@@ -151,7 +137,6 @@ class ReceptionBase:
             self._rx_apod,
             self._rx_delays,
             self._rx_M,
-            _,
             self._rx_wx,
             self._rx_wy,
             self._rx_sub_el_idx,
@@ -183,45 +168,23 @@ class ReceptionBase:
             setattr(self, name, value)
             self._refresh_sub_elem_attributes()
             return
-        if name not in self._SETTABLE:
-            raise ValueError(
-                f"Unknown parameter '{name}'. "
-                f"Valid: {['tx', 'rx'] + list(self._SETTABLE)}"
-            )
-        expected = self._SETTABLE[name][0]
-        if not isinstance(value, expected):
-            raise TypeError(f"'{name}' expects {expected}, got {type(value)}")
-        if name == "excitation" and value is not None:
-            value = np.asarray(value, dtype=np.float32)
-        setattr(self, name, value)
-
-    def _resolve_excitation(self):
-        """Return effective excitation: self.excitation or tx.excitation."""
-        exc = self.excitation
-        if exc is None:
-            tx_exc = getattr(self.tx, "excitation", None)
-            if tx_exc is not None:
-                exc = np.asarray(tx_exc, dtype=np.float32).ravel()
-        return exc
+        self._apply_settable(name, value)
 
     def _extract_rx_element_patches(self):
         """Pre-extract per-RX-element patch arrays."""
-        n_rx = int(self.rx.delays.shape[0])
-        slices = []
-        for e in range(n_rx):
-            mask = self._rx_sub_el_idx == e
-            slices.append(
-                (
-                    self._rx_centers[mask],
-                    self._rx_wx[mask],
-                    self._rx_wy[mask],
-                    self._rx_apod[mask],
-                    self._rx_delays[mask],
-                    self._rx_eu[mask],
-                    self._rx_ev[mask],
-                )
-            )
-        return slices
+        return self._group_patches_by_element(
+            int(self.rx.delays.shape[0]),
+            self._rx_sub_el_idx,
+            (
+                self._rx_centers,
+                self._rx_wx,
+                self._rx_wy,
+                self._rx_apod,
+                self._rx_delays,
+                self._rx_eu,
+                self._rx_ev,
+            ),
+        )
 
     def _rx_groups(self, focused_sum):
         """Receive patch groups feeding the per-element / per-line SIR.
@@ -316,6 +279,28 @@ class ReceptionBase:
         for r, off in results:
             rf[:, off : off + r.shape[1]] += r
         return rf
+
+    @staticmethod
+    def _snap_to_lattice(t0_nat, t0_global, dt):
+        """Snap a bin's natural window origin onto the shared global sample lattice.
+
+        Each depth bin has its own natural pulse-echo start ``t0_nat``, but all bins must
+        add back onto ONE lattice (origin ``t0_global``, step ``dt``) so per-bin results
+        combine at an integer sample offset with no resampling. This rounds ``t0_nat`` down
+        to the nearest lattice sample and returns that integer offset ``n0``, the snapped
+        origin ``t0_snap = t0_global + n0·dt``, and the sub-sample remainder
+        ``shift = t0_nat - t0_snap ∈ [0, dt)`` (the spectral path absorbs ``shift`` into its
+        TX reference phase so the product still lands at ``t0_snap``).
+
+        Returns
+        -------
+        n0 : int
+        t0_snap : float
+        shift : float
+        """
+        n0 = int(np.floor((t0_nat - t0_global) / dt))
+        t0_snap = t0_global + n0 * dt
+        return n0, t0_snap, t0_nat - t0_snap
 
     def _auto_depth_bins(self, points_m, n_out):
         """Number of depth bins for the fast path (1 = no binning).

@@ -181,12 +181,12 @@ pts = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
 
 ## Delta-k diagnostic
 
-After a simulation, inspect `sim.sub_elem_delta_k` to verify the SIR
-accuracy condition for every patch and field point.  Use
-`plot_deltak_distribution(sim)` for a visual summary.
+Call `sim.compute_deltak(field_points)` to get the per-patch trapezoid width
+Δk (in samples) for every patch and field point, to verify the SIR sampling
+condition for a chosen subdivision.  This is opt-in (it is not computed during a
+normal `sim(...)` call, to avoid the extra `(P, M)` allocation).
 
 ```python
-from pyfield.utilities import plot_deltak_distribution
-
-fig = plot_deltak_distribution(sim, per_element=True)
+delta_k = sim.compute_deltak(field_points)   # (P, M) samples per patch
+print("min Δk:", delta_k[delta_k > 0].min())
 ```

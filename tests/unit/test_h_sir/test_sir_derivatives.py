@@ -30,25 +30,25 @@ def simple_tx():
 
 
 class TestSubElemAttributes:
-    def test_sub_elem_returns_8_tuple(self, simple_tx):
+    def test_sub_elem_returns_7_tuple(self, simple_tx):
         result = compute_sub_elem_attributes(simple_tx)
-        assert len(result) == 8, "Expected 8-element return tuple."
+        assert len(result) == 7, "Expected 7-element return tuple."
 
     def test_sub_el_idx_arr_shape_and_dtype(self, simple_tx):
-        centers, *_, M, _, _, _, sub_el_idx_arr = compute_sub_elem_attributes(simple_tx)
+        centers, _, _, M, _, _, sub_el_idx_arr = compute_sub_elem_attributes(simple_tx)
         assert sub_el_idx_arr.dtype == np.int32
         assert sub_el_idx_arr.ndim == 1
         assert sub_el_idx_arr.shape[0] == M
 
     def test_sub_el_idx_arr_values_in_range(self, simple_tx):
-        centers, apod, delays, M, _, wx, wy, sub_el_idx_arr = (
-            compute_sub_elem_attributes(simple_tx)
+        centers, apod, delays, M, wx, wy, sub_el_idx_arr = compute_sub_elem_attributes(
+            simple_tx
         )
         assert sub_el_idx_arr.min() == 0
         assert sub_el_idx_arr.max() == simple_tx.n_elements - 1
 
     def test_sub_el_idx_arr_consistent_with_sub_el_idx(self, simple_tx):
         """sub_el_idx_arr must match the transducer's sub_el_idx list."""
-        _, _, _, _, _, _, _, sub_el_idx_arr = compute_sub_elem_attributes(simple_tx)
+        _, _, _, _, _, _, sub_el_idx_arr = compute_sub_elem_attributes(simple_tx)
         expected = np.array(simple_tx.sub_el_idx, dtype=np.int32)
         np.testing.assert_array_equal(sub_el_idx_arr, expected)

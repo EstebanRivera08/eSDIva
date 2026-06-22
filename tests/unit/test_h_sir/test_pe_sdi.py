@@ -41,7 +41,7 @@ def simple_rx():
 
 def _rx_window(rx, points, c=1540.0, fs=200e6):
     """One-way receive window origin t0 (seconds) for the analytic spectrum reference."""
-    rx_c, _, _, rx_M, _, rx_wx, rx_wy, _ = compute_sub_elem_attributes(rx)
+    rx_c, _, _, rx_M, rx_wx, rx_wy, _ = compute_sub_elem_attributes(rx)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", UserWarning)
         _, rx_t0, _, _ = compute_time_grid(
@@ -72,7 +72,7 @@ class TestOnewaySpectrumBasic:
     def test_spectrum_nonzero_and_position_dependent(self, simple_rx):
         c, fs = 1540.0, 200e6
         points = np.array([[0.0, 0.0, 20e-3], [3e-3, 0.0, 28e-3]], dtype=np.float32)
-        rx_c, rx_a, rx_d, _, _, rx_wx, rx_wy, _ = compute_sub_elem_attributes(simple_rx)
+        rx_c, rx_a, rx_d, _, rx_wx, rx_wy, _ = compute_sub_elem_attributes(simple_rx)
         omega = _band_omega(fs)
         spec = compute_oneway_spectrum_band(
             points,
@@ -109,7 +109,7 @@ class TestTwowaySummedFused:
             [[0, 0, 20e-3], [2e-3, 0, 26e-3], [-1e-3, 0, 31e-3]], dtype=np.float32
         )
         amp = np.array([1.0, -0.7, 0.4], dtype=np.float32)
-        rx_c, rx_a, rx_d, _, _, rx_wx, rx_wy, sub_idx = compute_sub_elem_attributes(
+        rx_c, rx_a, rx_d, _, rx_wx, rx_wy, sub_idx = compute_sub_elem_attributes(
             simple_rx
         )
         omega = _band_omega(fs)

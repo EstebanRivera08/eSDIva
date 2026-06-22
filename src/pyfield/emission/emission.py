@@ -10,39 +10,21 @@ from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
     create_3D_spatial_grid_from_points,
+    method_to_flag as _method_to_flag,
+    next_pow2 as _next_pow2,
     reshape_to_mapped_points,
+    wrap_tqdm as _wrap_tqdm,
 )
 
 from ..attenuation import causal_attenuation_tf, compute_attenuation_distances
+from ..simulation_base import SimulationBase
 from .sir_to_pressure import (
     from_sir_to_monochromatic_pressure,
     from_sir_to_pressure,
 )
 
 
-def _next_pow2(n):
-    return 1 << (int(n - 1).bit_length())
-
-
-def _method_to_flag(method):
-    if method == "naive":
-        return 0
-    if method in ("sdi", "SDI"):
-        return 1
-    return 2  # auto
-
-
-def _wrap_tqdm(iterable, **kwargs):
-    """Wrap with tqdm if importable, else return plain iterable."""
-    try:
-        from tqdm import tqdm
-
-        return tqdm(iterable, **kwargs)
-    except ImportError:
-        return iterable
-
-
-class Emission:
+class Emission(SimulationBase):
     """Compute emitted acoustic pressure fields.
 
     Parameters
@@ -129,11 +111,12 @@ class Emission:
         self.verbose = verbose
         self._refresh_sub_elem_attributes()
 
-        lambda_m = c / self.fc
-        print(
-            f"Min distance must be >> w^2/(4*lambda): "
-            f"{max(self.wx, self.wy) ** 2 / 4 / lambda_m * 1e3:.4f} mm"
-        )
+        if self.verbose:
+            lambda_m = c / self.fc
+            print(
+                f"Min distance must be >> w^2/(4*lambda): "
+                f"{max(self.wx, self.wy) ** 2 / 4 / lambda_m * 1e3:.4f} mm"
+            )
 
     # ------------------------------------------------------------------
     # Sub-element state management
@@ -145,7 +128,6 @@ class Emission:
             self.apodization_sub_elem,
             self.delays_sub_elem,
             self.M,
-            self.sub_elem_delta_k,
             self.wx_arr,
             self.wy_arr,
             self.sub_el_idx_arr,
@@ -193,17 +175,7 @@ class Emission:
                 )
             self.transfer_function = value
             return
-        if name not in self._SETTABLE:
-            raise ValueError(
-                f"Unknown parameter '{name}'. "
-                f"Valid: {['transducer', 'transfer_function'] + list(self._SETTABLE)}"
-            )
-        expected = self._SETTABLE[name][0]
-        if not isinstance(value, expected):
-            raise TypeError(f"'{name}' expects {expected}, got {type(value)}")
-        if name == "excitation" and value is not None:
-            value = np.asarray(value, dtype=np.float32)
-        setattr(self, name, value)
+        self._apply_settable(name, value)
 
     # ------------------------------------------------------------------
     # Private helpers
@@ -235,8 +207,7 @@ class Emission:
         h : (T, P) float32
         t0 : float
         info : dict
-            Keys ``"min_time"``, ``"max_time"``, ``"range_k_matrix"`` from
-            ``compute_h_sir``.
+            Keys ``"min_time"``, ``"max_time"`` from ``compute_h_sir``.
         """
         method_flag = _method_to_flag(method)
         P = points_m.shape[0]
@@ -288,24 +259,93 @@ class Emission:
 
         return h.T, t0, info  # (T, P), float, dict
 
+    @staticmethod
+    def _points_from_field(field_points_mm):
+        """Parse field points (grid dict or raw mm array) → ``(x, y, z, points_m)``.
+
+        ``x``/``y``/``z`` are the unique axis coordinates for a structured grid
+        (None for a raw point array); ``points_m`` is the ``(P, 3)`` array in metres.
+        """
+        if isinstance(field_points_mm, dict):
+            x, y, z, points_m = create_3D_spatial_grid_from_points(field_points_mm)
+            return x, y, z, points_m
+        pts = np.asarray(field_points_mm, dtype=np.float32)
+        if pts.ndim == 1 and pts.shape[0] == 3:
+            pts = pts.reshape(1, 3)
+        return None, None, None, pts * np.float32(1e-3)
+
+    def compute_deltak(self, field_points_mm, *, method="auto"):
+        """Per-patch trapezoid width Δk (in samples) for every field point.
+
+        SIR-accuracy diagnostic: Δk is how many time samples each patch's
+        trapezoidal SIR spans at this geometry. The far-field/sampling
+        approximation degrades when Δk is too small (a patch barely resolved in
+        time), and the auto method switches naive→SDI above ``8 + 2T/M``. Inspect
+        this to check a chosen ``no_sub_x``/``no_sub_y`` resolves every patch.
+
+        Parameters
+        ----------
+        field_points_mm : dict or (N, 3) numpy.ndarray
+            Grid spec dict (mm) or raw point array (mm), as in ``__call__``.
+        method : str, default "auto"
+            SIR method ("auto", "naive", "sdi") — only affects which patches the
+            kernel would take the SDI path for; Δk itself is method-independent.
+
+        Returns
+        -------
+        delta_k : (P, M) numpy.ndarray
+            Trapezoid width in samples for each field point P and patch M.
+        """
+        _x, _y, _z, points_m = self._points_from_field(field_points_mm)
+        P = points_m.shape[0]
+        time_grid, _t0, dt, T = compute_time_grid(
+            P,
+            self.M,
+            points_m,
+            self.centers_sub_elem,
+            self.wx,
+            self.wy,
+            self.c,
+            self.fs,
+            self.delays,
+            verbose=self.verbose,
+        )
+        _, info = compute_h_sir(
+            P,
+            self.M,
+            T,
+            dt,
+            time_grid,
+            points_m,
+            self.centers_sub_elem,
+            self.wx_arr,
+            self.wy_arr,
+            float(1.0 / self.c),
+            self.fs,
+            self.apodization_sub_elem,
+            self.delays_sub_elem,
+            _method_to_flag(method),
+            self.eu_arr,
+            self.ev_arr,
+            return_deltak=True,
+        )
+        return info["range_k_matrix"]
+
     def _extract_patch_slices(self):
         """Pre-extract per-element patch arrays (outside E-loop for efficiency)."""
-        n_elements = int(self.delays.shape[0])
-        slices = []
-        for e in range(n_elements):
-            mask = self.sub_el_idx_arr == e
-            slices.append(
-                (
-                    self.centers_sub_elem[mask],
-                    self.wx_arr[mask],
-                    self.wy_arr[mask],
-                    self.apodization_sub_elem[mask],
-                    self.delays_sub_elem[mask],
-                    self.eu_arr[mask],
-                    self.ev_arr[mask],
-                )
-            )
-        return slices
+        return self._group_patches_by_element(
+            int(self.delays.shape[0]),
+            self.sub_el_idx_arr,
+            (
+                self.centers_sub_elem,
+                self.wx_arr,
+                self.wy_arr,
+                self.apodization_sub_elem,
+                self.delays_sub_elem,
+                self.eu_arr,
+                self.ev_arr,
+            ),
+        )
 
     def _compute_h_sir_batch(
         self, pts_batch, T, dt, time_grid, method_flag, patch_arrays=None
@@ -360,6 +400,40 @@ class Emission:
         N_freq = nfft // 2 + 1
         bytes_per_point = nfft * 4 + 2 * N_freq * 8
         return max(1, int(400 * 1024**2 // bytes_per_point))
+
+    def _build_freq_filters(self, T, exc_len):
+        """Shared rfft length + frequency-domain filters for the transient paths.
+
+        Both the global and per-element transient paths zero-pad the SIR (length ``T``)
+        and excitation (length ``exc_len``) to a common power-of-two ``nfft`` for linear
+        convolution, then work on the rfft frequency axis. This returns the pieces they
+        share: ``freqs`` (Hz), ``j2pif = j2πf`` (the freq-domain ∂/∂t applied to the
+        excitation), and the optional user transfer function ``TF`` sampled on ``freqs``.
+        Per-path pieces (the excitation FFT itself, attenuation ``H_att``) stay in the
+        callers because their shapes differ (single pulse vs per-element list).
+
+        Parameters
+        ----------
+        T : int
+            SIR length in samples.
+        exc_len : int or None
+            Excitation length in samples; None for the pulsed path (no excitation).
+
+        Returns
+        -------
+        nfft : int
+        freqs : (nfft//2+1,) float32
+        j2pif : (nfft//2+1,) complex64
+        TF : (nfft//2+1,) complex64 or None
+        """
+        nfft = _next_pow2(T + exc_len - 1) if exc_len else _next_pow2(T)
+        # float32 → complex64 throughout (half memory vs float64 → complex128).
+        freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
+        j2pif = (2j * np.pi * freqs).astype(np.complex64)
+        TF = None
+        if self.transfer_function is not None:
+            TF = np.asarray(self.transfer_function(freqs), dtype=np.complex64)
+        return nfft, freqs, j2pif, TF
 
     def _causal_tf_at_fc(self, dist_e):
         """Evaluate causal attenuation TF at fc only. Returns (P,) complex64."""
@@ -439,23 +513,13 @@ class Emission:
         P = points_m.shape[0]
         method_flag = _method_to_flag(method)
 
-        if exc_1d is not None:
-            L = len(exc_1d)
-            nfft = _next_pow2(T + L - 1)
-        else:
-            nfft = _next_pow2(T)
-        # float32 → complex64 throughout (half memory vs float64 → complex128).
-        freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
+        exc_len = len(exc_1d) if exc_1d is not None else None
+        nfft, freqs, j2pif, TF = self._build_freq_filters(T, exc_len)
 
         # Excitation FFT: j2πf × FFT(exc) = freq-domain derivative of excitation.
         fft_exc = None
         if exc_1d is not None:
-            j2pif = (2j * np.pi * freqs).astype(np.complex64)
             fft_exc = (j2pif * rfft(exc_1d, n=nfft, workers=-1)).astype(np.complex64)
-
-        TF = None
-        if self.transfer_function is not None:
-            TF = np.asarray(self.transfer_function(freqs), dtype=np.complex64)
 
         H_att = None
         if self.alpha0 is not None and distances_m is not None:
@@ -585,15 +649,9 @@ class Emission:
         patch_slices = self._extract_patch_slices()
         elem_centers = np.asarray(self.tx.element_centers, dtype=np.float64)  # (E, 3)
 
-        if exc is not None:
-            L = exc.shape[0]
-            nfft = _next_pow2(T + L - 1)
-        else:
-            nfft = _next_pow2(T)
+        exc_len = exc.shape[0] if exc is not None else None
+        nfft, freqs, j2pif, TF = self._build_freq_filters(T, exc_len)
         N_freq = nfft // 2 + 1
-
-        freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
-        j2pif = (2j * np.pi * freqs).astype(np.complex64)
 
         # Pre-compute per-element excitation FFTs (outside both loops).
         fft_exc_list = None  # None = pulsed (no excitation multiply)
@@ -608,10 +666,6 @@ class Emission:
                     (j2pif * rfft(exc[:, e], n=nfft, workers=-1)).astype(np.complex64)
                     for e in range(n_elements)
                 ]
-
-        TF = None
-        if self.transfer_function is not None:
-            TF = np.asarray(self.transfer_function(freqs), dtype=np.complex64)
 
         batch_P = self._batch_P(nfft)
         n_batches = (P + batch_P - 1) // batch_P
@@ -757,19 +811,14 @@ class Emission:
             Keys "x", "y", "z" for structured grid; "t0", "dt" for transient.
         """
         is_structured = isinstance(field_points_mm, dict)
-        if is_structured:
-            x, y, z, points_m = create_3D_spatial_grid_from_points(field_points_mm)
-        else:
-            x, y, z = None, None, None
-            pts = np.asarray(field_points_mm, dtype=np.float32)
-            if pts.ndim == 1 and pts.shape[0] == 3:
-                pts = pts.reshape(1, 3)
-            points_m = pts * np.float32(1e-3)
+        x, y, z, points_m = self._points_from_field(field_points_mm)
 
         # Dispatch flags: per_elem_exc = mode 4 (excitation shape (L, E)).
         # use_per_element = E-loop needed (mode 4 always, modes 1-3 when
         # attenuation requires element-center distances).
-        exc = self.excitation
+        # _resolve_excitation falls back to tx.excitation (set_excitation), so a
+        # pulse set on the transducer drives emission just like the ctor arg.
+        exc = self._resolve_excitation()
         per_elem_exc = exc is not None and exc.ndim == 2
         use_per_element = (
             self.alpha0 is not None and not self.fast_attenuation

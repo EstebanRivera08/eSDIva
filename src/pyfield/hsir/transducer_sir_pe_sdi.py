@@ -98,6 +98,66 @@ def _phasor(x):
     return complex(np.cos(x), -np.sin(x))
 
 
+@njit(inline="always")
+def _accum_patch_band(
+    acc,
+    t1,
+    t2,
+    t3,
+    t4,
+    slope,
+    dist,
+    t0,
+    omega,
+    do_atten,
+    alpha0_np,
+    y,
+    tan_y,
+    f0,
+    y_is_one,
+):
+    """Add one patch's closed-form one-way SIR spectrum into the 1-D ``acc`` over ``omega``.
+
+    A rectangular patch's one-way SIR is a trapezoid with corner times
+    ``t1,t2,t3,t4 = t1, t1+Δt1, t1+Δt2, t1+Δt1+Δt2``. The Fourier transform of its second
+    derivative (a four-corner delta train) factors, via ``1-e^{-jx}=2j·sin(x/2)·e^{-jx/2}``,
+    into a real envelope times a single phasor at the patch-centre arrival ``t_c=(t1+t4)/2``:
+
+        S_patch(ω) = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c-t0)} .
+
+    The two sines are read off the imaginary parts of swept half-angle phasors, so the term
+    is never formed as a subtraction of near-equal phasors — it stays bounded by the physical
+    plateau (``4·slope·sin(ωΔt1/2) → 2·h_max·ω`` for thin patches) and the sum is well
+    conditioned in complex64/float32. The grid is uniform, so each phasor advances by a
+    constant factor between bins (swept by one complex multiply, no per-bin sin/cos). Optional
+    per-patch causal attenuation is folded in using ``dist``. Shared by every spectral kernel
+    (points / patches / fused two-way) so the corner sweep lives in exactly one place.
+    """
+    Nb = omega.shape[0]
+    w0 = omega[0]
+    dw = omega[1] - omega[0] if Nb > 1 else 0.0
+    half1 = np.float32(0.5) * (t2 - t1)
+    half2 = np.float32(0.5) * (t3 - t1)
+    tc = np.float32(0.5) * (t1 + t4) - t0
+    amp = -4.0 * slope
+    pc = _phasor(w0 * tc)
+    q1 = _phasor(w0 * half1)
+    q2 = _phasor(w0 * half2)
+    spc = _phasor(dw * tc)
+    sq1 = _phasor(dw * half1)
+    sq2 = _phasor(dw * half2)
+    for k in range(Nb):
+        val = (amp * q1.imag * q2.imag) * pc  # -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·phasor
+        if do_atten:
+            val *= _causal_atten_factor(
+                omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
+            )
+        acc[k] += val
+        pc *= spc
+        q1 *= sq1
+        q2 *= sq2
+
+
 @njit(parallel=True, fastmath=True, cache=True)
 def _oneway_spectrum_points(
     points,
@@ -130,8 +190,6 @@ def _oneway_spectrum_points(
     M = centers.shape[0]
     Nb = omega.shape[0]
     out = np.zeros((P, Nb), dtype=np.complex128)
-    w0 = omega[0]
-    dw = omega[1] - omega[0] if Nb > 1 else 0.0
     for p in prange(P):  # ty: ignore[not-iterable]
         px = points[p, 0]
         py = points[p, 1]
@@ -166,38 +224,23 @@ def _oneway_spectrum_points(
                 dy = py - centers[m, 1]
                 dz = pz - centers[m, 2]
                 dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-            # Factored, cancellation-free corner sum. The four corner times satisfy
-            # t2 = t1+Δt1, t3 = t1+Δt2, t4 = t1+Δt1+Δt2, so the signed corner-phasor sum
-            # factors as  e^{-jω(t1-t0)}·(1-e^{-jωΔt1})·(1-e^{-jωΔt2}). Using
-            # 1-e^{-jx} = 2j·sin(x/2)·e^{-jx/2} turns it into a real envelope times a
-            # single phasor at the patch-centre arrival t_c = (t1+t4)/2 = l/c:
-            #     S = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c-t0)} .
-            # The sines are evaluated directly (the imaginary parts of the swept half-angle
-            # phasors), never as a subtraction of near-equal phasors, so the term stays
-            # bounded by the physical plateau (4·slope·sin(ωΔt1/2) → 2·h_max·ω for thin
-            # patches) instead of blowing up to slope ≈ h_max/Δt1. The sum is then well
-            # conditioned and complex64/float32 accumulation holds.
-            half1 = np.float32(0.5) * (t2 - t1)
-            half2 = np.float32(0.5) * (t3 - t1)
-            tc = np.float32(0.5) * (t1 + t4) - t0
-            amp = -4.0 * slope
-            pc = _phasor(w0 * tc)
-            q1 = _phasor(w0 * half1)
-            q2 = _phasor(w0 * half2)
-            spc = _phasor(dw * tc)
-            sq1 = _phasor(dw * half1)
-            sq2 = _phasor(dw * half2)
-            for k in range(Nb):
-                env = amp * q1.imag * q2.imag  # -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)
-                val = env * pc
-                if do_atten:
-                    val *= _causal_atten_factor(
-                        omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
-                    )
-                out[p, k] += val
-                pc *= spc
-                q1 *= sq1
-                q2 *= sq2
+            _accum_patch_band(
+                out[p],
+                t1,
+                t2,
+                t3,
+                t4,
+                slope,
+                dist,
+                t0,
+                omega,
+                do_atten,
+                alpha0_np,
+                y,
+                tan_y,
+                f0,
+                y_is_one,
+            )
     return out
 
 
@@ -232,8 +275,6 @@ def _oneway_spectrum_patches(
     px = point[0]
     py = point[1]
     pz = point[2]
-    w0 = omega[0]
-    dw = omega[1] - omega[0] if Nb > 1 else 0.0
     for m in prange(M):  # ty: ignore[not-iterable]
         t1, t2, t3, t4, slope = _patch_corner_times(
             px,
@@ -263,29 +304,23 @@ def _oneway_spectrum_patches(
             dy = py - centers[m, 1]
             dz = pz - centers[m, 2]
             dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-        a1 = t1 - t0
-        a2 = t2 - t0
-        a3 = t3 - t0
-        a4 = t4 - t0
-        ph1 = slope * _phasor(w0 * a1)
-        ph2 = slope * _phasor(w0 * a2)
-        ph3 = slope * _phasor(w0 * a3)
-        ph4 = slope * _phasor(w0 * a4)
-        s1 = _phasor(dw * a1)
-        s2 = _phasor(dw * a2)
-        s3 = _phasor(dw * a3)
-        s4 = _phasor(dw * a4)
-        for k in range(Nb):
-            val = ph1 - ph2 - ph3 + ph4
-            if do_atten:
-                val *= _causal_atten_factor(
-                    omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
-                )
-            buf[m, k] += val
-            ph1 *= s1
-            ph2 *= s2
-            ph3 *= s3
-            ph4 *= s4
+        _accum_patch_band(
+            buf[m],
+            t1,
+            t2,
+            t3,
+            t4,
+            slope,
+            dist,
+            t0,
+            omega,
+            do_atten,
+            alpha0_np,
+            y,
+            tan_y,
+            f0,
+            y_is_one,
+        )
     out = np.zeros((1, Nb), dtype=np.complex128)
     for m in range(M):
         out[0] += buf[m]
@@ -447,23 +482,11 @@ def _accum_oneway_band(
 ):
     """Add one aperture's closed-form one-way SIR spectrum into ``acc`` over patches lo:hi.
 
-    Each rectangular patch's one-way SIR is a trapezoid with corner times
-    ``t1,t2,t3,t4 = t1, t1+Δt1, t1+Δt2, t1+Δt1+Δt2``. Its spectrum (the Fourier transform
-    of the trapezoid's second derivative, a four-corner delta train) factors, via
-    ``1-e^{-jx} = 2j·sin(x/2)·e^{-jx/2}``, into a real envelope times a single phasor at the
-    patch-centre arrival ``t_c = (t1+t4)/2 = l/c``:
-
-        S_patch(ω) = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c-t0)} .
-
-    The two sines are read off the imaginary parts of swept half-angle phasors, so the term
-    is never formed as a subtraction of near-equal phasors — it stays bounded by the
-    physical plateau (``4·slope·sin(ωΔt1/2) → 2·h_max·ω`` for thin patches) and the sum is
-    well conditioned in complex64/float32. Optional per-patch causal attenuation
-    ``exp(-α|f|^y d)·(dispersion phase)`` is folded in using the patch-to-point distance.
+    Walks patches ``lo:hi`` of one aperture, computing each patch's trapezoid corner times
+    and (when attenuating) its patch-to-point distance, then delegating the per-patch
+    closed-form spectrum sweep to `_accum_patch_band` — the shared, cancellation-free
+    factored form ``S_patch(ω) = -4·slope·sin(ωΔt1/2)·sin(ωΔt2/2)·e^{-jω(t_c-t0)}``.
     """
-    Nb = omega.shape[0]
-    w0 = omega[0]
-    dw = omega[1] - omega[0] if Nb > 1 else 0.0
     for m in range(lo, hi):
         t1, t2, t3, t4, slope = _patch_corner_times(
             px,
@@ -493,26 +516,23 @@ def _accum_oneway_band(
             dy = py - centers[m, 1]
             dz = pz - centers[m, 2]
             dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-        half1 = np.float32(0.5) * (t2 - t1)
-        half2 = np.float32(0.5) * (t3 - t1)
-        tc = np.float32(0.5) * (t1 + t4) - t0
-        amp = -4.0 * slope
-        pc = _phasor(w0 * tc)
-        q1 = _phasor(w0 * half1)
-        q2 = _phasor(w0 * half2)
-        spc = _phasor(dw * tc)
-        sq1 = _phasor(dw * half1)
-        sq2 = _phasor(dw * half2)
-        for k in range(Nb):
-            val = (amp * q1.imag * q2.imag) * pc  # -4·slope·sin·sin·phasor
-            if do_atten:
-                val *= _causal_atten_factor(
-                    omega[k], dist, alpha0_np, y, tan_y, f0, y_is_one
-                )
-            acc[k] += val
-            pc *= spc
-            q1 *= sq1
-            q2 *= sq2
+        _accum_patch_band(
+            acc,
+            t1,
+            t2,
+            t3,
+            t4,
+            slope,
+            dist,
+            t0,
+            omega,
+            do_atten,
+            alpha0_np,
+            y,
+            tan_y,
+            f0,
+            y_is_one,
+        )
 
 
 @njit(parallel=True, fastmath=True, cache=True)

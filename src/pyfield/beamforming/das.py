@@ -21,6 +21,11 @@ def DAS_focused_scanline(
     and sums across all receive elements.  Suitable for static focused TX
     where transmit delays are already encoded in the RF data by `Reception`.
 
+    Use this when you already have per-channel RF (e.g. from `pulse_echo_rf`) and
+    want to beamform it externally. To build a focused line directly, prefer
+    `Reception.scan_focusline`, which sums on receive inside the SIR kernel (one
+    FFT pair, corner-time-resolution focus) instead of interpolating sampled RF.
+
     The delay for element *e* is ``Δt_e = (|r_f − r_e| − |r_f − r_ref|) / c``,
     where *r_ref* is the centre element position.  A positive Δt means the
     echo arrives later in that channel; the interpolation reads ahead by

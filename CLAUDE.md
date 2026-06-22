@@ -265,9 +265,11 @@ Always causal (both absorption + K-K dispersion terms). Non-causal produces prec
 
     n = [sin(theta_x), sin(theta_y), sqrt(1 - sin^2(theta_x) - sin^2(theta_y))]
     d_e = element_centers @ n
-    delays = (d_max - d_e) / c
+    delays = (d_e - d_min) / c
 
-Physical: element with maximum projection fires first (zero delay).
+Physical: the emitted plane wave travels along `n`, so an element's emit time is
+proportional to its projection `d_e = r_e·n`. The element with the **minimum**
+projection fires first (zero delay); larger projections fire progressively later.
 Constraint: `sin^2(theta_x) + sin^2(theta_y) <= 1`.
 
 ---

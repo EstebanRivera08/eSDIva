@@ -1,9 +1,38 @@
 """Helper functions for spatial grids, time grids, and unit conversions."""
 
 import time
+import warnings
 
 import numpy as np
 from numba import njit, prange
+
+
+def next_pow2(n):
+    """Smallest power of two >= ``n`` (FFT length for linear convolution)."""
+    return 1 << (int(n - 1).bit_length())
+
+
+def wrap_tqdm(iterable, **kwargs):
+    """Wrap ``iterable`` with a tqdm progress bar if tqdm is importable, else passthrough."""
+    try:
+        from tqdm import tqdm
+
+        return tqdm(iterable, **kwargs)
+    except ImportError:
+        return iterable
+
+
+def method_to_flag(method):
+    """Map a SIR method name to the integer flag the kernel expects.
+
+    ``"naive"`` → 0 (fully sampled trapezoid), ``"sdi"`` → 1 (sparse delta
+    integration), anything else (``"auto"``) → 2 (per-patch choice in the kernel).
+    """
+    if method == "naive":
+        return 0
+    if method in ("sdi", "SDI"):
+        return 1
+    return 2  # auto
 
 
 # -------------------- Functions for pre calculations ---------------------------
@@ -96,8 +125,6 @@ def compute_sub_elem_attributes(transducer):
         Transmit delay (seconds) of the element that owns each patch.
     M : int
         Total number of patches.
-    range_k : None
-        Reserved for future use (Δk diagnostic storage).
     wx_arr : float32 array (M,)
         Width of each patch (metres) — ``‖v[1] - v[0]‖``.
     wy_arr : float32 array (M,)
@@ -122,13 +149,11 @@ def compute_sub_elem_attributes(transducer):
     wy_arr = np.array(wy_list, dtype=np.float32)
     sub_el_idx_arr = np.array(sub_el_idx_list, dtype=np.int32)
     M = len(centers_sub_elem)
-    range_k = None
     return (
         centers_sub_elem,
         apodization_sub_elem,
         delays_sub_elem,
         M,
-        range_k,
         wx_arr,
         wy_arr,
         sub_el_idx_arr,
@@ -238,9 +263,13 @@ def create_3D_spatial_grid_from_points(field_points_mm):
         z = np.sort(np.unique(field_points_mm[:, 2]))
 
         if len(x) * len(y) * len(z) != field_points_mm.shape[0]:
-            print(
-                f"Warning: unique(x)*unique(y)*unique(z) = {len(x)}x{len(y)}x{len(z)} is different from the number of points provided (points.shape[0]={field_points_mm.shape[0]}). \n"
-                "If you intended to provide a grid, please check the points or set `create_meshgrid=True` to automatically recompute the grid."
+            warnings.warn(
+                f"unique(x)*unique(y)*unique(z) = {len(x)}x{len(y)}x{len(z)} differs from "
+                f"the number of points provided (points.shape[0]={field_points_mm.shape[0]}). "
+                "If you intended a grid, check the points or set `create_meshgrid=True` to "
+                "recompute it.",
+                UserWarning,
+                stacklevel=2,
             )
 
         spatial_grid = np.array(np.meshgrid(x, y, z)).T.reshape(-1, 3)
@@ -424,16 +453,18 @@ def compute_time_grid(P, M, points, centers, wx, wy, c, fs, delays, verbose=True
     dt = 1.0 / fs
     T = int(np.ceil((max_time - min_time) * fs))
 
-    # Memory estimate for h_sir (P × T × 4 bytes float32).
+    # Memory estimate for h_sir (P × T × 4 bytes float32). A genuine OOM risk is worth
+    # a warning even when quiet; the milder INFO is verbose-only.
     h_sir_gb = P * T * 4 / 1e9
     if h_sir_gb >= 2.0:
-        print(
-            f"\nWARNING: grid Nx×Ny×Nz = {P:,} points and T={T}— "
-            f"estimated h_sir ~= {h_sir_gb:.1f} GB "
-            "This will likely cause a memory error.\n"
-            "  -> Reduce dx/dy/dz or, shrink the extent, or compute a 2-D plane. "
+        warnings.warn(
+            f"grid Nx×Ny×Nz = {P:,} points and T={T} — estimated h_sir "
+            f"~= {h_sir_gb:.1f} GB; this will likely cause a memory error. Reduce "
+            "dx/dy/dz, shrink the extent, or compute a 2-D plane.",
+            UserWarning,
+            stacklevel=2,
         )
-    elif h_sir_gb >= 0.5:
+    elif h_sir_gb >= 0.5 and verbose:
         print(
             f"INFO: grid Nx×Ny×Nz = {P:,} points and T = {T} — "
             f"estimated h_sir ~= {h_sir_gb * 1e3:.0f} MB "
