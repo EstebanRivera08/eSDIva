@@ -39,7 +39,6 @@ import time
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.utilities.helper_functions import (
     method_to_flag as _method_to_flag,
     next_pow2 as _next_pow2,
@@ -196,29 +195,34 @@ class Reception(ReceptionBase):
         ir_rx = getattr(self.rx, "impulse_response", None)
         L = len(exc) if exc is not None else 0
         # Global lattice origin (also the reported t0); shared by every bin.
-        t0_tx_g = self._oneway_time_grid(points_m, "tx")[1]
-        t0_rx_g = self._oneway_time_grid(points_m, "rx")[1]
+        with self._timer("time_grid_s"):
+            t0_tx_g = self._oneway_time_grid(points_m, "tx")[1]
+            t0_rx_g = self._oneway_time_grid(points_m, "rx")[1]
 
         def per_bin(idx):
             pts, am = points_m[idx], amps[idx]
             Pb = pts.shape[0]
-            grid_t, n0t, Tt = self._lattice_grid(pts, "tx", t0_tx_g)
-            grid_r, n0r, Tr = self._lattice_grid(pts, "rx", t0_rx_g)
+            with self._timer("time_grid_s"):
+                grid_t, n0t, Tt = self._lattice_grid(pts, "tx", t0_tx_g)
+                grid_r, n0r, Tr = self._lattice_grid(pts, "rx", t0_rx_g)
             peTb = Tt + Tr - 1
             nfft = _next_pow2(peTb + L)
-            fft_v = (
-                rfft(exc.astype(np.float64), n=nfft, workers=-1).astype(np.complex64)
-                if exc is not None
-                else 1
-            )
-            fft_ir = [
-                rfft(np.asarray(ir, np.float64), n=nfft, workers=-1).astype(
-                    np.complex64
+            with self._timer("fft_s"):
+                fft_v = (
+                    rfft(exc.astype(np.float64), n=nfft, workers=-1).astype(
+                        np.complex64
+                    )
+                    if exc is not None
+                    else 1
                 )
-                for ir in (ir_tx, ir_rx)
-                if ir is not None
-            ]
-            h_tx, _ = compute_h_sir(
+                fft_ir = [
+                    rfft(np.asarray(ir, np.float64), n=nfft, workers=-1).astype(
+                        np.complex64
+                    )
+                    for ir in (ir_tx, ir_rx)
+                    if ir is not None
+                ]
+            h_tx, _ = self._timed_h_sir(
                 Pb,
                 self._tx_M,
                 Tt,
@@ -236,12 +240,13 @@ class Reception(ReceptionBase):
                 self._tx_eu,
                 self._tx_ev,
             )
-            H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)
+            with self._timer("fft_s"):
+                H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)
             del h_tx
             rf_bin = np.zeros((n_out, peTb), dtype=np.float32)
             for e_rx in range(n_out):
                 rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_groups[e_rx]
-                h_rx_e, _ = compute_h_sir(
+                h_rx_e, _ = self._timed_h_sir(
                     Pb,
                     rx_c.shape[0],
                     Tr,
@@ -259,15 +264,20 @@ class Reception(ReceptionBase):
                     rx_eu,
                     rx_ev,
                 )
-                H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
-                del h_rx_e
-                H = (am @ (H_tx * H_rx_e)) * fft_v  # sum scatterers, then exc filter
-                for f in fft_ir:
-                    H *= f
-                rf_bin[e_rx] = (irfft(H, n=nfft)[:peTb] * scale).astype(np.float32)
+                with self._timer("fft_s"):
+                    H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
+                    del h_rx_e
+                    H = (am @ (H_tx * H_rx_e)) * fft_v  # sum scatterers, then exc filter
+                    for f in fft_ir:
+                        H *= f
+                    rf_bin[e_rx] = (irfft(H, n=nfft)[:peTb] * scale).astype(np.float32)
             return rf_bin, n0t + n0r
 
         rf = self._accumulate_depth_bins(points_m, n_bins, per_bin)
+        if self.verbose:
+            print(
+                f"Reception [{n_bins} depth bins] computed ({self._fmt_time_log()})\n"
+            )
         # Beam-axis t0 = global pe origin minus the TX focusing bulk (no RX focus here).
         return self._finalize(rf, t0_tx_g + t0_rx_g, dt, False, downsampling)
 
@@ -316,6 +326,7 @@ class Reception(ReceptionBase):
         """
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
+        self._reset_time_log()
         P = points_m.shape[0]
         n_rx = int(self.rx.delays.shape[0])
         rx_groups = self._rx_groups(focused_sum)
@@ -362,9 +373,10 @@ class Reception(ReceptionBase):
                     downsampling=downsampling,
                 )
 
-        time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx = (
-            self._compute_sir_time_grids(points_m)
-        )
+        with self._timer("time_grid_s"):
+            time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx = (
+                self._compute_sir_time_grids(points_m)
+            )
         inv_c = np.float32(1.0 / self.c)
 
         # PE time axis: convolution of h_tx (T_tx) and h_rx (T_rx).
@@ -455,7 +467,7 @@ class Reception(ReceptionBase):
                 c_e, wx_e, wy_e, ap_e, dl_e, eu_e, ev_e = tx_groups[e]
                 if c_e.shape[0] == 0:
                     continue
-                h_e, _ = compute_h_sir(
+                h_e, _ = self._timed_h_sir(
                     P,
                     c_e.shape[0],
                     T_tx,
@@ -473,11 +485,12 @@ class Reception(ReceptionBase):
                     eu_e,
                     ev_e,
                 )  # (P, T_tx) float32
-                H_tx += rfft(h_e, n=nfft, axis=1, workers=-1) * _rfft64(exc[:, e])
+                with self._timer("fft_s"):
+                    H_tx += rfft(h_e, n=nfft, axis=1, workers=-1) * _rfft64(exc[:, e])
                 del h_e
         else:
             # Compute h_tx once for all scatterers from every TX patch: (P, T_tx).
-            h_tx, _ = compute_h_sir(
+            h_tx, _ = self._timed_h_sir(
                 P,
                 self._tx_M,
                 T_tx,
@@ -495,7 +508,8 @@ class Reception(ReceptionBase):
                 self._tx_eu,
                 self._tx_ev,
             )  # (P, T_tx) float32
-            H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)  # (P, N_freq) complex64
+            with self._timer("fft_s"):
+                H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)  # (P, N_freq) complex64
             del h_tx
 
         rf = np.zeros(
@@ -518,7 +532,7 @@ class Reception(ReceptionBase):
             M_e = rx_c.shape[0]
 
             # Compute h_rx for this element's patches: (P, T_rx).
-            h_rx_e, _ = compute_h_sir(
+            h_rx_e, _ = self._timed_h_sir(
                 P,
                 M_e,
                 T_rx,
@@ -539,38 +553,41 @@ class Reception(ReceptionBase):
 
             # H_pe = FFT(h_tx) * FFT(h_rx_e) — convolve SIRs in freq domain.
             # float32 FFT (→complex64); see the h_tx note above.
-            H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
-            del h_rx_e
-            H_pe = H_tx * H_rx_e
-            del H_rx_e
+            with self._timer("fft_s"):
+                H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
+                del h_rx_e
+                H_pe = H_tx * H_rx_e
+                del H_rx_e
 
-            # Fast path: the shared exc/IR filter and irfft linearity let us sum the P
-            # scatterers in the frequency domain FIRST, then run one irfft instead of P:
-            # Σ_p a_p·irfft(H_p·F) = irfft((Σ_p a_p·H_p)·F). Attenuation differs per
-            # scatterer, so it stays on the per-scatterer path below.
-            if not per_scatterer and not do_attenuation:
-                H_sum = amps @ H_pe  # (N_freq,) — matvec
+                # Fast path: the shared exc/IR filter and irfft linearity let us sum the P
+                # scatterers in the frequency domain FIRST, then run one irfft instead of
+                # P: Σ_p a_p·irfft(H_p·F) = irfft((Σ_p a_p·H_p)·F). Attenuation differs per
+                # scatterer, so it stays on the per-scatterer path below.
+                if not per_scatterer and not do_attenuation:
+                    H_sum = amps @ H_pe  # (N_freq,) — matvec
+                    del H_pe
+                    H_sum = H_sum * post_filter
+                    rf[e_rx, :] = (irfft(H_sum, n=nfft)[:pe_T] * scale).astype(
+                        np.float32
+                    )
+                    continue
+
+                # Apply the post-sum filter (global exc and/or IRs) and attenuation.
+                # post_filter is scalar 1 when none are set; it broadcasts against H_pe's
+                # (P, N_freq) either way, so no explicit newaxis is needed.
+                H_pe *= post_filter
+                if do_attenuation and distances_pe is not None:
+                    H_att = causal_attenuation_tf(
+                        freqs,
+                        distances_pe[:, e_rx],
+                        self.alpha0,
+                        self.freq_power,
+                        self.tx.fc,
+                    ).astype(np.complex64)
+                    H_pe *= H_att
+
+                rf_pe = irfft(H_pe, n=nfft, axis=1, workers=-1)[:, :pe_T]  # (P, pe_T)
                 del H_pe
-                H_sum = H_sum * post_filter
-                rf[e_rx, :] = (irfft(H_sum, n=nfft)[:pe_T] * scale).astype(np.float32)
-                continue
-
-            # Apply the post-sum filter (global exc and/or IRs) and attenuation.
-            # post_filter is scalar 1 when none are set; it broadcasts against H_pe's
-            # (P, N_freq) either way, so no explicit newaxis is needed.
-            H_pe *= post_filter
-            if do_attenuation and distances_pe is not None:
-                H_att = causal_attenuation_tf(
-                    freqs,
-                    distances_pe[:, e_rx],
-                    self.alpha0,
-                    self.freq_power,
-                    self.tx.fc,
-                ).astype(np.complex64)
-                H_pe *= H_att
-
-            rf_pe = irfft(H_pe, n=nfft, axis=1, workers=-1)[:, :pe_T]  # (P, pe_T)
-            del H_pe
 
             if per_scatterer:
                 rf[:, e_rx, :] = (rf_pe * amps[:, np.newaxis] * scale).astype(
@@ -582,7 +599,10 @@ class Reception(ReceptionBase):
             del rf_pe
 
         if show:
-            print(f"Reception computed in {time.time() - t_wall:.2f} s\n")
+            print(
+                f"Reception computed in {time.time() - t_wall:.2f} s "
+                f"({self._fmt_time_log()})\n"
+            )
 
         return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 

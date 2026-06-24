@@ -110,6 +110,23 @@ class LinearArrayTransducer(TransducerBase):
     # Abstract method implementations
     # ------------------------------------------------------------------
 
+    @property
+    def elevation_lens_sag(self) -> float:
+        """Centre recession (m) of the cylindrical elevation lens; 0 if flat.
+
+        ``R − √(R² − (height/2)²)`` with ``R = elev_focus``: how far the lens surface
+        dishes back at the element centre relative to the rim (z = 0). Reception turns
+        this into the lens group delay that aligns the RF origin with Field II.
+        """
+        if self.elev_focus and self.elev_focus > 0:
+            return float(
+                self.elev_focus
+                - np.sqrt(
+                    np.clip(self.elev_focus**2 - (self.elem_height / 2) ** 2, 0, None)
+                )
+            )
+        return 0.0
+
     def _compute_element_centers(self) -> np.ndarray:
         """Evenly spaced element centres along x at z=0."""
         total_w = self.n_elements * self.elem_width + (self.n_elements - 1) * self.kerf
@@ -150,10 +167,24 @@ class LinearArrayTransducer(TransducerBase):
                     corners[:, 1] += center[1]
 
                     if self.elev_focus > 0:
-                        # Cylindrical curvature: z offset along y
+                        # Cylindrical elevation lens. The element face (the rim, at
+                        # y = ±height/2) sits at z = 0 and the surface dishes back
+                        # toward the backing, so a point at elevation y lies at depth
+                        # (sagitta at the rim) − (sagitta at y); the centre (y = 0) is
+                        # deepest at −sagitta. This rim-referenced datum matches Field II
+                        # `xdc_focused_array`, which keeps the flat element face at z = 0.
                         y_vals = corners[:, 1]
-                        corners[:, 2] += self.elev_focus - np.sqrt(
-                            np.clip(self.elev_focus**2 - y_vals**2, 0, None)
+                        sag_edge = self.elev_focus - np.sqrt(
+                            np.clip(
+                                self.elev_focus**2 - (self.elem_height / 2) ** 2,
+                                0,
+                                None,
+                            )
+                        )
+                        corners[:, 2] += (
+                            self.elev_focus
+                            - np.sqrt(np.clip(self.elev_focus**2 - y_vals**2, 0, None))
+                            - sag_edge
                         )
                     else:
                         corners[:, 2] += center[2]
@@ -389,6 +420,22 @@ class ConvexArrayTransducer(TransducerBase):
     # Abstract method implementations
     # ------------------------------------------------------------------
 
+    @property
+    def elevation_lens_sag(self) -> float:
+        """Centre recession (m) of the cylindrical elevation lens; 0 if flat.
+
+        ``R − √(R² − (height/2)²)`` with ``R = elevation_focus``. Reception turns this
+        into the lens group delay that aligns the RF origin with Field II.
+        """
+        if self._elev_R is not None:
+            return float(
+                self._elev_R
+                - np.sqrt(
+                    np.clip(self._elev_R**2 - (self.elem_height / 2) ** 2, 0, None)
+                )
+            )
+        return 0.0
+
     def _compute_element_centers(self) -> np.ndarray:
         """
         Element centres on the convex arc.
@@ -434,11 +481,21 @@ class ConvexArrayTransducer(TransducerBase):
                             [xs[i], ys[j + 1], 0.0],
                         ]
                     )
-                    # Apply elevation curvature in local frame (before arc rotation)
+                    # Apply elevation curvature in local frame (before arc rotation).
+                    # Rim-referenced datum (face at z = 0, surface dished back) so a point
+                    # at elevation y lies at (rim sagitta) − (sagitta at y); matches Field II
+                    # `xdc_convex_focused_array`. Identical convention to LinearArray above.
                     if self._elev_R is not None:
                         y_vals = corners[:, 1]
-                        corners[:, 2] += self._elev_R - np.sqrt(
-                            np.clip(self._elev_R**2 - y_vals**2, 0, None)
+                        sag_edge = self._elev_R - np.sqrt(
+                            np.clip(
+                                self._elev_R**2 - (self.elem_height / 2) ** 2, 0, None
+                            )
+                        )
+                        corners[:, 2] += (
+                            self._elev_R
+                            - np.sqrt(np.clip(self._elev_R**2 - y_vals**2, 0, None))
+                            - sag_edge
                         )
                     # Rotate to element tilt, then translate to arc position
                     corners = corners @ Ry.T + center

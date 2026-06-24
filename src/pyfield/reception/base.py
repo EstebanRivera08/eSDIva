@@ -16,23 +16,33 @@ Output axis convention is ``[emission, reception, Nt]`` (channels before time):
 import sys
 import time
 import warnings
+from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
 from scipy.signal import decimate, hilbert
 
+from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.simulation_base import SimulationBase
 from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
 )
 
+# Phases tracked in ``time_log`` (seconds) so the cost of the geometric physics is
+# separated from the signal processing: "time_grid_s" (building the SIR sample axes),
+# "sir_s" (the SIR / closed-form SIR-spectrum kernels — the physics core), and "fft_s"
+# (the FFT-domain two-way convolution + excitation/IR/attenuation filtering).
+_TIME_LOG_KEYS = ("time_grid_s", "sir_s", "fft_s")
+
 # Output-size threshold above which the heavy methods warn / auto-decimate.
 _SIZE_WARN_BYTES = 2 * 1024**3  # 2 GiB
 
-# Pulse-echo fast path splits scatterers into depth bins (see _auto_depth_bins).
-# Keep at least this many scatterers per bin so each batch stays cache-resident.
-_MIN_SCATTERERS_PER_BIN = 128
+# Pulse-echo fast path splits scatterers into depth bins (see _auto_depth_bins). This is
+# both the floor (fewer scatterers than this → don't bin) and the target bin occupancy:
+# the total cost (forward FFTs + per-bin SIR rebuild) is empirically minimised near this
+# many scatterers per bin, so `_auto_depth_bins` aims for `P // _MIN_SCATTERERS_PER_BIN`.
+_MIN_SCATTERERS_PER_BIN = 100
 
 
 def _warn_if_rx_delays_apods_not_default(rx):
@@ -48,11 +58,7 @@ def _warn_if_rx_delays_apods_not_default(rx):
     """
     if np.any(np.asarray(rx.delays) != 0.0) or not np.allclose(rx.apodization, 1.0):
         warnings.warn(
-            "RX apodization/delays are non-default and ARE applied per receive "
-            "element (each element's RF is time-shifted and scaled in the SIR; no "
-            "receive sum is performed). Intentional for receive-side weighting; for "
-            "raw per-element RF leave the RX transducer unfocused (zero delays, unit "
-            "apodization).",
+            "RX delays/apodization applied per receive element (no receive sum).",
             UserWarning,
             stacklevel=3,
         )
@@ -110,6 +116,38 @@ class ReceptionBase(SimulationBase):
     # ``sim(...)`` is the ergonomic alias for the most common operation.
     def __call__(self, *args, **kwargs):
         return self.pulse_echo_rf(*args, **kwargs)
+
+    # ------------------------------------------------------------------
+    # Per-phase timing (time_grid / SIR kernel / FFT convolution)
+    # ------------------------------------------------------------------
+
+    def _reset_time_log(self):
+        """Zero the per-phase wall-clock log at the start of an RF computation."""
+        self.time_log = dict.fromkeys(_TIME_LOG_KEYS, 0.0)
+
+    @contextmanager
+    def _timer(self, key):
+        """Add the wall-clock time of the enclosed block to ``self.time_log[key]``."""
+        if not hasattr(self, "time_log"):
+            self._reset_time_log()
+        t = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.time_log[key] = self.time_log.get(key, 0.0) + (time.perf_counter() - t)
+
+    def _timed_h_sir(self, *args, **kwargs):
+        """``compute_h_sir`` timed into ``time_log["sir_s"]`` (the SIR kernel cost)."""
+        with self._timer("sir_s"):
+            return compute_h_sir(*args, **kwargs)
+
+    def _fmt_time_log(self):
+        """One-line ``time_grid/sir/fft`` breakdown of the last RF computation."""
+        tl = self.time_log
+        return (
+            f"time_grid {tl['time_grid_s']:.2f}s, sir {tl['sir_s']:.2f}s, "
+            f"fft {tl['fft_s']:.2f}s"
+        )
 
     # ------------------------------------------------------------------
     # Shared state management + runtime config
@@ -252,8 +290,15 @@ class ReceptionBase(SimulationBase):
         focusing bulk ``tx.delays.max()`` (the last-firing element's delay) so downstream
         beamforming needs no per-line correction; we also bakes the RX focus if any,
         so the RX bulk is subtracted too.
+
+        For an elevation-focused (cylindrical-lens) aperture the time grid is referenced to
+        the first-arriving rim, but the focused elevation echo peaks one lens transit later;
+        each aperture's lens sag ``R − √(R² − (h/2)²)`` is added back as a propagation time
+        (TX once, RX once) so the RF origin matches a lens-focused reference. Flat apertures
+        have zero sag, so this is a no-op for them.
         """
         t0 = pe_t0 - float(np.max(self.tx.delays)) - float(np.max(self.rx.delays))
+        t0 += (self.tx.elevation_lens_sag + self.rx.elevation_lens_sag) / self.c
         coords = {"t0": t0, "dt": dt}
         if downsampling is not None and int(downsampling) > 1:
             step = int(downsampling)
@@ -324,13 +369,16 @@ class ReceptionBase(SimulationBase):
         center = np.asarray(self._tx_centers, dtype=np.float64).mean(axis=0)
         arrival = 2.0 * np.linalg.norm(points_m - center, axis=1) / self.c
         spread = float(arrival.max() - arrival.min()) * self.fs  # samples
-        exc = self._resolve_excitation()
-        # Window length below which nfft stops shrinking (the next_pow2(L) floor).
-        win_floor = max(128.0, float(len(exc)) if exc is not None else 0.0)
-        n_bins = max(
-            1, round(spread / win_floor)
-        )  # windows down to the nfft floor only
-        return max(1, min(n_bins, P // _MIN_SCATTERERS_PER_BIN))
+        if spread < 1.0:  # all scatterers at one depth — binning buys nothing.
+            return 1
+        # Each bin's FFT length covers its arrival window PLUS the fixed per-scatterer SIR
+        # width (the focusing-delay + aperture spread, ~hundreds of samples — not a short
+        # trapezoid). Finer binning shrinks only the window part of nfft, so the cost keeps
+        # falling well past the old `spread/win_floor` estimate (which undershot to ~6 bins
+        # and left PyField FFT-bound). Empirically the total (forward FFTs + per-bin SIR
+        # rebuild) is minimised near ``_MIN_SCATTERERS_PER_BIN`` scatterers per bin; never
+        # bin finer than the arrival spread (a sub-sample-thin bin buys nothing).
+        return max(1, min(P // _MIN_SCATTERERS_PER_BIN, int(spread)))
 
     def _validate_scatterer_inputs(self, positions_mm, amplitudes):
         """Normalise and validate positions + amplitudes, return (points_m, amps)."""

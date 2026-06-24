@@ -80,7 +80,7 @@ class TestReceptionBasic:
         non-default RX delays/apodization warning (they are applied per element).
         """
         pos, amp = on_axis_scatterer
-        with pytest.warns(UserWarning, match="RX apodization/delays are non-default"):
+        with pytest.warns(UserWarning, match="per receive element"):
             sim = ReceptionSDI(simple_tx, simple_tx, verbose=False)
         rf, coords = sim(pos, amp)
 

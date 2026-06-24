@@ -30,6 +30,23 @@ and transducer datasheets. Focus/medium in +z direction.
 
 `sag = R - sqrt(R^2 - (D/2)^2)`
 
+### Elevation lens datum (LinearArray / ConvexArray)
+
+The cylindrical elevation lens (`elevation_focus_mm`) is **rim-referenced**: the element
+face (rim, at `y = ±height/2`) sits at `z = 0` and the surface dishes **back** toward the
+backing, so the centre (`y = 0`) is the deepest point at `z = -sag_edge`, where
+`sag_edge = R - sqrt(R^2 - (height/2)^2)` and `R = elevation_focus`. This matches Field II
+`xdc_focused_array` / `xdc_convex_focused_array`, which keep the flat element face at z = 0.
+(NB: this is the *opposite* z-sign of `FocusedCircular`, which is centre-referenced —
+FocusedCircular is not yet aligned to Field II.)
+
+Reception adds the lens **group delay** `elevation_lens_sag / c` **per aperture** (TX once,
+RX once) to `coords["t0"]`: the pulse-echo origin is referenced to the first-arriving rim,
+but the focused elevation echo peaks one lens transit later. Exposed as the transducer
+property `elevation_lens_sag` (metres; 0 for flat apertures). With this, a native
+elevation-focused linear matches Field II pulse-echo RF at lag 0 (corr ~0.97 single
+scatterer; residual is curved-patch far-field discretization, improves with `no_sub_y`).
+
 ## focus_mm Definition (Concave / Convex / Focused)
 
 `focus_mm` = **focal length = radius of curvature** (the datasheet value, =

@@ -96,6 +96,19 @@ class TransducerBase(ABC):
         return self._element_centers
 
     @property
+    def elevation_lens_sag(self) -> float:
+        """Depth (m) a cylindrical elevation lens dishes the surface back at its centre.
+
+        Zero for flat/unfocused apertures (this base value). For a lens of radius ``R``
+        and element height ``h`` the surface centre sits ``R − √(R² − (h/2)²)`` behind the
+        rim. The pulse-echo time origin is referenced to the first-arriving edge (the rim),
+        but a focused elevation aperture's echo peaks one lens transit later, so reception
+        adds this sag — as a propagation time, once per aperture — to align the RF origin
+        with a lens-focused reference. Subclasses with an elevation lens override this.
+        """
+        return 0.0
+
+    @property
     def sub_quad_verts(self) -> List[np.ndarray]:
         """List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.
 

@@ -361,6 +361,7 @@ class ReceptionSDI(ReceptionBase):
         """
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
+        self._reset_time_log()
         resolved = self._resolve_method(points_m, focused_sum)
 
         # Per-element excitation (L, E) needs each TX element's pulse folded into its own
@@ -381,13 +382,15 @@ class ReceptionSDI(ReceptionBase):
         if resolved == "conventional":
             conv = self._ensure_conv()
             conv._refresh_sub_elem_attributes()  # resync from shared tx/rx state
-            return conv._compute_rf_inner(
+            out = conv._compute_rf_inner(
                 points_m,
                 amps,
                 downsampling=downsampling,
                 per_scatterer=per_scatterer,
                 focused_sum=focused_sum,
             )
+            self.time_log = conv.time_log  # surface the delegate's phase timings
+            return out
         core = self._rf_paired if resolved == "paired" else self._rf_spectral
         return core(
             points_m,
@@ -451,9 +454,10 @@ class ReceptionSDI(ReceptionBase):
         if grid_override is not None:
             pe_t0, dt, pe_T, tx_t0, rx_t0 = grid_override
         else:
-            pe_t0, dt, pe_T, tx_t0, _tx_T, rx_t0, _rx_T = self._compute_pe_time_grid(
-                points_m
-            )
+            with self._timer("time_grid_s"):
+                pe_t0, dt, pe_T, tx_t0, _tx_T, rx_t0, _rx_T = (
+                    self._compute_pe_time_grid(points_m)
+                )
         exc = self._resolve_excitation()
         ir_tx = getattr(self.tx, "impulse_response", None)
         ir_rx = getattr(self.rx, "impulse_response", None)
@@ -616,7 +620,8 @@ class ReceptionSDI(ReceptionBase):
             rf = self._spectral_summed_from_setup(s, points_m, amps, rx_csr)
             if s["show"]:
                 print(
-                    f"ReceptionSDI [spectral] computed in {time.time() - t_wall:.2f} s\n"
+                    f"ReceptionSDI [spectral] computed in {time.time() - t_wall:.2f} s "
+                    f"({self._fmt_time_log()})\n"
                 )
             return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
@@ -628,21 +633,22 @@ class ReceptionSDI(ReceptionBase):
         scale, inv_c = s["scale"], s["inv_c"]
         g_band, atten_kw = self._spectral_filters(s)
         t_wall = time.time()
-        h_tx = compute_oneway_spectrum_band(
-            points_m,
-            self._tx_centers,
-            self._tx_wx,
-            self._tx_wy,
-            self._tx_apod,
-            self._tx_delays,
-            inv_c,
-            s["tx_t0"],
-            omega_band,
-            dt,
-            eu=self._tx_eu,
-            ev=self._tx_ev,
-            **atten_kw,
-        )  # (P, N_band) complex64
+        with self._timer("sir_s"):
+            h_tx = compute_oneway_spectrum_band(
+                points_m,
+                self._tx_centers,
+                self._tx_wx,
+                self._tx_wy,
+                self._tx_apod,
+                self._tx_delays,
+                inv_c,
+                s["tx_t0"],
+                omega_band,
+                dt,
+                eu=self._tx_eu,
+                ev=self._tx_ev,
+                **atten_kw,
+            )  # (P, N_band) complex64
         el_iter = (
             _wrap_tqdm(
                 range(s["n_out"]), desc="RX elements", total=s["n_out"], leave=True
@@ -653,13 +659,17 @@ class ReceptionSDI(ReceptionBase):
         rf = np.zeros((P, s["n_out"], pe_T), dtype=np.float32)
         for e_rx in el_iter:
             h_rx = self._spectral_h_rx(s, e_rx, points_m, omega_band, dt, atten_kw)
-            sp_band = (h_tx * h_rx) * g_band[np.newaxis, :]  # (P, N_band)
-            full = np.zeros((P, n_freq), dtype=np.complex64)
-            full[:, b0:b1] = sp_band
-            rf_pe = irfft(full, n=nfft, axis=1)[:, :pe_T]  # (P, pe_T)
+            with self._timer("fft_s"):
+                sp_band = (h_tx * h_rx) * g_band[np.newaxis, :]  # (P, N_band)
+                full = np.zeros((P, n_freq), dtype=np.complex64)
+                full[:, b0:b1] = sp_band
+                rf_pe = irfft(full, n=nfft, axis=1)[:, :pe_T]  # (P, pe_T)
             rf[:, e_rx, :] = (rf_pe * amps[:, np.newaxis] * scale).astype(np.float32)
         if s["show"]:
-            print(f"ReceptionSDI [spectral] computed in {time.time() - t_wall:.2f} s\n")
+            print(
+                f"ReceptionSDI [spectral] computed in {time.time() - t_wall:.2f} s "
+                f"({self._fmt_time_log()})\n"
+            )
         return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
     def _n_spectral_out(self, focused_sum):
@@ -717,21 +727,22 @@ class ReceptionSDI(ReceptionBase):
     def _spectral_h_rx(self, s, e_rx, points_m, omega_band, dt, atten_kw):
         """One receive element's closed-form one-way SIR spectrum ``Σ_RX`` → (P, N_band)."""
         rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = s["rx_groups"][e_rx]
-        return compute_oneway_spectrum_band(
-            points_m,
-            rx_c,
-            rx_wx,
-            rx_wy,
-            rx_ap,
-            rx_dl,
-            s["inv_c"],
-            s["rx_t0"],
-            omega_band,
-            dt,
-            eu=rx_eu,
-            ev=rx_ev,
-            **atten_kw,
-        )
+        with self._timer("sir_s"):
+            return compute_oneway_spectrum_band(
+                points_m,
+                rx_c,
+                rx_wx,
+                rx_wy,
+                rx_ap,
+                rx_dl,
+                s["inv_c"],
+                s["rx_t0"],
+                omega_band,
+                dt,
+                eu=rx_eu,
+                ev=rx_ev,
+                **atten_kw,
+            )
 
     def _spectral_summed_from_setup(self, s, points_m, amps, rx_csr):
         """Summed spectral RF for one (sub-field, window) → ``(n_out, pe_T)`` float32.
@@ -755,34 +766,36 @@ class ReceptionSDI(ReceptionBase):
         scale, inv_c, dt = s["scale"], s["inv_c"], s["dt"]
         g_band, atten_kw = self._spectral_filters(s)
 
-        s_all = compute_twoway_spectrum_summed(
-            points_m,
-            amps,
-            self._tx_centers,
-            self._tx_wx,
-            self._tx_wy,
-            self._tx_apod,
-            self._tx_delays,
-            s["tx_t0"],
-            rx_csr["centers"],
-            rx_csr["wx"],
-            rx_csr["wy"],
-            rx_csr["apod"],
-            rx_csr["delays"],
-            s["rx_t0"],
-            rx_csr["ptr"],
-            inv_c,
-            omega_band,
-            dt,
-            tx_eu=self._tx_eu,
-            tx_ev=self._tx_ev,
-            rx_eu=rx_csr["eu"],
-            rx_ev=rx_csr["ev"],
-            **atten_kw,
-        )  # (n_out, N_band) complex128
-        full = np.zeros((s["n_out"], n_freq), dtype=np.complex64)
-        full[:, b0:b1] = (s_all * g_band[np.newaxis, :]).astype(np.complex64)
-        return (irfft(full, n=nfft, axis=1)[:, :pe_T] * scale).astype(np.float32)
+        with self._timer("sir_s"):
+            s_all = compute_twoway_spectrum_summed(
+                points_m,
+                amps,
+                self._tx_centers,
+                self._tx_wx,
+                self._tx_wy,
+                self._tx_apod,
+                self._tx_delays,
+                s["tx_t0"],
+                rx_csr["centers"],
+                rx_csr["wx"],
+                rx_csr["wy"],
+                rx_csr["apod"],
+                rx_csr["delays"],
+                s["rx_t0"],
+                rx_csr["ptr"],
+                inv_c,
+                omega_band,
+                dt,
+                tx_eu=self._tx_eu,
+                tx_ev=self._tx_ev,
+                rx_eu=rx_csr["eu"],
+                rx_ev=rx_csr["ev"],
+                **atten_kw,
+            )  # (n_out, N_band) complex128
+        with self._timer("fft_s"):
+            full = np.zeros((s["n_out"], n_freq), dtype=np.complex64)
+            full[:, b0:b1] = (s_all * g_band[np.newaxis, :]).astype(np.complex64)
+            return (irfft(full, n=nfft, axis=1)[:, :pe_T] * scale).astype(np.float32)
 
     def _rf_spectral_binned(
         self,
@@ -850,7 +863,7 @@ class ReceptionSDI(ReceptionBase):
                 f"\n--- ReceptionSDI [spectral, {n_bins} depth bins] ---\n"
                 f"  Scatterers : {points_m.shape[0]}   "
                 f"RX elements: {self._n_spectral_out(focused_sum)}\n"
-                f"  Nt         : {rf.shape[1]}"
+                f"  Nt         : {rf.shape[1]}   ({self._fmt_time_log()})"
             )
         return self._finalize(rf, t0_g, dt, focused_sum, downsampling)
 
@@ -897,11 +910,12 @@ class ReceptionSDI(ReceptionBase):
         # ÷(jω)⁴ is zero-phase and delocalized, so the per-pair splat must be circular over
         # the full nfft (sliced to pe_T) to match the FFT convolution; hence the full-length
         # kernel.
-        filt = s["inv_jw_pow"].astype(np.complex128)
-        for f in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
-            if f is not None:
-                filt = filt * f
-        w = np.ascontiguousarray(irfft(filt, n=s["nfft"]))  # length nfft
+        with self._timer("fft_s"):
+            filt = s["inv_jw_pow"].astype(np.complex128)
+            for f in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
+                if f is not None:
+                    filt = filt * f
+            w = np.ascontiguousarray(irfft(filt, n=s["nfft"]))  # length nfft
 
         P = points_m.shape[0]
         t_wall = time.time()
@@ -918,29 +932,30 @@ class ReceptionSDI(ReceptionBase):
         )
         for e_rx in el_iter:
             rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = s["rx_groups"][e_rx]
-            rf_pe = compute_pe_complete(
-                points_m,
-                self._tx_centers,
-                self._tx_wx,
-                self._tx_wy,
-                self._tx_apod,
-                self._tx_delays,
-                rx_c,
-                rx_wx,
-                rx_wy,
-                rx_ap,
-                rx_dl,
-                w,
-                s["inv_c"],
-                pe_t0,
-                pe_T,
-                self.fs,
-                dt,
-                tx_eu=self._tx_eu,
-                tx_ev=self._tx_ev,
-                rx_eu=rx_eu,
-                rx_ev=rx_ev,
-            )  # (P, pe_T) float32 — already the RF (w convolved in)
+            with self._timer("sir_s"):
+                rf_pe = compute_pe_complete(
+                    points_m,
+                    self._tx_centers,
+                    self._tx_wx,
+                    self._tx_wy,
+                    self._tx_apod,
+                    self._tx_delays,
+                    rx_c,
+                    rx_wx,
+                    rx_wy,
+                    rx_ap,
+                    rx_dl,
+                    w,
+                    s["inv_c"],
+                    pe_t0,
+                    pe_T,
+                    self.fs,
+                    dt,
+                    tx_eu=self._tx_eu,
+                    tx_ev=self._tx_ev,
+                    rx_eu=rx_eu,
+                    rx_ev=rx_ev,
+                )  # (P, pe_T) float32 — already the RF (w convolved in)
             if per_scatterer:
                 rf[:, e_rx, :] = (rf_pe * amps[:, np.newaxis] * s["scale"]).astype(
                     np.float32
@@ -949,7 +964,10 @@ class ReceptionSDI(ReceptionBase):
                 rf[e_rx, :] = ((amps @ rf_pe) * s["scale"]).astype(np.float32)
 
         if s["show"]:
-            print(f"ReceptionSDI [paired] computed in {time.time() - t_wall:.2f} s\n")
+            print(
+                f"ReceptionSDI [paired] computed in {time.time() - t_wall:.2f} s "
+                f"({self._fmt_time_log()})\n"
+            )
         return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
     def pulse_echo_rf(

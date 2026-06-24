@@ -1,6 +1,7 @@
 """Emission: compute emitted acoustic pressure fields."""
 
 import time
+from contextlib import contextmanager
 
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
@@ -109,6 +110,14 @@ class Emission(SimulationBase):
         self.monochromatic = monochromatic
         self.fast_attenuation = fast_attenuation
         self.verbose = verbose
+        # Wall-clock time (s) per phase of the last __call__, so the cost of the
+        # physics (the geometric SIR) is separated from the signal processing
+        # (FFT-domain excitation convolution / attenuation / DFT-at-fc):
+        #   "time_grid_s" — building the common output time axis,
+        #   "hsir_s"      — the h_sir kernel, summed over every call,
+        #   "fft_s"       — all FFT/iFFT convolution + monochromatic DFT work.
+        # Reset at the start of each __call__.
+        self.time_log: dict = {"time_grid_s": 0.0, "hsir_s": 0.0, "fft_s": 0.0}
         self._refresh_sub_elem_attributes()
 
         if self.verbose:
@@ -181,6 +190,17 @@ class Emission(SimulationBase):
     # Private helpers
     # ------------------------------------------------------------------
 
+    @contextmanager
+    def _timer(self, key):
+        """Add the wall-clock time of the enclosed block to ``self.time_log[key]``."""
+        t = time.perf_counter()
+        try:
+            yield
+        finally:
+            self.time_log[key] = self.time_log.get(key, 0.0) + (
+                time.perf_counter() - t
+            )
+
     @staticmethod
     def _apply_ir_to_excitation(excitation, ir):
         """Convolve excitation with impulse response (if not None).
@@ -235,24 +255,25 @@ class Emission(SimulationBase):
                 verbose=self.verbose,
             )
 
-        h, info = compute_h_sir(
-            P,
-            self.M,
-            T,
-            dt,
-            time_grid,
-            points_m,
-            self.centers_sub_elem,
-            self.wx_arr,
-            self.wy_arr,
-            float(1.0 / self.c),
-            self.fs,
-            self.apodization_sub_elem,
-            self.delays_sub_elem,
-            method_flag,
-            self.eu_arr,
-            self.ev_arr,
-        )
+        with self._timer("hsir_s"):
+            h, info = compute_h_sir(
+                P,
+                self.M,
+                T,
+                dt,
+                time_grid,
+                points_m,
+                self.centers_sub_elem,
+                self.wx_arr,
+                self.wy_arr,
+                float(1.0 / self.c),
+                self.fs,
+                self.apodization_sub_elem,
+                self.delays_sub_elem,
+                method_flag,
+                self.eu_arr,
+                self.ev_arr,
+            )
 
         if self.verbose:
             print(f"SIR computed in {time.time() - t_wall:.3f} s")
@@ -375,24 +396,25 @@ class Emission(SimulationBase):
         cols = pts_batch.shape[0]
         M_e = centers.shape[0]
 
-        h_out, _ = compute_h_sir(
-            cols,
-            M_e,
-            T,
-            dt,
-            time_grid,
-            pts_batch,
-            centers,
-            wx_arr,
-            wy_arr,
-            float(1.0 / self.c),
-            self.fs,
-            apod_arr,
-            delays_arr,
-            method_flag,
-            eu_arr,
-            ev_arr,
-        )
+        with self._timer("hsir_s"):
+            h_out, _ = compute_h_sir(
+                cols,
+                M_e,
+                T,
+                dt,
+                time_grid,
+                pts_batch,
+                centers,
+                wx_arr,
+                wy_arr,
+                float(1.0 / self.c),
+                self.fs,
+                apod_arr,
+                delays_arr,
+                method_flag,
+                eu_arr,
+                ev_arr,
+            )
         return h_out  # (cols, T) float32
 
     def _batch_P(self, nfft):
@@ -487,18 +509,19 @@ class Emission(SimulationBase):
         dt = 1.0 / self.fs
         idx_e = min(T, int(np.floor((info["max_time"] - t0) / dt)) + 2)
         h[idx_e:, :] = 0.0
-        return from_sir_to_monochromatic_pressure(
-            h,
-            None,
-            None,
-            None,
-            self.fc,
-            self.fs,
-            alpha0=self.alpha0,
-            freq_power=self.freq_power,
-            f0_hz=self.fc,
-            distances_m=distances_m,
-        )  # (P,) flat
+        with self._timer("fft_s"):
+            return from_sir_to_monochromatic_pressure(
+                h,
+                None,
+                None,
+                None,
+                self.fc,
+                self.fs,
+                alpha0=self.alpha0,
+                freq_power=self.freq_power,
+                f0_hz=self.fc,
+                distances_m=distances_m,
+            )  # (P,) flat
 
     def _transient_global(
         self, points_m, t0, T, dt, time_grid, distances_m, method, exc_1d
@@ -547,20 +570,21 @@ class Emission(SimulationBase):
 
             h_b = self._compute_h_sir_batch(pts_batch, T, dt, time_grid, method_flag)
             # (cols, T) float32 — zero-padding handled by rfft(n=nfft), no h_pad needed.
-            H = rfft(h_b, n=nfft, axis=1, workers=-1)  # (cols, N_freq) complex64
-            del h_b
+            with self._timer("fft_s"):
+                H = rfft(h_b, n=nfft, axis=1, workers=-1)  # (cols, N_freq) complex64
+                del h_b
 
-            if fft_exc is not None:
-                H *= fft_exc[np.newaxis, :]
-            if TF is not None:
-                H *= TF[np.newaxis, :]
-            if H_att is not None:
-                H *= H_att[p_start:p_end]
+                if fft_exc is not None:
+                    H *= fft_exc[np.newaxis, :]
+                if TF is not None:
+                    H *= TF[np.newaxis, :]
+                if H_att is not None:
+                    H *= H_att[p_start:p_end]
 
-            pressure_flat[:, p_start:p_end] = np.abs(
-                irfft(H, n=nfft, axis=1, workers=-1)[:, :T]
-            ).T.astype(np.float32)
-            del H
+                pressure_flat[:, p_start:p_end] = np.abs(
+                    irfft(H, n=nfft, axis=1, workers=-1)[:, :T]
+                ).T.astype(np.float32)
+                del H
 
         if self.verbose:
             print(f"FFT processing done in {time.time() - t_wall:.3f} s")
@@ -611,20 +635,22 @@ class Emission(SimulationBase):
                 points_m, T, dt, time_grid, method_flag, patch_slices[e]
             )  # (P, T) float32
 
-            for p_start in range(0, P, batch_P):
-                p_end = min(p_start + batch_P, P)
-                # DFT at fc via dot product: (cols,) — slice is a view, no copy.
-                H_e_fc = h_e[p_start:p_end].astype(np.complex64) @ exp_vec
+            with self._timer("fft_s"):
+                for p_start in range(0, P, batch_P):
+                    p_end = min(p_start + batch_P, P)
+                    # DFT at fc via dot product: (cols,) — slice is a view, no copy.
+                    H_e_fc = h_e[p_start:p_end].astype(np.complex64) @ exp_vec
 
-                if self.alpha0 is not None:
-                    dist_e_b = np.linalg.norm(
-                        points_m[p_start:p_end].astype(np.float64) - elem_centers[e],
-                        axis=1,
-                    )
-                    H_att_e_b = self._causal_tf_at_fc(dist_e_b)
-                    acc_flat[p_start:p_end] += H_e_fc * H_att_e_b
-                else:
-                    acc_flat[p_start:p_end] += H_e_fc
+                    if self.alpha0 is not None:
+                        dist_e_b = np.linalg.norm(
+                            points_m[p_start:p_end].astype(np.float64)
+                            - elem_centers[e],
+                            axis=1,
+                        )
+                        H_att_e_b = self._causal_tf_at_fc(dist_e_b)
+                        acc_flat[p_start:p_end] += H_e_fc * H_att_e_b
+                    else:
+                        acc_flat[p_start:p_end] += H_e_fc
 
             del h_e
 
@@ -716,31 +742,33 @@ class Emission(SimulationBase):
                 h_pad[:, :T] = h_e_b
                 del h_e_b
 
-                H_e = rfft(h_pad, axis=1, workers=-1)  # (cols, N_freq) complex64
-                if fft_exc_list is not None:
-                    H_e *= fft_exc_list[e][np.newaxis, :]
-                if TF is not None:
-                    H_e *= TF[np.newaxis, :]
-                if self.alpha0 is not None:
-                    dist_e_b = np.linalg.norm(
-                        pts_batch.astype(np.float64) - elem_centers[e], axis=1
-                    )  # (cols,)
-                    H_att_e_b = causal_attenuation_tf(
-                        freqs.astype(np.float64),
-                        dist_e_b,
-                        self.alpha0,
-                        self.freq_power,
-                        self.fc,
-                    ).astype(np.complex64)  # (cols, N_freq)
-                    H_e *= H_att_e_b
+                with self._timer("fft_s"):
+                    H_e = rfft(h_pad, axis=1, workers=-1)  # (cols, N_freq) complex64
+                    if fft_exc_list is not None:
+                        H_e *= fft_exc_list[e][np.newaxis, :]
+                    if TF is not None:
+                        H_e *= TF[np.newaxis, :]
+                    if self.alpha0 is not None:
+                        dist_e_b = np.linalg.norm(
+                            pts_batch.astype(np.float64) - elem_centers[e], axis=1
+                        )  # (cols,)
+                        H_att_e_b = causal_attenuation_tf(
+                            freqs.astype(np.float64),
+                            dist_e_b,
+                            self.alpha0,
+                            self.freq_power,
+                            self.fc,
+                        ).astype(np.complex64)  # (cols, N_freq)
+                        H_e *= H_att_e_b
 
-                acc_H += H_e
-                del H_e
+                    acc_H += H_e
+                    del H_e
 
             # ONE irfft + abs per P-batch — preserves inter-element interference.
-            pressure_flat[:, p_start:p_end] = np.abs(
-                irfft(acc_H, n=nfft, axis=1, workers=-1)[:, :T]
-            ).T.astype(np.float32)
+            with self._timer("fft_s"):
+                pressure_flat[:, p_start:p_end] = np.abs(
+                    irfft(acc_H, n=nfft, axis=1, workers=-1)[:, :T]
+                ).T.astype(np.float32)
             del acc_H
 
             # After first batch: print ETA based on measured batch time.
@@ -826,6 +854,8 @@ class Emission(SimulationBase):
 
         self._announce_mode(exc, use_per_element)
 
+        # Reset the per-phase timing log for this call (see __init__).
+        self.time_log = {"time_grid_s": 0.0, "hsir_s": 0.0, "fft_s": 0.0}
         t_wall = time.time()
 
         # Validate per-element excitation shape
@@ -842,18 +872,19 @@ class Emission(SimulationBase):
 
         # --- Compute global time grid (used by all paths) ---
         P = points_m.shape[0]
-        time_grid, t0, dt, T = compute_time_grid(
-            P,
-            self.M,
-            points_m,
-            self.centers_sub_elem,
-            self.wx,
-            self.wy,
-            self.c,
-            self.fs,
-            self.delays,
-            verbose=self.verbose,
-        )
+        with self._timer("time_grid_s"):
+            time_grid, t0, dt, T = compute_time_grid(
+                P,
+                self.M,
+                points_m,
+                self.centers_sub_elem,
+                self.wx,
+                self.wy,
+                self.c,
+                self.fs,
+                self.delays,
+                verbose=self.verbose,
+            )
 
         # --- Attenuation distances (global TX-center path only) ---
         distances_m = None
@@ -941,7 +972,16 @@ class Emission(SimulationBase):
             coords["t0"] = t0
             coords["dt"] = 1.0 / self.fs
 
-        print(f"Pressure field computed in {time.time() - t_wall:.2f} s\n")
+        total_s = time.time() - t_wall
+        if self.verbose:
+            tl = self.time_log
+            print(
+                f"Pressure field computed in {total_s:.2f} s "
+                f"(time_grid {tl['time_grid_s']:.2f}s, hsir {tl['hsir_s']:.2f}s, "
+                f"fft {tl['fft_s']:.2f}s)\n"
+            )
+        else:
+            print(f"Pressure field computed in {total_s:.2f} s\n")
         return pressure, coords
 
     def __repr__(self) -> str:

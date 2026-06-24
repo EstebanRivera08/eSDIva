@@ -74,6 +74,46 @@ class TestLinearSubdivisions:
         assert linear_4elem.n_sub_patches == 4 * 1 * 2
 
 
+class TestLinearElevationLens:
+    """Elevation-lens datum and sag (the Field II `xdc_focused_array` convention).
+
+    The cylindrical lens references the element face (rim, y = ±height/2) at z = 0 and
+    dishes the surface back, so the centre (y = 0) is the deepest point at −sag, where
+    ``sag = R − √(R² − (height/2)²)``. This matches Field II, which keeps the flat
+    element face at z = 0; reception adds ``sag/c`` per aperture as the lens group delay.
+    """
+
+    @staticmethod
+    def _lensed(elev_mm=8.0, h_mm=1.5, R_check=None):
+        return LinearArrayTransducer(
+            n_elements=4,
+            element_width_mm=0.25,
+            element_height_mm=h_mm,
+            kerf_mm=0.05,
+            no_sub_x=1,
+            no_sub_y=10,
+            elevation_focus_mm=elev_mm,
+            frequency_Hz=5e6,
+        )
+
+    def test_sag_zero_when_flat(self, linear_4elem):
+        """A flat aperture (no lens) has zero elevation sag."""
+        assert linear_4elem.elevation_lens_sag == 0.0
+
+    def test_sag_formula(self):
+        """Sag equals R − √(R² − (height/2)²) in metres."""
+        tx = self._lensed(elev_mm=8.0, h_mm=1.5)
+        R, h = 8e-3, 1.5e-3
+        assert tx.elevation_lens_sag == pytest.approx(R - np.sqrt(R**2 - (h / 2) ** 2))
+
+    def test_rim_at_zero_centre_recessed(self):
+        """Rim patches sit at z≈0; the centre is recessed to ≈ −sag (rim-referenced)."""
+        tx = self._lensed(elev_mm=8.0, h_mm=1.5)
+        z = np.stack(tx.sub_quad_verts)[:, :, 2]
+        assert z.max() == pytest.approx(0.0, abs=1e-9)
+        assert z.min() == pytest.approx(-tx.elevation_lens_sag, abs=1e-9)
+
+
 class TestLinearDelays:
     def test_shape(self, linear_4elem):
         delays = linear_4elem.compute_delays(focus_mm=[0, 0, 20])
