@@ -50,7 +50,7 @@ p, coords = sim(field_points, method="auto")
 p, coords = sim(field_points, method="auto", excitation=pulse)
 ```
 
-**`__call__` parameters** — `field_points_mm` · `method` (`"auto"` / `"naive"` / `"sdi"`) · `excitation` · `monochromatic`
+**`__call__` parameters** — `field_points_mm` · `method` (`"auto"` / `"FST"` / `"sdi"`) · `excitation` · `monochromatic`
 
 [Full reference →](simulation.md){ .md-button }
 

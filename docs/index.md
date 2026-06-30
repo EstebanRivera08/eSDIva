@@ -115,6 +115,6 @@ plot2D_pressure_slices(p, x=coords["x"], y=coords["y"], z=coords["z"], db_scale=
 
     ---
 
-    Validated against SIR benchmarks. Naive and SDI methods with automatic selection for optimal speed and numerical accuracy.
+    Validated against SIR benchmarks. FST and SDI methods with automatic selection for optimal speed and numerical accuracy.
 
 </div>

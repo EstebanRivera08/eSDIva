@@ -6,7 +6,7 @@ Field II parallel: ``fieldiiexamples/example_concave_psf.m``
 Computes the pulse-echo Point Spread Function (PSF) of a spherically focused
 single-element transducer and compares two simulation backends:
 
-- ``Reception(method="naive")`` — conventional FieldII-style: h_tx ⊛ h_rx,
+- ``Reception(method="FST")`` — conventional FieldII-style: h_tx ⊛ h_rx,
   three temporal derivatives applied to excitation via (jω)³.
 - ``ReceptionSDI()`` — combined PE SDI: 16 deltas per (TX, RX) patch pair,
   derivatives absorbed into Dh_pe, one cumsum.
@@ -39,7 +39,7 @@ SCATTERER_Z_MM = 30.0
 X_SCAT_MM = np.arange(-10, 10.0, 0.2)
 PULSE_CYCLES = 2
 
-print("\n--- Example 06: Concave Transducer — Pulse-Echo PSF (naive vs SDI) ---\n")
+print("\n--- Example 06: Concave Transducer — Pulse-Echo PSF (FST vs SDI) ---\n")
 
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
@@ -84,12 +84,12 @@ field_points_mm = np.column_stack(
 # ============================================================================
 print(f"Simulating {len(X_SCAT_MM)} lateral positions at z={SCATTERER_Z_MM} mm ...")
 
-print("\n  [1/2] Reception(method='naive') ...")
+print("\n  [1/2] Reception(method='FST') ...")
 t_start = time.time()
-sim_naive = Reception(tx, rx, fs=FS, c=C, method="naive", verbose=False)
-rf_naive, coords_naive = sim_naive.pulse_echo_rf(field_points_mm, per_scatterer=True)
-t_naive = time.time() - t_start
-print(f" Done in {t_naive:.2f} s")
+sim_FST = Reception(tx, rx, fs=FS, c=C, method="FST", verbose=False)
+rf_FST, coords_FST = sim_FST.pulse_echo_rf(field_points_mm, per_scatterer=True)
+t_FST = time.time() - t_start
+print(f" Done in {t_FST:.2f} s")
 
 print("\n  [2/2] ReceptionSDI() ...")
 t_start = time.time()
@@ -102,25 +102,25 @@ print(f" Done in {t_sdi:.2f} s")
 # STEP 3: PREPARE IMAGES
 # ============================================================================
 # rf_*.shape = (N_lateral, Erx, Nt) — mono-element → (Nt, N_lateral)
-rf_naive_img = rf_naive[:, 0, :].T
+rf_FST_img = rf_FST[:, 0, :].T
 rf_sdi_img = rf_sdi[:, 0, :].T
 
 time_array = (
-    coords_sdi["t0"] + np.arange(rf_naive_img.shape[0]) * coords_sdi["dt"]
+    coords_sdi["t0"] + np.arange(rf_FST_img.shape[0]) * coords_sdi["dt"]
 ) * 1e6  # µs
 
-env_naive = np.abs(hilbert(rf_naive_img, axis=0))
+env_FST = np.abs(hilbert(rf_FST_img, axis=0))
 env_sdi = np.abs(hilbert(rf_sdi_img, axis=0))
 
-peak = env_naive.max() + 1e-30
-env_naive_db = to_dB(env_naive / peak, vmin=10 ** (-60 / 20))
+peak = env_FST.max() + 1e-30
+env_FST_db = to_dB(env_FST / peak, vmin=10 ** (-60 / 20))
 env_sdi_db = to_dB(env_sdi / peak, vmin=10 ** (-60 / 20))
 
 # Difference on shortest common time axis.
 # Compare the shapes
-print(f"\n  rf_naive shape: {rf_naive_img.shape}")
+print(f"\n  rf_FST shape: {rf_FST_img.shape}")
 print(f"  rf_sdi shape: {rf_sdi_img.shape}")
-diff_abs = rf_naive_img - rf_sdi_img
+diff_abs = rf_FST_img - rf_sdi_img
 diff_pct = diff_abs / (peak) * 100.0
 pos_max_diff = np.unravel_index(np.abs(diff_pct).argmax(), diff_pct.shape)
 diff_max = diff_abs[pos_max_diff]
@@ -132,24 +132,24 @@ max_err_pct = float(diff_pct.max())
 # Envelope error is the honest headline: shift-tolerant, reflects PSF agreement
 # rather than sub-sample edge jitter in the raw RF.
 env_err_pct = float(
-    np.abs(env_naive - env_sdi).max() / (env_naive.max() + 1e-30) * 100.0
+    np.abs(env_FST - env_sdi).max() / (env_FST.max() + 1e-30) * 100.0
 )
-print(f"\n  Max |naive - SDI| / peak (raw, native): {max_err_pct:.2f} %")
-print(f"  Max |naive - SDI| / peak (envelope)     : {env_err_pct:.2f} %")
+print(f"\n  Max |FST - SDI| / peak (raw, native): {max_err_pct:.2f} %")
+print(f"  Max |FST - SDI| / peak (envelope)     : {env_err_pct:.2f} %")
 
 # ============================================================================
 # STEP 4: DISPLAY
 # ============================================================================
-t_us_naive = t_us_sdi = t_us_diff = time_array
-extent_naive = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_naive[-1], t_us_naive[0]]
+t_us_FST = t_us_sdi = t_us_diff = time_array
+extent_FST = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_FST[-1], t_us_FST[0]]
 extent_sdi = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_sdi[-1], t_us_sdi[0]]
 extent_diff = [X_SCAT_MM[0], X_SCAT_MM[-1], t_us_diff[-1], t_us_diff[0]]
 
-peak_rf = np.abs(rf_naive_img).max() + 1e-30
-peak_row = env_naive_db.argmax(axis=0).max()
+peak_rf = np.abs(rf_FST_img).max() + 1e-30
+peak_row = env_FST_db.argmax(axis=0).max()
 peak_row_sdi = env_sdi_db.argmax(axis=0).max()
 center_idx = len(X_SCAT_MM) // 2
-print(f"\n  Peak RF at row {peak_row} (naive), {peak_row_sdi} (SDI)")
+print(f"\n  Peak RF at row {peak_row} (FST), {peak_row_sdi} (SDI)")
 
 fig, axes = plt.subplots(3, 3, figsize=(16, 8))
 
@@ -157,14 +157,14 @@ fig, axes = plt.subplots(3, 3, figsize=(16, 8))
 ax = axes[0, 0]
 
 ax.imshow(
-    rf_naive_img / peak_rf,
+    rf_FST_img / peak_rf,
     aspect="auto",
-    extent=extent_naive,
+    extent=extent_FST,
     cmap="RdBu",
     vmin=-1,
     vmax=1,
 )
-ax.set_title(f"Reception naive — raw RF  ({t_naive:.1f} s)")
+ax.set_title(f"Reception FST — raw RF  ({t_FST:.1f} s)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 
@@ -186,21 +186,21 @@ ax.sharey(axes[0, 0])
 ax = axes[0, 2]
 im = ax.imshow(diff_pct, aspect="auto", extent=extent_diff, cmap="viridis", vmin=0)
 plt.colorbar(im, ax=ax, label="%")
-ax.set_title(f"|naive − SDI| / peak, native  (max {max_err_pct:.2f} %)")
+ax.set_title(f"|FST − SDI| / peak, native  (max {max_err_pct:.2f} %)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 ax.sharex(axes[0, 0])
 ax.sharey(axes[0, 0])
 
 # Row 1: envelope dB images + envelope difference
-env_diff_db = env_naive_db - env_sdi_db
+env_diff_db = env_FST_db - env_sdi_db
 
 ax = axes[1, 0]
 im = ax.imshow(
-    env_naive_db, aspect="auto", extent=extent_naive, cmap="hot", vmin=-60, vmax=0
+    env_FST_db, aspect="auto", extent=extent_FST, cmap="hot", vmin=-60, vmax=0
 )
 plt.colorbar(im, ax=ax, label="dB")
-ax.set_title("Reception naive — envelope (dB)")
+ax.set_title("Reception FST — envelope (dB)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 
@@ -224,13 +224,13 @@ im = ax.imshow(
     vmax=vmax_ediff,
 )
 plt.colorbar(im, ax=ax, label="dB")
-ax.set_title("Envelope difference (naive − SDI, dB)")
+ax.set_title("Envelope difference (FST − SDI, dB)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 
 # Row 2: on-axis RF overlay + lateral profile + error vs time
 ax = axes[2, 0]
-ax.plot(t_us_naive, rf_naive_img[:, center_idx], label="naive", lw=1.2)
+ax.plot(t_us_FST, rf_FST_img[:, center_idx], label="FST", lw=1.2)
 ax.plot(t_us_sdi, rf_sdi_img[:, center_idx], "--", label="SDI", lw=1.2)
 ax.set_xlabel("Time (µs)")
 ax.set_ylabel("RF")
@@ -239,7 +239,7 @@ ax.legend()
 ax.grid(alpha=0.3)
 
 ax = axes[2, 1]
-ax.plot(X_SCAT_MM, env_naive_db[peak_row, :], label="naive", lw=1.2)
+ax.plot(X_SCAT_MM, env_FST_db[peak_row, :], label="FST", lw=1.2)
 ax.plot(X_SCAT_MM, env_sdi_db[peak_row_sdi, :], "--", label="SDI", lw=1.2)
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Envelope (dB)")

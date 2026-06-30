@@ -197,9 +197,7 @@ class Emission(SimulationBase):
         try:
             yield
         finally:
-            self.time_log[key] = self.time_log.get(key, 0.0) + (
-                time.perf_counter() - t
-            )
+            self.time_log[key] = self.time_log.get(key, 0.0) + (time.perf_counter() - t)
 
     @staticmethod
     def _apply_ir_to_excitation(excitation, ir):
@@ -301,7 +299,7 @@ class Emission(SimulationBase):
         SIR-accuracy diagnostic: Δk is how many time samples each patch's
         trapezoidal SIR spans at this geometry. The far-field/sampling
         approximation degrades when Δk is too small (a patch barely resolved in
-        time), and the auto method switches naive→SDI above ``8 + 2T/M``. Inspect
+        time), and the auto method switches FST→SDI above ``8 + 2T/M``. Inspect
         this to check a chosen ``no_sub_x``/``no_sub_y`` resolves every patch.
 
         Parameters
@@ -309,7 +307,7 @@ class Emission(SimulationBase):
         field_points_mm : dict or (N, 3) numpy.ndarray
             Grid spec dict (mm) or raw point array (mm), as in ``__call__``.
         method : str, default "auto"
-            SIR method ("auto", "naive", "sdi") — only affects which patches the
+            SIR method ("auto", "FST", "sdi") — only affects which patches the
             kernel would take the SDI path for; Δk itself is method-independent.
 
         Returns
@@ -828,7 +826,7 @@ class Emission(SimulationBase):
         field_points_mm : dict or (N, 3) ndarray
             Grid spec dict (mm) or raw point array (mm).
         method : str, default "auto"
-            SIR computation method: "auto", "naive", or "sdi".
+            SIR computation method: "auto", "FST", or "sdi".
 
         Returns
         -------

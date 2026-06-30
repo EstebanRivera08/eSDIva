@@ -26,7 +26,7 @@ pressure, coords = sim(field_points_mm, method="auto")
 | Parameter | Type | Description |
 |-----------|------|-------------|
 | `field_points_mm` | `dict` or `(N,3) ndarray` | Structured grid dict or raw point coordinates in mm |
-| `method` | `str` | `"naive"`, `"SDI"`, or `"auto"` |
+| `method` | `str` | `"FST"`, `"SDI"`, or `"auto"` |
 | `excitation` | `ndarray or None` | Excitation pulse for transient simulation |
 
 **Return values**
@@ -52,7 +52,7 @@ User handles reshaping for raw input. Use dict input or `compute_mesh=True` for 
 
 | Name | Description |
 |------|-------------|
-| `"naive"` | Direct evaluation — O(M·P) |
+| `"FST"` | Direct evaluation — O(M·P) |
 | `"sdi"` | Sparse Delta Integration — same result, faster for dense grids |
 | `"auto"` | Picks the faster method based on `M` and `P` |
 
@@ -81,7 +81,7 @@ t₄ = t₁ + Δt₁ + Δt₂
 `l` is the patch-to-field-point distance, `(xᵤ, yᵤ)` are direction cosines,
 and `wx`, `wy` are the physical patch half-widths.
 
-### Naive method
+### FST method
 
 Fills the trapezoid sample-by-sample for every `(patch, field-point)` pair.
 Straightforward but scales as O(M · P · T_trap) where `T_trap` is the number
@@ -112,7 +112,7 @@ for each (patch m, field point p):
 cumsum twice  →  h_tx
 ```
 
-The `"auto"` method selects naive or SDI based on the ratio of M·P to the
+The `"auto"` method selects FST or SDI based on the ratio of M·P to the
 expected trapezoid width, choosing whichever is faster for the given problem.
 
 ---

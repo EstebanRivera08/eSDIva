@@ -146,10 +146,27 @@ class LinearArrayTransducer(TransducerBase):
         cylindrical arc so that all patches lie on the curved lens surface.
         """
         xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
-        ys = np.linspace(-self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1)
-        patch_area = (self.elem_width / self.no_sub_x) * (
-            self.elem_height / self.no_sub_y
-        )
+        if self.elev_focus > 0:
+            # Cylindrical lens: place the elevation nodes equally along the ARC
+            # (uniform in arc-angle θ), not uniform in Cartesian y. This is the
+            # Field II `xdc_focused_array` convention — each tile spans an equal arc
+            # length so the rim (θ = ±θ_max) lands exactly at y = ±height/2. The
+            # half-angle subtended by the element is θ_max = asin((height/2) / R).
+            th_max = np.arcsin((self.elem_height / 2) / self.elev_focus)
+            ys = self.elev_focus * np.sin(
+                np.linspace(-th_max, th_max, self.no_sub_y + 1)
+            )
+            # Equal-arc tile height (used only for the nominal patch area; the SIR
+            # reads each tile's true 3-D edge length from its corner vertices).
+            arc_dy = self.elev_focus * 2.0 * th_max / self.no_sub_y
+            patch_area = (self.elem_width / self.no_sub_x) * arc_dy
+        else:
+            ys = np.linspace(
+                -self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1
+            )
+            patch_area = (self.elem_width / self.no_sub_x) * (
+                self.elem_height / self.no_sub_y
+            )
 
         quads, el_indices = [], []
         for idx, center in enumerate(self.element_centers):
@@ -459,10 +476,21 @@ class ConvexArrayTransducer(TransducerBase):
         """
         # Local (un-rotated) patch grid: flat rectangle at origin
         xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
-        ys = np.linspace(-self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1)
-        patch_area = (self.elem_width / self.no_sub_x) * (
-            self.elem_height / self.no_sub_y
-        )
+        if self._elev_R is not None:
+            # Cylindrical lens nodes equally spaced in arc-angle θ (Field II
+            # `xdc_convex_focused_array` convention), so each tile is equal-arc and
+            # the rim lands at y = ±height/2. θ_max = asin((height/2) / R_elev).
+            th_max = np.arcsin((self.elem_height / 2) / self._elev_R)
+            ys = self._elev_R * np.sin(np.linspace(-th_max, th_max, self.no_sub_y + 1))
+            arc_dy = self._elev_R * 2.0 * th_max / self.no_sub_y
+            patch_area = (self.elem_width / self.no_sub_x) * arc_dy
+        else:
+            ys = np.linspace(
+                -self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1
+            )
+            patch_area = (self.elem_width / self.no_sub_x) * (
+                self.elem_height / self.no_sub_y
+            )
 
         quads, el_indices = [], []
 

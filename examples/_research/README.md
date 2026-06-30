@@ -26,24 +26,24 @@ patches, so `slope = h_max/Dt1 ~ area/dt²` explodes. The PE-SDI weight is
 float32 at the `compute_pe_sdi` boundary). Leak gone (tail/peak ~1e-3, stable
 208→1680 patches); 49 reception/SDI tests pass.
 
-### 2. Reception(naive) vs ReceptionSDI amplitude mismatch — DIAGNOSED (`16_naive_vs_sdi_amp.py`)
+### 2. Reception(FST) vs ReceptionSDI amplitude mismatch — DIAGNOSED (`16_FST_vs_sdi_amp.py`)
 **Symptom:** conventional `Reception` peak amplitude differs from `ReceptionSDI`.
 
-**Cause:** exactly a factor of `dt = 1/fs`. Ratio naive/SDI = `fs` (50/100/200 MHz →
-50e6/100e6/200e6, <1% error), independent of `fc`. `naive·dt == SDI` (amplitude
-ratio 1.005, waveform corr 0.945 = the usual naive-vs-SDI numerical diff, not scale).
+**Cause:** exactly a factor of `dt = 1/fs`. Ratio FST/SDI = `fs` (50/100/200 MHz →
+50e6/100e6/200e6, <1% error), independent of `fc`. `FST·dt == SDI` (amplitude
+ratio 1.005, waveform corr 0.945 = the usual FST-vs-SDI numerical diff, not scale).
 
 The factor lives in the two-way SIR convolution `h_tx ⊛ h_rx`:
-  * naive does it as an FFT product `irfft(H_tx·H_rx)` = DISCRETE conv = (1/dt)·continuous;
+  * FST does it as an FFT product `irfft(H_tx·H_rx)` = DISCRETE conv = (1/dt)·continuous;
   * SDI does it by delta placement (δ⊛δ, weights multiply → continuous) + cumsum.
-All exc/IR convolutions are FFT products in BOTH engines, so they cancel — naive
+All exc/IR convolutions are FFT products in BOTH engines, so they cancel — FST
 just has ONE extra FFT-product conv (the SIR-SIR one) that omits the continuous-
 convolution `dt`. Since `(h_tx⊛h_rx)(t)=∫h_tx h_rx dτ ≈ dt·Σ`, **conventional
 `Reception` is too big by `fs`; SDI is correct for that step.**
 
 **Fix (applied):** folded one `dt` into `scale` in `Reception._compute_rf_inner`
 (`scale = rho/(2c²)·dt`), with a comment explaining the continuous-vs-discrete
-convolution origin. Post-fix `peak(naive)/peak(SDI) = 1.005`, corr 0.945 — agree to
+convolution origin. Post-fix `peak(FST)/peak(SDI) = 1.005`, corr 0.945 — agree to
 ~0.5% (not bit-identical: sampled-trapezoid+`(jω)ⁿ` vs quantised-delta+cumsum are
 different operators, so a few-% residual is expected). 49 reception/SDI tests pass.
 Normalised PSFs unaffected.
@@ -93,7 +93,7 @@ to. Validated: 26k / 288k / 1.1M elements all give the same null depth.
 - **Left panel:** one-way SIR on-axis — Rayleigh gold vs PyField `no_sub=16` / `64`
   (convergence check; `no_sub=64` overlays the gold top-hat).
 - **Right panel:** on-axis pulse-echo envelope, **peak-aligned** — Rayleigh gold,
-  PyField naive, PyField SDI, Field II. (Peak-aligned because absolute `t0`
+  PyField FST, PyField SDI, Field II. (Peak-aligned because absolute `t0`
   conventions differ across engines + the manual gold chain: exc/IR group delay,
   SIR-only `t0`. Align by peak to compare shape + null depth fairly.)
 - **Console:** the central-null depth (dB) for all four.

@@ -76,7 +76,7 @@ under `[project.theme]`.
 
 - **Patch-based discretization**: transducers decompose into small rectangular patches; `no_sub_x`/`no_sub_y` control subdivision density and accuracy.
 - **Lazy geometry loading**: `TransducerBase` defers element-center/patch-vertex computation until needed.
-- **SIR method selection**: `"naive"` (slow reference), `"sdi"` (Sparse Delta Integration, faster on large grids), `"auto"` (picks based on grid properties).
+- **SIR method selection**: `"FST"` (slow reference), `"sdi"` (Sparse Delta Integration, faster on large grids), `"auto"` (picks based on grid properties).
 - **Unit convention**: user-facing APIs use mm (`_mm` suffix); internals use SI (m, s).
 - **Monochromatic vs transient**: mono returns `p.shape = (Nx, Ny, Nz)` (CW); transient returns `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
 

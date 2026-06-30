@@ -20,11 +20,11 @@ Mathematical foundations of the Spatial Impulse Response (SIR) method as impleme
 
     Analytical SIR for a flat rectangular piston — the fundamental building block of the patch-based method.
 
--   :lucide-zap: **[Naive and SDI Methods](methods.md)**
+-   :lucide-zap: **[FST and SDI Methods](methods.md)**
 
     ---
 
-    Two algorithms for evaluating the SIR at discrete time samples: the naive direct approach and the Sparse Delta Integration (SDI) method.
+    Two algorithms for evaluating the SIR at discrete time samples: the FST direct approach and the Sparse Delta Integration (SDI) method.
 
 -   :lucide-grid: **[Patch Subdivision](subdivision.md)**
 

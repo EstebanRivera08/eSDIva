@@ -1,7 +1,7 @@
-"""Amplitude ratio Reception(naive) / ReceptionSDI vs fs and fc.
+"""Amplitude ratio Reception(FST) / ReceptionSDI vs fs and fc.
 
 The two engines compute h_tx (conv) h_rx differently:
-  naive : FFT(h_tx)*FFT(h_rx)  -> discrete convolution (each FFT product is a
+  FST : FFT(h_tx)*FFT(h_rx)  -> discrete convolution (each FFT product is a
           discrete conv, missing a dt vs the continuous integral)
   SDI   : delta placement (continuous conv of the d2h delta trains) + cumsum
           (discrete integral, also a hidden dt)
@@ -30,11 +30,11 @@ def mk(fc, fs, exc=False):
 
 
 def peaks(fc, fs):
-    naive = Reception(mk(fc, fs, True), mk(fc, fs), fs=fs, c=C, method="naive", verbose=False)
+    FST = Reception(mk(fc, fs, True), mk(fc, fs), fs=fs, c=C, method="FST", verbose=False)
     sdi = ReceptionSDI(mk(fc, fs, True), mk(fc, fs), fs=fs, c=C, verbose=False)
     out = {}
     for label, meth in [("scat", "scattered_rf"), ("hhp", "pulse_echo_response")]:
-        rn, _ = getattr(naive, meth)(pts, per_scatterer=True)
+        rn, _ = getattr(FST, meth)(pts, per_scatterer=True)
         rs, _ = getattr(sdi, meth)(pts, per_scatterer=True)
         out[label] = (np.abs(rn).max(), np.abs(rs).max())
     return out
@@ -54,15 +54,15 @@ for fc in [2e6, 4e6]:
 # After the dt fix in Reception: amplitudes agree directly (ratio -> 1). They are
 # NOT bit-identical (different operators: sampled trapezoid + (jw)^n vs quantised
 # delta train + cumsum), so a few-% residual / corr ~0.95 is expected, not a bug.
-print("\n=== naive vs SDI, post-fix (scattered_rf, fc=3MHz fs=100MHz) ===")
+print("\n=== FST vs SDI, post-fix (scattered_rf, fc=3MHz fs=100MHz) ===")
 fc, fs = 3e6, 100e6
-naive = Reception(mk(fc, fs, True), mk(fc, fs), fs=fs, c=C, method="naive", verbose=False)
+FST = Reception(mk(fc, fs, True), mk(fc, fs), fs=fs, c=C, method="FST", verbose=False)
 sdi = ReceptionSDI(mk(fc, fs, True), mk(fc, fs), fs=fs, c=C, verbose=False)
-rn, _ = naive.scattered_rf(pts, per_scatterer=True)
+rn, _ = FST.scattered_rf(pts, per_scatterer=True)
 rs, _ = sdi.scattered_rf(pts, per_scatterer=True)
 a = rn[0, :, 0].astype(float)
 b = rs[0, :, 0].astype(float)
 n = min(len(a), len(b))
 corr = np.corrcoef(a[:n], b[:n])[0, 1]
-print(f"  peak(naive)/peak(SDI) = {np.abs(a).max() / np.abs(b).max():.5f}")
+print(f"  peak(FST)/peak(SDI) = {np.abs(a).max() / np.abs(b).max():.5f}")
 print(f"  waveform correlation  = {corr:.5f}")

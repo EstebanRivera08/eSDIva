@@ -16,7 +16,11 @@ from .helpers import (
 def _fully_sampled_trapezoid(
     h_out, p, k_start, k_end, time_grid, t1, t2, t3, t4, slope, h_max
 ):
-    """Fill h_out[p, k_start:k_end] with the continuous trapezoid SIR (naive method).
+    """Fill h_out[p, k_start:k_end] with the continuous trapezoid SIR (FST method).
+
+    FST = Fully-Sampled Trapezoid: the patch SIR trapezoid is evaluated directly at
+    every time sample it spans (as opposed to SDI, which writes only the corner deltas
+    and recovers the trapezoid by a double cumulative sum).
 
     Evaluates the rising / plateau / falling segments of the patch SIR at each time
     sample and accumulates them — the exact band-unlimited SIR, used as the reference
@@ -43,7 +47,7 @@ def _place_sir_sdi_deltas(d2h, p, t0, fs, t1, t2, t3, t4, slope):
     each scaled by the rising slope. Each delta is split across its two neighbouring
     sample bins by linear interpolation (the +1 keeps the same lattice the double
     cumulative sum integrates back on); the caller recovers h by that double cumsum.
-    Cheaper than the naive fill when the patch spans many samples.
+    Cheaper than the FST fill when the patch spans many samples.
     """
     for tc, sign in ((t1, 1.0), (t2, -1.0), (t3, -1.0), (t4, 1.0)):
         kf = (tc - t0) * fs + 1.0
@@ -71,7 +75,7 @@ def compute_parallelized_sir_optimized(
     time_grid,
     fs,
     dt,
-    method_flag,  # 0 -> naive, 1 -> sdi, 2 -> auto
+    method_flag,  # 0 -> FST, 1 -> sdi, 2 -> auto
     return_deltak,  # if True, fill range_k_matrix (per-patch trapezoid width in samples)
 ):
     """Compute SIR in parallel over field points.
@@ -108,7 +112,7 @@ def compute_parallelized_sir_optimized(
     dt : float
         Time step size.
     method_flag : int
-        0 for naive, 1 for SDI, 2 for auto.
+        0 for FST, 1 for SDI, 2 for auto.
     return_deltak : bool
         If True, fill and return the per-patch trapezoid width Δk (samples) in
         ``range_k_matrix``. If False, skip that ``(P, M)`` allocation entirely
@@ -122,15 +126,15 @@ def compute_parallelized_sir_optimized(
     """
     h_out = np.zeros((P, T), dtype=np.float32)
     # SDI scratch for the 2nd-derivative delta train (double-integrated into h_out
-    # below). Only the SDI and auto paths ever write it; the naive path
+    # below). Only the SDI and auto paths ever write it; the FST path
     # (method_flag == 0) leaves it untouched, so skip the full (P, T) allocation there
-    # and keep a (1, 1) placeholder — halves the big-buffer footprint of naive runs.
+    # and keep a (1, 1) placeholder — halves the big-buffer footprint of FST runs.
     if method_flag != 0:
         d2h = np.zeros((P, T), dtype=np.float32)
     else:
         d2h = np.zeros((1, 1), dtype=np.float32)
     # Only allocate the full Δk matrix when the caller wants it; the scalar
-    # range_k below still drives the auto naive/SDI decision either way.
+    # range_k below still drives the auto FST/SDI decision either way.
     if return_deltak:
         range_k_matrix = np.zeros((P, M), dtype=np.int32)
     else:
@@ -205,20 +209,20 @@ def compute_parallelized_sir_optimized(
                 range_k_matrix[p, m] = range_k
 
             # decide method for this patch
-            use_naive = True
+            use_fst = True
 
-            if method_flag == 0:  # naive
-                use_naive = True
+            if method_flag == 0:  # FST
+                use_fst = True
             elif method_flag == 1:  # sdi
-                use_naive = False
+                use_fst = False
             else:  # auto
                 if range_k > threshold_term:
-                    use_naive = False  # sdi
+                    use_fst = False  # sdi
 
             # compute slope and basic values
             slope = h_max / (t2 - t1)
 
-            if use_naive:
+            if use_fst:
                 _fully_sampled_trapezoid(
                     h_out, p, k_start, k_end, time_grid, t1, t2, t3, t4, slope, h_max
                 )
@@ -227,7 +231,7 @@ def compute_parallelized_sir_optimized(
 
         # After all patches for point p processed, if any SDI events were added, integrate
         # We must integrate d2h -> dh -> h and add to h_out
-        # (Even if some patches used naive, we still need to add integrated d2h)
+        # (Even if some patches used FST, we still need to add integrated d2h)
         # First cumulative sum (in-place on a temp)
         if method_flag != 0:
             acc = 0.0
@@ -307,7 +311,7 @@ def compute_h_sir(
     delays_sub_elem : ndarray, shape (M,)
         Delay values per patch in seconds.
     method_flag : int, optional
-        Computation method: 0 naive, 1 SDI, 2 auto. Default 1.
+        Computation method: 0 FST, 1 SDI, 2 auto. Default 1.
     eu : ndarray, shape (M, 3), optional
         Local u-tangent unit vectors per patch. None = global x-axis.
     ev : ndarray, shape (M, 3), optional

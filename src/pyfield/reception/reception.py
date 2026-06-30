@@ -29,7 +29,7 @@ Public API (output axis ``[emission, reception, Nt]``, channels before time;
     scan_focusline         one focused line, RX summed in-kernel    [base]
     __call__ = pulse_echo_rf
 
-Supports ``"naive"``, ``"sdi"``, and ``"auto"`` SIR methods. See `ReceptionSDI`
+Supports ``"FST"``, ``"sdi"``, and ``"auto"`` SIR methods. See `ReceptionSDI`
 for the faster formulation (PE-SDI kernel carries the 3 derivatives on the SIR for
 speed, then integrates them back onto the excitation/IR chain — same result).
 """
@@ -91,7 +91,7 @@ class Reception(ReceptionBase):
     excitation : numpy.ndarray or None, default None
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
     method : str, default "auto"
-        SIR computation method: ``"naive"``, ``"sdi"``, or ``"auto"``.
+        SIR computation method: ``"FST"``, ``"sdi"``, or ``"auto"``.
     n_depth_bins : "auto" or int, default "auto"
         Pulse-echo speed knob. Scatterers are grouped into this many depth bins so
         each bin uses a short FFT (big speedup at high scatterer counts). ``"auto"``
@@ -107,7 +107,7 @@ class Reception(ReceptionBase):
         "alpha0": ((float, type(None)), "Attenuation dB/(MHz^y cm) or None"),
         "freq_power": (float, "Attenuation exponent"),
         "excitation": ((np.ndarray, type(None)), "Excitation pulse or None"),
-        "method": (str, "SIR method: naive / sdi / auto"),
+        "method": (str, "SIR method: FST / sdi / auto"),
         "n_depth_bins": ((int, str), "Pulse-echo depth bins: 'auto' or int"),
         "verbose": (bool, "Print diagnostics"),
     }
@@ -267,7 +267,9 @@ class Reception(ReceptionBase):
                 with self._timer("fft_s"):
                     H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
                     del h_rx_e
-                    H = (am @ (H_tx * H_rx_e)) * fft_v  # sum scatterers, then exc filter
+                    H = (
+                        am @ (H_tx * H_rx_e)
+                    ) * fft_v  # sum scatterers, then exc filter
                     for f in fft_ir:
                         H *= f
                     rf_bin[e_rx] = (irfft(H, n=nfft)[:peTb] * scale).astype(np.float32)

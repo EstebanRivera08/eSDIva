@@ -522,12 +522,12 @@ The pulse-echo event of a (TX corner, RX corner) pair occurs at the combined tim
 `t_e + t_r`. Both PE-SDI forms reference it to `pe_t0 = tx_t0 + rx_t0`: `spectral` puts a
 phasor at each corner time and multiplies the TX and RX spectra (phases add), `paired`
 splats `w = I⁴ v_pe` at the combined corner sum. Because `pe_t0 = tx_t0 + rx_t0`, the
-combined onset matches the naive `h_tx ⊛ h_rx` onset exactly — **no extra sample shift**.
+combined onset matches the FST `h_tx ⊛ h_rx` onset exactly — **no extra sample shift**.
 
 **History**: an earlier kernel added a +2-sample shift (derived on the wrong premise that
 single-SDI added +1 per side), placing `ReceptionSDI` 2 samples late vs
-`Reception(method="naive"|"sdi")` (= 20 ns at 100 MHz). Removing it made the on-axis lag
-of naive vs PE-SDI 0 (Emission and `Reception(method="sdi")` were already lag-0).
+`Reception(method="FST"|"sdi")` (= 20 ns at 100 MHz). Removing it made the on-axis lag
+of FST vs PE-SDI 0 (Emission and `Reception(method="sdi")` were already lag-0).
 
 **Test gap**: `test_pe_sdi.py` checks only peak ratio (<5%) + correlation (>0.90), both
 lag-insensitive — they did **not** catch the 2-sample shift. `example06` asserts on-axis

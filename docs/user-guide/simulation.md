@@ -48,7 +48,7 @@ p, coords = sim(field_points, method="auto", excitation=pulse)  # transient + ex
 | Method | Description | When to use |
 |--------|-------------|-------------|
 | `"auto"` | Automatic selection | Always recommended |
-| `"naive"` | Sample-by-sample evaluation | Small grids, reference results |
+| `"FST"` | Sample-by-sample evaluation | Small grids, reference results |
 | `"sdi"` | Sparse Delta Integration | Large or dense field grids |
 
 ## Field input format

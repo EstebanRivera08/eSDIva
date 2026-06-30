@@ -25,10 +25,11 @@ def wrap_tqdm(iterable, **kwargs):
 def method_to_flag(method):
     """Map a SIR method name to the integer flag the kernel expects.
 
-    ``"naive"`` → 0 (fully sampled trapezoid), ``"sdi"`` → 1 (sparse delta
-    integration), anything else (``"auto"``) → 2 (per-patch choice in the kernel).
+    ``"FST"`` → 0 (fully-sampled trapezoid: evaluate the continuous trapezoid SIR
+    at every time sample), ``"sdi"`` → 1 (sparse delta integration), anything else
+    (``"auto"``) → 2 (per-patch choice in the kernel).
     """
-    if method == "naive":
+    if method in ("FST", "fst"):
         return 0
     if method in ("sdi", "SDI"):
         return 1

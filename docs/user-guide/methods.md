@@ -2,7 +2,7 @@
 icon: lucide/zap
 ---
 
-# Naive and SDI Methods
+# FST and SDI Methods
 
 !!! warning "Coming soon"
     This section is under active development. Content will be added in a future release.
@@ -11,7 +11,7 @@ icon: lucide/zap
 
 Two algorithms evaluate the SIR at discrete time samples:
 
-### Naive method
+### FST method
 
 Direct sample-by-sample computation. For each field point and each patch, the SIR is evaluated at every time sample within the arrival window. Accurate and simple, but scales linearly with both the number of time samples and patches.
 

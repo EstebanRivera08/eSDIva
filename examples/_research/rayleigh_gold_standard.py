@@ -121,7 +121,7 @@ def pyfield_psf_onaxis(cls):
             tx.excitation = EXC
         return tx
     kw = dict(fs=FS, c=C, verbose=False)
-    sim = cls(mk(True), mk(), method="naive", **kw) if cls is Reception else cls(mk(True), mk(), **kw)
+    sim = cls(mk(True), mk(), method="FST", **kw) if cls is Reception else cls(mk(True), mk(), **kw)
     rf, co = sim.pulse_echo_response(np.array([[0.0, 0.0, ZS]], np.float32),
                                      per_scatterer=True)
     env = np.abs(hilbert(rf[0, :, 0].astype(float)))
@@ -162,12 +162,12 @@ fii_t = (float(m["t0"]) + np.arange(len(fii_ax)) * 5.0 / FS) * 1e6
 
 # PyField pulse-echo envelopes (both backends), real time axes.
 env_sdi, t_sdi = pyfield_psf_onaxis(ReceptionSDI)
-env_naive, t_naive = pyfield_psf_onaxis(Reception)
+env_FST, t_FST = pyfield_psf_onaxis(Reception)
 
 print("\n=== On-axis pulse-echo: null depth + FWHM ===")
 print(f"  {'source':30s} {'dip(dB)':>8s} {'FWHM(ns)':>9s}")
 print(f"  {'Rayleigh gold (exact)':30s} {dip_db(env_gold, tb):8.1f} {fwhm_ns(env_gold, tb):9.0f}")
-print(f"  {'PyField naive':30s} {dip_db(env_naive, t_naive):8.1f} {fwhm_ns(env_naive, t_naive):9.0f}")
+print(f"  {'PyField FST':30s} {dip_db(env_FST, t_FST):8.1f} {fwhm_ns(env_FST, t_FST):9.0f}")
 print(f"  {'PyField SDI':30s} {dip_db(env_sdi, t_sdi):8.1f} {fwhm_ns(env_sdi, t_sdi):9.0f}")
 print(f"  {'Field II reference':30s} {dip_db(fii_ax, fii_t):8.1f} {fwhm_ns(fii_ax, fii_t):9.0f}")
 
@@ -193,7 +193,7 @@ ax[0].set_title("One-way SIR, on-axis z=30 mm")
 ax[0].set_xlabel("Time (us)"); ax[0].legend(); ax[0].grid(alpha=.3)
 
 ax[1].plot(rel(tb, env_gold), env_gold / env_gold.max(), "k", lw=2.5, label="Rayleigh gold")
-ax[1].plot(rel(t_naive, env_naive), env_naive / env_naive.max(), label="PyField naive")
+ax[1].plot(rel(t_FST, env_FST), env_FST / env_FST.max(), label="PyField FST")
 ax[1].plot(rel(t_sdi, env_sdi), env_sdi / env_sdi.max(), "--", label="PyField SDI")
 ax[1].plot(rel(fii_t, fii_ax), fii_ax / fii_ax.max(), ":", lw=2, label="Field II")
 ax[1].set_xlim(-1.0, 1.0)

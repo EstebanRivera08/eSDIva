@@ -76,10 +76,10 @@ SDI form (linearity of integration):
 rectangles. All transducer geometries (circular, curved, arbitrary) must be decomposed
 into rectangular patches for this method to work.
 
-## 5. Performance: SDI vs Naive
+## 5. Performance: SDI vs FST
 
 Per field point:
-- Naive: O(M * avg_dk)  where avg_dk = average trapezoid width in samples
+- FST: O(M * avg_dk)  where avg_dk = average trapezoid width in samples
 - SDI:   O(8M + 2T)     where T = total time samples
 
 SDI wins when: avg_dk >> 8 + 2T/M

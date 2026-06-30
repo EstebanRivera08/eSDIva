@@ -16,16 +16,16 @@ def plot_trapezoid_methods(
     area, l_c, Dt1, Dt2, shift, range_Dt1, range_Dt2, range_shift
 ):
     N_continue = 1000
-    N_naive = 11
+    N_FST = 11
     N_derivative = 11
 
     t0 = 0  # Start time (us)
     t_max = 10  # Maximum time (us)
 
     t_continue = np.linspace(t0, t_max, N_continue)  # Upsampled time points
-    t_naive = np.linspace(t0, t_max, N_naive)  # Original time points
+    t_FST = np.linspace(t0, t_max, N_FST)  # Original time points
     t_derivative = np.linspace(t0, t_max, N_derivative)  # Original time points
-    f_s_naive = (N_naive - 1) / (t_max - t0)
+    f_s_FST = (N_FST - 1) / (t_max - t0)
     f_s_derivative = (N_derivative - 1) / (t_max - t0)
 
     def compute_trapezoid(Dt1, Dt2, shift):
@@ -38,7 +38,7 @@ def plot_trapezoid_methods(
         s1 = hmax / Dt1
 
         h_continue = np.zeros(N_continue)
-        h_naive = np.zeros(N_naive)
+        h_FST = np.zeros(N_FST)
 
         # Compute continue version
         for i in range(N_continue):
@@ -51,16 +51,16 @@ def plot_trapezoid_methods(
             else:
                 h_continue[i] = s1 * (t4 - t_continue[i])
 
-        # Compute naive version
-        for i in range(N_naive):
-            if t_naive[i] < t1 or t_naive[i] > t4:
+        # Compute FST version
+        for i in range(N_FST):
+            if t_FST[i] < t1 or t_FST[i] > t4:
                 continue
-            elif t_naive[i] < t2:
-                h_naive[i] = s1 * (t_naive[i] - t1)
-            elif t_naive[i] < t3:
-                h_naive[i] = hmax
+            elif t_FST[i] < t2:
+                h_FST[i] = s1 * (t_FST[i] - t1)
+            elif t_FST[i] < t3:
+                h_FST[i] = hmax
             else:
-                h_naive[i] = s1 * (t4 - t_naive[i])
+                h_FST[i] = s1 * (t4 - t_FST[i])
 
         # Compute derivative version
         def middle_interp_delta(ti, sign, d2h):
@@ -88,7 +88,7 @@ def plot_trapezoid_methods(
 
         times = (t1, t2, t3, t4)
 
-        return times, h_continue, h_naive, d2h, dh, h_derivative
+        return times, h_continue, h_FST, d2h, dh, h_derivative
 
     # Create the figure and axes
     fig, ax = plt.subplots(figsize=(13, 5))
@@ -96,7 +96,7 @@ def plot_trapezoid_methods(
     plt.subplots_adjust(right=0.8)
     # plt.subplots_adjust(left=0.2)
 
-    times, h_continue, h_naive, d2h, dh, h_derivative = compute_trapezoid(
+    times, h_continue, h_FST, d2h, dh, h_derivative = compute_trapezoid(
         Dt1, Dt2, shift
     )
     t1, t2, t3, t4 = times
@@ -108,8 +108,8 @@ def plot_trapezoid_methods(
     vline_t2 = ax.axvline(t2, color="gray", linestyle="--", linewidth=1.5)
     vline_t3 = ax.axvline(t3, color="gray", linestyle="--", linewidth=1.5)
     vline_t4 = ax.axvline(t4, color="gray", linestyle="--", linewidth=1.5)
-    (line_h_naive,) = ax.plot(
-        t_naive, h_naive, "s", label=r"$h_{naive}$", color="g", ms=10, zorder=7
+    (line_h_FST,) = ax.plot(
+        t_FST, h_FST, "s", label=r"$h_{FST}$", color="g", ms=10, zorder=7
     )
     stem_container = ax.stem(
         t_derivative,
@@ -182,7 +182,7 @@ def plot_trapezoid_methods(
 
     # Function to update the plot
     def update_plot(Dt1, Dt2, shift):
-        times, h_continue, h_naive, d2h, dh, h_derivative = compute_trapezoid(
+        times, h_continue, h_FST, d2h, dh, h_derivative = compute_trapezoid(
             Dt1, Dt2, shift
         )
         t1, t2, t3, t4 = times
@@ -200,7 +200,7 @@ def plot_trapezoid_methods(
 
         line_dh.set_data(t_derivative, dh)
         line_h_derivative.set_data(t_derivative, h_derivative)
-        line_h_naive.set_data(t_naive, h_naive)
+        line_h_FST.set_data(t_FST, h_FST)
 
         # # Update arrows and labels
         # y_arrow_dt1 = 0.75

@@ -50,6 +50,6 @@ Everything you need to simulate acoustic pressure fields with PyField — from i
 
     ---
 
-    Spatial Impulse Response method, rectangular aperture SIR, naive vs. SDI algorithms, patch subdivision, and the path from SIR to pressure.
+    Spatial Impulse Response method, rectangular aperture SIR, FST vs. SDI algorithms, patch subdivision, and the path from SIR to pressure.
 
 </div>
