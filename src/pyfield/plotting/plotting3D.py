@@ -117,17 +117,13 @@ def plot3D_pressure_vol(
     pv.global_theme.anti_aliasing = anti_aliasing
 
     if save_path is not None:
-        from pathlib import Path
-
-        file_path = Path(save_path) / file_name
-        Path(file_path).parent.mkdir(parents=True, exist_ok=True)
         scale = 3  # override default scale for high-res screenshots
         off_screen = True  # render off-screen for saving
 
     # Create the pressure volume mesh
     if db_scale:
         pressure_field = pf.to_dB(pressure_field)
-    pressure_vol = create_3Dvol_mesh(x, y, z, pressure_field, scalars=scalars)
+    pressure_vol = create_3Dvol_mesh(pressure_field, x, y, z, scalars=scalars)
     box = pressure_vol.bounding_box()
 
     kwargs.pop("ambient", 0.7)  # set default
@@ -150,9 +146,12 @@ def plot3D_pressure_vol(
 
     _set_custom_style(plotter, scale=scale)
 
-    plotter.camera_position = camera_position
-    plotter.camera.elevation = camera_elevation
-    plotter.camera.azimuth = camera_azimuth
+    if camera_position is not None:
+        plotter.camera_position = camera_position
+    if camera_elevation is not None:
+        plotter.camera.elevation = camera_elevation
+    if camera_azimuth is not None:
+        plotter.camera.azimuth = camera_azimuth
 
     if save_path is not None:
         from pathlib import Path
@@ -339,9 +338,12 @@ def plot3D_pressure_slices(
     )
 
     kwargs.pop("ambient", 0.7)  # set default
-    plotter.camera_position = camera_position
-    plotter.camera.elevation = camera_elevation
-    plotter.camera.azimuth = camera_azimuth
+    if camera_position is not None:
+        plotter.camera_position = camera_position
+    if camera_elevation is not None:
+        plotter.camera.elevation = camera_elevation
+    if camera_azimuth is not None:
+        plotter.camera.azimuth = camera_azimuth
 
     if save_path is not None:
         from pathlib import Path

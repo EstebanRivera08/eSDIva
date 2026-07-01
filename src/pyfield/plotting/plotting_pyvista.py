@@ -339,8 +339,8 @@ def add_pressure_vol(
             "show_scalar_bar": True,
             "scalar_bar_args": {
                 "title": colorbar_title,
-                "title_font_size": int(20 * scale),
-                "label_font_size": int(18 * scale),
+                "title_font_size": int(30 * scale),
+                "label_font_size": int(26 * scale),
                 "vertical": True,
                 "position_x": 0.8,
                 "position_y": 0.1,
