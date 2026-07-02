@@ -25,7 +25,9 @@ Apex (surface centre) at z = 0, matching Field II `xdc_concave`/`xdc_convex`
 and transducer datasheets. Focus/medium in +z direction.
 - **ConcaveCircular**: apex at z = 0, rim at z = +sag, focus at z = +focus_mm (= R)
 - **ConvexCircular**: apex at z = 0, rim at z = -sag, virtual focus at z = -R
-- **FocusedCircular**: centre line at z = 0, curved-axis edges at z = +sag, line focus at z = +R
+- **FocusedCircular**: rim-referenced (2026-07-02, Field II lens convention) — face
+  (curved-axis rim) at z = 0, centre line dished back to z = -sag; exposes
+  `elevation_lens_sag = sag`; line focus at z = +R
 - **FlatCircular**: entire face at z = 0
 
 `sag = R - sqrt(R^2 - (D/2)^2)`
@@ -37,8 +39,13 @@ face (rim, at `y = ±height/2`) sits at `z = 0` and the surface dishes **back** 
 backing, so the centre (`y = 0`) is the deepest point at `z = -sag_edge`, where
 `sag_edge = R - sqrt(R^2 - (height/2)^2)` and `R = elevation_focus`. This matches Field II
 `xdc_focused_array` / `xdc_convex_focused_array`, which keep the flat element face at z = 0.
-(NB: this is the *opposite* z-sign of `FocusedCircular`, which is centre-referenced —
-FocusedCircular is not yet aligned to Field II.)
+(`FocusedCircular` uses the same rim-referenced datum since 2026-07-02.)
+
+`elevation_lens_sag` is **settable**: subclasses supply the geometric default via
+`_default_elevation_lens_sag()`; assigning a value in metres overrides it (needed for
+`FieldIITransducer` imports — or pass `elevation_focus_mm=` to the import, which
+computes the sag from the imported patches' elevation extent). Assign `None` to
+restore the default.
 
 Reception adds the lens **group delay** `elevation_lens_sag / c` **per aperture** (TX once,
 RX once) to `coords["t0"]`: the pulse-echo origin is referenced to the first-arriving rim,

@@ -1013,11 +1013,11 @@ class ReceptionSDI(ReceptionBase):
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
-        pts_mm, amps = self._validate_scatterer_inputs(
+        points_m, amps = self._validate_scatterer_inputs(
             scatterer_positions_mm, amplitudes
         )
         return self._compute_rf_inner(
-            pts_mm,
+            points_m,
             amps,
             n_integrations=4,
             downsampling=downsampling,

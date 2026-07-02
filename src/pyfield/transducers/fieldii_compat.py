@@ -78,6 +78,17 @@ class FieldIITransducer(TransducerBase):
         Time delay for each patch in seconds.
     frequency_hz : float, default 1e6
         Transducer centre frequency in Hz.
+    elevation_focus_mm : float, optional
+        Elevation-lens focal length (= lens radius of curvature, Field II
+        ``Rfocus``) in mm, for probes exported from ``xdc_focused_array`` /
+        ``xdc_convex_focused_array``. The lens *curvature* is already carried
+        by the imported patch geometry, but reception's RF time origin also
+        needs the lens transit ``sag/c`` (the echo of a lens-focused aperture
+        peaks one lens transit after the first-arriving rim). This computes
+        ``sag = R − √(R² − (H/2)²)`` with ``H`` the full elevation (y) extent
+        of the imported patches and stores it in ``elevation_lens_sag``.
+        Leave ``None`` for unlensed probes (sag 0), or set
+        ``elevation_lens_sag`` directly (metres) for exotic geometries.
     """
 
     def __init__(
@@ -87,6 +98,7 @@ class FieldIITransducer(TransducerBase):
         patch_delays,
         *,
         frequency_hz: float = 1e6,
+        elevation_focus_mm: Optional[float] = None,
     ) -> None:
         super().__init__()
         self.type = "fieldii"
@@ -117,6 +129,20 @@ class FieldIITransducer(TransducerBase):
         self.no_sub_x = 1
         self.no_sub_y = 1
 
+        if elevation_focus_mm is not None:
+            # Lens transit for reception's RF origin: sag = R − √(R² − (H/2)²),
+            # with H the full elevation (y) extent of the imported aperture
+            # (Field II lenses curve along y).
+            R = float(elevation_focus_mm) * 1e-3
+            all_y = np.concatenate([q[:, 1] for q in self._quads])
+            half_h = float(all_y.max() - all_y.min()) / 2.0
+            if R < half_h:
+                raise ValueError(
+                    f"elevation_focus_mm ({elevation_focus_mm:.2f}) must be >= half "
+                    f"the aperture elevation extent ({half_h * 1e3:.2f} mm)."
+                )
+            self.elevation_lens_sag = R - np.sqrt(R * R - half_h * half_h)
+
     # ------------------------------------------------------------------
     # TransducerBase abstract methods
     # ------------------------------------------------------------------
@@ -146,6 +172,7 @@ def from_fieldii_xdc_data(
     data,
     *,
     frequency_hz: Optional[float] = None,
+    elevation_focus_mm: Optional[float] = None,
 ) -> FieldIITransducer:
     """Create a :class:`FieldIITransducer` from ``xdc_get(Th, 'all')`` output.
 
@@ -158,6 +185,10 @@ def from_fieldii_xdc_data(
     frequency_hz : float, optional
         Transducer centre frequency in Hz.  If None, the function tries
         to read ``data['f0']``; falls back to 1 MHz if not present.
+    elevation_focus_mm : float, optional
+        Elevation-lens focal length in mm (Field II ``Rfocus`` of
+        ``xdc_focused_array``); sets ``elevation_lens_sag`` so reception's
+        RF time origin includes the lens transit. None for unlensed probes.
 
     Returns
     -------
@@ -258,6 +289,7 @@ def from_fieldii_xdc_data(
         apod,
         delays,
         frequency_hz=frequency_hz,
+        elevation_focus_mm=elevation_focus_mm,
     )
 
 
@@ -272,6 +304,7 @@ def from_fieldii_patch_arrays(
     apodization=None,
     frequency_hz: float = 1e6,
     half_widths_input: bool = True,
+    elevation_focus_mm: Optional[float] = None,
 ) -> FieldIITransducer:
     """Build a :class:`FieldIITransducer` from explicit patch arrays.
 
@@ -313,6 +346,9 @@ def from_fieldii_patch_arrays(
     half_widths_input : bool, default True
         If True, ``half_widths`` and ``half_heights`` are half-widths.
         If False, they are full widths (will be halved internally).
+    elevation_focus_mm : float, optional
+        Elevation-lens focal length in mm (Field II ``Rfocus``); sets
+        ``elevation_lens_sag`` for reception's RF time origin.
 
     Returns
     -------
@@ -354,4 +390,5 @@ def from_fieldii_patch_arrays(
         apodization,
         delays,
         frequency_hz=frequency_hz,
+        elevation_focus_mm=elevation_focus_mm,
     )

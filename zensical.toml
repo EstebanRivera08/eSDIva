@@ -23,6 +23,7 @@ nav = [
       { "Mono-elements" = "user-guide/mono-elements.md" },
       { "Multi-elements" = "user-guide/multi-elements.md" },
       { "Transducer Objects" = "user-guide/transducer-objects.md" },
+      { "Field II Correspondence" = "user-guide/fieldii-correspondence.md" },
     ]},
     { "Simulation" = [
       { "Overview" = "user-guide/simulation.md" },

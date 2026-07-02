@@ -696,13 +696,17 @@ class FocusedCircularTransducer(TransducerBase):
     * Line-focused therapeutic ultrasound along a tissue region.
     * Single-element stand-in for the elevation lens of a linear array.
 
-    The curvature follows:
+    The curvature follows Field II's lens convention (``xdc_focused_array``):
+    the flat aperture face — the curved-axis rim — sits at ``z = 0`` and the
+    surface dishes **back** toward the backing, so a point at coordinate
+    ``val`` along the curved axis lies at
 
-        z(val) = R - √(R² - val²)
+        z(val) = [R - √(R² - val²)] - sag ,   sag = R - √(R² - R_ap²)
 
     where ``val`` is the x- or y-coordinate of each patch corner (depending on
-    ``focus_axis``).  The centre is at z = 0 and the outer edges are lifted
-    toward z > 0.
+    ``focus_axis``) and ``R_ap`` the aperture radius. The centre line is the
+    deepest point at ``z = -sag``; ``elevation_lens_sag`` exposes the sag so
+    reception can add the lens transit to the RF time origin.
 
     Parameters
     ----------
@@ -763,9 +767,10 @@ class FocusedCircularTransducer(TransducerBase):
         self.n_elements = 1
 
         # focus_mm = focal length = radius of curvature (datasheet / Field II).
-        # Apex (curved-axis centre line) at z=0; line focus at z=R.
+        # Rim-referenced datum: face at z=0, centre line dished back to -sag.
         R = focus_mm * 1e-3
         self.radius_of_curvature = R
+        self._sag = float(R - np.sqrt(max(R * R - self.radius**2, 0.0)))
 
         self.elem_width = self.diameter
         self.elem_height = self.diameter
@@ -795,9 +800,12 @@ class FocusedCircularTransducer(TransducerBase):
 
         Surface equation (curved along ``focus_axis``):
 
-            z(x, y) = R - √(R² - val²)   where val = y (or x)
+            z(x, y) = [R - √(R² - val²)] - sag   where val = y (or x)
 
-        Apex (centre line, val = 0) at z = 0, curved-axis rim at z = +sag.
+        Rim-referenced (Field II ``xdc_focused_array`` lens convention): the
+        curved-axis rim (val = ±R_ap) sits at z = 0 and the centre line is the
+        deepest point at z = -sag. Built with the centre line at z = 0 and then
+        shifted by -sag.
 
         Uses :func:`subdivide_parametric_surface` so each patch has arc-length
         extents and tangents tangent to the cylindrical surface.
@@ -811,7 +819,7 @@ class FocusedCircularTransducer(TransducerBase):
 
         def surface_fn(x: float, y: float) -> np.ndarray:
             val = y if axis == "y" else x
-            z = R - np.sqrt(max(R * R - val * val, 0.0))  # apex at z=0
+            z = R - np.sqrt(max(R * R - val * val, 0.0))  # centre line at z=0
             return np.array([x, y, z])
 
         R_inner = rbp * R_ap
@@ -828,10 +836,22 @@ class FocusedCircularTransducer(TransducerBase):
             border_refine=rf,
             normal_sign=1.0,
         )
+        # Shift so the curved-axis rim lands at z = 0 (face plane) and the
+        # centre line at z = -sag — the rim-referenced Field II lens datum.
+        _shift_frames_z(frames, -self._sag)
 
         self._sub_patch_frames = frames
         mean_area = float(np.mean(frames["wu"] * frames["wv"]))
         return frames["corners"], mean_area, frames["el_idx"]
+
+    def _default_elevation_lens_sag(self) -> float:
+        """Centre-line recession (m) behind the face: ``R − √(R² − R_ap²)``.
+
+        Same physics as the linear array's elevation lens: the RF time origin
+        is referenced to the first-arriving rim, but the geometrically focused
+        echo peaks one lens transit later, so reception adds this sag.
+        """
+        return self._sag
 
     def _build_patch_frames(self) -> Dict:
         """Frames already built inside _build_subdivisions; just return them."""

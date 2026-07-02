@@ -90,8 +90,12 @@ under `[project.theme]`.
 Each transducer stores geometry (element centers, patch subdivisions, normals),
 beamforming (delays in s, apodization dimensionless), and configuration (frequency,
 element dims). Delays/apodization recompute for new focal points without recreating
-the transducer. See `.claude/rules/transducers.md` for mono vs multi-element,
-`focus_mm`, z-convention, subdivision methods.
+the transducer. `transform(T_matrix)` (4×4 homogeneous, translation in mm)
+rigidly moves ALL computed geometry — quads, patch frames, element centers — so
+simulation and visualization both follow; simulators snapshot geometry at
+construction, so call `sim.set("transducer"/"tx"/"rx", t)` after transforming
+(`clean()` reverts to the canonical pose). See `.claude/rules/transducers.md`
+for mono vs multi-element, `focus_mm`, z-convention, subdivision methods.
 
 ### Brain Atlas Integration
 Uses BrainGlobe API to map acoustic fields onto anatomical structures. Requires
@@ -149,7 +153,8 @@ parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
 `sequence_rf` (PW/DW event sweep), `synthetic_aperture_rf` (FMC/`calc_scat_all`,
 per-element DW basis, decimated), `scan_focusline` (one focused B-mode line, RX
-summed in-kernel). Takes separate TX/RX transducers + scatterer positions; returns
+summed in-kernel). `show(scatterer_positions_mm, amplitudes)` previews the setup
+in 3-D (TX/RX meshes + scatterers coloured/faded by amplitude). Takes separate TX/RX transducers + scatterer positions; returns
 per-element RF `(Erx, Nt)`. `coords["t0"]` is beam-axis referenced. Full details in
 `ARCHITECTURE.md`.
 

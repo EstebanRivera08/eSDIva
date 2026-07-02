@@ -233,6 +233,24 @@ class TestReceptionSequence:
         np.testing.assert_array_equal(simple_tx.delays, orig_delays)
         np.testing.assert_array_equal(simple_tx.apodization, orig_apod)
 
+    def test_t0_per_event(self, simple_tx, simple_rx, on_axis_scatterer):
+        """Each event reports its own beam-axis t0; first equals coords['t0']."""
+        pos, amp = on_axis_scatterer
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        n_el = simple_tx.n_elements
+        events = [
+            {"delays": np.zeros(n_el, dtype=np.float32)},
+            {"delays": np.full(n_el, 1e-7, dtype=np.float32)},
+        ]
+        _, coords = sim.sequence_rf(pos, amp, events)
+        t0s = coords["t0_per_event"]
+        assert t0s.shape == (2,)
+        assert t0s[0] == coords["t0"]
+        # Zero delays vs a uniform 100 ns bulk: t0 is beam-axis referenced
+        # (delays.max() subtracted), so event 2's origin sits 100 ns earlier —
+        # exactly what cancels the bulk-shifted echo inside the trace.
+        assert_allclose(t0s[1], t0s[0] - 1e-7, atol=1e-12)
+
 
 class TestReceptionFormulations:
     """method selector: auto router + conventional/spectral/paired equivalence."""

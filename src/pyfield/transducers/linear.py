@@ -110,8 +110,7 @@ class LinearArrayTransducer(TransducerBase):
     # Abstract method implementations
     # ------------------------------------------------------------------
 
-    @property
-    def elevation_lens_sag(self) -> float:
+    def _default_elevation_lens_sag(self) -> float:
         """Centre recession (m) of the cylindrical elevation lens; 0 if flat.
 
         ``R − √(R² − (height/2)²)`` with ``R = elev_focus``: how far the lens surface
@@ -437,8 +436,7 @@ class ConvexArrayTransducer(TransducerBase):
     # Abstract method implementations
     # ------------------------------------------------------------------
 
-    @property
-    def elevation_lens_sag(self) -> float:
+    def _default_elevation_lens_sag(self) -> float:
         """Centre recession (m) of the cylindrical elevation lens; 0 if flat.
 
         ``R − √(R² − (height/2)²)`` with ``R = elevation_focus``. Reception turns this

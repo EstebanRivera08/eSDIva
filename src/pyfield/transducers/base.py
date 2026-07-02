@@ -66,6 +66,7 @@ class TransducerBase(ABC):
         # State
         self._apodization: Optional[np.ndarray] = None
         self._delays: Optional[np.ndarray] = None
+        self._elevation_lens_sag: Optional[float] = None  # user override (m)
         self.apodization_type: Optional[str] = None
         self.FoverD: Optional[float] = None
         self._impulse_response: Optional[np.ndarray] = None
@@ -99,13 +100,44 @@ class TransducerBase(ABC):
     def elevation_lens_sag(self) -> float:
         """Depth (m) a cylindrical elevation lens dishes the surface back at its centre.
 
-        Zero for flat/unfocused apertures (this base value). For a lens of radius ``R``
-        and element height ``h`` the surface centre sits ``R − √(R² − (h/2)²)`` behind the
-        rim. The pulse-echo time origin is referenced to the first-arriving edge (the rim),
-        but a focused elevation aperture's echo peaks one lens transit later, so reception
-        adds this sag — as a propagation time, once per aperture — to align the RF origin
-        with a lens-focused reference. Subclasses with an elevation lens override this.
+        Zero for flat/unfocused apertures. For a lens of radius ``R`` and element
+        height ``h`` the surface centre sits ``R − √(R² − (h/2)²)`` behind the rim.
+        The pulse-echo time origin is referenced to the first-arriving edge (the
+        rim), but a focused elevation aperture's echo peaks one lens transit later,
+        so reception adds this sag — as a propagation time, once per aperture — to
+        align the RF origin with a lens-focused reference.
+
+        Settable: assign a value in metres to override the geometric default —
+        needed for imported geometries (e.g. a Field II ``xdc_focused_array``
+        probe) whose lens curvature is present in the patches but whose focal
+        parameters are not known to PyField. Assign ``None`` to restore the
+        default. Subclasses with a native lens supply the default via
+        ``_default_elevation_lens_sag``.
         """
+        if self._elevation_lens_sag is not None:
+            return self._elevation_lens_sag
+        return self._default_elevation_lens_sag()
+
+    @elevation_lens_sag.setter
+    def elevation_lens_sag(self, value: Optional[float]) -> None:
+        """Override the lens sag in metres (``None`` restores the geometric default).
+
+        Parameters
+        ----------
+        value : float or None
+            Lens sag in metres (must be >= 0), or ``None`` to restore the
+            subclass geometric default.
+        """
+        if value is None:
+            self._elevation_lens_sag = None
+            return
+        v = float(value)
+        if v < 0:
+            raise ValueError(f"elevation_lens_sag must be >= 0 m, got {v}.")
+        self._elevation_lens_sag = v
+
+    def _default_elevation_lens_sag(self) -> float:
+        """Geometric lens sag (m) of this transducer type; 0 for flat apertures."""
         return 0.0
 
     @property
@@ -792,6 +824,71 @@ class TransducerBase(ABC):
         plt.tight_layout()
         plt.show()
         plt.close()
+
+    def transform(self, T_matrix) -> None:
+        """Rigidly move the aperture in space (rotation then translation).
+
+        Applies the homogeneous transform to the computed geometry — patch
+        vertices, patch frames (centres, normals, tangents) and element
+        centres — so the SIR simulation and the visualisation both see the
+        moved aperture. Patch widths are rotation-invariant and unchanged.
+
+        Delays and apodization are firing-time / weight state, not geometry,
+        so they are untouched: a focus computed *before* the move still aims
+        at the old global-frame target — call ``compute_delays`` /
+        ``compute_apodization`` again after moving if the beam must follow.
+
+        Parameters
+        ----------
+        T_matrix : (4, 4) array-like
+            Homogeneous rigid-body transform. The upper-left 3×3 block is the
+            rotation (orthogonal, det +1); the last column is the translation
+            **in mm** (user-facing unit).
+
+        Raises
+        ------
+        ValueError
+            If ``T_matrix`` is not ``(4, 4)`` or its 3×3 block is not a proper
+            rotation — scaling or reflection would corrupt the patch widths
+            and normals the SIR kernel relies on.
+
+        Notes
+        -----
+        Simulators snapshot the transducer geometry at construction: after
+        transforming, refresh them with ``sim.set("transducer", tx)``
+        (Emission) or ``sim.set("tx", tx)`` / ``sim.set("rx", rx)``
+        (Reception). ``clean()`` discards cached geometry, so a rebuilt
+        transducer returns to its canonical pose (the transform is not
+        replayed).
+        """
+        T = np.asarray(T_matrix, dtype=np.float64)
+        if T.shape != (4, 4):
+            raise ValueError(f"T_matrix must be a (4, 4) matrix, got {T.shape}.")
+        R = T[:3, :3]
+        t_m = T[:3, 3] * 1e-3  # translation column is in mm
+        if not np.allclose(R @ R.T, np.eye(3), atol=1e-8) or not np.isclose(
+            np.linalg.det(R), 1.0, atol=1e-8
+        ):
+            raise ValueError(
+                "T_matrix rotation block must be a proper rotation "
+                "(orthogonal, det = +1)."
+            )
+
+        # Build all lazy geometry in the canonical pose first, then move it.
+        _ = self.element_centers
+        _ = self.sub_quad_verts
+        frames = self.sub_patch_frames
+
+        assert self._element_centers is not None and self._sub_quad_verts is not None
+        self._element_centers = self._element_centers @ R.T + t_m
+        self._sub_quad_verts = [q @ R.T + t_m for q in self._sub_quad_verts]
+        frames["centers"] = np.asarray(frames["centers"], dtype=np.float64) @ R.T + t_m
+        # Direction vectors rotate only (no translation).
+        for key in ("normals", "tangents_u", "tangents_v"):
+            frames[key] = np.asarray(frames[key], dtype=np.float64) @ R.T
+        # Curved-surface frames carry the vertex list too; keep it the same object.
+        if "corners" in frames:
+            frames["corners"] = self._sub_quad_verts
 
     def clean(self) -> None:
         """Release cached geometry arrays to free memory."""

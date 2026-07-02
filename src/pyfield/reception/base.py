@@ -20,6 +20,7 @@ from contextlib import contextmanager
 from typing import TYPE_CHECKING, Any
 
 import numpy as np
+import pyvista as pv
 from scipy.signal import decimate, hilbert
 
 from pyfield.hsir.farfield_rect_patch import compute_h_sir
@@ -399,6 +400,93 @@ class ReceptionBase(SimulationBase):
         return points_m, amps
 
     # ------------------------------------------------------------------
+    def show(
+        self,
+        scatterer_positions_mm=None,
+        amplitudes=None,
+        *,
+        window_size=(900, 700),
+        notebook=False,
+        jupyter_backend=None,
+        **kwargs,
+    ):
+        """Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers).
+
+        Renders the transmit and receive apertures (their patch meshes, in mm)
+        and the scatterer cloud, each point coloured by its scattering
+        amplitude and faded in proportion to it — a quick visual check that
+        positions, units and aperture poses are what the simulation will see.
+        When TX and RX are the same object the aperture is drawn once.
+
+        Parameters
+        ----------
+        scatterer_positions_mm : (N_scat, 3) array-like, optional
+            Scatterer positions in mm. None draws only the apertures.
+        amplitudes : (N_scat,) array-like, optional
+            Scattering amplitude per point. None defaults to ones
+            (all points fully opaque).
+        window_size : (int, int)
+            Pixel dimensions of the render window.
+        notebook : bool
+            Enable Jupyter notebook rendering.
+        jupyter_backend : str, optional
+            Backend string passed to PyVista (``'static'``, ``'trame'`` …).
+        **kwargs
+            Forwarded to the scatterer ``add_mesh`` call (e.g. ``point_size``).
+        """
+        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+
+        if self.rx is self.tx:
+            plotter.add_mesh(
+                self.tx.get_mesh(),
+                color="lightsteelblue",
+                show_edges=True,
+                label="TX = RX",
+            )
+        else:
+            plotter.add_mesh(
+                self.tx.get_mesh(),
+                color="lightsteelblue",
+                show_edges=True,
+                label="TX",
+            )
+            plotter.add_mesh(
+                self.rx.get_mesh(), color="salmon", show_edges=True, label="RX"
+            )
+
+        if scatterer_positions_mm is not None:
+            points_m, amps = self._validate_scatterer_inputs(
+                scatterer_positions_mm, amplitudes
+            )
+            cloud = pv.PolyData(np.asarray(points_m, dtype=np.float64) * 1e3)
+            cloud["Amplitude"] = amps
+            # Fade each point by |amplitude| so weak scatterers recede visually.
+            a = np.abs(amps.astype(np.float64))
+            peak = a.max() if a.size and a.max() > 0 else 1.0
+            defaults = {
+                "scalars": "Amplitude",
+                "cmap": "viridis",
+                "opacity": a / peak,
+                "render_points_as_spheres": True,
+                "point_size": 10.0,
+                "scalar_bar_args": {"title": "Amplitude"},
+                "label": "Scatterers",
+            }
+            for key, val in defaults.items():
+                kwargs.setdefault(key, val)
+            plotter.add_mesh(cloud, **kwargs)
+
+        plotter.add_legend()
+        plotter.add_axes()
+        plotter.show_grid(
+            font_size=10, xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)"
+        )
+        if jupyter_backend is not None:
+            plotter.show(jupyter_backend=jupyter_backend)
+        else:
+            plotter.show()
+
+    # ------------------------------------------------------------------
     def sequence_rf(
         self, scatterer_positions_mm, amplitudes, tx_events, *, downsampling=None
     ):
@@ -410,7 +498,9 @@ class ReceptionBase(SimulationBase):
         Parameters
         ----------
         scatterer_positions_mm : (N_scat, 3) numpy.ndarray
+            Scatterer positions in mm.
         amplitudes : (N_scat,) numpy.ndarray
+            Scattering amplitude of each scatterer.
         tx_events : list of dict
             Each dict has ``"delays"`` and/or ``"apodization"`` ``(E,)`` arrays.
         downsampling : int or None, default None
@@ -419,15 +509,20 @@ class ReceptionBase(SimulationBase):
         Returns
         -------
         rf : (N_events, Erx, Nt) numpy.ndarray
+            Per-event, per-receive-element RF (channels before time).
         coords : dict
-            ``"t0"``/``"dt"`` of the first event (events with differing focus have
-            differing ``t0``; only the first is returned — beamform per event if
-            that matters).
+            ``"t0"``/``"dt"`` of the first event, plus ``"t0_per_event"`` — an
+            ``(N_events,)`` array of each event's beam-axis time origin.
+            Events with differing focus have differing ``t0`` (the time grid
+            depends on that event's delays); beamform each event with its own
+            origin. ``dt`` is shared (one sampling rate); traces are
+            zero-padded at the END to the common ``Nt``, so only the origin
+            differs.
         """
         n_ev = len(tx_events)
         orig_delays = self.tx.delays.copy()
         orig_apod = self.tx.apodization.copy()
-        results, coords_out = [], None
+        results, coords_out, t0_events = [], None, []
         try:
             for i, event in enumerate(tx_events):
                 if "delays" in event:
@@ -454,6 +549,7 @@ class ReceptionBase(SimulationBase):
                         )
                     coords_out = coords_i
                 results.append(rf_i)
+                t0_events.append(coords_i["t0"])
         finally:
             self.tx.delays = orig_delays
             self.tx.apodization = orig_apod
@@ -464,6 +560,8 @@ class ReceptionBase(SimulationBase):
         rf_all = np.zeros((n_ev, n_rx, max_nt), dtype=np.float32)
         for i, r in enumerate(results):
             rf_all[i, :, : r.shape[1]] = r
+        assert coords_out is not None
+        coords_out["t0_per_event"] = np.asarray(t0_events, dtype=np.float64)
         return rf_all, coords_out
 
     # ------------------------------------------------------------------

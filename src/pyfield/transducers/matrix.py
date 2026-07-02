@@ -202,6 +202,16 @@ class MatrixArrayTransducer(TransducerBase):
         F/D ratio.  Supported window shapes are circular (elliptical mask),
         rectangular, Hanning, and Hamming.
 
+        **Aperture convention (frozen — validated against an external
+        simulator; do not change without re-validating).** The active aperture
+        diameter is the directivity-cone footprint at the focal depth scaled by
+        the F-number, ``d = 2·|z_foc|·tan(dir_angle_deg)/(F/D)``, applied to
+        BOTH axes (square active aperture), and the window centre steps by the
+        element size (``round(focus/elem_size)``). Note this differs from the
+        1-D arrays' convention (``D = |z_foc|/(F/D)``, centring by pitch): at
+        the default ``dir_angle_deg = 30°`` this aperture is ``2·tan 30° ≈
+        1.15×`` wider than ``|z|/F#``.
+
         Parameters
         ----------
         focus_mm : array-like, shape (3,)
@@ -325,8 +335,9 @@ class MatrixArrayTransducer(TransducerBase):
             _, ax = plt.subplots(figsize=figsize)
 
         assert ax is not None
+        # Flat order is y-major (element e = iy·n_x + ix), so rows = y, cols = x.
         im = ax.imshow(
-            apodization.reshape((self.n_elem_x, self.n_elem_y)),
+            apodization.reshape((self.n_elem_y, self.n_elem_x)),
             cmap="cool",
             vmin=0,
             vmax=1,
@@ -377,8 +388,9 @@ class MatrixArrayTransducer(TransducerBase):
             _, ax = plt.subplots(figsize=figsize)
 
         assert ax is not None
+        # Flat order is y-major (element e = iy·n_x + ix), so rows = y, cols = x.
         im = ax.imshow(
-            delays.reshape((self.n_elem_x, self.n_elem_y)) * 1e6,
+            delays.reshape((self.n_elem_y, self.n_elem_x)) * 1e6,
             cmap="jet",
             **kwargs,
         )

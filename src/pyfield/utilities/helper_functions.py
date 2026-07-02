@@ -199,6 +199,15 @@ def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
         1-D array of z coordinates in mm.
     grid_points : ndarray
         Array of shape ``(N, 3)`` with all grid points in mm.
+
+    Notes
+    -----
+    The point count per axis is forced **odd** so the grid always contains the
+    extent midpoint — e.g. a symmetric ``x_extent`` keeps a sample exactly on
+    the beam axis (x = 0), where the field peaks. Both endpoints are kept, so
+    the actual spacing is ``(xf - x0) / (Nx - 1)`` and may differ slightly
+    from the requested ``dx``; read the true axes from the returned
+    ``x``/``y``/``z`` (also returned as ``coords`` by the simulators).
     """
     # Create a grid of points in the simulation space
     [x0, xf], [y0, yf], [z0, zf] = (

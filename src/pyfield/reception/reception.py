@@ -311,7 +311,7 @@ class Reception(ReceptionBase):
         downsampling : int or None, default None
             Downsample output by this factor.
         per_scatterer : bool, default False
-            If True return ``(P, Nt, E_rx)``. If False return ``(Nt, E_rx)``.
+            If True return ``(P, E_rx, Nt)``. If False return ``(E_rx, Nt)``.
         focused_sum : bool, default False
             If True, beamform on receive INSIDE the SIR: ``h_rx`` is computed over
             ALL RX patches at once (carrying their focusing ``rx.delays`` +
@@ -322,7 +322,7 @@ class Reception(ReceptionBase):
 
         Returns
         -------
-        rf : (Nt, E_rx) or (P, Nt, E_rx) numpy.ndarray
+        rf : (E_rx, Nt) or (P, E_rx, Nt) numpy.ndarray
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
@@ -654,11 +654,11 @@ class Reception(ReceptionBase):
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
         """
-        pts_mm, amps = self._validate_scatterer_inputs(
+        points_m, amps = self._validate_scatterer_inputs(
             scatterer_positions_mm, amplitudes
         )
         return self._compute_rf_inner(
-            pts_mm,
+            points_m,
             amps,
             downsampling=downsampling,
             per_scatterer=per_scatterer,
