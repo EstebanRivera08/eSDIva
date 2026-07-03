@@ -8,6 +8,7 @@ from .helper_functions import (
     reshape_to_mapped_points,
     to_dB,
 )
+from .matlab import explore_mat, mat_struct_fields, mat_struct_to_dict
 from .surface_subdivision import subdivide_parametric_surface, subdivide_spherical_cap
 
 __all__ = [
@@ -21,4 +22,8 @@ __all__ = [
     "subdivide_parametric_surface",
     "subdivide_spherical_cap",
     "reshape_to_mapped_points",
+    # MATLAB .mat exploration
+    "explore_mat",
+    "mat_struct_fields",
+    "mat_struct_to_dict",
 ]

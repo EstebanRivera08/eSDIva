@@ -1,4 +1,4 @@
-# Example 9: STL Mesh with Acoustic Simulation
+# Example 15: STL Mesh with Acoustic Simulation
 
 Combines an STL model of a petri dish with a PyField acoustic simulation to
 visualise the complete experimental configuration in a single 3-D scene.
@@ -16,13 +16,13 @@ visualise the complete experimental configuration in a single 3-D scene.
 ## Run it
 
 ```bash
-uv run examples/example9_monoelement_petridish.py
+uv run examples/example15_monoelement_petridish.py
 ```
 
 ## Key code
 
 ```python
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 from pyfield.transducers import ConcaveCircularTransducer
 from pyfield.plotting import (
     add_pressure_vol, add_stl_mesh, add_transducer_mesh,
@@ -36,7 +36,7 @@ transducer = ConcaveCircularTransducer(
     frequency_Hz=5e6,
 )
 
-sim = PyField(transducer, verbose=False)
+sim = Emission(transducer, monochromatic=True, verbose=False)
 p, coords = sim(field_points, method="auto")
 
 petri_dish = load_mesh_from_stl("Petri_dish.stl", translation=(0, -10, 25))
@@ -49,4 +49,4 @@ plotter = add_stl_mesh(petri_dish, plotter=plotter, color="lightgray", opacity=0
 plotter.show()
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example9_monoelement_petridish.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example15_monoelement_petridish.py)

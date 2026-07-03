@@ -1,5 +1,5 @@
 """
-Example 6: Mouse Brain Atlas with Focused Ultrasound
+Example 12: Mouse Brain Atlas with Focused Ultrasound
 
 Demonstrates how to combine a BrainGlobe mouse brain atlas with a
 ConcaveCircularTransducer and its simulated pressure field in a single
@@ -17,7 +17,7 @@ Requirements
 BrainGlobe atlas data is downloaded on first run (~500 MB for the mouse).
 
 Run with:
-    uv run examples/example6_monoelement_mouse.py
+    uv run examples/example12_txconcave_mousebrain.py
 """
 
 import gc
@@ -55,7 +55,7 @@ REGION_NAMES = ("root", "Isocortex", "CA1")
 LAMBDA_BREGMA_MM = 5.0  # Lambda-bregma distance for mouse
 CORTEX2PROBE_MM = FOCUS_DEPTH_MM - 1.0
 
-print("\n --- Example 6: Mouse Brain Atlas + Focused Ultrasound --- \n")
+print("\n --- Example 12: Mouse Brain Atlas + Focused Ultrasound --- \n")
 
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)

@@ -22,6 +22,7 @@ correspondences in one place.
 | — (convex bowl) | `ConvexCircularTransducer` | apex at z = 0, rim at z = −sag |
 | `xdc_focused_array` (1 element, cylindrical lens) | `FocusedCircularTransducer` | face (curved-axis rim) at z = 0, centre line at −sag |
 | any `Th` via `xdc_get(Th, 'all')` | `from_fieldii_xdc_data` → `FieldIITransducer` | as exported |
+| any `Th` via `xdc_get(Th, 'rect')` | `from_fieldii_rect_data` → `FieldIITransducer` | as exported |
 
 `sag = R − √(R² − (D/2)²)` in every case.
 

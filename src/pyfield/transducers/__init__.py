@@ -25,6 +25,8 @@ Notes
 
 - ``FieldIITransducer`` -- Transducer built from ``xdc_get(Th, 'all')`` patch data.
 - ``from_fieldii_xdc_data`` -- Factory: parse ``xdc_get`` struct → FieldIITransducer.
+- ``from_fieldii_rect_data`` -- Factory: 26-row ``xdc_get(Th, 'rect')`` matrix →
+  FieldIITransducer.
 - ``from_fieldii_patch_arrays`` -- Factory: explicit patch arrays → FieldIITransducer.
 
 **Pre-defined transducers**:
@@ -49,6 +51,7 @@ from .custom import CustomTransducer
 from .fieldii_compat import (
     FieldIITransducer,
     from_fieldii_patch_arrays,
+    from_fieldii_rect_data,
     from_fieldii_xdc_data,
 )
 from .linear import LinearArrayTransducer, ConvexArrayTransducer
@@ -72,6 +75,7 @@ __all__ = [
     # Field II import
     "FieldIITransducer",
     "from_fieldii_xdc_data",
+    "from_fieldii_rect_data",
     "from_fieldii_patch_arrays",
     # Pre-defined
     "Domino",

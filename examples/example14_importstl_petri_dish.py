@@ -1,25 +1,23 @@
 """
-Example 8: STL Mesh Loading and Visualisation
+Example 14: STL Mesh Loading and Visualisation
 
 Demonstrates how to load and visualise STL files (e.g., experimental setup
 components like petri dishes, chambers, or custom holders) alongside PyField
-transducers.  Five sub-examples illustrate different STL operations:
+transducers.  Three sub-examples illustrate different STL operations:
 
-  8a. Simple STL visualisation
-  8b. Load with transformations (scale, translate, rotate)
-  8c. Multiple STL objects in one scene
-  8d. Mesh analysis and rendering modes (solid / wireframe)
-  8e. Custom lighting and material properties
+  14a. Simple STL visualisation
+  14b. Multiple STL objects with transformations (translate, rotate)
+  14c. Custom lighting and material properties
 
 Steps
 -----
 1. Load an STL file with ``load_mesh_from_stl`` / ``add_stl_mesh``
-2. Apply geometric transformations (scale, translation, rotation)
-3. Combine multiple meshes and inspect mesh properties
+2. Apply geometric transformations (translation, rotation)
+3. Combine multiple meshes in one scene
 4. Explore rendering and lighting options
 
 Run with:
-    uv run examples/example8_importstl_petridish.py
+    uv run examples/example14_importstl_petri_dish.py
 """
 
 from pathlib import Path
@@ -31,7 +29,7 @@ from pyfield.plotting import add_stl_mesh, load_mesh_from_stl
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
-from config import FIG_FOLDER, SAVE_FIG, SCALE
+from config import FIG_FOLDER, SAVE_FIG
 
 WIN_W, WIN_H = 800, 600
 
@@ -52,15 +50,15 @@ else:
     off_screen = False
 
 # ============================================================================
-# STEP 8a: SIMPLE STL VISUALISATION
+# STEP 14a: SIMPLE STL VISUALISATION
 # ============================================================================
-print("8a: Simple visualisation with default settings")
+print("14a: Simple visualisation with default settings")
 
 plotter1 = add_stl_mesh(
     STL_FILE, color="lightblue", opacity=0.8, show_edges=True, off_screen=off_screen
 )
 plotter1.camera_position = "iso"
-plotter1.add_text("8a: Simple STL Visualisation", position="upper_edge")
+plotter1.add_text("14a: Simple STL Visualisation", position="upper_edge")
 
 if SAVE_FIG:
     plotter1.screenshot(str(FIG_FOLDER / "stl_simple.png"))
@@ -68,9 +66,9 @@ else:
     plotter1.show()
 
 # ============================================================================
-# STEP 8b: LOAD WITH TRANSFORMATION MULTIPLE STL OBJECTS IN ONE SCENE
+# STEP 14b: MULTIPLE STL OBJECTS WITH TRANSFORMATIONS IN ONE SCENE
 # ============================================================================
-print("\n8c: Multiple STL objects in one scene")
+print("\n14b: Multiple STL objects in one scene")
 
 mesh1 = load_mesh_from_stl(STL_FILE)
 mesh2 = load_mesh_from_stl(STL_FILE, translation=(20, 0, 0))
@@ -93,7 +91,7 @@ plotter2 = add_stl_mesh(
 )
 plotter2.add_legend()
 plotter2.camera_position = "iso"
-plotter2.add_text("8b: Multiple STL Objects", position="upper_edge")
+plotter2.add_text("14b: Multiple STL Objects", position="upper_edge")
 
 if SAVE_FIG:
     plotter2.screenshot(str(FIG_FOLDER / "stl_multiple.png"))
@@ -101,9 +99,9 @@ else:
     plotter2.show()
 
 # ============================================================================
-# STEP 8c: CUSTOM LIGHTING AND MATERIALS
+# STEP 14c: CUSTOM LIGHTING AND MATERIALS
 # ============================================================================
-print("\n8e: Custom lighting and material properties")
+print("\n14c: Custom lighting and material properties")
 
 plotter3 = pv.Plotter(off_screen=off_screen)
 plotter3.add_mesh(
@@ -121,7 +119,7 @@ plotter3.add_mesh(
 plotter3.add_light(pv.Light(position=(10, 10, 10), intensity=0.8))
 plotter3.add_light(pv.Light(position=(-10, -10, 10), intensity=0.3))
 plotter3.camera_position = "iso"
-plotter3.add_text("8c: Custom Lighting & Materials", position="upper_edge")
+plotter3.add_text("14c: Custom Lighting & Materials", position="upper_edge")
 
 if SAVE_FIG:
     plotter3.screenshot(str(FIG_FOLDER / "stl_lighting.png"))

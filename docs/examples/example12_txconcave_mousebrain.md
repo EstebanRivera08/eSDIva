@@ -1,4 +1,4 @@
-# Example 6: Mouse Brain Atlas with Focused Ultrasound
+# Example 12: Mouse Brain Atlas with Focused Ultrasound
 
 Combines a BrainGlobe mouse brain atlas (`allen_mouse_25um`) with a concave
 bowl transducer and its simulated pressure field in a single 3-D scene.
@@ -22,7 +22,7 @@ This example requires the BrainGlobe atlas API.  The mouse atlas data
 ## Run it
 
 ```bash
-uv run examples/example6_monoelement_mouse.py
+uv run examples/example12_txconcave_mousebrain.py
 ```
 
 ## Key code
@@ -42,4 +42,4 @@ mouse_atlas = BG_Atlas("allen_mouse_25um", region_names=("root", "Isocortex", "C
 mouse_atlas.transform(T_matrix=T_matrix, inplace=True)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example6_monoelement_mouse.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example12_txconcave_mousebrain.py)

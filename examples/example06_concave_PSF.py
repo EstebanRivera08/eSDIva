@@ -6,10 +6,13 @@ Field II parallel: ``fieldiiexamples/example_concave_psf.m``
 Computes the pulse-echo Point Spread Function (PSF) of a spherically focused
 single-element transducer and compares two simulation backends:
 
-- ``Reception(method="FST")`` — conventional FieldII-style: h_tx ⊛ h_rx,
-  three temporal derivatives applied to excitation via (jω)³.
-- ``ReceptionSDI()`` — combined PE SDI: 16 deltas per (TX, RX) patch pair,
-  derivatives absorbed into Dh_pe, one cumsum.
+- ``Reception(method="FST")`` — conventional Field II-style: sample both
+  one-way SIRs, convolve h_tx ⊛ h_rx with the excitation (the pulse-echo ∂³
+  is already baked into the band-limited excitation/impulse responses).
+- ``ReceptionSDI()`` — pulse-echo SDI: the two-way SIR is built from the
+  16 corner deltas per (TX, RX) patch pair; the four integrations are
+  applied in the Fourier domain (no cumsum), which keeps both backends
+  sample-aligned.
 
 Run with:
     uv run examples/example06_concave_PSF.py
@@ -54,7 +57,6 @@ tx = ConcaveCircularTransducer(
     refine_factor=1,
     no_sub_diameter=16,
 )
-# tx.show()
 
 t_ir = np.arange(0, PULSE_CYCLES / FREQUENCY_HZ, 1.0 / FS)
 ir = (np.sin(2 * np.pi * FREQUENCY_HZ * t_ir) * np.hanning(len(t_ir))).astype(
@@ -131,9 +133,7 @@ max_err_pct = float(diff_pct.max())
 
 # Envelope error is the honest headline: shift-tolerant, reflects PSF agreement
 # rather than sub-sample edge jitter in the raw RF.
-env_err_pct = float(
-    np.abs(env_FST - env_sdi).max() / (env_FST.max() + 1e-30) * 100.0
-)
+env_err_pct = float(np.abs(env_FST - env_sdi).max() / (env_FST.max() + 1e-30) * 100.0)
 print(f"\n  Max |FST - SDI| / peak (raw, native): {max_err_pct:.2f} %")
 print(f"  Max |FST - SDI| / peak (envelope)     : {env_err_pct:.2f} %")
 

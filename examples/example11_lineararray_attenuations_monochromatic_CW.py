@@ -81,8 +81,6 @@ print("\nSimulating water (no attenuation) ...")
 sim_water = Emission(tx, monochromatic=True, fs=FS)
 p_water, coords = sim_water(PLANE)
 
-print(coords["x"])
-
 # ============================================================================
 # STEP 3: BRAIN TISSUE (causal power-law attenuation)
 # ============================================================================

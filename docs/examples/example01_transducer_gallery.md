@@ -33,7 +33,7 @@ flat linear arrays to custom multi-element helmets.
 ## Run it
 
 ```bash
-uv run examples/example1_transducer_gallery.py
+uv run examples/example01_transducer_gallery.py
 ```
 
 ## Key code
@@ -56,4 +56,4 @@ linear.compute_apodization(focus_mm=[0, 0, 50], FoverD=2.0)
 linear.show(scalars="Apodization")
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example1_transducer_gallery.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example01_transducer_gallery.py)

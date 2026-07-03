@@ -373,44 +373,23 @@ than the curved surface they approximate (not physical overlap).  See
 [`surface_subdivision.py`](../src/pyfield/utilities/surface_subdivision.py)
 for the full implementation.
 
-#### Two-mode curvature strategy
+#### Boundary refinement and rim singularities
 
-A naïve uniform grid in parameter space causes patches to become oversized
-near the rim of a spherical cap, where the arc-length amplification
-`||∂r/∂u||` can be much greater than 1.  PyField automatically selects
-between two strategies based on the measured worst-case amplification:
+The parameter grid is uniform; cells cut by the aperture boundary
+(`inside_fn` true for some corners, false for others) are subdivided into
+`border_refine²` sub-patches so the mosaic follows the rim closely.  Each
+patch takes its physical half-widths from the local Jacobian,
+`wu/2 = ‖∂r/∂u‖ × Δu/2`, so gentle curvature is tiled near-perfectly.
 
-| Mode | Condition | Grid | Patch size |
-|------|-----------|------|------------|
-| **Low curvature** | `max ‖∂r/∂u‖ ≤ curvature_threshold` | Uniform Cartesian | Full arc-length `wu = ‖∂r/∂u‖ × Δu` — near-perfect tiling, `patch_fill` ignored |
-| **High curvature** | `max ‖∂r/∂u‖ > curvature_threshold` | Arc-length adapted | `patch_fill × ‖∂r/∂u‖ × Δu_cell` — scaled to prevent physical overlap |
+On strongly curved surfaces (a hemisphere is the extreme case) `‖∂r/∂u‖`
+diverges at the rim and Jacobian-sized patches become arbitrarily large —
+violating the far-field condition the SIR kernel relies on.  Two remedies:
 
-In **low-curvature mode** the surface is gentle enough that a full arc-length
-patch (one that spans the entire cell) produces near-zero gaps and negligible
-second-order overlap.  `patch_fill` has no effect in this mode.
-
-In **high-curvature mode** the grid is resampled so that patch centres are
-**uniformly spaced in arc-length** on the surface, regardless of local
-curvature.  The arc-length adapted cell edges are found by numerically
-inverting the cumulative arc-length function:
-
-```
-L(u) = ∫_{u₀}^{u} ‖∂r/∂u(s, v_mid)‖ ds        (total arc-length from u₀ to u)
-```
-
-`L(u)` is approximated by a fine numerical quadrature (≥ 500 intervals).
-The `n` cell edges are then placed at the parameter values `uₖ` satisfying
-`L(uₖ) = k × L(u₁) / n` for k = 0, …, n — i.e. at equal arc-length
-increments of `arc_spacing = L(u₁) / n`.  The same procedure is applied
-independently in v.  This ensures that near the rim, where `‖∂r/∂u‖` is
-large, cells are automatically narrower in parameter space so that each cell
-spans the same arc-length as a centre cell.
-
-Each patch is then sized to `patch_fill` times the actual arc-length cell
-width — see [Choosing `patch_fill`](#choosing-patch_fill) below.  Patches
-whose arc-length amplification exceeds `max_patch_scale` are rejected
-entirely, leaving intentional holes at extreme rims rather than producing
-oversized or overlapping patches.
+- `normalize_patch_size=True` — size every patch by the parameter-space step
+  alone.  Exact for arc-length parameterisations (the circular transducers
+  use `sx = R·arcsin(x/R)`, where the step already is metres of arc).
+- `method="spherical"` (Concave/ConvexCircular) — ring-based tiling that is
+  uniform by construction at any curvature.
 
 #### Subdivision methods
 
@@ -418,8 +397,8 @@ oversized or overlapping patches.
 
 | `method` | Description |
 |----------|-------------|
-| `"spherical"` (default) | Ring-based spherical tiling (`subdivide_spherical_cap`). Works at any curvature including hemispheres. Ring count derived from `no_sub_diameter`. |
-| `"cartesian"` | Arc-length Cartesian grid (`subdivide_parametric_surface`). Parameter space uses `sx = R·arcsin(x/R)` reparameterisation for uniform patch sizes. |
+| `"cartesian"` (default) | Arc-length Cartesian grid (`subdivide_parametric_surface`). Parameter space uses `sx = R·arcsin(x/R)` reparameterisation for uniform patch sizes. |
+| `"spherical"` | Ring-based spherical tiling (`subdivide_spherical_cap`). Works at any curvature including hemispheres — preferred there. Ring count derived from `no_sub_diameter`. |
 
 Both methods share these optional parameters:
 
@@ -472,17 +451,8 @@ def ellipsoid_cap(x, y):
     arg = max(1.0 - (x / a) ** 2 - (y / b) ** 2, 0.0)
     return np.array([x, y, c * np.sqrt(arg)])
 
-# This cap has strong curvature → high-curvature mode is triggered.
-#
-# patch_fill = 0.5: each patch fills only half the arc-length cell in
-# each direction (coverage ≈ 25 %).  Using patch_fill = 1.0 would cause
-# the flat patches to physically intersect in 3-D — the surface curves
-# enough between adjacent centres that full-width flat rectangles
-# protrude into their neighbours.  With a coarse grid (n_u = n_v = 10),
-# 0.5 is the empirically safe value for this geometry; a finer grid
-# would allow a higher patch_fill.
-#
-# max_patch_scale = 1.5: conservatively rejects the steepest rim cells.
+# border_refine = 3: boundary cells are subdivided 3×3 so the mosaic
+# follows the elliptical rim closely.
 frames = subdivide_parametric_surface(
     ellipsoid_cap,
     u_range=(-R_ap, R_ap),
@@ -490,8 +460,7 @@ frames = subdivide_parametric_surface(
     n_u=10, n_v=10,
     inside_fn=lambda x, y: x ** 2 / a ** 2 + y ** 2 / b ** 2 <= 1.0,
     normal_sign=1.0,
-    patch_fill=0.5,
-    max_patch_scale=1.5,
+    border_refine=3,
 )
 
 # frames is a dict with keys:
@@ -503,7 +472,6 @@ frames = subdivide_parametric_surface(
 #   'wu', 'wv'   — (M,) half-widths of each patch (metres)
 #   'el_idx'     — (M,) element index per patch (all 0 for single-element)
 #   'coverage'   — fraction of theoretical surface area covered by patches
-#   'n_rejected' — number of patches rejected due to max_patch_scale
 ```
 
 The returned `frames` dict is exactly what the circular transducers store

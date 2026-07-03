@@ -1,4 +1,4 @@
-# Example 8: STL Mesh Loading and Visualisation
+# Example 14: STL Mesh Loading and Visualisation
 
 Shows how to load and visualise STL files (experimental setup components)
 using `load_mesh_from_stl` and `add_stl_mesh`.  Five sub-examples cover
@@ -35,7 +35,7 @@ Place the `Petri_dish.stl` file in the `examples/` folder.
 ## Run it
 
 ```bash
-uv run examples/example8_importstl_petridish.py
+uv run examples/example14_importstl_petri_dish.py
 ```
 
 ## Key code
@@ -48,4 +48,4 @@ plotter = add_stl_mesh(mesh, color="coral", opacity=0.9)
 plotter.show()
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example8_importstl_petridish.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example14_importstl_petri_dish.py)

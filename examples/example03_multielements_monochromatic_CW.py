@@ -26,7 +26,6 @@ from pyfield.emission import Emission
 from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 from pyfield.transducers import Domino, Zeus_Matrix
 
-# SAVE_FIG = True
 RUN_LINEAR_ARRAY = True
 RUN_MATRIX_ARRAY = True
 THEME = "white"
@@ -58,7 +57,7 @@ else:
     AMBIENT_TX = 1
     AMBIENT_PR = 0.5
 
-print("\n --- Example 4: Multi-element Transducers (3-D) --- \n")
+print("\n --- Example 03: Multi-element Arrays — Monochromatic CW (3-D) --- \n")
 
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
@@ -89,7 +88,8 @@ if RUN_LINEAR_ARRAY:
     linear_probe = Domino()
     linear_probe.compute_delays(focus_mm=FOCUS_MM)
     linear_probe.compute_apodization(focus_mm=FOCUS_MM, FoverD=1)
-    linear_probe.plot_delays_apodization()
+    if not SAVE_FIG:
+        linear_probe.plot_delays_apodization()
 
     linear_sim = Emission(linear_probe, monochromatic=True)
     p_linear, coords_l = linear_sim(field_point_mm, method="auto")
@@ -135,7 +135,7 @@ if RUN_LINEAR_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl.screenshot(str(FIG_FOLDER / f"linear_array_field_{THEME}.png"))
+        pl.screenshot(str(FIG_FOLDER / "linear_array_field.png"))
     else:
         pl.show()
     pl.close()
@@ -169,7 +169,7 @@ if RUN_LINEAR_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl2.screenshot(str(FIG_FOLDER / f"linear_array_pressure_field_{THEME}.png"))
+        pl2.screenshot(str(FIG_FOLDER / "linear_array_pressure_field.png"))
     else:
         pl2.show()
     pl2.close()
@@ -185,7 +185,8 @@ if RUN_MATRIX_ARRAY:
     matrix_probe = Zeus_Matrix()
     matrix_probe.compute_delays(focus_mm=FOCUS_MM)
     matrix_probe.compute_apodization(focus_mm=FOCUS_MM, FoverD=FOVERD)
-    matrix_probe.plot_delays_apodization()
+    if not SAVE_FIG:
+        matrix_probe.plot_delays_apodization()
 
     matrix_sim = Emission(matrix_probe, monochromatic=True)
     p_matrix, coords_m = matrix_sim(field_point_mm, method="auto")
@@ -230,7 +231,7 @@ if RUN_MATRIX_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl.screenshot(str(FIG_FOLDER / f"matrix_array_field_{THEME}.png"))
+        pl.screenshot(str(FIG_FOLDER / "matrix_array_field.png"))
     else:
         pl.show()
     pl.close()
@@ -264,7 +265,7 @@ if RUN_MATRIX_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl2.screenshot(str(FIG_FOLDER / f"matrix_array_pressure_field_{THEME}.png"))
+        pl2.screenshot(str(FIG_FOLDER / "matrix_array_pressure_field.png"))
     else:
         pl2.show()
     pl2.close()

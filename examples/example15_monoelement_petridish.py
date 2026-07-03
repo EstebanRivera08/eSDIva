@@ -1,5 +1,5 @@
 """
-Example 9: STL Mesh with Acoustic Simulation
+Example 15: STL Mesh with Acoustic Simulation
 
 Demonstrates how to combine an STL model (experimental setup) with a PyField
 acoustic simulation to visualise the complete experimental configuration in 3-D.
@@ -12,7 +12,7 @@ Steps
 4. Render transducer + pressure + STL in a single PyVista scene
 
 Run with:
-    uv run examples/example9_monoelement_petridish.py
+    uv run examples/example15_monoelement_petridish.py
 """
 
 from pathlib import Path
@@ -53,7 +53,6 @@ print("=" * 70)
 print("PyField + STL Mesh Visualisation Example")
 print("=" * 70)
 
-SAVE_FIG = True
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
 else:
@@ -165,11 +164,6 @@ plotter.camera_position = [
     (3.5962218268199346, 0.18757271972784184, 17.819623870363255),
     (0.45596127755931304, 0.6574370262898801, -0.5998965492729551),
 ]
-#         [
-#     (-59.01688106487966, 71.55213364857292, 49.54316793764734),
-#     (3.631094007909384, -0.9265847114160961, 18.48889861413802),
-#     (0.42343180238636613, 0.6405023120483719, -0.6406733153398253),
-# ]
 
 if SAVE_FIG:
     plotter.screenshot(str(FIG_FOLDER / "stl_simulation.png"))
@@ -177,7 +171,6 @@ else:
     plotter.show()
 
 plotter.close()
-print(plotter.camera_position)
 del sim, pressure_vol, tx_mesh, plotter
 if has_stl:
     del petri_dish

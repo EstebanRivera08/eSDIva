@@ -1,0 +1,30 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false          # one red combo shouldn't cancel the others
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        python: ["3.11", "3.12"]   # numba 0.65 ships only cp311/cp312 wheels
+    runs-on: ${{ matrix.os }}
+
+    env:
+      MPLBACKEND: Agg           # headless matplotlib (no Qt display on CI)
+      PYVISTA_OFF_SCREEN: "true"  # headless pyvista rendering
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: ${{ matrix.python }}
+
+      - run: uv sync             # installs runtime + dev group (pytest lives there)
+
+      - run: uv run pytest tests/

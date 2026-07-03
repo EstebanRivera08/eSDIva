@@ -5,7 +5,7 @@ Demonstrates the `Reception` class for pulse-echo RF simulation.  TX focuses
 at a single point while all RX elements receive simultaneously.
 
   1. Focused TX + flat RX (same transducer, different delay laws)
-  2. Reception with and without excitation pulse
+  2. 3-D setup preview with ``sim.show()`` (apertures + scatterer cloud)
   3. RF data shape: ``(E_rx, Nt)`` — one time trace per RX channel
   4. Visualisation: RF waterfall image + single-channel envelope
 
@@ -77,6 +77,14 @@ scatterer_amp = np.array([1.0, 0.7, 0.7], dtype=np.float32)
 # STEP 4: SIMULATE — WITH EXCITATION
 # ============================================================================
 sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
+
+# 3-D sanity check of the setup: apertures + scatterers, before simulating.
+sim.show(
+    scatterer_pos,
+    scatterer_amp,
+    save_path=str(FIG_FOLDER / "reception_setup.png") if SAVE_FIG else None,
+)
+
 rf, coords = sim(scatterer_pos, scatterer_amp)
 # rf.shape = (E_rx, Nt)
 

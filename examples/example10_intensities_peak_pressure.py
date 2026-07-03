@@ -97,19 +97,21 @@ axial_plane = {
 # STEP 4: SIMULATE WITH AND WITHOUT ATTENUATION
 # ============================================================================
 def run_axial(alpha0):
-    sim = Emission(tx, fs=FS, excitation=pulse, rho=RHO, alpha0=alpha0)
+    sim = Emission(
+        tx, fs=FS, excitation=pulse, rho=RHO, alpha0=alpha0, freq_power=FREQ_POWER
+    )
     p, coords = sim(axial_plane)  # (Nt, 1, 1, Nz)
     p_axis = p[:, 0, 0, :]  # (Nt, Nz)
     peak = np.max(np.abs(p_axis), axis=0)  # (Nz,)
     ispta = np.sum(p_axis**2, axis=0) / (2 * Z_ACOUSTIC * FS * T_PRF)  # W/m²
-    return peak, ispta
+    return peak, ispta, coords["z"]
 
 
 print("Simulating without attenuation ...")
-peak_no_att, ispta_no_att = run_axial(alpha0=None)
+peak_no_att, ispta_no_att, z_mm = run_axial(alpha0=None)
 
 print("Simulating with attenuation (brain tissue) ...")
-peak_att, ispta_att = run_axial(alpha0=ALPHA0)
+peak_att, ispta_att, _ = run_axial(alpha0=ALPHA0)
 
 # Convert Ispta from W/m² to mW/cm²
 ispta_no_att_mwcm2 = ispta_no_att * 1e3 / 1e4
@@ -121,8 +123,8 @@ ispta_att_mwcm2 = ispta_att * 1e3 / 1e4
 fig, axes = plt.subplots(2, 1, figsize=(9, 8), sharex=True)
 
 ax = axes[0]
-ax.plot(Z_MM, ispta_no_att_mwcm2, "b-", label="No attenuation")
-ax.plot(Z_MM, ispta_att_mwcm2, "r--", label=f"α₀={ALPHA0} dB/(cm·MHz), y={FREQ_POWER}")
+ax.plot(z_mm, ispta_no_att_mwcm2, "b-", label="No attenuation")
+ax.plot(z_mm, ispta_att_mwcm2, "r--", label=f"α₀={ALPHA0} dB/(cm·MHz), y={FREQ_POWER}")
 ax.set_ylabel("Ispta (mW/cm²)")
 ax.set_title(
     f"Acoustic axis — {tx.n_elements}-element array, focus at z={FOCUS_MM[2]} mm"
@@ -131,8 +133,8 @@ ax.legend()
 ax.grid(True, alpha=0.3)
 
 ax = axes[1]
-ax.plot(Z_MM, peak_no_att / 1e3, "b-", label="No attenuation")
-ax.plot(Z_MM, peak_att / 1e3, "r--", label=f"α₀={ALPHA0} dB/(cm·MHz), y={FREQ_POWER}")
+ax.plot(z_mm, peak_no_att / 1e3, "b-", label="No attenuation")
+ax.plot(z_mm, peak_att / 1e3, "r--", label=f"α₀={ALPHA0} dB/(cm·MHz), y={FREQ_POWER}")
 ax.set_xlabel("Axial distance (mm)")
 ax.set_ylabel("Peak pressure (kPa)")
 ax.legend()

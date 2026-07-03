@@ -16,7 +16,7 @@ Steps
 3. Plot the normalised pressure field for each transducer
 
 Run with:
-    uv run examples/example2_monoelement_transducers.py
+    uv run examples/example02_monoelements_monochromatic_CW.py
 """
 
 from config import FIG_FOLDER, SAVE_FIG, SCALE
@@ -69,7 +69,8 @@ flat = FlatCircularTransducer(
     no_sub_diameter=30,
     frequency_Hz=FREQ_HZ,
 )
-flat.show()
+if not SAVE_FIG:
+    flat.show()
 
 sim_flat = Emission(flat, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_flat, coords = sim_flat(XZ_GRID, method="auto")
@@ -95,7 +96,8 @@ bowl = ConcaveCircularTransducer(
     no_sub_diameter=30,
     frequency_Hz=FREQ_HZ,
 )
-bowl.show()
+if not SAVE_FIG:
+    bowl.show()
 
 sim_bowl = Emission(bowl, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_bowl, coords = sim_bowl(XZ_GRID, method="auto")
@@ -113,8 +115,9 @@ plot2D_pressure_slices(
 # ============================================================================
 # STEP 3: FOCUSED CIRCULAR TRANSDUCER — CYLINDRICAL LINE FOCUS
 # ============================================================================
-print("\n--- 3. FocusedCircularTransducer (line focus, D=20 mm, R=40 mm, axis=y) ---")
+print("\n--- 3. FocusedCircularTransducer (line focus, D=20 mm, R=40 mm, axis=x) ---")
 
+# Curvature along x → the line focus is visible in the XZ simulation plane.
 cyl = FocusedCircularTransducer(
     diameter_mm=20.0,
     focus_mm=40.0,
@@ -122,7 +125,8 @@ cyl = FocusedCircularTransducer(
     focus_axis="x",
     frequency_Hz=FREQ_HZ,
 )
-cyl.show()
+if not SAVE_FIG:
+    cyl.show()
 
 sim_cyl = Emission(cyl, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_cyl, coords = sim_cyl(XZ_GRID, method="auto")
@@ -142,13 +146,17 @@ plot2D_pressure_slices(
 # ============================================================================
 print("\n--- 4. ConvexCircularTransducer (dome, D=20 mm, hemisphere) ---")
 
+# Hemisphere (focus = D/2): the surface Jacobian diverges at the rim, so use
+# the ring-based spherical tiling for uniform, far-field-valid patches.
 conv = ConvexCircularTransducer(
     diameter_mm=20.0,
     focus_mm=10.0,  # focal length = radius of curvature; D/2 → hemisphere
     no_sub_diameter=30,
+    method="spherical",
     frequency_Hz=FREQ_HZ,
 )
-conv.show()
+if not SAVE_FIG:
+    conv.show()
 
 sim_conv = Emission(conv, c=C, fs=FREQ_SAMPLING_HZ, monochromatic=True)
 p_conv, coords = sim_conv(XZ_GRID, method="auto")

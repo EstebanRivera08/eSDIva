@@ -22,7 +22,7 @@ Steps
 3. Show 3D geometry via PyVista
 
 Run with:
-    uv run examples/example1_transducer_gallery.py
+    uv run examples/example01_transducer_gallery.py
 """
 
 import numpy as np
@@ -48,6 +48,12 @@ from pyfield.transducers import (
 FC_HZ = 1.5e6  # Centre frequency (1.5 MHz)
 FOCUS_MM = [0, 0, 50]  # Electronic focus for array transducers
 WIN_W, WIN_H = 800, 600  # Base window size
+
+
+def _plot_beamforming(tx):
+    """Delay/apodization curves — interactive sessions only (windows pile up in batch)."""
+    if not SAVE_FIG:
+        tx.plot_delays_apodization()
 
 
 def _show_or_save(tx, filename, scalars="Apodization"):
@@ -122,7 +128,7 @@ linear = LinearArrayTransducer(
 )
 linear.compute_delays(focus_mm=FOCUS_MM)
 linear.compute_apodization(focus_mm=FOCUS_MM, FoverD=2.0)
-linear.plot_delays_apodization()
+_plot_beamforming(linear)
 _show_or_save(linear, "gallery_linear.png")
 
 # ============================================================================
@@ -141,7 +147,7 @@ convex = ConvexArrayTransducer(
 )
 convex.compute_delays(focus_mm=[0, 0, 60])
 convex.compute_apodization(focus_mm=[0, 0, 60], FoverD=1.5)
-convex.plot_delays_apodization()
+_plot_beamforming(convex)
 _show_or_save(convex, "gallery_convex.png")
 
 # ============================================================================
@@ -161,7 +167,7 @@ convex_focused = ConvexArrayTransducer(
 )
 convex_focused.compute_delays(focus_mm=[0, 0, 60])
 convex_focused.compute_apodization(focus_mm=[0, 0, 60], FoverD=1.5)
-convex_focused.plot_delays_apodization()
+_plot_beamforming(convex_focused)
 _show_or_save(convex_focused, "gallery_convex_focused.png")
 
 # ============================================================================
@@ -181,7 +187,7 @@ matrix = MatrixArrayTransducer(
 )
 matrix.compute_delays(focus_mm=FOCUS_MM)
 matrix.compute_apodization(focus_mm=FOCUS_MM, FoverD=2.0)
-matrix.plot_delays_apodization()
+_plot_beamforming(matrix)
 _show_or_save(matrix, "gallery_matrix.png")
 
 # ============================================================================

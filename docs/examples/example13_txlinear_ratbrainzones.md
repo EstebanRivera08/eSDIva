@@ -1,4 +1,4 @@
-# Example 7: Rat Brain Zone Focusing
+# Example 13: Rat Brain Zone Focusing
 
 Demonstrates focused ultrasound simulation targeting specific anatomical zones
 of a rat brain using a BrainGlobe atlas and a linear array transducer.
@@ -22,7 +22,7 @@ downloaded automatically on first run.
 ## Run it
 
 ```bash
-uv run examples/example7_ratbrainzones_focus.py
+uv run examples/example13_txlinear_ratbrainzones.py
 ```
 
 ## Key code
@@ -40,4 +40,4 @@ scale[:3, :3] *= 8.0  # mm
 brain_atlas.transform(T_matrix=T_matrix, inplace=True)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example7_ratbrainzones_focus.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example13_txlinear_ratbrainzones.py)

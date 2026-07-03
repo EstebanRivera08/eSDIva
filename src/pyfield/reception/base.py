@@ -408,6 +408,7 @@ class ReceptionBase(SimulationBase):
         window_size=(900, 700),
         notebook=False,
         jupyter_backend=None,
+        save_path=None,
         **kwargs,
     ):
         """Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers).
@@ -431,10 +432,18 @@ class ReceptionBase(SimulationBase):
             Enable Jupyter notebook rendering.
         jupyter_backend : str, optional
             Backend string passed to PyVista (``'static'``, ``'trame'`` …).
+        save_path : str or pathlib.Path, optional
+            Screenshot file path (e.g. ``"setup.png"``). When given, the
+            scene is rendered off-screen and saved instead of opening a
+            window.
         **kwargs
             Forwarded to the scatterer ``add_mesh`` call (e.g. ``point_size``).
         """
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        plotter = pv.Plotter(
+            window_size=window_size,
+            notebook=notebook,
+            off_screen=save_path is not None,
+        )
 
         if self.rx is self.tx:
             plotter.add_mesh(
@@ -481,7 +490,10 @@ class ReceptionBase(SimulationBase):
         plotter.show_grid(
             font_size=10, xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)"
         )
-        if jupyter_backend is not None:
+        if save_path is not None:
+            plotter.screenshot(str(save_path))
+            plotter.close()
+        elif jupyter_backend is not None:
             plotter.show(jupyter_backend=jupyter_backend)
         else:
             plotter.show()

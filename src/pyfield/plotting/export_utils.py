@@ -1,6 +1,7 @@
 """Shared save/export helpers for plotting functions.
 
-``save_path`` is always a **directory** (or ``None`` to skip saving).
+``save_path`` is a **directory** (combined with ``file_name``) or a full file
+path — anything with an extension is treated as the output file directly.
 ``file_name`` always **includes the extension** (e.g. ``"field.png"``).
 Directory creation is handled here, not by callers.
 """
@@ -11,10 +12,18 @@ from pathlib import Path
 
 
 def _resolve_export_path(save_path, file_name: str) -> Path:
-    """Join *save_path* and *file_name*, creating the directory if needed."""
-    out_dir = Path(save_path)
-    out_dir.mkdir(parents=True, exist_ok=True)
-    return out_dir / file_name
+    """Resolve the output file, creating its directory if needed.
+
+    ``save_path`` with a file extension is used as the full output path
+    (``file_name`` ignored); otherwise it is a directory joined with
+    ``file_name``.
+    """
+    p = Path(save_path)
+    if p.suffix:
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
+    p.mkdir(parents=True, exist_ok=True)
+    return p / file_name
 
 
 def save_matplotlib_animation(

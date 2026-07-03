@@ -1,6 +1,5 @@
 import matplotlib.pyplot as plt
 import numpy as np
-from matplotlib.patches import FancyArrowPatch
 from matplotlib.widgets import Slider
 
 # plt.rcParams["figure.figsize"] = [10, 6]
@@ -25,7 +24,6 @@ def plot_trapezoid_methods(
     t_continue = np.linspace(t0, t_max, N_continue)  # Upsampled time points
     t_FST = np.linspace(t0, t_max, N_FST)  # Original time points
     t_derivative = np.linspace(t0, t_max, N_derivative)  # Original time points
-    f_s_FST = (N_FST - 1) / (t_max - t0)
     f_s_derivative = (N_derivative - 1) / (t_max - t0)
 
     def compute_trapezoid(Dt1, Dt2, shift):
@@ -96,9 +94,7 @@ def plot_trapezoid_methods(
     plt.subplots_adjust(right=0.8)
     # plt.subplots_adjust(left=0.2)
 
-    times, h_continue, h_FST, d2h, dh, h_derivative = compute_trapezoid(
-        Dt1, Dt2, shift
-    )
+    times, h_continue, h_FST, d2h, dh, h_derivative = compute_trapezoid(Dt1, Dt2, shift)
     t1, t2, t3, t4 = times
     # Initial plot
     (line_continue,) = ax.plot(
@@ -157,7 +153,6 @@ def plot_trapezoid_methods(
 
     # Store text and arrow objects for updating
     text_annotations = {}
-    arrow_annotations = {}
 
     def add_annotations(t1, t2, t3, t4):
         """Create or update text labels for time points."""

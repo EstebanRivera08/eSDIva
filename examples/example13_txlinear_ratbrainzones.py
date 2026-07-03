@@ -1,5 +1,5 @@
 """
-Example 7: Rat Brain Zone Focusing
+Example 13: Rat Brain Zone Focusing
 
 Demonstrates focused ultrasound simulation targeting specific anatomical
 zones of a rat brain using a BrainGlobe atlas for anatomy and a linear
@@ -18,7 +18,7 @@ Requirements
 BrainGlobe atlas data is downloaded on first run.
 
 Run with:
-    uv run examples/example7_ratbrainzones_focus.py
+    uv run examples/example13_txlinear_ratbrainzones.py
 """
 
 import numpy as np
@@ -73,7 +73,7 @@ else:
     AMBIENT_TX = 1
     AMBIENT_PR = 0.5
 
-print("\n --- Example 7: Rat Brain Zone Focusing --- \n")
+print("\n --- Example 13: Rat Brain Zone Focusing --- \n")
 
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
@@ -106,8 +106,7 @@ field_info_mm = {
 }
 pr, coords = sim(field_info_mm)
 pressure_vol_mesh = create_3Dvol_mesh(
-    pr / pr.max(),
-    coords["x"], coords["y"], coords["z"], scalars="Pressure"
+    pr / pr.max(), coords["x"], coords["y"], coords["z"], scalars="Pressure"
 )
 
 # ============================================================================
@@ -218,7 +217,6 @@ if SAVE_FIG:
 else:
     plotter.show()
 
-print(plotter.camera_position)
 plotter.close()
 try:
     pv.close_all()

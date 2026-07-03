@@ -293,6 +293,93 @@ def from_fieldii_xdc_data(
     )
 
 
+def from_fieldii_rect_data(
+    rect,
+    *,
+    frequency_hz: float = 1e6,
+    elevation_focus_mm: Optional[float] = None,
+) -> FieldIITransducer:
+    """Create a :class:`FieldIITransducer` from ``xdc_get(Th, 'rect')`` output.
+
+    ``xdc_get(Th, 'rect')`` returns a 26 × M matrix with one column per
+    mathematical element (patch).  Rows used here (0-indexed):
+
+        row 0     : physical element number
+        row 4     : apodization weight
+        rows 10-21: four corner vertices, each (x, y, z) in metres
+        row 22    : time delay [s]
+
+    Field II lists the corners walking the rectangle perimeter, which is
+    NOT PyField's quad ordering (``c1-c0`` must be the u-tangent and
+    ``c3-c0`` the v-tangent).  Each quad is therefore re-ordered from the
+    corner positions themselves: the corner farthest from ``c0`` is the
+    diagonal, the two remaining corners give the u and v edges.  This makes
+    the import robust to any corner ordering Field II may produce.
+
+    Typical MATLAB export::
+
+        rect = xdc_get(Th, 'rect');
+        save('tx_rect.mat', 'rect');
+
+    Parameters
+    ----------
+    rect : (26, M) array-like
+        The ``xdc_get(Th, 'rect')`` matrix (also accepted transposed).
+    frequency_hz : float, default 1e6
+        Transducer centre frequency in Hz.
+    elevation_focus_mm : float, optional
+        Elevation-lens focal length in mm (Field II ``Rfocus``); sets
+        ``elevation_lens_sag`` so reception's RF time origin includes the
+        lens transit.  None for unlensed probes.
+
+    Returns
+    -------
+    FieldIITransducer
+        PyField transducer with one element per Field II mathematical element.
+    """
+    geom = np.asarray(rect, dtype=np.float64)
+    if geom.ndim != 2:
+        raise ValueError("rect must be a 2-D matrix from xdc_get(Th, 'rect').")
+    if geom.shape[0] != 26 and geom.shape[1] == 26:
+        geom = geom.T
+    if geom.shape[0] < 23:
+        raise ValueError(
+            f"rect has {geom.shape[0]} rows; expected the 26-row "
+            "xdc_get(Th, 'rect') format."
+        )
+
+    corners = geom[10:22].T.reshape(-1, 4, 3)  # (M, 4, 3) metres, order unknown
+    apod = geom[4]
+    delays = geom[22]
+
+    patch_quads = []
+    for c4 in corners:
+        # Re-order to PyField's quad convention from geometry alone: the
+        # farthest corner from c0 is the diagonal; the other two corners are
+        # the u- and v-edge neighbours.
+        d = np.linalg.norm(c4[1:] - c4[0], axis=1)
+        i_diag = 1 + int(np.argmax(d))
+        i_u, i_v = [i for i in (1, 2, 3) if i != i_diag]
+        quad = np.stack([c4[0], c4[i_u], c4[i_diag], c4[i_v]], axis=0)
+        u = quad[1] - quad[0]
+        v = quad[3] - quad[0]
+        cos_uv = abs(u @ v) / (np.linalg.norm(u) * np.linalg.norm(v) + 1e-30)
+        if cos_uv > 1e-3:
+            raise ValueError(
+                "Patch corners do not form a rectangle (u·v ≠ 0). "
+                "Check the export format."
+            )
+        patch_quads.append(quad)
+
+    return FieldIITransducer(
+        patch_quads,
+        apod,
+        delays,
+        frequency_hz=frequency_hz,
+        elevation_focus_mm=elevation_focus_mm,
+    )
+
+
 def from_fieldii_patch_arrays(
     centres,
     u_tangents,

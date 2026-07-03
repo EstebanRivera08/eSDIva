@@ -249,6 +249,7 @@ plot2D_transient_slices(p_4d, coords=coords)
 **Importing Field II Transducer Geometry**:
 - `FieldIITransducer` (`src/pyfield/transducers/fieldii_compat.py`) — transducer built from raw patches
 - `from_fieldii_xdc_data(data)` — parse MATLAB `xdc_get(Th,'all')` struct → `FieldIITransducer`
+- `from_fieldii_rect_data(rect)` — 26-row `xdc_get(Th,'rect')` matrix → `FieldIITransducer` (corners re-ordered to PyField's u/v quad convention from geometry alone, robust to Field II's perimeter corner ordering)
 - `from_fieldii_patch_arrays(centres, u, v, hw, hh)` — explicit patch arrays → `FieldIITransducer`
 - Treats each Field II mathematical element as one PyField element (n_elements = N_patches)
 - For monostatic reception, sum RF channels after simulation (all channels belong to the single aperture)

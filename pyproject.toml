@@ -38,10 +38,11 @@ pyfield = "pyfield:main"
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[[tool.uv.index]]
-name = "pytorch"
-url = "https://download.pytorch.org/whl/cu126"
-default = false
+# torch not currently used — uncomment this index + the `torch` dep + source below to re-enable.
+# [[tool.uv.index]]
+# name = "pytorch"
+# url = "https://download.pytorch.org/whl/cu126"
+# default = false
 
 [dependency-groups]
 dev = [
@@ -51,7 +52,7 @@ dev = [
     "ipython>=9.1.0",
     "ipyvtklink>=0.2.3",
     "ruff>=0.12.0",
-    "torch>=2.6.0",
+    # "torch>=2.6.0",  # unused for now; CUDA-only index breaks macOS sync. Re-enable with index above.
     "pytest>=8.4.2",
     "pytest-cov>=6.0.0",
     "ty>=0.0.10",
@@ -67,8 +68,8 @@ dev = [
     "openpyxl>=3.1.5",
 ]
 
-[tool.uv.sources]
-torch = {index = "pytorch"}
+# [tool.uv.sources]
+# torch = {index = "pytorch"}
 
 # --------------------------------------------------------------------------- #
 #  pytest

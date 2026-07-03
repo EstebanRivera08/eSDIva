@@ -1,5 +1,5 @@
 """
-Example 10: Parametric Surface Subdivision
+Example 16: Parametric Surface Subdivision
 
 Demonstrates ``pyfield.utilities.surface_subdivision.subdivide_parametric_surface``,
 the public utility that tiles any C1 parametric surface with flat tangent-plane
@@ -18,12 +18,9 @@ Steps
 5. Visualise with PyVista: theoretical surface vs flat patch mosaic
 
 Run with:
-    uv run examples/example10_subdivide_parametric_surface.py
+    uv run examples/example16_subdivide_parametric_surface.py
 """
 
-import matplotlib
-
-# matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
@@ -85,17 +82,8 @@ def ellipsoid_cap(x, y):
 print("\nStep 2: Subdivide with arc-length adapted grid")
 print("-" * 40)
 
-# This cap has strong curvature → high-curvature mode is triggered.
-#
-# patch_fill = 0.5: each patch fills only half the arc-length cell in
-# each direction (coverage ≈ 25 %).  Using patch_fill = 1.0 would cause
-# the flat patches to physically intersect in 3-D — the surface curves
-# enough between adjacent centres that full-width flat rectangles
-# protrude into their neighbours.  With a coarse grid (n_u = n_v = 10),
-# 0.5 is the empirically safe value for this geometry; a finer grid
-# would allow a higher patch_fill.
-#
-# max_patch_scale = 1.5: conservatively rejects the steepest rim cells.
+# border_refine = 3: cells cut by the aperture edge are subdivided 3×3 so
+# the patch mosaic follows the elliptical rim closely.
 frames = subdivide_parametric_surface(
     ellipsoid_cap,
     u_range=(-R_ap, R_ap),
@@ -104,8 +92,7 @@ frames = subdivide_parametric_surface(
     n_v=10,
     inside_fn=lambda x, y: x**2 / a**2 + y**2 / b**2 <= 1.0,
     normal_sign=1.0,
-    patch_fill=0.9,
-    max_patch_scale=1.5,
+    border_refine=3,
 )
 
 # ============================================================================
@@ -118,7 +105,6 @@ n_patches = frames["centers"].shape[0]
 areas = frames["wu"] * frames["wv"]
 
 print(f"  Patches accepted : {n_patches}")
-print(f"  Patches rejected : {frames['n_rejected']}")
 print(f"  Coverage         : {frames['coverage']:.1%}")
 print(f"  Mean patch area  : {areas.mean() * 1e6:.3f} mm²")
 print(f"  Area range       : {areas.min() * 1e6:.3f} – {areas.max() * 1e6:.3f} mm²")
@@ -296,15 +282,14 @@ else:
 pl.close()
 
 # ============================================================================
-# STEP 6: COMPARE patch_fill VALUES
+# STEP 6: COMPARE border_refine VALUES
 # ============================================================================
-print("\nStep 6: Comparing patch_fill = 0.5, 0.75, 1.0")
+refine_values = [1, 2, 4]
+print(f"\nStep 6: Comparing border_refine = {refine_values}")
 print("-" * 40)
-
-fill_values = [0.5, 0.8, 1.1]
 results = {}
 
-for pf in fill_values:
+for br in refine_values:
     f = subdivide_parametric_surface(
         ellipsoid_cap,
         u_range=(-R_ap, R_ap),
@@ -313,24 +298,25 @@ for pf in fill_values:
         n_v=10,
         inside_fn=lambda x, y: x**2 / a**2 + y**2 / b**2 <= 1.0,
         normal_sign=1.0,
-        patch_fill=pf,
-        max_patch_scale=1.5,
+        border_refine=br,
     )
-    results[pf] = f
+    results[br] = f
     print(
-        f"  patch_fill={pf:.2f}: {f['centers'].shape[0]:3d} patches, "
-        f"coverage={f['coverage']:.1%}, rejected={f['n_rejected']}"
+        f"  border_refine={br}: {f['centers'].shape[0]:3d} patches, "
+        f"coverage={f['coverage']:.1%}"
     )
 
 fig2, axes = plt.subplots(1, 3, figsize=(13, 4))
 fig2.patch.set_facecolor("#1a1a2e" if THEME == "dark" else "white")
 fig2.suptitle(
-    "Effect of patch_fill on ellipsoidal cap subdivision", color=text_color, fontsize=11
+    "Effect of border_refine on ellipsoidal cap subdivision",
+    color=text_color,
+    fontsize=11,
 )
 
-for ax, pf in zip(axes, fill_values):
+for ax, br in zip(axes, refine_values):
     ax.set_facecolor(ax_bg)
-    f = results[pf]
+    f = results[br]
     ax.scatter(
         f["centers"][:, 0] * 1e3,
         f["centers"][:, 1] * 1e3,
@@ -346,7 +332,7 @@ for ax, pf in zip(axes, fill_values):
         lw=0.8,
     )
     ax.set_title(
-        f"patch_fill={pf}  coverage={f['coverage']:.0%}",
+        f"border_refine={br}  coverage={f['coverage']:.0%}",
         color=text_color,
         fontsize=9,
     )
@@ -360,7 +346,7 @@ for ax, pf in zip(axes, fill_values):
 fig2.tight_layout()
 
 if SAVE_FIG:
-    out = FIG_FOLDER / "subdivision_patch_fill_comparison.png"
+    out = FIG_FOLDER / "subdivision_border_refine_comparison.png"
     fig2.savefig(
         out, dpi=100 * SCALE, bbox_inches="tight", facecolor=fig2.get_facecolor()
     )

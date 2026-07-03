@@ -63,12 +63,20 @@ def plot2D_pressure_plane(
             "Warning: x and z coordinate arrays not provided. Using default indices"
             " as coordinates."
         )
-    x = np.arange(pressure_plane.shape[0])
-    z = np.arange(pressure_plane.shape[1])
+        if x is None:
+            x = np.arange(pressure_plane.shape[0])
+        if z is None:
+            z = np.arange(pressure_plane.shape[1])
+    x = np.asarray(x)
+    z = np.asarray(z)
 
     if figsize is None:
+        # Match the figure aspect to the physical extent so 1 mm renders
+        # equally in both directions (clamped to avoid degenerate figures).
         width = 6
-        height = width * (z.max() - z.min()) / (x.max() - x.min())
+        span_x = (x.max() - x.min()) or 1.0
+        span_z = (z.max() - z.min()) or 1.0
+        height = width * np.clip(span_z / span_x, 0.3, 3.0)
         figsize = (width, height)
 
     if ax is None:
@@ -341,6 +349,12 @@ def plot2D_pressure_slices(
 
         if plane_axis is not None:
             print(f"Plotting 2D slice along {plane_axis}-axis")
+            if figsize is None:
+                # Aspect from physical extents: axial span sets the height.
+                span_1 = (np.max(x1) - np.min(x1)) or 1.0
+                span_2 = (np.max(x2) - np.min(x2)) or 1.0
+                width = 6
+                figsize = (width, width * np.clip(span_2 / span_1, 0.3, 3.0) + 0.5)
             fig, ax = plt.subplots(figsize=figsize)
             ax = plot2D_pressure_plane(
                 pressure_plot.squeeze(),
@@ -382,6 +396,15 @@ def plot2D_pressure_slices(
             else:
                 r = np.array([Dx / Dz, Dx / Dy, Dy / Dz])
                 r = r / r.sum()
+
+            if figsize is None:
+                # Total width from the three panel aspect ratios at a common
+                # height (clamped so extreme extents stay printable).
+                height = 5.0
+                panel_w = height * np.clip(
+                    np.array([Dx / Dz, Dx / Dy, Dy / Dz]), 0.3, 3.0
+                )
+                figsize = (float(np.clip(panel_w.sum() + 1.0, 6.0, 18.0)), height)
 
             fig = plt.figure(figsize=figsize)
             gs = GridSpec(1, 4, width_ratios=[r[0], r[1], r[2], 0.05 * r.max()])

@@ -38,12 +38,10 @@ C = 1540.0  # speed of sound (m/s)
 FS = 100e6  # sampling frequency (Hz)
 F0 = 3e6  # centre frequency (Hz)
 PULSE_CYCLES = 2
-SAVE_FIG = True
 FOVERD = 2
 APOD_TYPE = "hanning"
 
 N_ELEMENTS = 128  # total physical elements
-N_ACTIVE = 64  # active aperture per scan line
 
 LAMBDA = C / F0  # wavelength (m)
 ELEMENT_WIDTH_MM = LAMBDA * 1e3  # ≈ 0.513 mm (λ-pitch element width)
@@ -155,7 +153,7 @@ ax.set_ylabel("Depth (mm)")
 ax.set_title(
     "B-mode PSF image\n"
     f"TX/RX focus at z={Z_FOCUS_MM} mm\n"
-    f"{NO_LINES} lines × {N_ACTIVE}/{N_ELEMENTS} act. elems.\n"
+    f"{NO_LINES} lines, {N_ELEMENTS} elements, F/D={FOVERD}\n"
     f"3 MHz with apod = '{APOD_TYPE}'"
 )
 
