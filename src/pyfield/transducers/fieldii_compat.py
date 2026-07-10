@@ -440,6 +440,7 @@ def from_fieldii_patch_arrays(
     Returns
     -------
     FieldIITransducer
+        PyField transducer with one patch per supplied centre/tangent row.
     """
     centres = np.asarray(centres, dtype=np.float64)
     u_dir = np.asarray(u_tangents, dtype=np.float64)

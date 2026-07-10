@@ -89,9 +89,9 @@ def plot_trapezoid_methods(
         return times, h_continue, h_FST, d2h, dh, h_derivative
 
     # Create the figure and axes
-    fig, ax = plt.subplots(figsize=(13, 5))
+    fig, ax = plt.subplots(figsize=(7.5, 4))
     plt.subplots_adjust(bottom=0.3)
-    plt.subplots_adjust(right=0.8)
+    plt.subplots_adjust(top=0.8)
     # plt.subplots_adjust(left=0.2)
 
     times, h_continue, h_FST, d2h, dh, h_derivative = compute_trapezoid(Dt1, Dt2, shift)
@@ -141,13 +141,20 @@ def plot_trapezoid_methods(
     ax.set_xlabel("$ t $  (samples)")
     ax.set_ylabel("$h_{sir}$ (a.u.) ")
     ax.set_xlim(t0, t_max)
-    leg = ax.legend(loc="center left", bbox_to_anchor=(1, 0.5))
+    leg = ax.legend(
+        loc="lower center",
+        bbox_to_anchor=(0.5, 1.0),
+        ncol=5,
+        columnspacing=1.0,
+        handletextpad=0.4,
+    )
     for text in leg.get_texts():
         text.set_fontweight("bold")
         text.set_fontsize(15)
     # ax.grid("minor")
     ax.hlines(0, t0, t_max, colors="lightgray", linestyles="-", linewidth=1)
     ax.set_xticks(range(0, 11))
+    ax.set_yticklabels([])
     ax.spines["top"].set_visible(False)
     ax.spines["right"].set_visible(False)
 

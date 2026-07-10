@@ -126,8 +126,6 @@ Two reception classes are available:
   - `conventional` — delegates to `Reception` (the depth-binned sampled-SIR path) for a
     near-delta / wideband drive where band-limiting gives no benefit.
 
-  See `PE_SDI_kernel_analysis.md` for the full conventional/paired/spectral taxonomy.
-
 All give the same RF (corr ~1.0); `auto` picks by aperture size + bandwidth.
 
 **Public API** (axis order `[emission, reception, Nt]` — channels before time;
@@ -406,14 +404,22 @@ the `O(M²)` kernel, not the FFT.)
 Loop over TX events (different delays/apodization per event), call `pulse_echo_rf`
 each time. Returns `(N_events, Erx, Nt)`. TX state restored after all events.
 Warns + suggests `downsampling=` if the output would be large.
+`out_path=` checkpoints every event to an `RFDataset` folder (crash-safe,
+resumable, refuses a changed config); `checkpoint_chunks=N` additionally splits
+each event into N scatterer chunks checkpointed separately — four zero-amplitude
+grid-sentinel points pin one time grid per event so the chunk RFs sum exactly.
+`pulse_echo_rf` accepts the same `out_path=`/`checkpoint_chunks=` (wraps its
+current TX focus into a one-event sequence so the fingerprint covers it).
 
 ### synthetic_aperture_rf (Full Matrix Capture / synthetic aperture)
 
 Each TX element/group fires flat (zero delay, unit apod — overrides TX state), all
 RX receive. Returns `(Ntx_grp, Erx, Nt)`, anti-aliased-decimated (`decimation=10`
 default). `tx_groups` = `"element"` (FMC) / `int N` (sub-aperture) / custom groups.
-Estimates output size first; warns + auto-decimates (or streams to `out_path` memmap)
-if it would exceed RAM, after a 10 s abortable countdown.
+Delegates to `sequence_rf` (one event per group), so it shares its checkpointing:
+`out_path=` is an `RFDataset` folder (one compressed file per group, resumable;
+no longer a raw `.npy` memmap) and `checkpoint_chunks=` works per group. In-RAM
+runs estimate the output size first and show a 10 s abortable countdown.
 
 ### scan_focusline
 

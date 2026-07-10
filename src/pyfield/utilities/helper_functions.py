@@ -8,12 +8,37 @@ from numba import njit, prange
 
 
 def next_pow2(n):
-    """Smallest power of two >= ``n`` (FFT length for linear convolution)."""
+    """Smallest power of two >= ``n`` (FFT length for linear convolution).
+
+    Parameters
+    ----------
+    n : int
+        Minimum required length.
+
+    Returns
+    -------
+    int
+        Smallest power of two greater than or equal to ``n``.
+    """
     return 1 << (int(n - 1).bit_length())
 
 
 def wrap_tqdm(iterable, **kwargs):
-    """Wrap ``iterable`` with a tqdm progress bar if tqdm is importable, else passthrough."""
+    """Wrap an iterable with a tqdm progress bar if tqdm is importable.
+
+    Parameters
+    ----------
+    iterable : iterable
+        The iterable to wrap.
+    **kwargs
+        Forwarded to ``tqdm`` (e.g. ``desc``, ``total``).
+
+    Returns
+    -------
+    iterable
+        The tqdm-wrapped iterable, or the original one when tqdm is not
+        installed (progress display is optional, never required).
+    """
     try:
         from tqdm import tqdm
 
@@ -28,6 +53,16 @@ def method_to_flag(method):
     ``"FST"`` → 0 (fully-sampled trapezoid: evaluate the continuous trapezoid SIR
     at every time sample), ``"sdi"`` → 1 (sparse delta integration), anything else
     (``"auto"``) → 2 (per-patch choice in the kernel).
+
+    Parameters
+    ----------
+    method : str
+        SIR method name: ``"FST"``, ``"sdi"`` or ``"auto"``.
+
+    Returns
+    -------
+    int
+        Kernel method flag (0, 1 or 2).
     """
     if method in ("FST", "fst"):
         return 0

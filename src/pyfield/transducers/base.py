@@ -113,6 +113,11 @@ class TransducerBase(ABC):
         parameters are not known to PyField. Assign ``None`` to restore the
         default. Subclasses with a native lens supply the default via
         ``_default_elevation_lens_sag``.
+
+        Returns
+        -------
+        float
+            Lens sag in metres (0.0 for flat/unfocused apertures).
         """
         if self._elevation_lens_sag is not None:
             return self._elevation_lens_sag
@@ -900,7 +905,14 @@ class TransducerBase(ABC):
         print(f"{self.name} cleaned up.")
 
     def copy(self) -> "TransducerBase":
-        """Return a deep copy of this transducer, including all state and cached geometry."""
+        """Return a deep copy of this transducer, including all state and cached geometry.
+
+        Returns
+        -------
+        TransducerBase
+            Independent copy: mutating its delays/apodization/geometry leaves
+            the original untouched.
+        """
         return copy.deepcopy(self)
 
     def get_state_dict(self) -> Dict[str, Any]:

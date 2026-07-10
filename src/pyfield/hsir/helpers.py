@@ -86,8 +86,10 @@ def identity_tangents(M):
 
     Returns
     -------
-    eu, ev : (M, 3) numpy.ndarray
-        Per-patch in-plane unit vectors (float32).
+    eu : (M, 3) numpy.ndarray
+        Per-patch u unit vectors, all ``(1, 0, 0)`` (float32).
+    ev : (M, 3) numpy.ndarray
+        Per-patch v unit vectors, all ``(0, 1, 0)`` (float32).
     """
     eu = np.zeros((M, 3), dtype=np.float32)
     ev = np.zeros((M, 3), dtype=np.float32)
@@ -102,6 +104,18 @@ def pack_tangents(eu, ev):
     The kernels read the patch frame as a single contiguous row per patch (columns 0-2
     the u-tangent, 3-5 the v-tangent); fewer array arguments also eases Numba's parfor
     alias analysis.
+
+    Parameters
+    ----------
+    eu : (M, 3) numpy.ndarray
+        Per-patch u (in-plane width direction) unit vectors.
+    ev : (M, 3) numpy.ndarray
+        Per-patch v (in-plane height direction) unit vectors.
+
+    Returns
+    -------
+    (M, 6) numpy.ndarray
+        Contiguous float32 patch frames, u-tangent then v-tangent per row.
     """
     tangents = np.empty((eu.shape[0], 6), dtype=np.float32)
     tangents[:, :3] = eu

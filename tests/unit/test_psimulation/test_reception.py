@@ -8,6 +8,7 @@ from numpy.testing import assert_allclose
 
 from pyfield.reception import ReceptionSDI
 from pyfield.transducers import LinearArrayTransducer
+from pyfield.utilities.helper_functions import create_3D_spatial_grid_from_points
 
 
 @pytest.fixture
@@ -72,6 +73,26 @@ class TestReceptionBasic:
         sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
         rf, _ = sim(pos, amp)
         assert np.any(rf != 0), "RF should be non-zero for on-axis scatterer."
+
+    def test_grid_dict_input(self, simple_tx, simple_rx):
+        """A grid dict must equal the same lattice passed as explicit points."""
+        grid = {
+            "x_extent": [-1.0, 1.0],
+            "y_extent": [0.0, 0.0],
+            "z_extent": [18.0, 22.0],
+            "dx": 1.0,
+            "dy": 1.0,
+            "dz": 2.0,
+        }
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        rf_dict, _ = sim(grid)
+        *_, pts_m = create_3D_spatial_grid_from_points(grid)
+        rf_pts, _ = sim(pts_m * 1e3)
+        # The two paths quantise positions differently (mm-float32 vs m-float64
+        # before the final float32 cast), so compare against the RF peak.
+        peak = np.abs(rf_pts).max()
+        assert peak > 0
+        assert_allclose(rf_dict, rf_pts, atol=1e-3 * peak)
 
     def test_self_echo_valid(self, simple_tx, on_axis_scatterer):
         """TX == RX (same transducer) must produce valid result.
@@ -454,3 +475,217 @@ class TestReceptionRepr:
         r = repr(sim)
         assert "Reception" in r
         assert "1540" in r
+
+
+class TestSequenceCheckpoint:
+    """sequence_rf(out_path=...) — checkpointed, resumable acquisition."""
+
+    @staticmethod
+    def _events(tx):
+        return [
+            {"delays": np.zeros(4, np.float32), "apodization": np.ones(4, np.float32)},
+            {
+                "delays": np.full(4, 1e-7, np.float32),
+                "apodization": np.ones(4, np.float32),
+            },
+        ]
+
+    def test_checkpoint_matches_in_ram(
+        self, simple_tx, simple_rx, on_axis_scatterer, tmp_path
+    ):
+        """Disk round-trip must return exactly the in-RAM sequence result."""
+        pos, amp = on_axis_scatterer
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+
+        rf_ram, coords_ram = sim.sequence_rf(pos, amp, events)
+        rf_ck, coords_ck = sim.sequence_rf(pos, amp, events, out_path=tmp_path / "ds")
+
+        np.testing.assert_array_equal(rf_ck, rf_ram)
+        np.testing.assert_array_equal(
+            coords_ck["t0_per_event"], coords_ram["t0_per_event"]
+        )
+        assert coords_ck["dt"] == coords_ram["dt"]
+
+    def test_resume_skips_completed_events(
+        self, simple_tx, simple_rx, on_axis_scatterer, tmp_path
+    ):
+        """Re-running recomputes ONLY missing events, and the result is intact."""
+        pos, amp = on_axis_scatterer
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+        out = tmp_path / "ds"
+
+        rf_full, _ = sim.sequence_rf(pos, amp, events, out_path=out)
+
+        calls = []
+        orig = sim.pulse_echo_rf
+        sim.pulse_echo_rf = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
+
+        # Everything on disk: nothing recomputed.
+        rf_again, _ = sim.sequence_rf(pos, amp, events, out_path=out)
+        assert len(calls) == 0
+        np.testing.assert_array_equal(rf_again, rf_full)
+
+        # Simulated crash: one event file lost — only that one recomputed.
+        (out / "rf_event_0001.npz").unlink()
+        rf_resumed, _ = sim.sequence_rf(pos, amp, events, out_path=out)
+        assert len(calls) == 1
+        np.testing.assert_array_equal(rf_resumed, rf_full)
+
+    def test_changed_setup_refused(
+        self, simple_tx, simple_rx, on_axis_scatterer, tmp_path
+    ):
+        """Same folder + different scatterers must raise, never mix data."""
+        pos, amp = on_axis_scatterer
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+        out = tmp_path / "ds"
+        sim.sequence_rf(pos, amp, events, out_path=out)
+
+        with pytest.raises(ValueError, match="DIFFERENT"):
+            sim.sequence_rf(pos, amp * 2.0, events, out_path=out)
+
+    @staticmethod
+    def _cloud(n=30):
+        rng = np.random.default_rng(7)
+        pos = np.column_stack(
+            [
+                rng.uniform(-2, 2, n),
+                rng.uniform(-1, 1, n),
+                rng.uniform(15, 25, n),
+            ]
+        ).astype(np.float32)
+        return pos, rng.standard_normal(n).astype(np.float32)
+
+    def test_chunked_sum_is_chunk_count_invariant(self, simple_tx, simple_rx, tmp_path):
+        """Splitting the cloud into 2 or 3 chunks must give the same RF.
+
+        The grid sentinels pin one time grid per event regardless of the chunk
+        count, so the only difference is float32 summation order — any real
+        misalignment or lost/duplicated scatterer breaks this hard.
+        """
+        pos, amp = self._cloud()
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+
+        rf2, c2 = sim.sequence_rf(
+            pos, amp, events, out_path=tmp_path / "k2", checkpoint_chunks=2
+        )
+        rf3, c3 = sim.sequence_rf(
+            pos, amp, events, out_path=tmp_path / "k3", checkpoint_chunks=3
+        )
+        np.testing.assert_array_equal(c2["t0_per_event"], c3["t0_per_event"])
+        peak = np.abs(rf2).max()
+        np.testing.assert_allclose(rf2, rf3, rtol=1e-4, atol=1e-5 * peak)
+
+    def test_chunked_physics_matches_unchunked(self, simple_tx, simple_rx, tmp_path):
+        """Chunked RF must be the same waveform as the unchunked one.
+
+        The sentinels widen the time window slightly (earlier ``t0``), so the
+        two grids sample the identical band-limited signal at offset times —
+        compare after interpolating onto the unchunked absolute time axis.
+        """
+        pos, amp = self._cloud()
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)[:1]
+
+        rf_ref, c_ref = sim.sequence_rf(pos, amp, events, out_path=tmp_path / "u")
+        rf_ck, c_ck = sim.sequence_rf(
+            pos, amp, events, out_path=tmp_path / "c", checkpoint_chunks=3
+        )
+        assert c_ck["t0"] <= c_ref["t0"]  # sentinel margin only widens.
+
+        dt = c_ref["dt"]
+        t_ref = c_ref["t0"] + dt * np.arange(rf_ref.shape[2])
+        t_ck = c_ck["t0"] + dt * np.arange(rf_ck.shape[2])
+        peak = np.abs(rf_ref).max()
+        for e in range(rf_ref.shape[1]):
+            aligned = np.interp(t_ref, t_ck, rf_ck[0, e].astype(np.float64))
+            np.testing.assert_allclose(aligned, rf_ref[0, e], atol=0.02 * peak)
+
+    def test_chunked_resume_recomputes_only_missing_chunk(
+        self, simple_tx, simple_rx, tmp_path
+    ):
+        """Losing one chunk file must cost exactly one chunk, not an event."""
+        pos, amp = self._cloud()
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+        out = tmp_path / "ds"
+        rf_full, _ = sim.sequence_rf(
+            pos, amp, events, out_path=out, checkpoint_chunks=3
+        )
+
+        calls = []
+        orig = sim.pulse_echo_rf
+        sim.pulse_echo_rf = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
+        (out / "rf_event_0004.npz").unlink()  # event 1, chunk 1.
+        rf_resumed, _ = sim.sequence_rf(
+            pos, amp, events, out_path=out, checkpoint_chunks=3
+        )
+        assert len(calls) == 1
+        np.testing.assert_array_equal(rf_resumed, rf_full)
+
+    def test_chunks_require_out_path(self, simple_tx, simple_rx):
+        pos, amp = self._cloud()
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        with pytest.raises(ValueError, match="out_path"):
+            sim.sequence_rf(pos, amp, self._events(simple_tx), checkpoint_chunks=4)
+
+    def test_shared_tx_rx_with_events_refused(self, simple_tx):
+        """Same object as TX and RX + per-event delays must raise: the event's
+        TX delays would also time-shift every receive channel (RX weights are
+        applied per element), silently corrupting the RF."""
+        pos, amp = self._cloud()
+        with pytest.warns(UserWarning, match="per receive element"):
+            sim = ReceptionSDI(simple_tx, simple_tx, verbose=False)
+        with pytest.raises(ValueError, match="same transducer"):
+            sim.sequence_rf(pos, amp, self._events(simple_tx))
+
+    def test_pulse_echo_checkpointed_matches_direct(
+        self, simple_tx, simple_rx, tmp_path
+    ):
+        """pulse_echo_rf(out_path=...) must equal the direct call exactly.
+
+        The checkpointed path wraps the CURRENT TX focus into a one-event
+        sequence; without chunking there are no sentinels, so the RF and time
+        grid are bit-identical — and the focus state is fingerprinted, so a
+        refocused re-run on the same folder refuses.
+        """
+        pos, amp = self._cloud()
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+
+        rf_direct, c_direct = sim.pulse_echo_rf(pos, amp)
+        rf_ck, c_ck = sim.pulse_echo_rf(pos, amp, out_path=tmp_path / "pe")
+        np.testing.assert_array_equal(rf_ck, rf_direct)
+        # t0 may differ by one float64 ulp (different summation order).
+        np.testing.assert_allclose(c_ck["t0"], c_direct["t0"], rtol=0, atol=1e-12)
+        assert c_ck["dt"] == c_direct["dt"]
+
+        simple_tx.compute_delays(focus_mm=[0, 0, 40])  # different focus state.
+        with pytest.raises(ValueError, match="DIFFERENT"):
+            sim.pulse_echo_rf(pos, amp, out_path=tmp_path / "pe")
+
+        with pytest.raises(ValueError, match="per_scatterer"):
+            sim.pulse_echo_rf(pos, amp, per_scatterer=True, out_path=tmp_path / "psf")
+
+    def test_synthetic_aperture_checkpointed_matches_in_ram(
+        self, simple_tx, simple_rx, tmp_path
+    ):
+        """FMC via checkpoints must equal the in-RAM run (one file per group)."""
+        pos, amp = self._cloud()
+        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+
+        rf_ram, c_ram = sim.synthetic_aperture_rf(
+            pos, amp, decimation=2, countdown=False
+        )
+        rf_ck, c_ck = sim.synthetic_aperture_rf(
+            pos, amp, decimation=2, out_path=tmp_path / "fmc"
+        )
+        assert rf_ram.shape == (
+            simple_tx.n_elements,
+            simple_rx.n_elements,
+            rf_ram.shape[2],
+        )
+        np.testing.assert_array_equal(rf_ck, rf_ram)
+        assert c_ck["t0"] == c_ram["t0"] and c_ck["dt"] == c_ram["dt"]

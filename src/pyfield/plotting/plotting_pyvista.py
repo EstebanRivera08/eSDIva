@@ -372,11 +372,12 @@ def add_transducer_mesh(
     off_screen=False,
     scale=1,
     scalars="Apodization",
+    color=None,
     colorbar_title=None,
     **kwargs,
 ):
     """
-    Add a transducer mesh to a PyVista plotter, colored by either apodization or delays.
+    Add a transducer mesh to a PyVista plotter, colored by apodization, delays or a flat color.
 
     Parameters
     ----------
@@ -396,6 +397,10 @@ def add_transducer_mesh(
     scalars : str, optional
         Which scalar field to use for coloring the transducer mesh. Must be either
         "Apodization" or "Delays". Default is "Apodization".
+    color : str or tuple, optional
+        Uniform PyVista color (name, hex string or RGB tuple). When given it
+        overrides ``scalars``: the whole mesh is painted this color and no
+        scalar bar is shown. Default is None (color by ``scalars``).
     colorbar_title : str, optional
         Title for the colorbar. If None, it will use "Apodization" or "Delays" based on
         the scalars parameter. Default is None.
@@ -412,37 +417,40 @@ def add_transducer_mesh(
         plotter = pv.Plotter(
             notebook=notebook, window_size=window_size, off_screen=off_screen
         )
-    if scalars == "Apodization":
-        title_name = "Apodization"
-        cmap = "cool"
-    elif scalars == "Delays":
-        title_name = "Delays (s)"
-        cmap = "rainbow"
+
+    if color is not None:
+        # Uniform color: no scalar field, no color bar (lighting defaults shared below).
+        default_kwargs = {"color": color, "show_scalar_bar": False}
     else:
-        raise ValueError("Scalars must be 'Apodization' or 'Delays'")
+        if scalars == "Apodization":
+            title_name = "Apodization"
+            cmap = "cool"
+        elif scalars == "Delays":
+            title_name = "Delays (s)"
+            cmap = "rainbow"
+        else:
+            raise ValueError("Scalars must be 'Apodization' or 'Delays'")
 
-    if colorbar_title is not None:
-        title_name = colorbar_title
+        if colorbar_title is not None:
+            title_name = colorbar_title
 
-    default_kwargs = {
-        "scalars": scalars,
-        "cmap": cmap,
-        "clim": [0, 1] if scalars == "Apodization" else None,
-        "show_scalar_bar": True,
-        "scalar_bar_args": {
-            "title": title_name,
-            "title_font_size": int(20 * scale),
-            "label_font_size": int(18 * scale),
-            "vertical": True,
-            "position_x": 0.8,
-            "position_y": 0.5,
-            "height": 0.3,
-        },
-        "opacity": 1.0,
-        "show_edges": True,
-        "ambient": 1,
-    }
+        default_kwargs = {
+            "scalars": scalars,
+            "cmap": cmap,
+            "clim": [0, 1] if scalars == "Apodization" else None,
+            "show_scalar_bar": True,
+            "scalar_bar_args": {
+                "title": title_name,
+                "title_font_size": int(20 * scale),
+                "label_font_size": int(18 * scale),
+                "vertical": True,
+                "position_x": 0.8,
+                "position_y": 0.5,
+                "height": 0.3,
+            },
+        }
 
+    default_kwargs.update({"opacity": 1.0, "show_edges": True, "ambient": 1})
     for key, value in default_kwargs.items():
         if key not in kwargs:
             kwargs[key] = value

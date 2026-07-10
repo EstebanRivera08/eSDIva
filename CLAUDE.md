@@ -71,6 +71,8 @@ under `[project.theme]`.
 5. **`src/pyfield/attenuation/`** — Power-law attenuation transfer functions.
 6. **`src/pyfield/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
 7. **`src/pyfield/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
+8. **`src/pyfield/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_dw_volume` (numba 3-D DAS for diverging-wave / virtual-source sequences, coherent compounding; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`.
+9. **`src/pyfield/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `manifest.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`).
 
 ### Key Design Patterns
 
@@ -151,11 +153,24 @@ near-monoelement aperture, else `spectral` (band-limited drive) or `conventional
 (`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
 parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
-`sequence_rf` (PW/DW event sweep), `synthetic_aperture_rf` (FMC/`calc_scat_all`,
+`sequence_rf` (PW/DW event sweep; `out_path=` checkpoints each event to an
+`RFDataset` folder — crash-safe, resumable, refuses a changed config;
+`checkpoint_chunks=N` splits each event into N scatterer chunks checkpointed
+separately — zero-amplitude grid-sentinel points pin one time grid per event so
+the chunk RFs sum exactly),
+`synthetic_aperture_rf` (FMC/`calc_scat_all`,
 per-element DW basis, decimated), `scan_focusline` (one focused B-mode line, RX
-summed in-kernel). `show(scatterer_positions_mm, amplitudes)` previews the setup
+summed in-kernel). `pulse_echo_rf` and `synthetic_aperture_rf` accept the same
+`out_path=`/`checkpoint_chunks=` (both route through `sequence_rf`:
+`pulse_echo_rf` wraps its current TX focus into a one-event sequence so the
+fingerprint covers it; `synthetic_aperture_rf` turns its groups into events —
+its `out_path` is an `RFDataset` folder now, no longer a raw `.npy` memmap). `show(scatterer_positions_mm, amplitudes)` previews the setup
 in 3-D (TX/RX meshes + scatterers coloured/faded by amplitude). Takes separate TX/RX transducers + scatterer positions; returns
-per-element RF `(Erx, Nt)`. `coords["t0"]` is beam-axis referenced. Full details in
+per-element RF `(Erx, Nt)`. Scatterer positions may also be an Emission-style grid
+dict (`x_extent`/`dx`…) → regular lattice of unit point targets (PSF maps; NOT a
+phantom — periodic lattices give coherent echoes, not speckle). For phantoms use
+`pyfield.utilities.make_phantom(extents_mm, n, echogenicity_map)` → random positions
++ `N(0,1)·map(r)` amplitudes (see `example20`). `coords["t0"]` is beam-axis referenced. Full details in
 `ARCHITECTURE.md`.
 
 ```python

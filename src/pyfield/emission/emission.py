@@ -312,7 +312,7 @@ class Emission(SimulationBase):
 
         Returns
         -------
-        delta_k : (P, M) numpy.ndarray
+        (P, M) numpy.ndarray
             Trapezoid width in samples for each field point P and patch M.
         """
         _x, _y, _z, points_m = self._points_from_field(field_points_mm)

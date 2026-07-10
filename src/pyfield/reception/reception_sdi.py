@@ -977,6 +977,8 @@ class ReceptionSDI(ReceptionBase):
         *,
         per_scatterer=False,
         downsampling=None,
+        out_path=None,
+        checkpoint_chunks=1,
     ):
         """Pulse-echo RF from point scatterers.
 
@@ -1005,6 +1007,14 @@ class ReceptionSDI(ReceptionBase):
             ``(N_scat, Erx, Nt)`` (PSF per point).
         downsampling : int or None, default None
             Anti-aliased time decimation factor.
+        out_path : str or pathlib.Path or None, default None
+            Checkpoint folder (an ``RFDataset``): the acquisition is written
+            to disk as it progresses and a re-run resumes instead of starting
+            over — use with ``checkpoint_chunks`` for hours-long phantoms.
+        checkpoint_chunks : int, default 1
+            Scatterer chunks checkpointed separately (requires ``out_path``);
+            the RF is linear in the scatterers, so a crash costs at most one
+            chunk. Incompatible with ``per_scatterer=True``.
 
         Returns
         -------
@@ -1012,7 +1022,21 @@ class ReceptionSDI(ReceptionBase):
             Pulse-echo RF per receive element (channels before time).
         coords : dict
             Keys ``"t0"`` and ``"dt"`` (seconds).
+
+        Raises
+        ------
+        ValueError
+            If ``out_path`` is combined with ``per_scatterer=True``.
         """
+        if out_path is not None or checkpoint_chunks != 1:
+            return self._checkpointed_pulse_echo(
+                scatterer_positions_mm,
+                amplitudes,
+                per_scatterer=per_scatterer,
+                downsampling=downsampling,
+                out_path=out_path,
+                checkpoint_chunks=checkpoint_chunks,
+            )
         points_m, amps = self._validate_scatterer_inputs(
             scatterer_positions_mm, amplitudes
         )

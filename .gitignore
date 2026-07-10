@@ -14,7 +14,8 @@ site/
 *.egg-info
 pressure_fields/
 test_models/
-fieldiiexamples/
+example21_rca_volume/
+
 
 # Virtual environments
 .venv

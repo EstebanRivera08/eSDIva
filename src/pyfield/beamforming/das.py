@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import numpy as np
 import numpy.typing as npt
+from numba import njit, prange
 
 from pyfield.utilities import to_dB
 
@@ -78,6 +79,432 @@ def DAS_focused_scanline(
         )
 
     return rf_das.astype(np.float32)
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _das_rca_kernel(
+    rf,  # (Nev, Erx, Nt) float32
+    t0_ev,  # (Nev,) time of first sample of each event (s)
+    dt,  # sample period (s)
+    sin_a,  # (Nev,) sin of each event's steering angle
+    cos_a,  # (Nev,) cos of each event's steering angle
+    xi_max,  # (Nev,) max TX-element projection on the steering direction (m)
+    rx_u,  # (Erx,) row-centre coordinate along the row LONG axis (m)
+    rx_v,  # (Erx,) row-centre coordinate ACROSS rows (the RX array axis, m)
+    rx_z,  # (Erx,) row-centre axial coordinate (m)
+    rx_half_len,  # half of the row length along its long axis (m)
+    us,  # (Nu,) voxel coordinates along the TX array / row long axis (m)
+    vs,  # (Nv,) voxel coordinates along the RX array axis (m)
+    zs,  # (Nz,) voxel depths (m)
+    c,  # speed of sound (m/s)
+    inv_two_fnum,  # 1/(2·F#) — RX aperture half-width per unit depth
+    use_hann,  # cosine-taper the RX aperture instead of a hard gate
+    t_off,  # extra time offset (s), e.g. pulse-centre lag
+):
+    """Accumulate the RCA delay-and-sum volume; see `das_rca_volume`."""
+    n_ev, n_rx, nt = rf.shape
+    nu, nv, nz = us.size, vs.size, zs.size
+    vol = np.zeros(nu * nv * nz, dtype=np.float32)
+
+    for flat in prange(nu * nv * nz):  # ty: ignore[not-iterable]
+        iu = flat // (nv * nz)
+        iv = (flat // nz) % nv
+        iz = flat % nz
+        u, v, z = us[iu], vs[iv], zs[iz]
+
+        acc = 0.0
+        for e in range(n_ev):
+            # TX: steered plane wave in the (u, z) plane. The wavefront passes
+            # the voxel at (u·sinα + z·cosα − ξ_max)/c in the data's time frame
+            # (the simulator subtracts the TX bulk delay = ξ_max projection).
+            t_tx = (u * sin_a[e] + z * cos_a[e] - xi_max[e]) / c
+            for r in range(n_rx):
+                # Dynamic RX aperture: rows farther than z/(2·F#) from the
+                # voxel (across the rows) contribute noise, not focus — gate.
+                dv = v - rx_v[r]
+                half_ap = z * inv_two_fnum
+                if np.abs(dv) > half_ap:
+                    continue
+                # RX: echo arrives at the CLOSEST point of the long row
+                # (stationary-phase arrival). Distance to the row treated as a
+                # segment: only the part of |u − u_r| beyond the half-length
+                # adds path.
+                du = np.abs(u - rx_u[r]) - rx_half_len
+                if du < 0.0:
+                    du = 0.0
+                dz = z - rx_z[r]
+                t_rx = np.sqrt(du * du + dv * dv + dz * dz) / c
+
+                s = (t_tx + t_rx + t_off - t0_ev[e]) / dt
+                i0 = int(np.floor(s))
+                if i0 < 0 or i0 >= nt - 1:
+                    continue
+                frac = s - i0
+                val = rf[e, r, i0] * (1.0 - frac) + rf[e, r, i0 + 1] * frac
+                if use_hann:
+                    val *= 0.5 + 0.5 * np.cos(np.pi * dv / half_ap)
+                acc += val
+        vol[flat] = acc
+    return vol.reshape(nu, nv, nz)
+
+
+def das_rca_volume(
+    rf: npt.NDArray[np.floating],
+    coords: dict,
+    *,
+    angles_deg,
+    tx_centers_mm,
+    rx_centers_mm,
+    rx_length_mm: float,
+    grid_mm: dict,
+    c: float = 1540.0,
+    fnum: float = 1.0,
+    rx_apodization: str = "hann",
+    t_offset_s: float = 0.0,
+) -> tuple[npt.NDArray[np.float32], dict]:
+    """3-D delay-and-sum for a row-column (RCA) plane-wave sequence.
+
+    In RCA imaging one set of long parallel elements (the "columns") transmits
+    plane waves steered in the plane containing the column-array axis, and the
+    orthogonal set (the "rows") receives. Focusing is therefore one-way per
+    direction: transmit compounding sharpens the image along the TX array
+    axis, receive delay-and-sum along the RX array axis.
+
+    Per voxel r = (u, v, z) — u along the TX array (= the rows' long axis),
+    v along the RX array — and per event with steering angle α::
+
+        t_tx = (u·sinα + z·cosα − ξ_max) / c      (plane-wave arrival)
+        t_rx = |r − nearest point of row_r| / c    (echo back to row r)
+
+    ``ξ_max = max_e(u_e·sinα + z_e·cosα)`` is the largest TX-element
+    projection on the steering direction. It is subtracted because the
+    simulator's ``t0`` is beam-axis referenced: the TX bulk delay
+    (``delays.max()``, which for plane-wave delays ``(ξ_e − ξ_min)/c`` equals
+    ``(ξ_max − ξ_min)/c``) is already removed from the time axis, leaving the
+    wavefront crossing a point r at ``(ξ(r) − ξ_max)/c``.
+
+    The sample at ``t_tx + t_rx`` is read from each row's trace (linear
+    interpolation), weighted by a depth-dependent receive aperture
+    (``|v − v_row| ≤ z/(2·F#)``, optionally Hann-tapered) and summed
+    coherently over rows and angles.
+
+    The TX array axis is inferred from ``tx_centers_mm`` (the horizontal axis
+    of largest spread); the RX array axis is the orthogonal one. For the dual
+    orientation (rows transmit, columns receive), call again with the
+    swapped arrays and RF, and compound the two envelope volumes.
+
+    Parameters
+    ----------
+    rf : (N_events, Erx, Nt) numpy.ndarray
+        Per-event, per-receive-row RF, as returned by ``sequence_rf``.
+    coords : dict
+        ``"dt"`` and ``"t0_per_event"`` (or ``"t0"``) from ``sequence_rf``.
+    angles_deg : (N_events,) array-like
+        Steering angle of each transmitted plane wave (degrees, in the
+        TX-array/z plane).
+    tx_centers_mm : (Etx, 3) numpy.ndarray
+        TX (column) element centres in mm, e.g. ``tx.element_centers * 1e3``.
+    rx_centers_mm : (Erx, 3) numpy.ndarray
+        RX (row) element centres in mm, in the same order as the RF channels.
+    rx_length_mm : float
+        Full length of each receive row along its long axis, in mm.
+    grid_mm : dict
+        Voxel grid: ``{"x_extent": [x0, xf], "y_extent": ..., "z_extent":
+        ..., "dx": ..., "dy": ..., "dz": ...}`` in mm (same convention as the
+        simulators' field grids).
+    c : float, default 1540.0
+        Speed of sound (m/s).
+    fnum : float, default 1.0
+        Receive F-number: rows within ``z/(2·fnum)`` of the voxel (across the
+        rows) are summed.
+    rx_apodization : {'hann', 'rect'}, default 'hann'
+        Taper of the dynamic receive aperture.
+    t_offset_s : float, default 0.0
+        Extra delay added to every sample lookup — use the pulse-centre lag
+        (about half the two-way waveform length) to remove the axial bias of
+        a band-limited pulse.
+
+    Returns
+    -------
+    volume : (Nx, Ny, Nz) numpy.ndarray
+        Beamformed RF volume (float32, coherent sum over rows and angles).
+        Envelope-detect along z (e.g. Hilbert) before display.
+    axes : dict
+        ``"x_mm"``, ``"y_mm"``, ``"z_mm"`` — voxel-centre coordinates.
+
+    Raises
+    ------
+    ValueError
+        If ``rx_apodization`` is unknown or the event count mismatches.
+    """
+    if rx_apodization not in ("hann", "rect"):
+        raise ValueError("rx_apodization must be 'hann' or 'rect'.")
+    rf = np.ascontiguousarray(rf, dtype=np.float32)
+    angles = np.deg2rad(np.asarray(angles_deg, dtype=np.float64))
+    if rf.shape[0] != angles.size:
+        raise ValueError(f"rf has {rf.shape[0]} events but {angles.size} angles.")
+
+    tx_c = np.asarray(tx_centers_mm, dtype=np.float64) * 1e-3
+    rx_c = np.asarray(rx_centers_mm, dtype=np.float64) * 1e-3
+
+    # TX array axis = horizontal axis (x or y) along which the TX centres
+    # spread; the RX array runs along the other one.
+    spread = tx_c[:, :2].max(axis=0) - tx_c[:, :2].min(axis=0)
+    u_ax = int(np.argmax(spread))  # 0 = x, 1 = y
+    v_ax = 1 - u_ax
+
+    def _axis_m(extent, step) -> np.ndarray:
+        return np.arange(float(extent[0]), float(extent[1]), float(step)) * 1e-3
+
+    xs = _axis_m(grid_mm["x_extent"], grid_mm["dx"])
+    ys = _axis_m(grid_mm["y_extent"], grid_mm["dy"])
+    zs = _axis_m(grid_mm["z_extent"], grid_mm["dz"])
+    axes_xyz = (xs, ys, zs)
+    us, vs = axes_xyz[u_ax], axes_xyz[v_ax]
+
+    sin_a, cos_a = np.sin(angles), np.cos(angles)
+    # Largest TX-element projection on each steering direction (the removed
+    # TX bulk delay), per event.
+    xi_max = (tx_c[:, u_ax][:, None] * sin_a + tx_c[:, 2][:, None] * cos_a).max(axis=0)
+
+    t0_ev = np.asarray(
+        coords.get("t0_per_event", np.full(angles.size, coords["t0"])),
+        dtype=np.float64,
+    )
+
+    vol_uvz = _das_rca_kernel(
+        rf,
+        t0_ev,
+        float(coords["dt"]),
+        sin_a,
+        cos_a,
+        xi_max,
+        np.ascontiguousarray(rx_c[:, u_ax]),
+        np.ascontiguousarray(rx_c[:, v_ax]),
+        np.ascontiguousarray(rx_c[:, 2]),
+        float(rx_length_mm) * 1e-3 / 2.0,
+        us,
+        vs,
+        zs,
+        float(c),
+        1.0 / (2.0 * float(fnum)),
+        rx_apodization == "hann",
+        float(t_offset_s),
+    )
+    # Kernel works in (u, v, z); present as (x, y, z).
+    volume = vol_uvz if u_ax == 0 else vol_uvz.transpose(1, 0, 2)
+    return volume, {"x_mm": xs * 1e3, "y_mm": ys * 1e3, "z_mm": zs * 1e3}
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _das_dw_kernel(
+    rf,  # (Nev, Erx, Nt) float32
+    t0_ev,  # (Nev,) time of first sample of each event (s)
+    dt,  # sample period (s)
+    vs_x,  # (Nev,) virtual-source x (m)
+    vs_y,  # (Nev,) virtual-source y (m)
+    vs_z,  # (Nev,) virtual-source z (m, negative = behind the array)
+    t_ref,  # (Nev,) largest element-to-source travel time (s), removed bulk delay
+    rx_x,  # (Erx,) receive-element x (m)
+    rx_y,  # (Erx,) receive-element y (m)
+    rx_z,  # (Erx,) receive-element z (m)
+    xs,  # (Nx,) voxel x coordinates (m)
+    ys,  # (Ny,) voxel y coordinates (m)
+    zs,  # (Nz,) voxel depths (m)
+    c,  # speed of sound (m/s)
+    inv_two_fnum,  # 1/(2·F#) — RX aperture half-radius per unit depth
+    use_hann,  # cosine-taper the RX aperture instead of a hard gate
+    t_off,  # extra time offset (s), e.g. pulse-centre lag
+    use_cf,  # weight each voxel by its aperture coherence factor
+):
+    """Accumulate the diverging-wave delay-and-sum volume; see `das_dw_volume`."""
+    n_ev, n_rx, nt = rf.shape
+    nx, ny, nz = xs.size, ys.size, zs.size
+    vol = np.zeros(nx * ny * nz, dtype=np.float32)
+
+    for flat in prange(nx * ny * nz):  # ty: ignore[not-iterable]
+        ix = flat // (ny * nz)
+        iy = (flat // nz) % ny
+        iz = flat % nz
+        x, y, z = xs[ix], ys[iy], zs[iz]
+
+        acc = 0.0
+        sum_sq = 0.0
+        n_used = 0
+        for e in range(n_ev):
+            # TX: spherical wavefront from the virtual source. It reaches the
+            # voxel at |r − r_vs|/c minus the bulk delay t_ref already removed
+            # from the data's time axis by the simulator.
+            dxs = x - vs_x[e]
+            dys = y - vs_y[e]
+            dzs = z - vs_z[e]
+            t_tx = np.sqrt(dxs * dxs + dys * dys + dzs * dzs) / c - t_ref[e]
+            for r in range(n_rx):
+                # Dynamic RX aperture: elements beyond z/(2·F#) laterally from
+                # the voxel contribute noise, not focus — gate radially.
+                dx = x - rx_x[r]
+                dy = y - rx_y[r]
+                rad = np.sqrt(dx * dx + dy * dy)
+                half_ap = z * inv_two_fnum
+                if rad > half_ap:
+                    continue
+                dz = z - rx_z[r]
+                t_rx = np.sqrt(rad * rad + dz * dz) / c
+
+                s = (t_tx + t_rx + t_off - t0_ev[e]) / dt
+                i0 = int(np.floor(s))
+                if i0 < 0 or i0 >= nt - 1:
+                    continue
+                frac = s - i0
+                val = rf[e, r, i0] * (1.0 - frac) + rf[e, r, i0 + 1] * frac
+                if use_hann:
+                    val *= 0.5 + 0.5 * np.cos(np.pi * rad / half_ap)
+                acc += val
+                if use_cf:
+                    sum_sq += val * val
+                    n_used += 1
+        if use_cf and n_used > 0 and sum_sq > 0.0:
+            # Coherence factor CF = |Σs|²/(N·Σs²) ∈ [0, 1]: 1 when every
+            # channel saw the same in-phase echo (a true reflector), → 0 for
+            # incoherent clutter (sidelobe/pedestal energy) — multiplying the
+            # sum by CF suppresses clutter without moving true echoes.
+            vol[flat] = acc * (acc * acc / (n_used * sum_sq))
+        else:
+            vol[flat] = acc
+    return vol.reshape(nx, ny, nz)
+
+
+def das_dw_volume(
+    rf: npt.NDArray[np.floating],
+    coords: dict,
+    *,
+    virtual_sources_mm,
+    elem_centers_mm,
+    grid_mm: dict,
+    c: float = 1540.0,
+    fnum: float = 1.0,
+    rx_apodization: str = "hann",
+    t_offset_s: float = 0.0,
+    coherence_weight: bool = False,
+) -> tuple[npt.NDArray[np.float32], dict]:
+    """3-D delay-and-sum for a diverging-wave (virtual source) sequence.
+
+    A diverging wave is transmitted by delaying every element as if the field
+    came from a point (virtual) source behind the array: element ``e`` fires at
+    ``(|r_e − r_vs| − min_e|r_e − r_vs|)/c``, so the emitted field is a
+    spherical wavefront diverging from ``r_vs`` that insonifies the whole
+    volume in one shot. Every element receives, giving full two-way dynamic
+    focusing per voxel; a few virtual sources compounded coherently recover
+    transmit focus everywhere.
+
+    Per voxel r = (x, y, z) and per event with virtual source ``r_vs``::
+
+        t_tx = (|r − r_vs| − max_e|r_e − r_vs|) / c   (wavefront arrival)
+        t_rx = |r − r_e| / c                          (echo back to element e)
+
+    ``max_e|r_e − r_vs|`` is subtracted because the simulator's ``t0`` is
+    beam-axis referenced: the TX bulk delay (``delays.max()``, which for
+    virtual-source delays ``(d_e − d_min)/c`` equals ``(d_max − d_min)/c``) is
+    already removed from the time axis, and the source itself "fires" at
+    ``−d_min/c``, leaving the wavefront crossing r at ``(|r − r_vs| − d_max)/c``.
+
+    The sample at ``t_tx + t_rx`` is read from each channel (linear
+    interpolation), weighted by a depth-dependent radial receive aperture
+    (``|r_xy − r_e,xy| ≤ z/(2·F#)``, optionally Hann-tapered) and summed
+    coherently over channels and virtual sources.
+
+    Parameters
+    ----------
+    rf : (N_events, Erx, Nt) numpy.ndarray
+        Per-event, per-channel RF, as returned by ``sequence_rf``.
+    coords : dict
+        ``"dt"`` and ``"t0_per_event"`` (or ``"t0"``) from ``sequence_rf``.
+    virtual_sources_mm : (N_events, 3) array-like
+        Virtual-source position of each event in mm (z < 0 = behind the array).
+    elem_centers_mm : (Erx, 3) numpy.ndarray
+        Element centres in mm (``t.element_centers * 1e3``), in the same order
+        as the RF channels; also used to compute each event's TX bulk delay.
+    grid_mm : dict
+        Voxel grid: ``{"x_extent": [x0, xf], "y_extent": ..., "z_extent":
+        ..., "dx": ..., "dy": ..., "dz": ...}`` in mm (same convention as the
+        simulators' field grids).
+    c : float, default 1540.0
+        Speed of sound (m/s).
+    fnum : float, default 1.0
+        Receive F-number: elements within ``z/(2·fnum)`` laterally of the
+        voxel are summed.
+    rx_apodization : {'hann', 'rect'}, default 'hann'
+        Taper of the dynamic receive aperture.
+    t_offset_s : float, default 0.0
+        Extra delay added to every sample lookup — use the pulse-centre lag
+        (about half the two-way waveform length) to remove the axial bias of
+        a band-limited pulse.
+    coherence_weight : bool, default False
+        Multiply each voxel by its aperture coherence factor
+        ``CF = |Σ s|² / (N·Σ s²)`` over the contributing (event, channel)
+        samples: 1 when every channel saw the same in-phase echo, near 0 for
+        incoherent clutter. Suppresses the sidelobe/grating pedestal (helps
+        anechoic targets) at the cost of some extra speckle variance.
+
+    Returns
+    -------
+    volume : (Nx, Ny, Nz) numpy.ndarray
+        Beamformed RF volume (float32, coherent sum over channels and events).
+        Envelope-detect along z (e.g. Hilbert) before display.
+    axes : dict
+        ``"x_mm"``, ``"y_mm"``, ``"z_mm"`` — voxel-centre coordinates.
+
+    Raises
+    ------
+    ValueError
+        If ``rx_apodization`` is unknown or the event count mismatches.
+    """
+    if rx_apodization not in ("hann", "rect"):
+        raise ValueError("rx_apodization must be 'hann' or 'rect'.")
+    rf = np.ascontiguousarray(rf, dtype=np.float32)
+    vs = np.atleast_2d(np.asarray(virtual_sources_mm, dtype=np.float64)) * 1e-3
+    if rf.shape[0] != vs.shape[0]:
+        raise ValueError(
+            f"rf has {rf.shape[0]} events but {vs.shape[0]} virtual sources."
+        )
+    el = np.asarray(elem_centers_mm, dtype=np.float64) * 1e-3
+
+    def _axis_m(extent, step) -> np.ndarray:
+        return np.arange(float(extent[0]), float(extent[1]), float(step)) * 1e-3
+
+    xs = _axis_m(grid_mm["x_extent"], grid_mm["dx"])
+    ys = _axis_m(grid_mm["y_extent"], grid_mm["dy"])
+    zs = _axis_m(grid_mm["z_extent"], grid_mm["dz"])
+
+    # Largest element-to-source travel time (the removed TX bulk delay), per event.
+    t_ref = np.linalg.norm(el[None, :, :] - vs[:, None, :], axis=2).max(axis=1) / c
+
+    t0_ev = np.asarray(
+        coords.get("t0_per_event", np.full(vs.shape[0], coords["t0"])),
+        dtype=np.float64,
+    )
+
+    volume = _das_dw_kernel(
+        rf,
+        t0_ev,
+        float(coords["dt"]),
+        np.ascontiguousarray(vs[:, 0]),
+        np.ascontiguousarray(vs[:, 1]),
+        np.ascontiguousarray(vs[:, 2]),
+        t_ref,
+        np.ascontiguousarray(el[:, 0]),
+        np.ascontiguousarray(el[:, 1]),
+        np.ascontiguousarray(el[:, 2]),
+        xs,
+        ys,
+        zs,
+        float(c),
+        1.0 / (2.0 * float(fnum)),
+        rx_apodization == "hann",
+        float(t_offset_s),
+        bool(coherence_weight),
+    )
+    return volume, {"x_mm": xs * 1e3, "y_mm": ys * 1e3, "z_mm": zs * 1e3}
 
 
 def envelope_db(

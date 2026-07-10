@@ -1,16 +1,16 @@
-# Graph Report - PyField  (2026-07-03)
+# Graph Report - PyField  (2026-07-08)
 
 ## Corpus Check
-- 163 files · ~1,356,638 words
+- 180 files · ~1,341,588 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 2664 nodes · 3817 edges · 214 communities (178 shown, 36 thin omitted)
-- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 231 edges (avg confidence: 0.71)
+- 2965 nodes · 4214 edges · 233 communities (191 shown, 42 thin omitted)
+- Extraction: 94% EXTRACTED · 6% INFERRED · 0% AMBIGUOUS · INFERRED: 263 edges (avg confidence: 0.72)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `9a25ee12`
+- Built from commit: `d0b1409c`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -210,36 +210,53 @@
 - [[_COMMUNITY_Community 211|Community 211]]
 - [[_COMMUNITY_Community 212|Community 212]]
 - [[_COMMUNITY_Community 213|Community 213]]
+- [[_COMMUNITY_Community 214|Community 214]]
+- [[_COMMUNITY_Community 215|Community 215]]
+- [[_COMMUNITY_Community 216|Community 216]]
+- [[_COMMUNITY_Community 217|Community 217]]
+- [[_COMMUNITY_Community 218|Community 218]]
+- [[_COMMUNITY_Community 219|Community 219]]
+- [[_COMMUNITY_Community 220|Community 220]]
+- [[_COMMUNITY_Community 221|Community 221]]
+- [[_COMMUNITY_Community 222|Community 222]]
+- [[_COMMUNITY_Community 223|Community 223]]
+- [[_COMMUNITY_Community 224|Community 224]]
+- [[_COMMUNITY_Community 227|Community 227]]
+- [[_COMMUNITY_Community 228|Community 228]]
+- [[_COMMUNITY_Community 229|Community 229]]
+- [[_COMMUNITY_Community 231|Community 231]]
+- [[_COMMUNITY_Community 232|Community 232]]
+- [[_COMMUNITY_Community 233|Community 233]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `TransducerBase` - 87 edges
-2. `ReceptionSDI` - 81 edges
+1. `ReceptionSDI` - 93 edges
+2. `TransducerBase` - 87 edges
 3. `Emission` - 41 edges
-4. `causal_attenuation_tf()` - 37 edges
-5. `ReceptionBase` - 35 edges
+4. `ReceptionBase` - 39 edges
+5. `causal_attenuation_tf()` - 37 edges
 6. `Reception` - 29 edges
 7. `_make_emission()` - 26 edges
-8. `TestReceptionFormulations` - 23 edges
-9. `FieldIITransducer` - 20 edges
-10. `compute_sub_elem_attributes()` - 20 edges
+8. `TestReceptionFormulations` - 24 edges
+9. `RFDataset` - 22 edges
+10. `compute_sub_elem_attributes()` - 21 edges
 
 ## Surprising Connections (you probably didn't know these)
+- `test_invalid_apodization_raises()` --calls--> `das_rca_volume()`  [INFERRED]
+  tests/unit/test_beamforming/test_das_rca.py → src/pyfield/beamforming/das.py
+- `test_event_mismatch_raises()` --calls--> `das_dw_volume()`  [INFERRED]
+  tests/unit/test_beamforming/test_das_dw.py → src/pyfield/beamforming/das.py
 - `TestEmissionGlobalExcitation` --uses--> `Emission`  [INFERRED]
   tests/unit/test_psimulation/test_emission.py → src/pyfield/emission/emission.py
 - `TestEmissionInit` --uses--> `Emission`  [INFERRED]
   tests/unit/test_psimulation/test_emission.py → src/pyfield/emission/emission.py
 - `TestEmissionMonochromatic` --uses--> `Emission`  [INFERRED]
   tests/unit/test_psimulation/test_emission.py → src/pyfield/emission/emission.py
-- `TestEmissionPerElementExcitation` --uses--> `Emission`  [INFERRED]
-  tests/unit/test_psimulation/test_emission.py → src/pyfield/emission/emission.py
-- `TestEmissionPulsed` --uses--> `Emission`  [INFERRED]
-  tests/unit/test_psimulation/test_emission.py → src/pyfield/emission/emission.py
 
 ## Import Cycles
 - 3-file cycle: `src/pyfield/transducers/__init__.py -> src/pyfield/transducers/saved_transducers.py -> src/pyfield/transducers/linear.py -> src/pyfield/transducers/__init__.py`
 - 3-file cycle: `src/pyfield/transducers/__init__.py -> src/pyfield/transducers/saved_transducers.py -> src/pyfield/transducers/matrix.py -> src/pyfield/transducers/__init__.py`
 
-## Communities (214 total, 36 thin omitted)
+## Communities (233 total, 42 thin omitted)
 
 ### Community 0 - "Community 0"
 Cohesion: 0.09
@@ -251,11 +268,11 @@ Nodes (11): BG_Atlas, BrainGlobe atlas wrapper for mapping acoustic fields to an
 
 ### Community 2 - "Community 2"
 Cohesion: 0.10
-Nodes (17): _next_pow2(), Shared computation core for pulse_echo_rf (and the mixin wrappers).          P, Return effective excitation: self.excitation or tx.excitation., Pre-extract per-RX-element patch arrays., Lazily build (and cache) the `Reception` used for the conventional branch., Lazily build (and cache) the `Reception` used for the conventional branch., Lazily build (and cache) the `Reception` used for the conventional branch., Lazily build (and cache) the `Reception` used for the conventional branch. (+9 more)
+Nodes (16): Shared computation core for pulse_echo_rf (and the mixin wrappers).          P, Return effective excitation: self.excitation or tx.excitation., Pre-extract per-RX-element patch arrays., Lazily build (and cache) the `Reception` used for the conventional branch., Lazily build (and cache) the `Reception` used for the conventional branch., Lazily build (and cache) the `Reception` used for the conventional branch., Lazily build (and cache) the `Reception` used for the conventional branch., Dispatch to the resolved formulation (conventional / truncated / complete). (+8 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.11
-Nodes (16): Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx, dt, Separate TX and RX SIR sample grids.          Returns ``(time_grid_tx, t0_tx,, Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx,, Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx,, Update a simulation parameter at runtime.          Parameters         ----------, Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx, dt, Warn when RX delays are nonzero or apodization is non-uniform.      Reception ap, Pulse-echo RF by direct two-way SIR convolution (Jensen's model).      Compute (+8 more)
+Cohesion: 0.20
+Nodes (9): bytes, _atomic_write_bytes(), Free-form info stored at creation., Atomically store one TX event's RF and mark it completed.          Parameters, Write bytes to ``path`` via a temp file + rename, so a crash mid-write     leave, Resumable folder of per-event RF files with a JSON manifest.      Parameters, RFDataset, float (+1 more)
 
 ### Community 4 - "Community 4"
 Cohesion: 0.13
@@ -274,12 +291,12 @@ Cohesion: 0.06
 Nodes (31): bool, float, int, ndarray, str, ConvexArrayTransducer, Centre recession (m) of the cylindrical elevation lens; 0 if flat.          ``, Centre recession (m) of the cylindrical elevation lens; 0 if flat.          `` (+23 more)
 
 ### Community 8 - "Community 8"
-Cohesion: 0.15
-Nodes (21): Plotting module for 2D and 3D pressure field visualization., add_2D_image(), add_3D_vol(), add_markers(), add_pressure_vol(), add_regions_mesh(), add_stl_mesh(), add_transducer_mesh() (+13 more)
+Cohesion: 0.13
+Nodes (25): Plotting module for 2D and 3D pressure field visualization., add_2D_image(), add_3D_vol(), add_markers(), add_pressure_vol(), add_regions_mesh(), add_stl_mesh(), add_transducer_mesh() (+17 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.12
-Nodes (14): ndarray, Set per-element apodization weights directly.          Parameters         ---, Set per-element delays directly (normalised so minimum = 0).          Paramete, Set per-element apodization weights directly.          Parameters         ---, Set per-element delays directly (normalised so minimum = 0).          Paramete, Set the transducers impulse response.          Parameters         ----------, Set per-element apodization weights directly.          Parameters         ---, Set per-element apodization weights directly.          Parameters         --- (+6 more)
+Cohesion: 0.14
+Nodes (12): ndarray, Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., Set the transducers impulse response.          Parameters         ----------, Set the transducers impulse response.          Parameters         ---------- (+4 more)
 
 ### Community 10 - "Community 10"
 Cohesion: 0.12
@@ -294,24 +311,24 @@ Cohesion: 0.05
 Nodes (37): 1. SDI Tail Artifact — float32 Cumsum Cancellation, 2. d2h_all ≠ d2h_per_element.sum() — Float32 Non-Associativity, 3. PE SDI Delta Placement — `k_shift = 0`, 4. Attenuation y=1 Continuity, 5. Global vs Per-Element Excitation Consistency, 6. Numba Cache Staleness, 7. h_sir.__call__ Is Broken (Pre-existing), 8. `from_sir_to_pressure` Attenuation with No Excitation (+29 more)
 
 ### Community 13 - "Community 13"
-Cohesion: 0.12
-Nodes (13): Emission, Update a simulation parameter at runtime.          Parameters         -------, Update a simulation parameter at runtime.          Parameters         -------, Compute emitted acoustic pressure fields.      Parameters     ----------, Compute emitted acoustic pressure fields.      Parameters     ----------, Acoustic pressure field emission engine., PyField, PyField: deprecated alias for Emission.  Use `pyfield.emission.Emission` inste (+5 more)
+Cohesion: 0.11
+Nodes (17): Emission, _next_pow2(), Emission: compute emitted acoustic pressure fields., Update a simulation parameter at runtime.          Parameters         -------, Update a simulation parameter at runtime.          Parameters         -------, Compute emitted acoustic pressure fields.      Parameters     ----------, Wrap with tqdm if importable, else return plain iterable., Compute emitted acoustic pressure fields.      Parameters     ---------- (+9 more)
 
 ### Community 14 - "Community 14"
-Cohesion: 0.16
-Nodes (16): _causal_atten_factor(), Causal power-law attenuation H_att for one angular frequency over one path., _accum_patch_band(), _oneway_spectrum_patches(), _oneway_spectrum_points(), _phasor(), Add one patch's closed-form one-way SIR spectrum into the 1-D ``acc`` over ``ome, Closed-form one-way SIR spectrum at each scatterer → (P, N_band) complex128. (+8 more)
+Cohesion: 0.13
+Nodes (22): _causal_atten_factor(), _accum_oneway_band(), _accum_patch_band(), compute_twoway_spectrum_summed(), _oneway_spectrum_patches(), _oneway_spectrum_points(), _phasor(), Pulse-echo SDI kernels for the two analytic forms of `p_pe = v_pe ⊛ h_tx ⊛ h_rx` (+14 more)
 
 ### Community 15 - "Community 15"
-Cohesion: 0.19
-Nodes (15): _anti_alias_decimate(), _next_pow2(), Shared base class for Reception and ReceptionSDI.  `ReceptionBase` holds every, Wrap with tqdm if importable, else return plain iterable., Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Anti-aliased decimation along the last (time) axis (linear-phase FIR). (+7 more)
+Cohesion: 0.15
+Nodes (18): _anti_alias_decimate(), _next_pow2(), Wrap with tqdm if importable, else return plain iterable., Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Warn when RX delays are nonzero or apodization is non-uniform.      Reception, Anti-aliased decimation along the last (time) axis (linear-phase FIR). (+10 more)
 
 ### Community 16 - "Community 16"
 Cohesion: 0.06
 Nodes (35): 0. Notation, 1. The unifying identity (why there are only three forms), 2. Method 1 — Conventional `Reception` : `v_pe ⊛ (h_tx ⊛ h_rx)`, 3. Method 2 — Paired SDI PE : `Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)`, 3. Method 2 — Truncated SDI PE : `v_pe ⊛ (I⁴ Δδ_pe)`  (current `ReceptionSDI`), 4.1 The closed-form one-way spectrum, in cancellation-free factored form, 4.2 Cost, and the depth-span trap that depth-binning removes, 4.3 The fused multi-element two-way kernel (+27 more)
 
 ### Community 17 - "Community 17"
-Cohesion: 0.18
-Nodes (8): Batch size for P-loop: 400 MB budget (float32 h_pad + 2× complex64 arrays)., Batch size for P-loop: 400 MB budget (float32 h_pad + 2× complex64 arrays)., Batch size for P-loop: 400 MB budget (float32 h_pad + 2× complex64 arrays)., Shared rfft length + frequency-domain filters for the transient paths., Shared rfft length + frequency-domain filters for the transient paths., Global path for pulsed and global-excitation modes.          Parameters, Global path for pulsed and global-excitation modes.          Parameters, Global path for pulsed and global-excitation modes.          Parameters
+Cohesion: 0.06
+Nodes (31): _method_to_flag(), Add the wall-clock time of the enclosed block to ``self.time_log[key]``., Convolve excitation with impulse response (if not None).          Returns floa, Convolve excitation with impulse response (if not None).          Returns floa, Compute h_sir summed over all patches, returns (T, P) float32.          Parame, Compute h_sir summed over all patches, returns (T, P) float32.          Parame, Compute h_sir summed over all patches, returns (T, P) float32.          Parame, Compute h_sir for a batch, returns (cols, T) float32.          Parameters (+23 more)
 
 ### Community 18 - "Community 18"
 Cohesion: 0.08
@@ -322,12 +339,12 @@ Cohesion: 0.09
 Nodes (21): 0. Notation, 1. The unifying identity (why there are only three forms), 2. Method 1 — Conventional `Reception` : `v_pe ⊛ (h_tx ⊛ h_rx)`, 3. Method 2 — Truncated SDI PE : `v_pe ⊛ (I⁴ Δδ_pe)`  (current `ReceptionSDI`), 4. Method 3 — Complete SDI PE : `Σ_i Σ_j a_i a_j · w(t − τ_i − τ_j)`, 5. Master comparison, 6. Attenuation — the regime that flips the verdict, 7. Optimization opportunities in the current implementation (+13 more)
 
 ### Community 20 - "Community 20"
-Cohesion: 0.21
-Nodes (12): DAS_focused_scanline(), envelope_db(), Delay-and-sum (DAS) beamforming for pulse-echo RF data., Delay-and-sum beamformer for a single focused scanline.      Applies per-chann, Compute log-compressed Hilbert envelope.      Parameters     ----------, Compute log-compressed Hilbert envelope.      Parameters     ----------, Post-processing beamforming functions for PyField RF data., float32 (+4 more)
+Cohesion: 0.06
+Nodes (46): _das_dw_kernel(), das_dw_volume(), DAS_focused_scanline(), _das_rca_kernel(), das_rca_volume(), envelope_db(), Delay-and-sum (DAS) beamforming for pulse-echo RF data., Accumulate the RCA delay-and-sum volume; see `das_rca_volume`. (+38 more)
 
 ### Community 21 - "Community 21"
-Cohesion: 0.07
-Nodes (38): _band_omega(), _build_pe_time_grid(), _extract_sub_elem(), _next_pow2(), Tests for the surviving pulse-echo SDI kernels.  Two analytic forms of the pul, PE SDI pipeline must match the two-way SIR reference.      compute_pe_sdi retu, PE SDI + FFT(exc) must match dh_tx * d2h_rx + FFT(exc)., PE SDI + I⁴ + FFT(exc) must match (h_tx ⊛ h_rx) ⊛ exc. (+30 more)
+Cohesion: 0.09
+Nodes (30): _build_pe_time_grid(), _extract_sub_elem(), _next_pow2(), Tests for the surviving pulse-echo SDI kernels.  Two analytic forms of the pul, PE SDI pipeline must match the two-way SIR reference.      compute_pe_sdi retu, PE SDI + FFT(exc) must match dh_tx * d2h_rx + FFT(exc)., PE SDI + I⁴ + FFT(exc) must match (h_tx ⊛ h_rx) ⊛ exc., PE SDI must produce non-zero output for on-axis scatterer. (+22 more)
 
 ### Community 22 - "Community 22"
 Cohesion: 0.12
@@ -339,23 +356,23 @@ Nodes (9): Extract patch arrays from both TX and RX transducers., Update a param
 
 ### Community 24 - "Community 24"
 Cohesion: 0.09
-Nodes (19): bool, Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering., Interactive 3-D visualisation of the transducer surface.          Parameters, Interactive 3-D visualisation of the transducer surface.          Parameters, Interactive 3-D visualisation of the transducer surface.          Parameters (+11 more)
+Nodes (20): int, Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns, Plot per-element delays in microseconds.          Parameters         --------, Plot per-element delays in microseconds.          Parameters         -------- (+12 more)
 
 ### Community 25 - "Community 25"
-Cohesion: 0.13
-Nodes (19): compute_h_sir(), compute_parallelized_sir_optimized(), compute_rectangle_SIR_params(), _fully_sampled_trapezoid(), _place_sir_sdi_deltas(), Far-field rectangular patch SIR computation kernels., Compute SIR in parallel over field points.      Parameters     ----------, Compute trapezoidal SIR parameters for a rectangular patch.      Parameters (+11 more)
+Cohesion: 0.10
+Nodes (29): compute_h_sir(), compute_parallelized_sir_optimized(), compute_rectangle_SIR_params(), _fully_sampled_trapezoid(), _place_sir_sdi_deltas(), Far-field rectangular patch SIR computation kernels., Compute SIR in parallel over field points.      Parameters     ----------, Compute trapezoidal SIR parameters for a rectangular patch.      Parameters (+21 more)
 
 ### Community 26 - "Community 26"
-Cohesion: 0.14
-Nodes (20): compute_oneway_spectrum_band_batched(), compute_pe_sdi(), compute_pe_sdi_summed(), _oneway_spectrum_batched(), _patch_corner_times(), _pe_sdi_patches(), _pe_sdi_points(), _pe_sdi_summed() (+12 more)
+Cohesion: 0.20
+Nodes (7): _config(), dataset(), Tests for RFDataset — checkpointed per-event RF storage with a manifest., Baseline simulation fingerprint config; override single keys per test., Same shape/dtype but different values must be caught (byte hash)., Same shape/dtype but different values must be caught (byte hash)., TestResume
 
 ### Community 27 - "Community 27"
 Cohesion: 0.08
 Nodes (20): _make_emission(), _make_excitation(), _make_pyfield(), Tests for Emission class — Batch 3 test gate., Emission(monochromatic=True) output matches old PyField behavior., Emission(excitation=pulse) matches PyField(excitation=pulse) output., Uniform per-element excitation (same pulse × E) must equal global excitation., TF(f)=1 must give same result as no transfer function (global exc). (+12 more)
 
 ### Community 28 - "Community 28"
-Cohesion: 0.14
-Nodes (12): Any, str, Return a snapshot of the current apodization / delay state.          Returns, Restore apodization / delay state from a dictionary.          Parameters, Return a snapshot of the current apodization / delay state.          Returns, Restore apodization / delay state from a dictionary.          Parameters, Return a snapshot of the current apodization / delay state.          Returns, Restore apodization / delay state from a dictionary.          Parameters (+4 more)
+Cohesion: 0.13
+Nodes (13): Any, str, Return a snapshot of the current apodization / delay state.          Returns, Restore apodization / delay state from a dictionary.          Parameters, Return a snapshot of the current apodization / delay state.          Returns, Restore apodization / delay state from a dictionary.          Parameters, Return a snapshot of the current apodization / delay state.          Returns, Restore apodization / delay state from a dictionary.          Parameters (+5 more)
 
 ### Community 29 - "Community 29"
 Cohesion: 0.36
@@ -363,11 +380,11 @@ Nodes (7): explore_mat(), mat_struct_fields(), mat_struct_to_dict(), Utilities f
 
 ### Community 30 - "Community 30"
 Cohesion: 0.06
-Nodes (25): Zero the per-phase wall-clock log at the start of an RF computation., Zero the per-phase wall-clock log at the start of an RF computation., Add the wall-clock time of the enclosed block to ``self.time_log[key]``., Add the wall-clock time of the enclosed block to ``self.time_log[key]``., ``compute_h_sir`` timed into ``time_log["sir_s"]`` (the SIR kernel cost)., ``compute_h_sir`` timed into ``time_log["sir_s"]`` (the SIR kernel cost)., One-line ``time_grid/sir/fft`` breakdown of the last RF computation., One-line ``time_grid/sir/fft`` breakdown of the last RF computation. (+17 more)
+Nodes (27): Zero the per-phase wall-clock log at the start of an RF computation., Zero the per-phase wall-clock log at the start of an RF computation., Zero the per-phase wall-clock log at the start of an RF computation., Add the wall-clock time of the enclosed block to ``self.time_log[key]``., Add the wall-clock time of the enclosed block to ``self.time_log[key]``., ``compute_h_sir`` timed into ``time_log["sir_s"]`` (the SIR kernel cost)., ``compute_h_sir`` timed into ``time_log["sir_s"]`` (the SIR kernel cost)., ``compute_h_sir`` timed into ``time_log["sir_s"]`` (the SIR kernel cost). (+19 more)
 
 ### Community 31 - "Community 31"
-Cohesion: 0.11
-Nodes (15): Convolve excitation with impulse response (if not None).          Returns floa, Convolve excitation with impulse response (if not None).          Returns floa, Compute h_sir summed over all patches, returns (T, P) float32.          Parame, Compute h_sir summed over all patches, returns (T, P) float32.          Parame, Compute h_sir summed over all patches, returns (T, P) float32.          Parame, Print mode summary before heavy computation., Monochromatic, global path: full h_sir → monochromatic pressure., Print mode summary before heavy computation. (+7 more)
+Cohesion: 0.09
+Nodes (19): Pulse-echo RF from point scatterers.          The core reception primitive: am, Receive-beamformed line via in-kernel focused sum.          Backend hook for `, Receive-beamformed line via in-kernel focused sum.          Backend hook for `, Receive-beamformed line via in-kernel focused sum.          Backend hook for `, Normalise and validate positions + amplitudes, return (points_m, amps)., In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible., In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible., In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible. (+11 more)
 
 ### Community 32 - "Community 32"
 Cohesion: 0.05
@@ -378,8 +395,8 @@ Cohesion: 0.38
 Nodes (5): main(), plot_pressure_planes(), PyField: acoustic field simulator based on the spatial impulse response method., Plot pressure planes (deprecated, use `plot2D_pressure_slices`).      Paramete, Print a greeting message from the pyfield package.
 
 ### Community 34 - "Community 34"
-Cohesion: 0.07
-Nodes (24): truncated ≈ complete ≈ conventional produce the same physical RF., method selector: auto router + conventional/spectral/paired equivalence., conventional ≈ spectral ≈ paired produce the same physical RF., conventional ≈ factored ≈ paired (both i4) produce the same physical RF., conventional ≈ spectral ≈ paired produce the same physical RF., A non-auto method is used verbatim (no regime select)., auto on a near-monoelement aperture → paired (its splat cost is tiny there)., auto on a tiny aperture (few patches) → paired (cheap M² placement). (+16 more)
+Cohesion: 0.05
+Nodes (32): truncated ≈ complete ≈ conventional produce the same physical RF., method selector: auto router + conventional/spectral/paired equivalence., conventional ≈ spectral ≈ paired produce the same physical RF., conventional ≈ factored ≈ paired (both i4) produce the same physical RF., method selector: auto router + conventional/spectral/paired equivalence., conventional ≈ spectral ≈ paired produce the same physical RF., A non-auto method is used verbatim (no regime select)., auto on a near-monoelement aperture → paired (its splat cost is tiny there). (+24 more)
 
 ### Community 35 - "Community 35"
 Cohesion: 0.25
@@ -414,12 +431,12 @@ Cohesion: 0.08
 Nodes (23): Array transducers, Boundary refinement and rim singularities, Common API, Composite arrays, ConcaveCircularTransducer — spherical bowl (TUS / HIFU), ConvexArrayTransducer, ConvexCircularTransducer — spherical dome, Curved surface patch subdivision (+15 more)
 
 ### Community 43 - "Community 43"
-Cohesion: 0.10
-Nodes (17): Pulse-echo RF from point scatterers.          The core reception primitive: am, Receive-beamformed line via in-kernel focused sum.          Backend hook for `, Receive-beamformed line via in-kernel focused sum.          Backend hook for `, Normalise and validate positions + amplitudes, return (points_m, amps)., In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible., In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible., In-band frequency slice ``[b0, b1)`` where the pulse filter is non-negligible., Common time-grid, FFT-filter, attenuation, band-range and ``inv_jw_pow`` setup. (+9 more)
+Cohesion: 0.09
+Nodes (18): Shared computation core for pulse_echo_rf (and the mixin wrappers).          Par, Return effective excitation: self.excitation or tx.excitation., Pre-extract per-RX-element patch arrays., Shared computation core for pulse_echo_rf (and the mixin wrappers).          B, Shared computation core for pulse_echo_rf (and the mixin wrappers).          B, Shared computation core for pulse_echo_rf (and the mixin wrappers).          B, Shared computation core for pulse_echo_rf (and the mixin wrappers).          Par, Shared computation core for pulse_echo_rf (and the mixin wrappers).          P (+10 more)
 
 ### Community 44 - "Community 44"
-Cohesion: 0.20
-Nodes (8): Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu
+Cohesion: 0.29
+Nodes (6): bool, Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering., Compute per-element time delays for electronic focusing or plane-wave steering.
 
 ### Community 45 - "Community 45"
 Cohesion: 0.10
@@ -434,8 +451,8 @@ Cohesion: 0.12
 Nodes (14): `add_2D_image`, `add_3D_vol`, `add_markers`, `add_pressure_vol`, `add_regions_mesh`, `add_transducer_mesh`, Brain atlas scenes, Composing scenes (+6 more)
 
 ### Community 48 - "Community 48"
-Cohesion: 0.06
-Nodes (31): causal_attenuation_tf(), compute_attenuation_distances(), convert_alpha0_to_nepers(), Causal power-law attenuation transfer functions and distance helpers.  Standal, Propagation distance for attenuation.      Parameters     ----------     fie, Reduce per-patch distances (P, M) to per-element distances (P, E).      Parame, Reduce per-patch distances (P, M) to per-element distances (P, E).      Parame, Propagation distance for attenuation.      Parameters     ----------     fie (+23 more)
+Cohesion: 0.12
+Nodes (13): Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Open/create the checkpoint folder for ``sequence_rf``.          The fingerprin (+5 more)
 
 ### Community 49 - "Community 49"
 Cohesion: 0.15
@@ -450,8 +467,8 @@ Cohesion: 0.12
 Nodes (14): Attenuation Implementation Rules, Attenuation Parameter Convention, Core Principle, Distance Options, Frequency-Independent Shortcut, General case (y != 1):, Integration in SDI Pipeline, Key References (+6 more)
 
 ### Community 52 - "Community 52"
-Cohesion: 0.18
-Nodes (11): _make_excitation(), _make_synthetic_sir(), Tests for sir_to_pressure — attenuation wiring (Batch 2)., Return a simple synthetic (T, P) h_sir array., alpha0=None must produce bit-identical output to calling without alpha0., Without excitation and alpha0=None, output is h_sir itself., alpha0=0.5 must produce lower amplitude at larger distances., Larger distance → more attenuation. (+3 more)
+Cohesion: 0.12
+Nodes (19): from_sir_to_monochromatic_pressure(), from_sir_to_pressure(), _next_pow2(), Convert a spatial impulse response (SIR) to a pressure field., Compute the transient pressure field from the SIR and an excitation pulse., Compute the transient pressure field from the SIR and an excitation pulse., Compute the monochromatic pressure field from the SIR at a given frequency., Compute the monochromatic pressure field from the SIR at a given frequency. (+11 more)
 
 ### Community 53 - "Community 53"
 Cohesion: 0.33
@@ -467,7 +484,7 @@ Nodes (13): bool, float, int, ndarray, Plotting and helper utility functions., P
 
 ### Community 56 - "Community 56"
 Cohesion: 0.07
-Nodes (25): on_axis_scatterer(), Tests for Reception class — pulse-echo RF simulation., Attenuation handling., alpha0=None → no attenuation applied., alpha0 > 0 must reduce RF amplitude compared to no attenuation., downsampling=10 → output Nt = ceil(Nt_full / 10)., 4-element linear array for TX with focused delays., sequence_rf with multiple TX events. (+17 more)
+Nodes (28): on_axis_scatterer(), Tests for Reception class — pulse-echo RF simulation., Attenuation handling., alpha0=None → no attenuation applied., alpha0 > 0 must reduce RF amplitude compared to no attenuation., Attenuation handling., alpha0=None → no attenuation applied., alpha0 > 0 must reduce RF amplitude compared to no attenuation. (+20 more)
 
 ### Community 57 - "Community 57"
 Cohesion: 0.13
@@ -486,12 +503,12 @@ Cohesion: 0.13
 Nodes (13): 1. ReceptionSDI leakage on finer subdivision — FIXED, 2. Reception(FST) vs ReceptionSDI amplitude mismatch — DIAGNOSED (`16_FST_vs_sdi_amp.py`), 2. Reception(naive) vs ReceptionSDI amplitude mismatch — DIAGNOSED (`16_naive_vs_sdi_amp.py`), 3. "PyField looks temporally smoother than Field II" — EXPLAINED (PyField is correct), Gotchas, How to extend the benchmark, IR-count check (is Field II's deeper null from using 1 IR not 2?), Other scripts here (+5 more)
 
 ### Community 61 - "Community 61"
-Cohesion: 0.08
-Nodes (18): Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute received RF signals via the PE SDI formulation.      The pulse-echo si, Compute received RF signals via the PE SDI formulation.      Redistributes all 3, Compute received RF signals via the PE SDI formulation.      The pulse-echo si, ReceptionSDI (+10 more)
+Cohesion: 0.07
+Nodes (25): Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Compute pulse-echo RF from point scatterers via sparse delta integration (SDI)., Scatterers per chunk for the batched RX-spectrum build (256 MB budget)., Compute received RF signals via the PE SDI formulation.      The pulse-echo si, Spectral SDI PE core: closed-form one-way spectra, multiplied — no forward FFT., Pad-and-stack the per-element patch tuples into ``(E, m_max, …)`` arrays. (+17 more)
 
 ### Community 63 - "Community 63"
-Cohesion: 0.12
-Nodes (14): Electromechanical impulse response of the transducer element.          1-D flo, Electromechanical impulse response of the transducer element.          1-D flo, Set impulse response; converts to 1-D float32 or stores None.          Paramet, Set impulse response; converts to 1-D float32 or stores None.          Paramet, Electromechanical impulse response of the transducer element.          1-D flo, Excitation pulse for this transducer.          1-D float32 array sampled at th, Set excitation pulse; converts to 1-D float32 or stores None.          Paramet, Electromechanical impulse response of the transducer element.          1-D flo (+6 more)
+Cohesion: 0.09
+Nodes (21): Electromechanical impulse response of the transducer element.          1-D flo, Electromechanical impulse response of the transducer element.          1-D flo, Set impulse response; converts to 1-D float32 or stores None.          Paramet, Set impulse response; converts to 1-D float32 or stores None.          Paramet, Electromechanical impulse response of the transducer element.          1-D flo, Excitation pulse for this transducer.          1-D float32 array sampled at th, Set excitation pulse; converts to 1-D float32 or stores None.          Paramet, Electromechanical impulse response of the transducer element.          1-D flo (+13 more)
 
 ### Community 64 - "Community 64"
 Cohesion: 0.15
@@ -506,8 +523,8 @@ Cohesion: 0.31
 Nodes (3): _make_pyfield(), Tests for pyfield.psimulation.PyField deprecated wrapper., TestPyFieldCreation
 
 ### Community 67 - "Community 67"
-Cohesion: 0.20
-Nodes (9): Far-field SIR sample grid for one aperture (``"tx"`` or ``"rx"``).          Wr, Far-field SIR sample grid for one aperture (``"tx"`` or ``"rx"``).          Wr, compute_minmax_distance_patch_to_point(), compute_time_grid(), Compute the global min and max distance between field points and patch centres., Compute the time axis needed to capture the full SIR response.      The earlie, Compute the time axis needed to capture the full SIR response.      The earlie, Compute the time axis needed to capture the full SIR response.      The earlie (+1 more)
+Cohesion: 0.09
+Nodes (23): compute_minmax_distance_patch_to_point(), method_to_flag(), next_pow2(), Helper functions for spatial grids, time grids, and unit conversions., Smallest power of two >= ``n`` (FFT length for linear convolution).      Param, Compute the global min and max distance between field points and patch centres., Wrap ``iterable`` with a tqdm progress bar if tqdm is importable, else passthrou, Map a SIR method name to the integer flag the kernel expects.      ``"FST"`` → (+15 more)
 
 ### Community 68 - "Community 68"
 Cohesion: 0.20
@@ -527,11 +544,11 @@ Nodes (7): 1. Set up a virtual environment, 2. Install PyField, 3. Check install
 
 ### Community 72 - "Community 72"
 Cohesion: 0.11
-Nodes (16): int, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Set per-element apodization weights.          Parameters         ----------, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Per-element delays in seconds, shape ``(n_elements,)``.          Returns, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Set per-element apodization weights.          Parameters         ---------- (+8 more)
+Nodes (17): Per-element apodization weights, shape ``(n_elements,)``.          Returns, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Set per-element apodization weights.          Parameters         ----------, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Per-element delays in seconds, shape ``(n_elements,)``.          Returns, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Per-element apodization weights, shape ``(n_elements,)``.          Returns, Set per-element delays.          Parameters         ----------         delay (+9 more)
 
 ### Community 73 - "Community 73"
-Cohesion: 0.25
-Nodes (6): Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., Return element centre positions, shape ``(n_elements, 3)`` in metres., 3-D element centre positions, shape ``(n_elements, 3)`` in metres.          Re, 3-D element centre positions, shape ``(n_elements, 3)`` in metres.          Re
+Cohesion: 0.11
+Nodes (12): causal_attenuation_tf(), Causal power-law attenuation transfer function H_att(f, d).      Absorption an, Causal power-law attenuation transfer function H_att(f, d).      Absorption an, Causal power-law attenuation transfer function H_att(f, d).      Absorption an, Tests for psimulation.attenuation — causal power-law TF and distance helpers., At f=1 MHz, d=1 cm, alpha0=0.5 dB/(MHz·cm), y=1: absorption ≈ 0.5 dB., y=1 absorption: |H| = exp(-alpha0 * |f| * d)., H(f=0, d) = 1 regardless of alpha0. (+4 more)
 
 ### Community 74 - "Community 74"
 Cohesion: 0.31
@@ -570,8 +587,8 @@ Cohesion: 0.17
 Nodes (10): API Coverage, Applications (12 – 19), Attenuation & Safety Metrics (10 – 11), Configuration, Core Examples (01 – 11), Extras (12 – 16), PyField Examples, Reception & Imaging (06 – 09) (+2 more)
 
 ### Community 84 - "Community 84"
-Cohesion: 0.28
-Nodes (5): Tests for pyfield.utilities.helper_functions., TestCreateSpatialGridFromDict, create_spatial_grid_from_dict(), Create a simulation mesh for the ultrasound field.      Parameters     ------, Create a simulation mesh for the ultrasound field.      Parameters     ------
+Cohesion: 0.24
+Nodes (6): Tests for pyfield.utilities.helper_functions., TestCreateSpatialGridFromDict, create_spatial_grid_from_dict(), Create a simulation mesh for the ultrasound field.      Parameters     ------, Create a simulation mesh for the ultrasound field.      Parameters     ------, Create a simulation mesh for the ultrasound field.      Parameters     ------
 
 ### Community 85 - "Community 85"
 Cohesion: 0.25
@@ -586,8 +603,8 @@ Cohesion: 0.29
 Nodes (5): Added, Changelog, Earlier versions, Fixed, [Unreleased]
 
 ### Community 88 - "Community 88"
-Cohesion: 0.13
-Nodes (13): float, Depth (m) a cylindrical elevation lens dishes the surface back at its centre., Depth (m) a cylindrical elevation lens dishes the surface back at its centre., List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.          Ret, Override the lens sag in metres (``None`` restores the geometric default)., Geometric lens sag (m) of this transducer type; 0 for flat apertures., List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.          Ret, Geometric lens sag (m) of this transducer type; 0 for flat apertures. (+5 more)
+Cohesion: 0.12
+Nodes (15): float, Depth (m) a cylindrical elevation lens dishes the surface back at its centre., Depth (m) a cylindrical elevation lens dishes the surface back at its centre., List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.          Ret, Patch area in m² (same for all patches in a uniform grid).          Returns, Override the lens sag in metres (``None`` restores the geometric default)., Override the lens sag in metres (``None`` restores the geometric default)., Geometric lens sag (m) of this transducer type; 0 for flat apertures. (+7 more)
 
 ### Community 89 - "Community 89"
 Cohesion: 0.29
@@ -634,16 +651,16 @@ Cohesion: 0.36
 Nodes (5): _plot_beamforming(), Example 1: Transducer Gallery  Demonstrates all transducer types available in, Delay/apodization curves — interactive sessions only (windows pile up in batch)., Show transducer interactively or save screenshot., _show_or_save()
 
 ### Community 104 - "Community 104"
-Cohesion: 0.19
-Nodes (8): Tests for sub-element attribute utilities and SIR index mapping., 4-element linear array: small, fast, deterministic., sub_el_idx_arr must match the transducer's sub_el_idx list., simple_tx(), TestSubElemAttributes, compute_sub_elem_attributes(), Flatten transducer patch geometry into arrays required by the SIR kernel., Flatten transducer patch geometry into arrays required by the SIR kernel.
+Cohesion: 0.17
+Nodes (9): Tests for sub-element attribute utilities and SIR index mapping., 4-element linear array: small, fast, deterministic., sub_el_idx_arr must match the transducer's sub_el_idx list., simple_tx(), TestSubElemAttributes, compute_sub_elem_attributes(), Flatten transducer patch geometry into arrays required by the SIR kernel., Flatten transducer patch geometry into arrays required by the SIR kernel. (+1 more)
 
 ### Community 105 - "Community 105"
-Cohesion: 0.40
-Nodes (4): Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns, Element index for each patch; maps patch to parent element.          Returns
+Cohesion: 0.18
+Nodes (10): Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf. (+2 more)
 
 ### Community 106 - "Community 106"
-Cohesion: 0.12
-Nodes (10): Scatterers per chunk for the batched RX-spectrum build (256 MB budget)., Spectral SDI PE core: closed-form one-way spectra, multiplied — no forward FFT., Pad-and-stack the per-element patch tuples into ``(E, m_max, …)`` arrays., Spectral SDI PE core: closed-form one-way spectra, multiplied — no forward FFT., Number of output channels the spectral core produces (1 if focused_sum)., Lay the per-element RX patch arrays out element-by-element, CSR-style., Shared in-band filter ``G = ÷(jω)⁴·exc·ir_tx·ir_rx`` and attenuation kwargs., One receive element's closed-form one-way SIR spectrum ``Σ_RX`` → (P, N_band). (+2 more)
+Cohesion: 0.08
+Nodes (28): dw_events(), excitation(), make_matrix(), make_rca_pair(), pulse_center_lag_s(), pw_events(), Shared setup for the ZeUS volume-imaging case study (example 21).  The ZeUS matr, Build the crossed TX/RX linear arrays modelling the RCA probe.      Returns (+20 more)
 
 ### Community 107 - "Community 107"
 Cohesion: 0.40
@@ -682,12 +699,12 @@ Cohesion: 0.25
 Nodes (6): Applications, Attenuation & Safety Metrics, Examples, Prerequisites, Reception & Imaging, Transducers & Emission
 
 ### Community 131 - "Community 131"
-Cohesion: 0.38
-Nodes (4): Optimised kernels (§7.2 summed, §7.3 patch-parallel) match the base kernel., compute_pe_sdi_summed ≡ amps @ compute_pe_sdi (§7.2)., P==1 (patch-parallel kernel) ≡ the point-parallel kernel for the same point., TestPeSdiKernelVariants
+Cohesion: 0.12
+Nodes (12): excitation=None → pure PE SIR derivative (no excitation conv)., Basic Reception functionality., Basic Reception functionality., RF output shape must be (E_rx, Nt)., RF output shape must be (E_rx, Nt)., RF must be non-zero for on-axis scatterer., RF must be non-zero for on-axis scatterer., TX == RX (same transducer) must produce valid result.          ``simple_tx`` i (+4 more)
 
 ### Community 152 - "Community 152"
-Cohesion: 0.14
-Nodes (11): Total number of rectangular sub-patches across all elements.          Returns, Per-patch rigid-body frames used by the SIR kernel.          Returns a dict wi, Total number of rectangular sub-patches across all elements.          Returns, Per-patch rigid-body frames used by the SIR kernel.          Returns a dict wi, Default patch-frame builder for **flat** transducers.          Computes each p, Total number of rectangular sub-patches across all elements.          Returns, Total number of rectangular sub-patches across all elements.          Returns, Per-patch rigid-body frames used by the SIR kernel.          Returns a dict wi (+3 more)
+Cohesion: 0.12
+Nodes (14): Total number of rectangular sub-patches across all elements.          Returns, Per-patch rigid-body frames used by the SIR kernel.          Returns a dict wi, Total number of rectangular sub-patches across all elements.          Returns, Per-patch rigid-body frames used by the SIR kernel.          Returns a dict wi, Default patch-frame builder for **flat** transducers.          Computes each p, Total number of rectangular sub-patches across all elements.          Returns, Total number of rectangular sub-patches across all elements.          Returns, Per-patch rigid-body frames used by the SIR kernel.          Returns a dict wi (+6 more)
 
 ### Community 160 - "Community 160"
 Cohesion: 0.10
@@ -698,84 +715,84 @@ Cohesion: 0.10
 Nodes (17): Batch size for scatterer loop: 400 MB budget., Compute time grid covering both TX and RX propagation paths., Batch size for scatterer loop: 400 MB budget., Compute time grid covering both TX and RX propagation paths., Time grid covering both TX and RX propagation paths.          Returns the comb, Batch size for scatterer loop: 400 MB budget., Batch size for scatterer loop: 400 MB budget., Compute time grid covering both TX and RX propagation paths. (+9 more)
 
 ### Community 163 - "Community 163"
-Cohesion: 0.14
-Nodes (11): Shared base for the acoustic simulators (`Emission`, `Reception`, `ReceptionSDI`, Medium state + runtime config shared by every simulator.      Subclasses set `, Validate ``value`` against ``_SETTABLE[name]`` and assign it.          The sha, Effective excitation pulse: ``self.excitation`` else ``tx.excitation``., Split flat per-patch arrays into one tuple per element.          ``arrays`` is, SimulationBase, _focused_sum_rf(), pulse_echo_rf() (+3 more)
+Cohesion: 0.09
+Nodes (19): compute_attenuation_distances(), compute_reception_distances(), Causal power-law attenuation transfer functions and distance helpers.  Standal, Causal power-law attenuation H_att for one angular frequency over one path., Propagation distance for attenuation.      Parameters     ----------     fie, Reduce per-patch distances (P, M) to per-element distances (P, E).      Parame, Reduce per-patch distances (P, M) to per-element distances (P, E).      Parame, Propagation distance for attenuation.      Parameters     ----------     fie (+11 more)
 
 ### Community 165 - "Community 165"
-Cohesion: 0.16
-Nodes (19): plot2D_planes(), plot2D_pressure_plane(), plot2D_pressure_slices(), plot2D_transient_slices(), Matplotlib plotting helpers for 2D pressure field visualization., Plot three orthogonal 2D planes (XZ, XY, YZ) side-by-side with a shared colorbar, Plot three orthogonal 2D planes (XZ, XY, YZ) side-by-side with a shared colorbar, Plot orthogonal 2D slices of a pressure field.      Handles both monochromatic (+11 more)
+Cohesion: 0.19
+Nodes (16): plot2D_planes(), plot2D_pressure_plane(), plot2D_pressure_slices(), Matplotlib plotting helpers for 2D pressure field visualization., Plot three orthogonal 2D planes (XZ, XY, YZ) side-by-side with a shared colorbar, Plot three orthogonal 2D planes (XZ, XY, YZ) side-by-side with a shared colorbar, Plot orthogonal 2D slices of a pressure field.      Handles both monochromatic, Plot orthogonal 2D slices of a pressure field.      Handles both monochromatic (+8 more)
 
 ### Community 166 - "Community 166"
-Cohesion: 0.09
-Nodes (18): _next_pow2(), Shared computation core for pulse_echo_rf (and the mixin wrappers).          Par, Number of depth bins for the fast path (1 = no binning).          Two needs se, Number of depth bins for the fast path (1 = no binning).          Scatterers a, Return effective excitation: self.excitation or tx.excitation., Pre-extract per-RX-element patch arrays., Shared computation core for pulse_echo_rf (and the mixin wrappers).          B, Shared computation core for pulse_echo_rf (and the mixin wrappers).          B (+10 more)
+Cohesion: 0.06
+Nodes (28): Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx, dt, Separate TX and RX SIR sample grids.          Returns ``(time_grid_tx, t0_tx,, Separate TX and RX SIR sample grids.          Returns ``(time_grid_tx, t0_tx,, Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx,, Compute separate TX and RX time grids.          Returns (time_grid_tx, t0_tx,, Number of depth bins for the fast path (1 = no binning).          Two needs se, Number of depth bins for the fast path (1 = no binning).          Scatterers a, Update a simulation parameter at runtime.          Parameters         ---------- (+20 more)
 
 ### Community 167 - "Community 167"
-Cohesion: 0.11
-Nodes (20): _add_shifted_w(), compute_pe_complete(), _pe_complete_patches(), _pe_complete_points(), _place_pe_complete(), Complete-SDI PE RF for one field point → (T,) float64. prange over TX patches., Complete SDI PE: splat ``w = I⁴ v_pe`` per pair → ``(P, T)`` float32.      Cum, Complete SDI PE: splat ``w = I⁴ v_pe`` per pair → ``(P, T)`` float32.      Cum (+12 more)
+Cohesion: 0.08
+Nodes (35): _add_shifted_w(), compute_oneway_spectrum_band_batched(), compute_pe_complete(), _oneway_spectrum_batched(), _patch_corner_times(), _pe_complete_patches(), _pe_complete_points(), _pe_sdi_patches() (+27 more)
 
 ### Community 168 - "Community 168"
-Cohesion: 0.25
-Nodes (7): compute_oneway_spectrum_band(), Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form)., Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form)., Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form)., compute_twoway_spectrum_summed == Σ_p a_p · (Σ_TX · Σ_RX,e), per RX element., The fused two-way kernel must equal the amplitude-summed one-way spectrum produc, TestTwowaySummedFused
+Cohesion: 0.12
+Nodes (15): compute_oneway_spectrum_band(), Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form)., Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form)., Closed-form one-way SIR spectrum on in-band frequencies (factored SDI form)., _band_omega(), compute_twoway_spectrum_summed == Σ_p a_p · (Σ_TX · Σ_RX,e), per RX element., Uniform in-band angular-frequency grid over the 2-8 MHz transducer pass-band., Uniform in-band angular-frequency grid over the 2-8 MHz transducer pass-band. (+7 more)
 
 ### Community 169 - "Community 169"
-Cohesion: 0.10
-Nodes (23): check_valid_field_points(), create_3D_spatial_grid_from_points(), method_to_flag(), next_pow2(), Helper functions for spatial grids, time grids, and unit conversions., Smallest power of two >= ``n`` (FFT length for linear convolution)., Wrap ``iterable`` with a tqdm progress bar if tqdm is importable, else passthrou, Extract or build a 3-D coordinate grid from user-supplied field points.      A (+15 more)
+Cohesion: 0.40
+Nodes (5): align_to_common_time(), Interpolate multiple transient fields to a common time grid.      When simulat, Interpolate multiple transient fields to a common time grid.      When simulat, Interpolate multiple transient fields to a common time grid.      When simulat, Interpolate multiple transient fields to a common time grid.      When simulat
 
 ### Community 170 - "Community 170"
-Cohesion: 0.33
-Nodes (5): PolyData, Build a PyVista surface mesh of the transducer.          Returns         ----, Build a PyVista surface mesh of the transducer.          Returns         ----, Build a PyVista surface mesh of the transducer.          Returns         ----, Build a PyVista surface mesh of the transducer.          Returns         ----
+Cohesion: 0.12
+Nodes (14): PolyData, Set per-element delays directly (normalised so minimum = 0).          Paramete, Build a PyVista surface mesh of the transducer.          Returns         ----, Set per-element delays directly (normalised so minimum = 0).          Paramete, Set per-element delays directly (normalised so minimum = 0).          Paramete, Set per-element delays directly (normalised so minimum = 0).          Paramete, Build a PyVista surface mesh of the transducer.          Returns         ----, Set per-element delays directly (normalised so minimum = 0).          Paramete (+6 more)
 
 ### Community 171 - "Community 171"
 Cohesion: 0.25
 Nodes (7): 1. Implementation details, 2. Performance (measured, 8-core CPU, fs = 100 MHz), 3. What could be done better, 4. New ideas — SDI as a reception speed tool, 5. SDI strengths in reception, 6. SDI limitations in reception, Report — SDI in Pulse-Echo Reception
 
 ### Community 172 - "Community 172"
-Cohesion: 0.25
-Nodes (6): SIR sample grid for ``pts`` on ``aperture`` snapped to the global lattice., Pulse-echo RF, split into depth bins for short per-bin FFTs.          Same phy, Time grid for ``pts`` snapped to the global sample lattice.          Returns `, Time grid for ``pts`` snapped to the global sample lattice.          Returns `, Pulse-echo RF, split into depth bins for short per-bin FFTs.          Same res, Pulse-echo RF, split into depth bins for short per-bin FFTs.          Same phy
+Cohesion: 0.11
+Nodes (16): Far-field SIR sample grid for one aperture (``"tx"`` or ``"rx"``).          Wr, Far-field SIR sample grid for one aperture (``"tx"`` or ``"rx"``).          Wr, Far-field SIR sample grid for one aperture (``"tx"`` or ``"rx"``).          Wr, SIR sample grid for ``pts`` on ``aperture`` snapped to the global lattice., SIR sample grid for ``pts`` on ``aperture`` snapped to the global lattice., Pulse-echo RF, split into depth bins for short per-bin FFTs.          Same phy, Pulse-echo RF, split into depth bins for short per-bin FFTs.          Same phy, Time grid for ``pts`` snapped to the global sample lattice.          Returns ` (+8 more)
 
 ### Community 173 - "Community 173"
-Cohesion: 0.50
-Nodes (4): align_to_common_time(), Interpolate multiple transient fields to a common time grid.      When simulat, Interpolate multiple transient fields to a common time grid.      When simulat, Interpolate multiple transient fields to a common time grid.      When simulat
+Cohesion: 0.25
+Nodes (5): Sorted indices of events whose file exists and is recorded done., Load one event's RF.          Parameters         ----------         idx : int, Assemble all completed events into the `sequence_rf` return format.          Tra, bool, int
 
 ### Community 174 - "Community 174"
-Cohesion: 0.10
-Nodes (16): Add the wall-clock time of the enclosed block to ``self.time_log[key]``., Pre-extract per-element patch arrays (outside E-loop for efficiency)., Compute h_sir for a batch, returns (cols, T) float32.          Parameters, Pre-extract per-element patch arrays (outside E-loop for efficiency)., Pre-extract per-element patch arrays (outside E-loop for efficiency)., Evaluate causal attenuation TF at fc only. Returns (P,) complex64., Compute h_sir for a batch, returns (cols, T) float32.          Parameters, Compute h_sir for a batch, returns (cols, T) float32.          Parameters (+8 more)
+Cohesion: 0.17
+Nodes (9): Pre-extract per-element patch arrays (outside E-loop for efficiency)., Pre-extract per-element patch arrays (outside E-loop for efficiency)., Pre-extract per-element patch arrays (outside E-loop for efficiency)., Evaluate causal attenuation TF at fc only. Returns (P,) complex64., Evaluate causal attenuation TF at fc only. Returns (P,) complex64., Evaluate causal attenuation TF at fc only. Returns (P,) complex64., Monochromatic, per-element: dot(h_e, exp(-j2πfc·t)) × H_att_e, accumulate., Monochromatic, per-element: dot(h_e, exp(-j2πfc·t)) × H_att_e, accumulate. (+1 more)
 
 ### Community 175 - "Community 175"
-Cohesion: 0.10
-Nodes (17): Normalise and validate positions + amplitudes, return (points_m, amps)., Normalise and validate positions + amplitudes, return (points_m, amps)., Normalise and validate positions + amplitudes, return (points_m, amps)., Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers)., Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers)., Set focusing delays + apodization on ``trans`` from ``focus`` (mm)., One conventional focused scan line (Field II ``calc_scat`` match).          Re, Set focusing delays + apodization on ``trans`` from ``focus`` (mm). (+9 more)
+Cohesion: 0.09
+Nodes (20): Set focusing delays + apodization on ``trans`` from ``focus`` (mm)., Set focusing delays + apodization on ``trans`` from ``focus`` (mm)., One conventional focused scan line (Field II ``calc_scat`` match).          Re, One conventional focused scan line (Field II ``calc_scat`` match).          Re, Set focusing delays + apodization on ``trans`` from ``focus`` (mm)., One conventional focused scan line (Field II ``calc_scat`` match).          Re, Set focusing delays + apodization on ``trans`` from ``focus`` (mm)., One conventional focused scan line (Field II ``calc_scat`` match).          Re (+12 more)
 
 ### Community 176 - "Community 176"
-Cohesion: 0.22
-Nodes (7): Normalise and validate positions + amplitudes, return (points_m, amps)., Pulse-echo RF from point scatterers.          The core reception primitive. The, Pulse-echo RF from point scatterers (Field II ``calc_scat``/``calc_hhp``)., Pulse-echo RF from point scatterers.          The core reception primitive. Th, Pulse-echo RF from point scatterers.          The core reception primitive. Th, Pulse-echo RF from point scatterers.          The core reception primitive. Th, Pulse-echo RF from point scatterers.          The core reception primitive. Th
+Cohesion: 0.18
+Nodes (9): Release cached geometry arrays to free memory., Rigidly move the aperture in space (rotation then translation).          Appli, Rigidly move the aperture in space (rotation then translation).          Appli, Rigidly move the aperture in space (rotation then translation).          Appli, Rigidly move the aperture in space (rotation then translation).          Appli, Release cached geometry arrays to free memory., Release cached geometry arrays to free memory., Release cached geometry arrays to free memory. (+1 more)
 
 ### Community 177 - "Community 177"
 Cohesion: 0.25
 Nodes (7): 1. Implementation details, 2. Performance (measured, 8-core CPU, fs = 100 MHz), 3. What could be done better, 4. New ideas — SDI as a reception speed tool, 5. SDI strengths in reception, 6. SDI limitations in reception, Report — SDI in Pulse-Echo Reception
 
 ### Community 178 - "Community 178"
-Cohesion: 0.15
-Nodes (10): Extract patch arrays from both TX and RX transducers., Extract patch arrays from both TX and RX transducers., Update a simulation parameter at runtime.          Parameters         -------, Update a simulation parameter at runtime.          Parameters         -------, Update a simulation parameter at runtime.          Parameters         -------, Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...)., Pulse-echo RF for a sequence of TX events (emission basis: PW/DW/...). (+2 more)
+Cohesion: 0.20
+Nodes (8): Extract patch arrays from both TX and RX transducers., Extract patch arrays from both TX and RX transducers., Update a simulation parameter at runtime.          Parameters         -------, Extract patch arrays from both TX and RX transducers., Update a simulation parameter at runtime.          Parameters         -------, Update a simulation parameter at runtime.          Parameters         -------, Update a simulation parameter at runtime.          Parameters         -------, str
 
 ### Community 179 - "Community 179"
-Cohesion: 0.12
-Nodes (15): _countdown(), Build the list of TX element-index groups for synthetic_aperture_rf., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Build the list of TX element-index groups for synthetic_aperture_rf., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf., Build the list of TX element-index groups for synthetic_aperture_rf. (+7 more)
+Cohesion: 0.13
+Nodes (14): _countdown(), Synthetic-aperture RF: each TX element/group fires alone, all RX record., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Synthetic-aperture RF: each TX element/group fires alone, all RX record., Synthetic-aperture RF: each TX element/group fires alone, all RX record. (+6 more)
 
 ### Community 181 - "Community 181"
-Cohesion: 0.15
-Nodes (19): _compute_rectangle_SIR_params(), identity_tangents(), pack_tangents(), _prep_pe_arrays(), Shared helpers for the far-field rectangular-patch SIR kernels.  Holds the geo, Pack (M,3) in-plane unit-vector pairs into one contiguous (M, 6) float32 array., Cast pulse-echo TX/RX patch arrays to float32 and pack their tangent frames., Cast pulse-echo TX/RX patch arrays to float32 and pack their tangent frames. (+11 more)
+Cohesion: 0.20
+Nodes (8): Set per-element apodization weights directly.          Parameters         ---, Set per-element apodization weights directly.          Parameters         ---, Set per-element apodization weights directly.          Parameters         ---, Set per-element apodization weights directly.          Parameters         ---, Set per-element apodization weights directly.          Parameters         ---, Set the transducers excitation pulse.          Parameters         ----------, Set the transducers excitation pulse.          Parameters         ----------, Set the transducers excitation pulse.          Parameters         ----------
 
 ### Community 182 - "Community 182"
-Cohesion: 0.32
-Nodes (5): compute_reception_distances(), Round-trip distances for per-element Reception attenuation.      Two-path mode, Round-trip distances for per-element Reception attenuation.      Two-path mode, Round-trip distances for per-element Reception attenuation.      Two-path mode, TestComputeReceptionDistances
+Cohesion: 0.27
+Nodes (6): convert_alpha0_to_nepers(), Convert attenuation coefficient from dB/(MHz^y·cm) to Np/(Hz^y·m).      Parame, Convert attenuation coefficient from dB/(MHz^y·cm) to Np/(Hz^y·m).      Parame, Convert attenuation coefficient from dB/(MHz^y·cm) to Np/(Hz^y·m).      Parame, float, TestConvertAlpha0
 
 ### Community 183 - "Community 183"
-Cohesion: 0.16
-Nodes (19): Path, Shared save/export helpers for plotting functions.  ``save_path`` is a **direc, Record a PyVista animation by iterating *frame_indices*.      *update_fn(idx)*, Record a PyVista animation by iterating *frame_indices*.      *update_fn(idx)*, Join *save_path* and *file_name*, creating the directory if needed., Resolve the output file, creating its directory if needed.      ``save_path``, Save a :class:`~matplotlib.animation.FuncAnimation` to disk.      For extensio, Save a :class:`~matplotlib.animation.FuncAnimation` to disk.      For extensio (+11 more)
+Cohesion: 0.19
+Nodes (17): Shared save/export helpers for plotting functions.  ``save_path`` is a **direc, Record a PyVista animation by iterating *frame_indices*.      *update_fn(idx)*, Record a PyVista animation by iterating *frame_indices*.      *update_fn(idx)*, Join *save_path* and *file_name*, creating the directory if needed., Resolve the output file, creating its directory if needed.      ``save_path``, Save a :class:`~matplotlib.animation.FuncAnimation` to disk.      For extensio, Save a :class:`~matplotlib.animation.FuncAnimation` to disk.      For extensio, Save a PyVista plotter screenshot.      Parameters     ----------     plotte (+9 more)
 
 ### Community 184 - "Community 184"
-Cohesion: 0.22
-Nodes (7): Release cached geometry arrays to free memory., Rigidly move the aperture in space (rotation then translation).          Appli, Rigidly move the aperture in space (rotation then translation).          Appli, Rigidly move the aperture in space (rotation then translation).          Appli, Release cached geometry arrays to free memory., Release cached geometry arrays to free memory., Release cached geometry arrays to free memory.
+Cohesion: 0.25
+Nodes (3): A chunked dataset collapses to per-event RF by summing chunks., Partial chunk groups must not be summed into a half-event RF., TestRoundtrip
 
 ### Community 185 - "Community 185"
 Cohesion: 0.29
@@ -786,16 +803,16 @@ Cohesion: 0.47
 Nodes (3): _matrix_6x5(), Frozen matrix-array apodization profiles.  The MatrixArrayTransducer aperture, TestMatrixApodizationFrozen
 
 ### Community 187 - "Community 187"
-Cohesion: 0.18
+Cohesion: 0.17
 Nodes (17): compute_plane_extents(), infer_coords(), _infer_coords_from_planes(), parse_planes(), _PlaneMeta, PlaneSpec, Unified plane handling utilities for 2D and 3D pressure field plotting.  Singl, Infer missing coordinate arrays from plane shapes.      For each axis, finds a (+9 more)
 
 ### Community 189 - "Community 189"
-Cohesion: 0.17
-Nodes (17): plot3D_pressure_slices(), plot3D_pressure_vol(), 3D pressure field visualization using PyVista., Plot orthogonal XZ/XY/YZ slices of a 3D pressure field using PyVista.      Par, Plot orthogonal XZ/XY/YZ slices of a 3D pressure field using PyVista.      Par, Plot a 3D pressure field as a PyVista volume with bounding box and axes., create_2Dimage_mesh(), create_3Dvol_mesh() (+9 more)
+Cohesion: 0.15
+Nodes (21): Path, plot3D_pressure_slices(), plot3D_pressure_vol(), plot3D_transient_slices(), 3D pressure field visualization using PyVista., Plot orthogonal XZ/XY/YZ slices of a 3D pressure field using PyVista.      Par, Plot orthogonal XZ/XY/YZ slices of a 3D pressure field using PyVista.      Par, Plot transient pressure slices with PyVista time slider or video.      Accepts (+13 more)
 
 ### Community 190 - "Community 190"
-Cohesion: 0.21
-Nodes (13): _method_to_flag(), _next_pow2(), Emission: compute emitted acoustic pressure fields., Wrap with tqdm if importable, else return plain iterable., _wrap_tqdm(), from_sir_to_monochromatic_pressure(), from_sir_to_pressure(), _next_pow2() (+5 more)
+Cohesion: 0.15
+Nodes (13): _prep_pe_arrays(), Cast pulse-echo TX/RX patch arrays to float32 and pack their tangent frames., Cast pulse-echo TX/RX patch arrays to float32 and pack their tangent frames., Cast pulse-echo TX/RX patch arrays to float32 and pack their tangent frames., compute_pe_sdi(), compute_pe_sdi_summed(), Pulse-echo SDI: raw Δδ_pe = D²h_tx ⊛ D²h_rx via combined delta placement., Amplitude-weighted sum over scatterers of Δδ_pe → ``(T,)`` float32.      Equiv (+5 more)
 
 ### Community 191 - "Community 191"
 Cohesion: 0.25
@@ -874,28 +891,72 @@ Cohesion: 0.33
 Nodes (5): Example 11: CW Pressure Field with Tissue Attenuation, Key code, Output, Run it, What you will learn
 
 ### Community 210 - "Community 210"
+Cohesion: 0.20
+Nodes (10): check_valid_field_points(), create_3D_spatial_grid_from_points(), Extract or build a 3-D coordinate grid from user-supplied field points.      A, Extract or build a 3-D coordinate grid from user-supplied field points.      A, Extract or build a 3-D coordinate grid from user-supplied field points.      A, Validate and normalise ``field_points_mm`` to a standard form.      Accepts a, Extract or build a 3-D coordinate grid from user-supplied field points.      A, Validate and normalise ``field_points_mm`` to a standard form.      Accepts a (+2 more)
+
+### Community 213 - "Community 213"
+Cohesion: 0.33
+Nodes (5): aim_at_target(), float, ndarray, Example 19: Dual-Probe Pulse-Echo — transform() TX/RX + Reception show()  Pitch-, 4x4 transform: translate probe to `offset_x_mm` laterally, tilt about y     so t
+
+### Community 214 - "Community 214"
+Cohesion: 0.22
+Nodes (7): Pre-extract per-RX-element patch arrays., Pre-extract per-RX-element patch arrays., Pre-extract per-RX-element patch arrays., Pre-extract per-RX-element patch arrays., Receive patch groups feeding the per-element / per-line SIR.          ``focuse, Receive patch groups feeding the per-element / per-line SIR.          ``focuse, Receive patch groups feeding the per-element / per-line SIR.          ``focuse
+
+### Community 215 - "Community 215"
+Cohesion: 0.20
+Nodes (8): Normalise and validate positions + amplitudes, return (points_m, amps)., Normalise and validate positions + amplitudes, return (points_m, amps)., Normalise and validate positions + amplitudes, return (points_m, amps)., Normalise and validate positions + amplitudes, return (points_m, amps)., Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers)., Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers)., Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers)., Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers).
+
+### Community 216 - "Community 216"
 Cohesion: 0.40
-Nodes (4): Patch area in m² (same for all patches in a uniform grid).          Returns, Patch area in m² (same for all patches in a uniform grid).          Returns, Patch area in m² (same for all patches in a uniform grid).          Returns, Patch area in m² (same for all patches in a uniform grid).          Returns
+Nodes (4): On-disk data formats: checkpointed RF datasets., config_fingerprint(), Checkpointed on-disk RF dataset: one compressed file per TX event.  Long acquisi, Flatten a configuration dict into comparable strings.      Scalars and strings a
+
+### Community 217 - "Community 217"
+Cohesion: 0.16
+Nodes (10): sequence_rf(out_path=...) — checkpointed, resumable acquisition., Disk round-trip must return exactly the in-RAM sequence result., Re-running recomputes ONLY missing events, and the result is intact., Same folder + different scatterers must raise, never mix data., Splitting the cloud into 2 or 3 chunks must give the same RF.          The gri, Chunked RF must be the same waveform as the unchunked one.          The sentin, Losing one chunk file must cost exactly one chunk, not an event., pulse_echo_rf(out_path=...) must equal the direct call exactly.          The c (+2 more)
+
+### Community 218 - "Community 218"
+Cohesion: 0.28
+Nodes (7): Tests for pyfield.utilities.phantom.make_phantom., test_extents_as_array_and_bad_map(), test_map_sampling_zeroes_anechoic_half(), test_positions_inside_box_and_reproducible(), make_phantom(), Random scatterer phantoms for pulse-echo (speckle) simulation., Random scatterer cloud for a speckle phantom.      Tissue in pulse-echo simulati
+
+### Community 219 - "Community 219"
+Cohesion: 0.40
+Nodes (3): Human-readable status table (also returned as a string)., Human-readable status table (also returned as a string)., str
+
+### Community 220 - "Community 220"
+Cohesion: 0.22
+Nodes (7): sequence_rf with multiple TX events., sequence_rf with multiple TX events., TX delays/apod must be restored after sequence_rf., Each event reports its own beam-axis t0; first equals coords['t0']., TX delays/apod must be restored after sequence_rf., Each event reports its own beam-axis t0; first equals coords['t0']., TestReceptionSequence
+
+### Community 227 - "Community 227"
+Cohesion: 0.15
+Nodes (12): Shared base for the acoustic simulators (`Emission`, `Reception`, `ReceptionSDI`, Medium state + runtime config shared by every simulator.      Subclasses set `, Validate ``value`` against ``_SETTABLE[name]`` and assign it.          The sha, Effective excitation pulse: ``self.excitation`` else ``tx.excitation``., Split flat per-patch arrays into one tuple per element.          ``arrays`` is, SimulationBase, _focused_sum_rf(), pulse_echo_rf() (+4 more)
+
+### Community 228 - "Community 228"
+Cohesion: 0.17
+Nodes (10): Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Return uniform full-aperture apodization (all ones).          Mono-element tra, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu, Plot apodization weights as a line/stem chart.          For 2-D matrix transdu (+2 more)
+
+### Community 229 - "Community 229"
+Cohesion: 0.40
+Nodes (3): A crash mid-write leaves only a *.tmp file — never a valid event., A crash mid-write leaves only a *.tmp file — never a valid event., TestCrashSafety
 
 ## Knowledge Gaps
-- **562 isolated node(s):** `PreToolUse`, `allow`, `int`, `float32`, `float64` (+557 more)
+- **566 isolated node(s):** `PreToolUse`, `allow`, `float`, `ndarray`, `int` (+561 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **36 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **42 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `TransducerBase` connect `Community 50` to `Community 0`, `Community 4`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 152`, `Community 24`, `Community 28`, `Community 36`, `Community 170`, `Community 44`, `Community 184`, `Community 63`, `Community 72`, `Community 73`, `Community 210`, `Community 88`, `Community 105`?**
-  _High betweenness centrality (0.112) - this node is a cross-community bridge._
-- **Why does `compute_sub_elem_attributes()` connect `Community 104` to `Community 3`, `Community 168`, `Community 169`, `Community 13`, `Community 178`, `Community 55`, `Community 21`, `Community 23`, `Community 29`?**
+- **Why does `ReceptionSDI` connect `Community 61` to `Community 160`, `Community 161`, `Community 2`, `Community 131`, `Community 34`, `Community 166`, `Community 15`, `Community 220`, `Community 20`, `Community 23`, `Community 56`, `Community 217`, `Community 190`, `Community 30`, `Community 31`?**
+  _High betweenness centrality (0.118) - this node is a cross-community bridge._
+- **Why does `compute_sub_elem_attributes()` connect `Community 104` to `Community 67`, `Community 166`, `Community 168`, `Community 13`, `Community 178`, `Community 55`, `Community 21`, `Community 23`, `Community 29`?**
   _High betweenness centrality (0.105) - this node is a cross-community bridge._
-- **Why does `subdivide_parametric_surface()` connect `Community 55` to `Community 0`, `Community 29`?**
-  _High betweenness centrality (0.083) - this node is a cross-community bridge._
+- **Why does `TransducerBase` connect `Community 50` to `Community 0`, `Community 4`, `Community 36`, `Community 228`, `Community 7`, `Community 72`, `Community 9`, `Community 10`, `Community 11`, `Community 44`, `Community 170`, `Community 176`, `Community 181`, `Community 152`, `Community 24`, `Community 88`, `Community 28`, `Community 63`?**
+  _High betweenness centrality (0.086) - this node is a cross-community bridge._
+- **Are the 47 inferred relationships involving `ReceptionSDI` (e.g. with `ReceptionBase` and `Reception`) actually correct?**
+  _`ReceptionSDI` has 47 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 35 inferred relationships involving `TransducerBase` (e.g. with `bool` and `float`) actually correct?**
   _`TransducerBase` has 35 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 35 inferred relationships involving `ReceptionSDI` (e.g. with `ReceptionBase` and `Reception`) actually correct?**
-  _`ReceptionSDI` has 35 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 12 inferred relationships involving `Emission` (e.g. with `PyField` and `str`) actually correct?**
   _`Emission` has 12 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 10 inferred relationships involving `causal_attenuation_tf()` (e.g. with `.test_amplitude_decay_monotone_with_distance()` and `.test_amplitude_le_one()`) actually correct?**
-  _`causal_attenuation_tf()` has 10 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 5 inferred relationships involving `ReceptionBase` (e.g. with `SimulationBase` and `Reception`) actually correct?**
+  _`ReceptionBase` has 5 INFERRED edges - model-reasoned connections that need verification._

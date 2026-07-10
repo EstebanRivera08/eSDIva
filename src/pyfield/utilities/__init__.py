@@ -9,6 +9,7 @@ from .helper_functions import (
     to_dB,
 )
 from .matlab import explore_mat, mat_struct_fields, mat_struct_to_dict
+from .phantom import make_phantom
 from .surface_subdivision import subdivide_parametric_surface, subdivide_spherical_cap
 
 __all__ = [
@@ -19,6 +20,7 @@ __all__ = [
     "to_dB",
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",
+    "make_phantom",
     "subdivide_parametric_surface",
     "subdivide_spherical_cap",
     "reshape_to_mapped_points",
