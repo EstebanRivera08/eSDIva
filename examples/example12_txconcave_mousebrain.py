@@ -155,7 +155,7 @@ pl.camera.up = (0, 0, -1)
 pl.reset_camera()
 
 if SAVE_FIG:
-    pl.screenshot(str(FIG_FOLDER / "brain_mouse_scene.png"))
+    pl.screenshot(str(FIG_FOLDER / "ex12_brain_mouse_scene.png"))
 else:
     pl.show()
 

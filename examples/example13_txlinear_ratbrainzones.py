@@ -213,7 +213,7 @@ plotter.camera_position = [
 ]
 
 if SAVE_FIG:
-    plotter.screenshot(str(FIG_FOLDER / "rat_brain_zones.png"))
+    plotter.screenshot(str(FIG_FOLDER / "ex13_rat_brain_zones.png"))
 else:
     plotter.show()
 

@@ -6,6 +6,18 @@ on:
   pull_request:
 
 jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    env:
+      PYTHONUTF8: "1"           # numpydoc-validation needs UTF-8 (math symbols in docstrings)
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.12"
+      - run: uv sync
+      - run: uv run prek run --all-files
+
   test:
     strategy:
       fail-fast: false          # one red combo shouldn't cancel the others

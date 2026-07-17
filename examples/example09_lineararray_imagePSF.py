@@ -165,7 +165,7 @@ for s in SCATTERER_POS:
 plt.tight_layout()
 
 if SAVE_FIG:
-    figname = f"bmode_psf_FD{FOVERD}_{APOD_TYPE}.png"
+    figname = f"ex09_bmode_psf_FD{FOVERD}_{APOD_TYPE}.png"
     plt.savefig(str(FIG_FOLDER / figname), dpi=150)
     print(f"\nSaved to {FIG_FOLDER / figname}")
 

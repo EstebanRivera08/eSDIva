@@ -12,12 +12,12 @@ total focusing method (TFM) imaging.
 
 ## Output
 
-![FMC dataset overview](assets/reception_fmc.png)
+![FMC dataset overview](assets/ex08_reception_fmc.png)
 
 ## Run it
 
 ```bash
-uv run examples/example08_anotherreceptionexample.py
+uv run examples/example08_synthetic_aperture.py
 ```
 
 ## Key code
@@ -38,4 +38,4 @@ rf_fmc, coords = sim.synthetic_aperture_rf(scatterer_pos, scatterer_amp,
 # rf_fmc.shape = (E_tx, E_rx, Nt)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example08_anotherreceptionexample.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example08_synthetic_aperture.py)

@@ -14,7 +14,7 @@ happen inside the kernel, exactly like Field II's `calc_scat` loop.
 
 ## Output
 
-![B-mode PSF image](assets/bmode_psf_FD2_hanning.png)
+![B-mode PSF image](assets/ex09_bmode_psf_FD2_hanning.png)
 
 ## Run it
 

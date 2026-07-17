@@ -58,6 +58,9 @@ t_pulse = np.arange(0, PULSE_CYCLES / fc, 1.0 / FS)
 excitation = (np.sin(2 * np.pi * fc * t_pulse) * np.hanning(len(t_pulse))).astype(
     np.float32
 )
+# NOTE: no piezo impulse_response is set, so the elements are ideally
+# broadband (echo = drive convolved with the aperture SIRs only). Fine for an
+# API demo; for realistic imaging set tx/rx `.impulse_response` as in example20.
 
 # ============================================================================
 # STEP 3: DEFINE SCATTERERS
@@ -82,7 +85,7 @@ sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
 sim.show(
     scatterer_pos,
     scatterer_amp,
-    save_path=str(FIG_FOLDER / "reception_setup.png") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex07_reception_setup.png") if SAVE_FIG else None,
 )
 
 rf, coords = sim(scatterer_pos, scatterer_amp)
@@ -137,6 +140,6 @@ plt.suptitle(
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "reception_txfocus.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex07_reception_txfocus.png"), dpi=150)
 
 plt.show()

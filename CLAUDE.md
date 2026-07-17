@@ -26,7 +26,9 @@ of rectangular patches and computes pressure fields via convolution with excitat
 > `.claude/rules/coding-guidelines.md`.
 
 Guidelines load automatically from `.claude/rules/`:
-- **coding-guidelines** — code style, testing, commits (always loaded)
+- **coding-guidelines** — code style, testing, commits, **doubt-driven development**
+  (never assert an untested physical cause; run the doubt cycle on non-trivial
+  physics/diagnosis claims) (always loaded)
 - **physics-context** — SIR/SDI theory (loaded when touching `hsir/`, `emission/`, `reception/`, `transducers/`)
 - **transducers** — geometry conventions, subdivision, z-convention (loaded when touching `transducers/`)
 - **attenuation** — power-law attenuation (loaded when touching attenuation code)
@@ -71,8 +73,8 @@ under `[project.theme]`.
 5. **`src/pyfield/attenuation/`** — Power-law attenuation transfer functions.
 6. **`src/pyfield/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
 7. **`src/pyfield/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
-8. **`src/pyfield/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_dw_volume` (numba 3-D DAS for diverging-wave / virtual-source sequences, coherent compounding; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`.
-9. **`src/pyfield/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `manifest.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`).
+8. **`src/pyfield/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_dw_volume` (numba 3-D DAS for diverging-wave / virtual-source sequences, coherent compounding; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed), `envelope_db`.
+9. **`src/pyfield/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`).
 
 ### Key Design Patterns
 
@@ -181,6 +183,24 @@ psf, coords = sim.pulse_echo_rf(pts, per_scatterer=True)               # (P, Erx
 env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
                                  apodization_type="hanning")           # (Nt,) one B-mode line
 ```
+
+**Imaging-study checklist** (full recipe + measured evidence:
+[`ARCHITECTURE.md` § Imaging Simulation Recipe](ARCHITECTURE.md#imaging-simulation-recipe-phantom--sequence-studies)):
+
+1. Set `tx.impulse_response` AND `rx.impulse_response` (2-cycle burst at fc), bare
+   drive — skipping IRs widens the PSF ~60 % and raises sidelobe clutter (aperture
+   diffraction tails dominate the spectrum). RF-checkpoint fingerprint does NOT
+   cover IRs: delete the RF folder after changing the pulse model.
+2. Derive PW/DW virtual sources per probe from the coverage rule (every volume
+   corner inside every event's cone) — never copy a VS layout between probes.
+3. Phantom: ≥5–10 scatterers per resolution cell (cell ~λ³), anechoic targets
+   ≥3 PSF radii, wires dim (+10 dB) and far from contrast targets.
+4. Preview (`sim.show`) + one-event speckle check BEFORE the long run.
+5. Beamform: `das_volume` auto-applies `pulse_center_lag_s` and recovers each
+   event's delay reference; rect RX apodization (element directivity already
+   tapers); RCA bars → `das_rca_volume`.
+6. Metrics: TGC from speckle-only, PSF-scaled ROIs/margins (λz/D units, not mm),
+   plain DAS numbers (CF only as ceiling), ~30 dB display window.
 
 **Visualize**: `plot2D_pressure_slices(p, coords=coords, db_scale=True)` (mono 3D or
 transient 4D); `plot2D_transient_slices(...)` for transient planes.

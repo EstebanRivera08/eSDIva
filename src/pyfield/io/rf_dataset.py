@@ -3,7 +3,7 @@
 Long acquisition sequences (many TX events, each seconds-to-minutes of
 simulation) must survive a crash without restarting from zero. `RFDataset`
 stores each event's per-channel RF as an independent compressed ``.npz``
-file next to a ``manifest.json`` that records what was simulated (a
+file next to a ``contents.json`` that records what was simulated (a
 fingerprint of the probe, medium, excitation, scatterers and TX events) and
 which events completed. Re-opening the same folder with the same
 configuration resumes: completed events are skipped, only missing ones are
@@ -12,7 +12,7 @@ exactly which settings changed — a half-matching dataset is never silently
 mixed with new data.
 
 Every write is atomic (written to a temporary file, then renamed), so a
-crash mid-event never corrupts an already-completed event or the manifest.
+crash mid-event never corrupts an already-completed event or the contents file.
 """
 
 from __future__ import annotations
@@ -27,7 +27,7 @@ from typing import Any
 
 import numpy as np
 
-_MANIFEST = "manifest.json"
+_CONTENTS = "contents.json"
 _EVENT_FMT = "rf_event_{:04d}.npz"
 
 
@@ -36,7 +36,7 @@ def config_fingerprint(config: dict) -> dict:
 
     Scalars and strings are kept as ``repr``; numpy arrays are replaced by a
     SHA-256 digest of their raw bytes plus shape/dtype, so two runs match iff
-    every array is bit-identical. The result is what ``manifest.json`` stores
+    every array is bit-identical. The result is what ``contents.json`` stores
     and what resume compares against.
 
     Parameters
@@ -88,7 +88,7 @@ def _atomic_write_bytes(path: Path, data: bytes) -> None:
 
 
 class RFDataset:
-    """Resumable folder of per-event RF files with a JSON manifest.
+    """Resumable folder of per-event RF files with a JSON contents file.
 
     Parameters
     ----------
@@ -108,38 +108,38 @@ class RFDataset:
     ------
     ValueError
         If ``config`` differs from the fingerprint stored in an existing
-        manifest, or if a new dataset is created without ``config``.
+        contents file, or if a new dataset is created without ``config``.
     """
 
-    _manifest: dict[str, Any]
+    _contents: dict[str, Any]
 
     def __init__(self, path, config: dict | None = None, *, meta: dict | None = None):
         self.path = Path(path)
         self.path.mkdir(parents=True, exist_ok=True)
-        self._manifest_path = self.path / _MANIFEST
+        self._contents_path = self.path / _CONTENTS
 
-        if self._manifest_path.exists():
-            self._manifest = json.loads(self._manifest_path.read_text())
+        if self._contents_path.exists():
+            self._contents = json.loads(self._contents_path.read_text())
             if config is not None:
                 self._check_fingerprint(config_fingerprint(config))
         else:
             if config is None:
                 raise ValueError(
-                    f"No manifest in {self.path} — pass `config` to create a "
+                    f"No contents file in {self.path} — pass `config` to create a "
                     f"new dataset (or point to an existing one)."
                 )
-            self._manifest = {
+            self._contents = {
                 "version": 1,
                 "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "fingerprint": config_fingerprint(config),
                 "meta": meta or {},
                 "events": {},
             }
-            self._save_manifest()
+            self._save_contents()
 
     # ------------------------------------------------------------------
     def _check_fingerprint(self, new: dict) -> None:
-        old = self._manifest["fingerprint"]
+        old = self._contents["fingerprint"]
         diffs = [
             f"  {k}: stored={old.get(k, '<missing>')}  now={new.get(k, '<missing>')}"
             for k in sorted(set(old) | set(new))
@@ -153,23 +153,23 @@ class RFDataset:
                 + "\nUse a new output folder (or delete this one) to re-simulate."
             )
 
-    def _save_manifest(self) -> None:
+    def _save_contents(self) -> None:
         _atomic_write_bytes(
-            self._manifest_path, json.dumps(self._manifest, indent=1).encode()
+            self._contents_path, json.dumps(self._contents, indent=1).encode()
         )
 
     # ------------------------------------------------------------------
     @property
     def meta(self) -> dict:
         """Free-form info stored at creation."""
-        return self._manifest["meta"]
+        return self._contents["meta"]
 
     @property
     def completed(self) -> list[int]:
         """Sorted indices of events whose file exists and is recorded done."""
         return sorted(
             int(k)
-            for k, ev in self._manifest["events"].items()
+            for k, ev in self._contents["events"].items()
             if (self.path / ev["file"]).exists()
         )
 
@@ -188,7 +188,7 @@ class RFDataset:
         dt : float
             Sample period (s).
         **info
-            Extra JSON-serializable fields recorded in the manifest
+            Extra JSON-serializable fields recorded in the contents file
             (e.g. ``duration_s=12.3``).
         """
         rf = np.asarray(rf, dtype=np.float32)
@@ -203,7 +203,7 @@ class RFDataset:
             raise
 
         digest = hashlib.sha256((self.path / fname).read_bytes()).hexdigest()
-        self._manifest["events"][str(idx)] = {
+        self._contents["events"][str(idx)] = {
             "file": fname,
             "sha256": digest,
             "shape": list(rf.shape),
@@ -212,7 +212,7 @@ class RFDataset:
             "completed": datetime.now(timezone.utc).isoformat(timespec="seconds"),
             **info,
         }
-        self._save_manifest()
+        self._save_contents()
 
     def read_event(self, idx: int, *, verify: bool = False):
         """Load one event's RF.
@@ -222,7 +222,7 @@ class RFDataset:
         idx : int
             TX event index.
         verify : bool, default False
-            Re-hash the file and compare with the manifest checksum.
+            Re-hash the file and compare with the contents file checksum.
 
         Returns
         -------
@@ -233,11 +233,11 @@ class RFDataset:
         Raises
         ------
         KeyError
-            If the event is not in the manifest.
+            If the event is not in the contents file.
         ValueError
             If ``verify`` is True and the checksum does not match.
         """
-        ev = self._manifest["events"][str(idx)]
+        ev = self._contents["events"][str(idx)]
         fpath = self.path / ev["file"]
         if verify:
             digest = hashlib.sha256(fpath.read_bytes()).hexdigest()
@@ -262,7 +262,9 @@ class RFDataset:
         rf : (N_events, Erx, Nt) numpy.ndarray
             Per-event, per-channel RF (float32).
         coords : dict
-            ``"t0"``/``"dt"`` of the first event plus ``"t0_per_event"``.
+            ``"t0"``/``"dt"`` of the first event plus ``"t0_per_event"`` and,
+            when recorded at write time, the ``"pulse_center_lag_s"`` two-way
+            pulse lag the beamformer applies as its ``t_offset_s``.
 
         Raises
         ------
@@ -300,11 +302,18 @@ class RFDataset:
                 )
             rf_all = rf_all.reshape(-1, chunks, n_rx, nt).sum(axis=1)
             t0s = t0g[:, 0]
-        return rf_all, {
+        coords = {
             "t0": t0s[0],
             "dt": events[0][2],
             "t0_per_event": t0s,
         }
+        # The pulse-centre lag depends only on the pulse model and fs (not the
+        # phantom), so it is identical for every event; recover it from the
+        # first event's metadata and pass it on for the beamformer's t_offset.
+        lag = self._contents["events"][str(idxs[0])].get("pulse_center_lag_s")
+        if lag is not None:
+            coords["pulse_center_lag_s"] = float(lag)
+        return rf_all, coords
 
     # ------------------------------------------------------------------
     def summary(self) -> str:
@@ -313,12 +322,12 @@ class RFDataset:
         done = self.completed
         lines = [
             f"RFDataset {self.path}",
-            f"  created  : {self._manifest['created']}",
+            f"  created  : {self._contents['created']}",
             f"  completed: {len(done)}"
             + (f" / {n_target}" if n_target is not None else ""),
         ]
         for i in done:
-            ev = self._manifest["events"][str(i)]
+            ev = self._contents["events"][str(i)]
             dur = ev.get("duration_s")
             lines.append(
                 f"    event {i:4d}  {ev['file']}  shape={tuple(ev['shape'])}"

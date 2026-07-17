@@ -4,6 +4,17 @@ Practical lessons from building this case study. Every item below cost at
 least one wasted acquisition or a day of head-scratching. Check them before
 designing a new simulation; come back when an image looks wrong.
 
+> **Correction (2026-07-17).** A rerun of the 10 MHz zeus scenario produced
+> good volume images at 2λ pitch. The earlier attributions of the zeus10
+> image degradation — to 2λ-pitch grating-lobe aliasing and to the
+> impulse-response handling — were stated before discriminating tests had
+> excluded the alternatives, and the rerun falsified both; the pitch-aliasing
+> claims have been removed from this file and the README. Read §1 as a real,
+> measured impulse-response effect, but not as the cause of that dataset's
+> problems; the verified cause of the original degradation is still to be
+> documented. Meta-lesson: never write a causal physics claim into a report
+> without the experiment that discriminates it from the alternatives.
+
 ## 1. Set the transducer impulse response — always
 
 A physical probe band-passes the signal **twice** through its piezo impulse
@@ -41,17 +52,11 @@ edges**. Three rules follow:
    side. Violating this doesn't fail loudly — the deep/lateral parts of the
    volume are simply missing from some events, and the image shows depth-
    dependent brightness banding and contrast that refuses to make sense.
-2. **Steep wavefronts feed grating lobes.** The closer the source, the more
-   obliquely its wavefront crosses the outer elements. Harmless at fine
-   pitch (≤ 1λ); at coarse pitch (the same probe driven at a higher
-   frequency) every extra degree of obliquity pushes more spatially aliased
-   energy into the image. Coarse pitch ⇒ keep the sources far and the tilts
-   small.
-3. **Tilt saturates.** Compounding narrows the synthesized transmit focus
+2. **Tilt saturates.** Compounding narrows the synthesized transmit focus
    only until the transmit tilt span matches the aperture's own half-angle;
    beyond that, extra sources only grind down the sidelobe pedestal (~1/N).
    A small aperture over a wide, deep volume therefore cannot buy much
-   transmit focusing — rule 1 caps the tilt long before rule 3 does.
+   transmit focusing — rule 1 caps the tilt long before rule 2 does.
 
 Consequence: **derive the sources from the rules for each probe and volume;
 never copy a layout between probes.** Two probes are comparable when both
@@ -112,8 +117,11 @@ run at their own coverage limit, not when they share coordinates.
   0.52 mm (full-aperture rect) on the same RF. Default here: `fnum=0.5`,
   `rx_apodization="rect"`.
 - **Pulse-centre lag.** A band-limited pulse peaks ~half its length after
-  the geometric arrival; pass that lag as `t_offset_s` or the whole image
-  is biased deep (here: `3(L−1)/2/fs` for the drive ⊛ TX-IR ⊛ RX-IR chain).
+  the geometric arrival, biasing the whole image deep. The reception now
+  computes this lag (`(L_drive + L_TX-IR + L_RX-IR − 2 − 1)/2/fs`) from the
+  drive ⊛ TX-IR ⊛ RX-IR chain and stores it in `coords["pulse_center_lag_s"]`;
+  `das_volume` applies it automatically as `t_offset_s` (pass an explicit
+  `t_offset_s=` only to override).
 - **Delay-reference conventions bite.** Whether delays are referenced to
   the earliest or latest element changes the transmit time origin by
   `(d_max − d_min)/c` — enough to misplace a point by a millimetre.
@@ -131,7 +139,7 @@ run at their own coverage limit, not when they share coordinates.
 | Point wider than λz/D, timing exact | missing impulse responses (§1) | received spectrum centroid |
 | Sidelobe arcs across the frame | impulse responses (§1) or a too-bright wire (§3) | spectrum; wire amplitude |
 | Brightness bands vs depth, contrast nonsensical | coverage rule violated (§2) | per-event cone vs volume corners |
-| Anechoic target filled, lesions fine | clutter floor: grating lobes (coarse pitch) or sidelobe skirt | pitch/λ; CF as diagnostic (rejects incoherent skirt, passes grating) |
+| Anechoic target filled, lesions fine | clutter floor (e.g. sidelobe skirt) | received spectrum; CF as diagnostic (rejects incoherent skirt, passes coherent clutter) |
 | Anechoic target filled, ~PSF-sized | resolution, not clutter (§3) | enlarge target or aperture |
 | Compound ≈ single event | usually masked by speckle, not broken | isolated-point run; per-event phase at a wire voxel |
 | Point misplaced ~1 mm | delay-reference convention (§5) | one 0° plane wave — no convention can hide |

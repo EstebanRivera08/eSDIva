@@ -146,7 +146,7 @@ plt.suptitle(
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "intensities_peak_pressure.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex10_intensities_peak_pressure.png"), dpi=150)
     print(f"Saved to {FIG_FOLDER / 'intensities_peak_pressure.png'}")
 
 plt.show()

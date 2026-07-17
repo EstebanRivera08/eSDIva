@@ -152,6 +152,18 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     Pitch-catch: a second array tilted 30° with `transform()` receives from an oblique angle. Setup previewed with `sim.show()`.
 
+-   :lucide-circle-dot-dashed: **[20. Speckle Phantom B-mode](example20_phantom_simulation.md)**
+
+    ---
+
+    `make_phantom` cyst phantom, piezo impulse response set, focused B-mode line-by-line with `scan_focusline`.
+
+-   :lucide-box: **[21. Volumetric Case Study](example21_rca_volume.md)**
+
+    ---
+
+    Full pipeline: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics.
+
 </div>
 
 ---
@@ -160,6 +172,6 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
 | Examples | Requirements |
 |----------|-------------|
-| 1–11, 16–19 | Core PyField installation |
+| 1–11, 16–21 | Core PyField installation |
 | 12–13 | `brainglobe-atlasapi` (atlas data downloaded on first run) |
 | 14–15 | `Petri_dish.stl` placed in `examples/` |

@@ -128,7 +128,7 @@ plotter = plot3D_transient_slices(
     time_array=t,
     db_scale=True,
     save_path=str(FIG_FOLDER) if SAVE_FIG else None,
-    file_name="matrix_pw_3d.mp4",
+    file_name="ex05_matrix_pw_3d.mp4",
 )
 
 del plotter

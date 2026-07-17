@@ -86,6 +86,7 @@ from pyfield.hsir.transducer_sir_pe_sdi import (
 )
 
 from pyfield.utilities.helper_functions import (
+    eta_progress as _eta_progress,
     next_pow2 as _next_pow2,
     wrap_tqdm as _wrap_tqdm,
 )
@@ -656,6 +657,11 @@ class ReceptionSDI(ReceptionBase):
             if s["show"]
             else range(s["n_out"])
         )
+        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # (tqdm already shows progress in verbose mode).
+        el_iter = _eta_progress(
+            el_iter, s["n_out"], label="RX elements", progress=not s["show"]
+        )
         rf = np.zeros((P, s["n_out"], pe_T), dtype=np.float32)
         for e_rx in el_iter:
             h_rx = self._spectral_h_rx(s, e_rx, points_m, omega_band, dt, atten_kw)
@@ -929,6 +935,11 @@ class ReceptionSDI(ReceptionBase):
             )
             if s["show"]
             else range(s["n_out"])
+        )
+        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # (tqdm already shows progress in verbose mode).
+        el_iter = _eta_progress(
+            el_iter, s["n_out"], label="RX elements", progress=not s["show"]
         )
         for e_rx in el_iter:
             rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = s["rx_groups"][e_rx]

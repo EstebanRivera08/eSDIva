@@ -110,6 +110,9 @@ t_pulse = np.arange(0, PULSE_CYCLES / fc, 1.0 / FS)
 excitation = (np.sin(2 * np.pi * fc * t_pulse) * np.hanning(len(t_pulse))).astype(
     np.float32
 )
+# NOTE: no piezo impulse_response is set, so the elements are ideally
+# broadband (echo = drive convolved with the aperture SIRs only). Fine for an
+# API demo; for realistic imaging set tx/rx `.impulse_response` as in example20.
 
 # The simulator snapshots both apertures at construction, AFTER the moves.
 sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
@@ -117,7 +120,7 @@ sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
 
 if SAVE_FIG:
     scale = SCALE  # higher-res screenshot: scales window + all fonts together
-    save_path = str(FIG_FOLDER / "dualprobe_setup.png")
+    save_path = str(FIG_FOLDER / "ex19_dualprobe_setup.png")
 else:
     scale = 1.0
     save_path = None
@@ -173,7 +176,7 @@ ax.set_title(f"Pitch-catch RF — piston TX / array RX, ±{tilt_deg:.0f}° tilt"
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "dualprobe_rf.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex19_dualprobe_rf.png"), dpi=150)
 
 plt.show()
 

@@ -23,7 +23,6 @@ dependencies = [
     "matplotlib>=3.10.1",
     "numba>=0.65.0",
     "numpy>= 2.1.2",
-    "pyqt5-qt5 >= 5.15.2",
     "pyvista[jupyter]>=0.45.0",
     "scipy>=1.15.2",
 ]

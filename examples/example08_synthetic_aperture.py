@@ -9,14 +9,12 @@ FMC is the base for synthetic aperture (SA) and total focusing method (TFM)
 imaging.
 
 Run with:
-    uv run examples/example08_anotherreceptionexample.py
+    uv run examples/example08_synthetic_aperture.py
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
-
 from config import FIG_FOLDER, SAVE_FIG
-
 from pyfield.reception import ReceptionSDI
 from pyfield.transducers import LinearArrayTransducer
 
@@ -52,6 +50,9 @@ excitation = (np.sin(2 * np.pi * fc * t_pulse) * np.hanning(len(t_pulse))).astyp
     np.float32
 )
 tx.excitation = excitation
+# NOTE: no piezo impulse_response is set, so the elements are ideally
+# broadband (echo = drive convolved with the aperture SIRs only). Fine for an
+# API demo; for realistic imaging set tx/rx `.impulse_response` as in example20.
 
 print(f"Array: {tx.n_elements} elements, fc = {fc / 1e6:.1f} MHz")
 
@@ -133,6 +134,6 @@ plt.suptitle(f"Full Matrix Capture: {E_tx}×{E_rx} = {E_tx * E_rx} (TX, RX) pair
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "reception_fmc.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex08_reception_fmc.png"), dpi=150)
 
 plt.show()

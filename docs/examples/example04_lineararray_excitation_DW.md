@@ -14,7 +14,7 @@ spatio-temporal pressure field is computed and animated.
 
 ## Output
 
-![Diverging-wave transient propagation](assets/dw_transient.gif)
+![Diverging-wave transient propagation](assets/ex04_dw_transient.gif)
 
 ## Run it
 

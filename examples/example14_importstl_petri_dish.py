@@ -61,7 +61,7 @@ plotter1.camera_position = "iso"
 plotter1.add_text("14a: Simple STL Visualisation", position="upper_edge")
 
 if SAVE_FIG:
-    plotter1.screenshot(str(FIG_FOLDER / "stl_simple.png"))
+    plotter1.screenshot(str(FIG_FOLDER / "ex14_stl_simple.png"))
 else:
     plotter1.show()
 
@@ -94,7 +94,7 @@ plotter2.camera_position = "iso"
 plotter2.add_text("14b: Multiple STL Objects", position="upper_edge")
 
 if SAVE_FIG:
-    plotter2.screenshot(str(FIG_FOLDER / "stl_multiple.png"))
+    plotter2.screenshot(str(FIG_FOLDER / "ex14_stl_multiple.png"))
 else:
     plotter2.show()
 
@@ -122,7 +122,7 @@ plotter3.camera_position = "iso"
 plotter3.add_text("14c: Custom Lighting & Materials", position="upper_edge")
 
 if SAVE_FIG:
-    plotter3.screenshot(str(FIG_FOLDER / "stl_lighting.png"))
+    plotter3.screenshot(str(FIG_FOLDER / "ex14_stl_lighting.png"))
 else:
     plotter3.show()
 

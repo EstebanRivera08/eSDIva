@@ -6,9 +6,6 @@ the sphere's elevation. Right: C-plane at the tier depth. Then two 3-D scenes:
 1. the setup — probe drawn in the transmit colour + scatterer cloud (faded by
    amplitude) + the virtual sources (same first view as
    ``visualize_beamformed_volume``), to check the acquisition geometry;
-2. the phantom itself, drawn per ``PHANTOM_PREVIEW_OPTION``:
-     "bmode"  → the echogenicity map rendered as a gray volume with sigmoid
-                opacity (the whole volume coloured, like the beamformed image);
      "shapes" → the true target geometry as translucent solids (cyan =
                 anechoic void, gold = x4 hyperechoic, red = the PSF wires).
 
@@ -25,7 +22,6 @@ import pyvista as pv
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 sys.path.insert(0, str(Path(__file__).parent))
-from config import SCALE
 from step1_define_phantom_TX_RX import (
     FIG_DIR,
     FS,
@@ -38,19 +34,17 @@ from step1_define_phantom_TX_RX import (
 )
 
 from pyfield.plotting.plotting_pyvista import add_transducer_mesh
-from pyfield.plotting.pyvista_functions import create_3Dvol_mesh
 from pyfield.reception import ReceptionSDI
 
 # "bmode"  = phantom truth as a gray volume (sigmoid opacity, whole volume).
 # "shapes" = the target geometry drawn as translucent solids.
 SAVE_FIG = True
-PHANTOM_PREVIEW_OPTION = "bmode"
-
+SCALE = 5
 # High-resolution screenshots: scale window size + fonts by SCALE when saving.
 scale = SCALE if SAVE_FIG else 1
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 VOLUME = SC["volume"]
-DB_RANGE = 30  # display range of the gray "bmode" phantom volume
+DB_RANGE = 25  # display range of the gray "bmode" phantom volume
 VOL_STRIDE = 2  # step down the volume for the semi-transparent render only
 (sx, sy, sz), sr, _ = SC["spheres"][0]
 
@@ -84,7 +78,7 @@ for ax, iy, title in [
     ax.set(title=title, xlabel="x (mm)", ylabel="z (mm)")
 # The axial wire (along z at y=0) crosses the lateral wires: dotted line in
 # the y=0 panel only.
-axs[0].axvline(SC["wire_x"], color="r", lw=0.8, ls=":")
+# axs[0].axvline(SC["wire_x"], color="r", lw=0.8, ls=":")
 axs[2].imshow(
     truth[:, :, iz0].T,
     origin="lower",
@@ -94,16 +88,16 @@ axs[2].imshow(
     extent=[x[0], x[-1], y[0], y[-1]],
     aspect="equal",
 )
-axs[2].plot(SC["wire_x"], 0, "r+", ms=12, mew=2)
+# axs[2].plot(SC["wire_x"], 0, "r+", ms=12, mew=2)
 axs[2].axvline(SC["wire_x"], color="r", lw=0.6, ls=":")
 axs[2].set(title=f"C-plane z = {SC['tier_z']:g} mm", xlabel="x (mm)", ylabel="y (mm)")
 fig.suptitle(f"'{SCENARIO}' contrast-ladder phantom (wires marked red)")
 plt.savefig(
-    str(FIG_DIR / f"{SCENARIO}_phantom_preview.png"),
+    str(FIG_DIR / f"ex21_{SCENARIO}_phantom_preview.png"),
     dpi=150 * scale,
     bbox_inches="tight",
 )
-print(f"saved {FIG_DIR / f'{SCENARIO}_phantom_preview.png'}")
+print(f"saved {FIG_DIR / f'ex21_{SCENARIO}_phantom_preview.png'}")
 if not SAVE_FIG:
     plt.show()
 
@@ -119,20 +113,21 @@ sim = ReceptionSDI(
     excitation=excitation(SC["fc"]),
     verbose=False,
 )
-a = np.abs(amp)
+a = amp / amp.max()  # normalise to 1 for the opacity mapping
+
 plotter = sim.show(
     pos,
-    amp,
-    TX_color="red",
-    RX_color="red",
+    a,
+    TX_color="blue",
+    RX_color="blue",
     legend=False,
     point_size=4 * scale,
-    opacity=2 * a / a.max(),
+    clim=[-DB_RANGE, 0],
     window_size=[450, 850],  # sim.show scales this by `scale` internally
     scale=scale,
     off_screen=SAVE_FIG,
     return_plotter=True,
-    show_scalar_bar=False,
+    show_scalar_bar=True,
 )
 plotter.show_grid(
     xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)", font_size=10 * scale
@@ -140,110 +135,77 @@ plotter.show_grid(
 # The virtual sources are geometric points behind the aperture (z < 0) from
 # which each transmitted wavefront diverges — drawn solid to check the layout.
 for vs in SC["vs_mm"]:
-    plotter.add_mesh(pv.Sphere(radius=0.2, center=vs), color="crimson")
+    plotter.add_mesh(pv.Sphere(radius=0.4, center=vs), color="crimson")
 plotter.view_xz()
 plotter.camera.up = (0.0, 0.0, -1.0)
 plotter.camera.azimuth = 30
 plotter.camera.elevation = -15
 # position for zeus
 plotter.camera_position = [
-    (39.09751972129582, 50.93699802592447, -16.591696396327755),
-    (-0.9367914315011179, 1.3370438575029902, 5.108425619304138),
-    (-0.14975158146514783, -0.29235554657555995, -0.9445118835860102),
+    (40.63782866542591, 131.19717103289818, 49.756366861746656),
+    (-0.8574287778690786, 2.7018981147572134, -1.231694034516682),
+    (-0.0002597194219193105, 0.36890467737773347, -0.9294671976754493),
 ]
 
 if SAVE_FIG:
-    plotter.show(screenshot=str(FIG_DIR / f"{SCENARIO}_phantom_setup.png"))
-    print(f"saved {FIG_DIR / f'{SCENARIO}_phantom_setup.png'}")
+    plotter.show(screenshot=str(FIG_DIR / f"ex21_{SCENARIO}_phantom_setup.png"))
+    print(f"saved {FIG_DIR / f'ex21_{SCENARIO}_phantom_setup.png'}")
 else:
     plotter.show()
     print(plotter.camera_position)
 
 
 # --- 3-D scene 2: the phantom, "bmode" volume or "shapes" solids -----------------
-plotter = pv.Plotter(window_size=[450 * scale, 850 * scale], off_screen=SAVE_FIG)
+plotter = pv.Plotter(window_size=[380 * scale, 780 * scale], off_screen=SAVE_FIG)
 add_transducer_mesh(probe.get_mesh(), plotter=plotter, color="blue", scale=scale)
-if PHANTOM_PREVIEW_OPTION == "bmode":
-    # Render the echogenicity map itself as a gray volume with sigmoid opacity
-    # — the whole volume coloured, previewing how the beamformed image will
-    # look (background speckle level ~1, cyst 0 = hollow, targets 2/4 bright).
-    s = VOL_STRIDE
-    vol_mesh = create_3Dvol_mesh(
-        truth[::s, ::s, ::s], x[::s], y[::s], z[::s], scalars="Echogenicity"
-    )
-    plotter.add_volume(
-        vol_mesh,
-        scalars="Echogenicity",
-        mapper="smart",
-        cmap="binary",
-        clim=[0.0, float(truth.max())],
-        opacity="sigmoid_5",
-        show_scalar_bar=False,
-    )
-    out_name = f"{SCENARIO}_phantom_bmode.png"
-    camera_position = [
-        (43.474628723952144, 47.643673003967955, -16.55362396862013),
-        (-1.0360535625373353, 0.7599275771250416, 11.539659029638376),
-        (-0.2478784834608399, -0.3138685741059654, -0.9165384747111506),
-    ]
-elif PHANTOM_PREVIEW_OPTION == "shapes":
-    # The true target geometry as translucent solids over a faint scatterer
-    # cloud: cyan = anechoic void, gold = x4 hyperechoic, red = the PSF wires.
+
+# Wireframe cube marking the extent of the beamformed volume.
+plotter.add_mesh(
+    pv.Box(bounds=(*VOLUME["x_extent"], *VOLUME["y_extent"], *VOLUME["z_extent"])),
+    style="wireframe",
+    color="black",
+    line_width=scale,
+)
+
+# The true target geometry as translucent solids over a faint scatterer
+# cloud: cyan = anechoic void, gold = x4 hyperechoic, red = the PSF wires.
+# plotter.add_mesh(
+#     pv.PolyData(pos),
+#     color="white",
+#     point_size=1.5 * scale,
+#     opacity=0.06,
+#     show_scalar_bar=False,
+# )
+y_len = np.ptp(VOLUME["y_extent"])
+for (cx, cz), r, gain in SC["tubes"]:
+    cyl = pv.Cylinder(center=(cx, 0, cz), direction=(0, 1, 0), radius=r, height=y_len)
     plotter.add_mesh(
-        pv.PolyData(pos),
-        color="white",
-        point_size=1.5 * scale,
-        opacity=0.06,
-        show_scalar_bar=False,
+        cyl,
+        color="cyan" if gain == 0 else "gold",
+        opacity=0.25 if gain == 0 else 0.5,
     )
-    y_len = np.ptp(VOLUME["y_extent"])
-    for (cx, cz), r, gain in SC["tubes"]:
-        cyl = pv.Cylinder(
-            center=(cx, 0, cz), direction=(0, 1, 0), radius=r, height=y_len
-        )
-        plotter.add_mesh(
-            cyl,
-            color="cyan" if gain == 0 else "gold",
-            opacity=0.25 if gain == 0 else 0.5,
-        )
-    plotter.add_mesh(
-        pv.Sphere(radius=sr, center=(sx, sy, sz)), color="gold", opacity=0.7
-    )
-    for zw in SC["wire_z"]:
-        plotter.add_mesh(
-            pv.Cylinder(
-                center=(SC["wire_x"], 0, zw),
-                direction=(0, 1, 0),
-                radius=0.08,
-                height=y_len,
-            ),
-            color="red",
-        )
-    # The axial wire (along z at y=0), crossing the lateral wires.
-    z0w, z1w = VOLUME["z_extent"]
+plotter.add_mesh(pv.Sphere(radius=sr, center=(sx, sy, sz)), color="gold", opacity=0.7)
+for zw in SC["wire_z"]:
     plotter.add_mesh(
         pv.Cylinder(
-            center=(SC["wire_x"], 0, (z0w + z1w) / 2),
-            direction=(0, 0, 1),
+            center=(SC["wire_x"], 0, zw),
+            direction=(0, 1, 0),
             radius=0.08,
-            height=z1w - z0w,
+            height=y_len,
         ),
         color="red",
     )
-    # The virtual sources are geometric points behind the aperture (z < 0) from
-    # which each transmitted wavefront diverges — drawn solid to check the layout.
-    for vs in SC["vs_mm"]:
-        plotter.add_mesh(pv.Sphere(radius=0.2, center=vs), color="crimson")
-    out_name = f"{SCENARIO}_phantom_cloud.png"
-    camera_position = [
-        (43.474628723952144, 47.643673003967955, -16.55362396862013),
-        (-1.0360535625373353, 0.7599275771250416, 11.539659029638376),
-        (-0.2478784834608399, -0.3138685741059654, -0.9165384747111506),
-    ]
-else:
-    raise ValueError(
-        f"PHANTOM_PREVIEW_OPTION must be 'bmode' or 'shapes', got {PHANTOM_PREVIEW_OPTION!r}"
-    )
+# The virtual sources are geometric points behind the aperture (z < 0) from
+# which each transmitted wavefront diverges — drawn solid to check the layout.
+for vs in SC["vs_mm"]:
+    plotter.add_mesh(pv.Sphere(radius=0.4, center=vs), color="tab:orange")
+out_name = f"ex21_{SCENARIO}_phantom_cloud.png"
+camera_position = [
+    (101.5990890436286, 87.60383065018787, -66.54554346152524),
+    (-5.145975499997907, -1.7513725932338637, -7.797357875559309),
+    (-0.266881958903478, -0.2862124408688282, -0.9202480419450778),
+]
+
 plotter.show_grid(
     xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)", font_size=10 * scale
 )
@@ -259,4 +221,4 @@ else:
     plotter.show()
     print(plotter.camera_position)
 
-del plotter
+del plotter, cyl

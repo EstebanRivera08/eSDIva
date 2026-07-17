@@ -47,8 +47,6 @@ PLANE = {
     "dz": 0.05,
 }
 
-FIGSIZE = (10, 5)
-
 print("\n--- Example 11: CW Pressure Field with Attenuation ---\n")
 print("Field II parallel: example_lineararray_attenuation_monochromatic_CW.m")
 
@@ -101,33 +99,50 @@ plot2D_pressure_slices(
     p_water,
     coords=coords,
     db_scale=True,
-    figsize=FIGSIZE,
     vmin=-40,
     title="Water — no attenuation",
     save_path=str(FIG_FOLDER) if SAVE_FIG else None,
-    file_name="attenuation_water.png",
+    file_name="ex11_attenuation_water.png",
 )
 
 plot2D_pressure_slices(
     p_brain,
     coords=coords,
     db_scale=True,
-    figsize=FIGSIZE,
     vmin=-40,
     title=(
         f"Brain tissue — α₀={ALPHA0_BRAIN} dB/(cm·MHz^y), "
         f"y={FREQ_POWER_BRAIN}  (causal K-K)"
     ),
     save_path=str(FIG_FOLDER) if SAVE_FIG else None,
-    file_name="attenuation_brain.png",
+    file_name="ex11_attenuation_brain.png",
 )
 
-# Difference map (dB attenuation at each spatial point)
-p_water_safe = np.where(p_water > 0, p_water, 1e-30)
-p_brain_safe = np.where(p_brain > 0, p_brain, 1e-30)
-att_map_db = 20 * np.log10(p_brain_safe / p_water_safe)
+# ============================================================================
+# STEP 4b: ATTENUATION MAP — distance-dependent loss
+# ============================================================================
+# The map is computed with fast_attenuation=True (one transfer function per
+# field point, distance measured from the transducer centre): the brain/water
+# ratio is then exactly exp(-α·|f|^y·d), a smooth function of distance only.
+# The per-element model above cannot be used for this ratio: each element's
+# Kramers-Kronig dispersion phase shifts the interference fringes slightly, so
+# the POINTWISE ratio of the two fields oscillates along the fringes (it even
+# exceeds 0 dB near shifted nulls) — real physics, but not an attenuation map.
+print("Computing attenuation map (TX-centre distance model) ...")
+sim_map = Emission(
+    tx,
+    monochromatic=True,
+    fs=FS,
+    alpha0=ALPHA0_BRAIN,
+    freq_power=FREQ_POWER_BRAIN,
+    fast_attenuation=True,
+)
+p_map, _ = sim_map(PLANE)
 
-fig, ax = plt.subplots(figsize=FIGSIZE)
+p_water_safe = np.where(p_water > 0, p_water, 1e-30)
+att_map_db = 20 * np.log10(np.where(p_map > 0, p_map, 1e-30) / p_water_safe)
+
+fig, ax = plt.subplots(figsize=(6.5, 6))
 # p shape is (Nx, Ny, Nz); take the XZ slice and transpose for imshow
 att_xz = np.squeeze(att_map_db).T  # (Nz, Nx)
 extent = [
@@ -151,7 +166,7 @@ ax.set_title("Attenuation map: brain − water (dB)")
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "attenuation_map.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex11_attenuation_map.png"), dpi=150)
 
 plt.show()
 

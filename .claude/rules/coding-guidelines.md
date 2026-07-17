@@ -40,6 +40,39 @@ Rules that follow from this:
 When in doubt, ask: *"Could an ultrasound PhD student who has never seen this file read
 this docstring and understand the physics being computed?"* If not, rewrite it.
 
+## Doubt-Driven Development (physics claims & delicate implementations)
+
+A confident answer is not a correct one — especially deep into a long session, where
+early hypotheses quietly calcify into "facts". A wrong-but-confident causal claim about
+the acoustics (blaming an artefact on grating lobes, on pitch, on a missing impulse
+response, ...) is worse than no answer: it steers a researcher into a physics
+misunderstanding that survives in reports, docs, and memory long after the session.
+(Precedent: example21's zeus10 image problems were confidently attributed to 2λ pitch
+and to the impulse-response handling; a later 10 MHz rerun falsified both.)
+
+Rules:
+
+1. **Never assert a physical cause you have not tested.** Until a discriminating
+   experiment (isolation run, control simulation, parameter sweep) has excluded the
+   plausible alternatives, label the explanation explicitly as a *hypothesis*.
+2. **Diagnoses written into docs, reports, or memory must record the discriminating
+   test alongside the conclusion** — a claim without its falsification path is
+   opinion, not a finding.
+3. **For non-trivial questions** — physics interpretation, artefact diagnosis,
+   delicate implementation choices — run the doubt cycle before asserting:
+
+Doubt cycle:
+- [ ] Step 1: CLAIM — wrote the claim + why-it-matters
+- [ ] Step 2: EXTRACT — isolated artifact + contract, stripped reasoning
+- [ ] Step 3: DOUBT — invoked fresh-context reviewer with adversarial prompt
+- [ ] Step 4: RECONCILE — classified every finding against the artifact text
+- [ ] Step 5: STOP — met stop condition (trivial findings, 3 cycles, or user override)
+
+Step 3's reviewer must be *fresh-context* (a subagent that has not seen the reasoning
+that produced the claim), prompted adversarially: "find why this claim is wrong or
+untested". Step 4 classifies each finding as refutes / weakens / irrelevant against
+the extracted artifact, not against the original reasoning.
+
 ## Project Status
 
 Close to release. Be careful with core engine `hsir`. Transducers and utilities

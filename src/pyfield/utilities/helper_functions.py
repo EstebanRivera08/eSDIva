@@ -47,6 +47,89 @@ def wrap_tqdm(iterable, **kwargs):
         return iterable
 
 
+def announce_eta(t_first_s, n_units, label, threshold_s=30.0):
+    """Print an estimated total run time after the first unit of a long loop.
+
+    Extrapolates ``t_first_s × n_units`` and, when that projection exceeds
+    ``threshold_s``, prints one line with the estimate and the expected finish
+    clock time — confirmation that a long simulation was launched correctly
+    and when to come back for it. Below the threshold nothing is printed.
+
+    Parameters
+    ----------
+    t_first_s : float
+        Wall time of the first completed unit (seconds).
+    n_units : int
+        Total number of identical units in the loop.
+    label : str
+        What one unit is, for the message (e.g. ``"batches"``, ``"RX elements"``).
+    threshold_s : float, default: 30.0
+        Minimum projected total (seconds) before anything is printed.
+
+    Returns
+    -------
+    bool
+        True if the estimate was printed (the run is long).
+    """
+    est_s = t_first_s * n_units
+    if est_s <= threshold_s or n_units <= 1:
+        return False
+    finish = time.strftime("%H:%M", time.localtime(time.time() + est_s - t_first_s))
+    est_val, unit = (est_s / 60, "min") if est_s >= 60 else (est_s, "s")
+    # ASCII only: Windows consoles often decode cp1252, mangling dashes.
+    print(
+        f"  Estimated run time ~{est_val:.1f} {unit} "
+        f"({n_units} {label}) - expect finish around {finish}",
+        flush=True,
+    )
+    return True
+
+
+def eta_progress(iterable, n_total, *, label="batches", progress=True):
+    """Yield from ``iterable``, announcing an ETA and tracking progress for long runs.
+
+    Times the first iteration and extrapolates to ``n_total`` via
+    [announce_eta][pyfield.utilities.helper_functions.announce_eta]; short runs
+    (projected under 30 s) stay completely silent. For long runs, when
+    ``progress`` is True a single carriage-return line keeps the iteration
+    count, elapsed time, and remaining-time estimate updated (set it False when
+    a tqdm bar already displays progress).
+
+    Parameters
+    ----------
+    iterable : iterable
+        The loop being timed; consumed one unit per iteration.
+    n_total : int
+        Total number of units ``iterable`` yields.
+    label : str, default: "batches"
+        What one unit is, for the printed messages.
+    progress : bool, default: True
+        Update an in-place progress line after the ETA announcement.
+
+    Yields
+    ------
+    object
+        The items of ``iterable``, unchanged.
+    """
+    t0 = time.perf_counter()
+    long_run = False
+    for i, item in enumerate(iterable):
+        yield item
+        elapsed = time.perf_counter() - t0
+        if i == 0:
+            long_run = announce_eta(elapsed, n_total, label)
+        if long_run and progress:
+            remaining = elapsed / (i + 1) * (n_total - i - 1)
+            print(
+                f"\r  {label} {i + 1}/{n_total} - "
+                f"{elapsed:.0f}s elapsed, ~{remaining:.0f}s left ",
+                end="",
+                flush=True,
+            )
+    if long_run and progress:
+        print()
+
+
 def method_to_flag(method):
     """Map a SIR method name to the integer flag the kernel expects.
 

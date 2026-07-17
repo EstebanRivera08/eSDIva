@@ -33,9 +33,12 @@ N_ELEMENTS = 64
 ELEMENT_DIAMETER_MM = 3.0
 APERTURE_RADIUS_MM = 25.0
 FC_HZ = 1e6  # 1 MHz — TUS-range frequency
-TARGET_MM = np.array([0.0, 0.0, 60.0])  # world-frame focus (fixed)
 TILT_DEG = 20.0  # probe mounted tilted about the x-axis
 SHIFT_MM = [0.0, -15.0, 0.0]  # and shifted in elevation
+# World-frame focus ON the tilted probe's beam axis, 60 mm from its centre:
+# centre + 60·(0, -sin20°, cos20°). Focusing along the natural axis keeps the
+# focal spot symmetric; steering it far off-axis smears it into slanted lobes.
+TARGET_MM = np.array([0.0, -35.5, 56.4])
 
 # Three orthogonal planes through the target
 HALF_XY_MM, DXY_MM = 15.0, 0.3
@@ -175,7 +178,7 @@ plotter.show_grid(
 plotter.camera.up = (0, 0, -1)
 
 if SAVE_FIG:
-    plotter.screenshot(str(FIG_FOLDER / "custom_sparse_3dplanes.png"))
+    plotter.screenshot(str(FIG_FOLDER / "ex18_custom_sparse_3dplanes.png"))
 else:
     plotter.show()
 plotter.close()

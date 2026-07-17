@@ -94,7 +94,7 @@ if SAVE_FIG:
     pl.add_mesh(tx.get_mesh(), scalars="Delays", cmap="rainbow", show_edges=True)
     pl.add_axes()
     pl.show_grid(xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)")
-    pl.screenshot(str(FIG_FOLDER / "fieldii_import_mesh.png"))
+    pl.screenshot(str(FIG_FOLDER / "ex17_fieldii_import_mesh.png"))
     pl.close()
 else:
     tx.show(scalars="Delays")
@@ -112,7 +112,7 @@ plot2D_pressure_slices(
     vmin=-40,
     title=f"Imported Field II probe — CW field, focus at z = {FOCUS_MM[2]} mm",
     save_path=str(FIG_FOLDER) if SAVE_FIG else None,
-    file_name="fieldii_import_cw.png",
+    file_name="ex17_fieldii_import_cw.png",
 )
 
 print("\nDone.")

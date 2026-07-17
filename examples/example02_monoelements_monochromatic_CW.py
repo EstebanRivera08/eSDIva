@@ -40,7 +40,6 @@ FREQ_SAMPLING_HZ = 100e6  # Sampling frequency
 DB_SCALE = False
 VMAX = 1
 VMIN = 0
-FIGSIZE = (6, 8)
 
 # Common XZ simulation plane (Y fixed at 0)
 XZ_GRID = {
@@ -66,7 +65,9 @@ print("\n--- 1. FlatCircularTransducer (flat piston, D=25 mm) ---")
 
 flat = FlatCircularTransducer(
     diameter_mm=25.0,
-    no_sub_diameter=30,
+    # Finer subdivision than the curved bowls: the flat piston's near field
+    # is judged on its smoothness, and coarse patches add spurious texture.
+    no_sub_diameter=60,
     frequency_Hz=FREQ_HZ,
 )
 if not SAVE_FIG:
@@ -81,8 +82,7 @@ plot2D_pressure_slices(
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
-    figsize=FIGSIZE,
-    save_path=str(FIG_FOLDER / "mono_flat.png") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex02_mono_flat.png") if SAVE_FIG else None,
 )
 
 # ============================================================================
@@ -108,8 +108,7 @@ plot2D_pressure_slices(
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
-    figsize=FIGSIZE,
-    save_path=str(FIG_FOLDER / "mono_concave.png") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex02_mono_concave.png") if SAVE_FIG else None,
 )
 
 # ============================================================================
@@ -137,8 +136,7 @@ plot2D_pressure_slices(
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
-    figsize=FIGSIZE,
-    save_path=str(FIG_FOLDER / "mono_focused.png") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex02_mono_focused.png") if SAVE_FIG else None,
 )
 
 # ============================================================================
@@ -167,8 +165,7 @@ plot2D_pressure_slices(
     db_scale=DB_SCALE,
     vmin=VMIN,
     vmax=VMAX,
-    figsize=FIGSIZE,
-    save_path=str(FIG_FOLDER / "mono_convex.png") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex02_mono_convex.png") if SAVE_FIG else None,
 )
 
 print("\nDone.")

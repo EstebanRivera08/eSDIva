@@ -350,11 +350,19 @@ def plot2D_pressure_slices(
         if plane_axis is not None:
             print(f"Plotting 2D slice along {plane_axis}-axis")
             if figsize is None:
-                # Aspect from physical extents: axial span sets the height.
+                # Match the figure to the image shape: the image is drawn with
+                # equal data aspect, so fix its LONG side to ~7 in and derive
+                # the short side from the physical extents. Otherwise a tall
+                # plane in a wide figure (or vice versa) is mostly blank space
+                # with a disproportionate colorbar and labels.
                 span_1 = (np.max(x1) - np.min(x1)) or 1.0
                 span_2 = (np.max(x2) - np.min(x2)) or 1.0
-                width = 6
-                figsize = (width, width * np.clip(span_2 / span_1, 0.3, 3.0) + 0.5)
+                ratio = np.clip(span_2 / span_1, 0.25, 4.0)  # height / width
+                long_side = 7.0
+                if ratio >= 1.0:  # tall image: fix height, add colorbar width
+                    figsize = (long_side / ratio + 1.8, long_side + 0.6)
+                else:  # wide image: fix width
+                    figsize = (long_side + 1.8, long_side * ratio + 0.9)
             fig, ax = plt.subplots(figsize=figsize)
             ax = plot2D_pressure_plane(
                 pressure_plot.squeeze(),
@@ -366,7 +374,9 @@ def plot2D_pressure_slices(
                 vmax=vmax,
                 **kwargs,
             )
-            cbar = fig.colorbar(ax._image, ax=ax)
+            # fraction/pad keep the colorbar proportional to the image axes
+            # instead of spanning the full figure height.
+            cbar = fig.colorbar(ax._image, ax=ax, fraction=0.046, pad=0.04)
             cbar.set_label(cb_label)
 
         else:

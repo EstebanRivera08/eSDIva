@@ -428,6 +428,95 @@ One conventional focused scan line: recompute TX focus+apod from `focus_mm`,
 
 ---
 
+## Imaging Simulation Recipe (phantom / sequence studies)
+
+Distilled from the example21 volume case study (its `TROUBLESHOOTING.md` holds the
+measured evidence). Follow this order when designing any pulse-echo imaging
+simulation; each rule below cost at least one wasted multi-hour acquisition.
+
+### 1. Signal chain — set the impulse responses, always
+
+A physical probe band-passes twice: `e ⊛ h_e ⊛ h_r` (drive ⊛ TX piezo IR ⊛ RX piezo
+IR). Set `tx.impulse_response` **and** `rx.impulse_response` (a 2-cycle burst at fc
+is a good default) and keep the drive `excitation` short/bare. Skipping the IRs
+simulates ideally broadband elements: the low-frequency tails of the *aperture*
+(diffraction) impulse responses dominate the received spectrum — centroid drops
+(measured 3.0 → 1.86 MHz), lateral PSF widens ~60 %, near-in sidelobe skirt rises
+−22 → −10 dB and becomes the dominant volume clutter (an anechoic cyst went from
+−2 dB to −24 dB just by adding the IRs). Symptom: point targets 50–100 % wider than
+λz/D while every arrival time is geometrically exact → look at the received
+spectrum, not the beamformer.
+
+**Checkpoint hazard:** the `RFDataset` fingerprint covers excitation + geometry but
+NOT the impulse responses — after changing the pulse model, delete the RF folder
+yourself; resume cannot detect it.
+
+### 2. Sequence design (PW / DW virtual sources)
+
+- **Coverage rule.** A DW from virtual source `(r, −z_s)` only insonifies the cone
+  through the aperture edges: at depth `z` it reaches laterally to `a + (a−r)·z/z_s`
+  (half-aperture `a`). Every corner of the imaging volume must lie inside *every*
+  event's cone; violation fails silently as depth-dependent brightness banding.
+- **Tilt saturates.** Compounding sharpens the synthesized TX focus only until the
+  tilt span matches the aperture's own half-angle; beyond that, extra sources only
+  grind the sidelobe pedestal (~1/N).
+- **Derive sources per probe + volume from these rules; never copy a VS layout
+  between probes.** Probes are comparable when each runs at its own coverage limit.
+
+### 3. Phantom design
+
+- **Speckle density:** ≥ ~5–10 random scatterers per resolution cell
+  `(λz/D)² · (pulse length)/2` — fewer and the texture and every contrast number are
+  artefacts of the random draw. Cell volume scales ~λ³ (10 MHz needs ~50× more
+  scatterers than 3 MHz for the same volume). Use `make_phantom` (random positions,
+  `N(0,1)`·map amplitudes) — a regular lattice gives coherent echoes, not speckle.
+- **Anechoic targets:** radius ≥ ~3 PSF or they fill in from their own blurred edges.
+- **Wires:** coherent within a resolution cell, so brightness scales with PSF
+  volume — keep them dim (~+10 dB over speckle), few, far from contrast targets.
+- **Preview before burning hours:** render the phantom + geometry
+  (`Reception*.show`), then run ONE event and check speckle statistics
+  (Rayleigh: envelope mean/std ≈ 1.91) before launching the full sequence.
+
+### 4. Beamforming
+
+- **Pulse-centre lag:** a band-limited pulse peaks ~half its length after the
+  geometric arrival; `coords["pulse_center_lag_s"]` carries the computed lag and
+  `das_volume` applies it automatically — a missing lag shifts the whole image deep.
+- **Delay-reference conventions:** earliest-vs-latest element referencing moves the
+  TX time origin by `(d_max−d_min)/c` (≈1 mm misplacement); `das_volume` recovers
+  the origin from each event's own delay vector, so any convention beamforms
+  correctly. A single 0° plane wave is the discriminating test.
+- **Double apodization:** ~λ-wide elements already taper the aperture via their own
+  directivity; adding a Hann RX taper on top halves the effective aperture
+  (measured 0.98 vs 0.52 mm FWHM). Prefer rect RX apodization + low f-number.
+- **RCA probes:** long bars receive at the nearest point of the bar, not the element
+  centre — `das_rca_volume`, not `das_volume`.
+
+### 5. Honest metrics
+
+- TGC from speckle-only regions (never across an anechoic target), applied
+  depth-only; after TGC any clean speckle is a fair background, before TGC compare
+  same-depth only.
+- Scale ROIs and exclusion margins with the PSF (λz/D at target depth), not in mm.
+- Coherence-factor weighting recovers contrast numbers but destroys speckle texture
+  and passes coherent clutter — report plain DAS, quote CF as a ceiling.
+- Display: after TGC speckle fills ~30 dB; a 40+ dB window makes normal sidelobes
+  look like artefacts.
+
+### 6. Symptom → cause quick table
+
+| Symptom | First suspect |
+|---|---|
+| PSF wide, timing exact | missing impulse responses (§1) |
+| Iso-range sidelobe arcs | missing IRs or too-bright wire |
+| Depth brightness banding | VS coverage violated (§2) |
+| Anechoic target filled (≫PSF-sized) | clutter floor — check received spectrum |
+| Point misplaced ~1 mm | delay-reference convention (§4) |
+| Whole image deep-shifted | pulse-centre lag not applied (§4) |
+| Metrics collapse on new probe only | fixed-mm ROIs on a different PSF (§5) |
+
+---
+
 ## Field II Correspondence
 
 | Field II | PyField | Notes |

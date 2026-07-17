@@ -26,7 +26,7 @@ product — the visualization scripts read it, they never re-beamform:
 out/<scenario>/RF/                # checkpointed acquisition (RFDataset)
 out/<scenario>/IQ/iq_volume.npz   # compounded complex IQ + voxel axes (step 3)
 out/<scenario>/metrics.json       # timings + contrast/SNR/PSF metrics
-figures/<scenario>/               # every plot of that scenario
+docs/examples/assets/ex21_<scenario>_*.png   # every plot (shared examples asset folder)
 ```
 
 Pick the scenario by editing `SCENARIO` in step 1 or via the environment:
@@ -50,7 +50,7 @@ rules and failure modes behind every choice in these scripts.
 
 ## The scenarios
 
-| | `zeus5` (flagship) | `zeus10` (cautionary) | `vermon` (real probe) |
+| | `zeus5` (flagship) | `zeus10` (high-frequency) | `vermon` (real probe) |
 |---|---|---|---|
 | Probe | ZeUS 55×55, 3025 ch | same probe | Vermon-type 32×32, 1024 ch |
 | Pitch / aperture | 0.30 mm / 16.5 mm | 0.30 mm / 16.5 mm | 0.30 mm / 9.6 mm |
@@ -59,24 +59,22 @@ rules and failure modes behind every choice in these scripts.
 | Volume | 11×7×10 mm, z 10–20 | **same** | **same** |
 | Scatterers | ~319k (10/cell) | ~1.3M (5/cell) | ~23k (10/cell) |
 | Cost (spectral kernel) | ~4–6 h | ~8 h | **minutes** |
-| Expected image | diffraction-limited (0.3–0.4 mm PSF), cyst ≈ −18 dB | **aliased**: grating clutter fills the cyst | textbook at its ~0.8 mm PSF |
+| Expected image | diffraction-limited (0.3–0.4 mm PSF), cyst ≈ −18 dB | clean at 2λ pitch (2026-07 rerun — earlier grating-lobe prediction falsified) | textbook at its ~0.8 mm PSF |
 
 The `vermon` scenario is also the **end-to-end pipeline test**: same phantom,
 25 events in a few minutes — run steps 2–3 on it before committing hours to
 a ZeUS acquisition. Because the acquisition is checkpointed per event, an
 interrupted run (or one killed mid-way) simply resumes where it stopped.
 
-Why the drive frequency decides everything (the 10 MHz → 5 MHz story): the
-elements are fixed at 0.30 mm pitch. At 10 MHz (λ=0.154 mm) that is **2λ** —
-the echo field is spatially undersampled (sampling a wave needs λ/2), so the
-beamformer cannot tell the focused direction from aliased ones and every
-voxel collects faint coherent copies of speckle from elsewhere. Bright
-lesions survive; an anechoic cyst — an *absence* of signal — gets painted
-over by clutter that no software (coherence weighting included: the aliased
-copies are coherent) can reject. At 5 MHz the same pitch is 0.97λ: grating
-lobes leave the field, the ~1λ element face hears wide-angle echoes, and one
-single unfocused shot already out-images the entire 10 MHz compound. Real
-probes have the bandwidth to be driven at half their centre frequency.
+A note on drive frequency and pitch: the elements are fixed at 0.30 mm
+pitch, so the drive sets pitch/λ — **2λ** at 10 MHz (λ=0.154 mm), 0.97λ at
+5 MHz. Classical spatial-sampling arguments predict grating-lobe clutter at
+2λ, and early image problems in this study were blamed on it — wrongly: a
+2026-07 rerun of the 10 MHz scenario produced good images at 2λ pitch (see
+the correction note in `TROUBLESHOOTING.md`). Treat pitch/λ as a parameter
+to check per system, not a verdict. What the frequency *does* decide here is
+cost: the resolution cell shrinks ~λ³, so the 10 MHz run needs far more
+scatterers (and hours) than the 5 MHz one for the same speckle statistics.
 
 All three scenarios image the **same phantom** (identical volume, targets
 and seed — the "contrast ladder"): an anechoic cyst tube (r=2 mm) at the
@@ -159,8 +157,8 @@ kernel, the beamformer and the phantom statistics all close simultaneously.
 The Vermon scenario images the identical phantom at its own ~0.8 mm PSF in
 minutes (an earlier ×2-scaled campaign of the same design read cyst
 −24.5 dB, lesion +10.6, sphere +11.3, Rayleigh speckle). The zeus10 scenario
-is the negative control: run it to *see* spatial aliasing eat an anechoic
-target.
+images the same phantom at 10 MHz: its 2026-07 rerun came out clean at 2λ
+pitch, falsifying the grating-lobe degradation once predicted for it.
 
 Every design rule behind these numbers, the failure modes that were hit
 getting there, and a symptom→cause table live in
@@ -169,9 +167,9 @@ getting there, and a symptom→cause table live in
 ## Artifacts
 
 - `out/<scenario>/RF/` — the checkpointed acquisition (compressed chunk
-  files + fingerprinted manifest; resumable).
+  files + fingerprinted contents file; resumable).
 - `out/<scenario>/IQ/iq_volume.npz` — the compounded complex IQ volume +
   voxel axes (what the visualization scripts read).
 - `out/<scenario>/metrics.json` — timings + all metrics.
-- `figures/<scenario>/` — B-modes, truth-vs-image panels, 3-D renders,
-  PSF ladders.
+- `docs/examples/assets/ex21_<scenario>_*.png` — B-modes, truth-vs-image
+  panels, 3-D renders (named `ex21_*` so each image traces back here).

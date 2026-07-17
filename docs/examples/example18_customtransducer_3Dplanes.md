@@ -15,7 +15,7 @@ when the volume of interest is too large to sample fully.
 
 ## Output
 
-![Sparse spiral array with three field planes](assets/custom_sparse_3dplanes.png)
+![Sparse spiral array with three field planes](assets/ex18_custom_sparse_3dplanes.png)
 
 ## Run it
 

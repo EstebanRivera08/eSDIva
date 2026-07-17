@@ -82,6 +82,8 @@ nav = [
     { "17. Import a Field II Probe" = "examples/example17_import_fieldii_transducer.md" },
     { "18. Custom Sparse Array" = "examples/example18_customtransducer_3Dplanes.md" },
     { "19. Dual-Probe Pulse-Echo" = "examples/example19_dualprobe_reception_show.md" },
+    { "20. Speckle Phantom B-mode" = "examples/example20_phantom_simulation.md" },
+    { "21. Volumetric Case Study" = "examples/example21_rca_volume.md" },
   ]},
   { "Contributing" = "contributing.md" },
 ]

@@ -21,14 +21,14 @@ flat linear arrays to custom multi-element helmets.
 
 ## Output
 
-![LinearArrayTransducer](assets/gallery_linear.png)
-![ConvexArrayTransducer](assets/gallery_convex.png)
-![ConvexArrayTransducer with elevation focus](assets/gallery_convex_focused.png)
-![MatrixArrayTransducer](assets/gallery_matrix.png)
-![FlatCircularTransducer](assets/gallery_flat_circular.png)
-![ConcaveCircularTransducer](assets/gallery_concave.png)
-![FocusedCircularTransducer](assets/gallery_focused_circular.png)
-![CustomTransducer (TUS helmet)](assets/gallery_custom_helmet.png)
+![LinearArrayTransducer](assets/ex01_gallery_linear.png)
+![ConvexArrayTransducer](assets/ex01_gallery_convex.png)
+![ConvexArrayTransducer with elevation focus](assets/ex01_gallery_convex_focused.png)
+![MatrixArrayTransducer](assets/ex01_gallery_matrix.png)
+![FlatCircularTransducer](assets/ex01_gallery_flat_circular.png)
+![ConcaveCircularTransducer](assets/ex01_gallery_concave.png)
+![FocusedCircularTransducer](assets/ex01_gallery_focused_circular.png)
+![CustomTransducer (TUS helmet)](assets/ex01_gallery_custom_helmet.png)
 
 ## Run it
 

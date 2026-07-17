@@ -60,7 +60,6 @@ from step1_define_phantom_TX_RX import (
     SCENARIO,
     dw_events,
     phantom_map,
-    pulse_center_lag_s,
 )
 from config import SAVE_FIG
 
@@ -83,9 +82,9 @@ ds = RFDataset(RF_DIR)
 ds.summary()
 rf, coords = ds.load_all()
 
-manifest = json.loads((RF_DIR / "manifest.json").read_text())
-sim_total = sum(ev.get("duration_s") or 0.0 for ev in manifest["events"].values())
-print(f"\nSimulation wall time (manifest): {sim_total / 3600:.2f} h")
+contents = json.loads((RF_DIR / "contents.json").read_text())
+sim_total = sum(ev.get("duration_s") or 0.0 for ev in contents["events"].values())
+print(f"\nSimulation wall time (from contents file): {sim_total / 3600:.2f} h")
 
 # ============================================================================
 # 1–3. PER-EVENT DAS → IQ → COHERENT COMPOUND
@@ -93,21 +92,25 @@ print(f"\nSimulation wall time (manifest): {sim_total / 3600:.2f} h")
 probe = SC["make_probe"](SC["fc"])
 events = dw_events(probe, SC["vs_mm"])  # delays + virtual_source_mm per event
 t0_ev = np.asarray(coords["t0_per_event"], dtype=np.float64)
-lag = pulse_center_lag_s(SC["fc"])
 
 t_bf = time.perf_counter()
 iq = None
 for e, event in enumerate(events):
+    # das_volume takes the pulse-centre lag from coords["pulse_center_lag_s"]
+    # (stored by the acquisition) and applies it as t_offset_s automatically.
     vol_e, axes = das_volume(
         rf[e : e + 1],
-        {"dt": coords["dt"], "t0_per_event": t0_ev[e : e + 1]},
+        {
+            "dt": coords["dt"],
+            "t0_per_event": t0_ev[e : e + 1],
+            "pulse_center_lag_s": coords["pulse_center_lag_s"],
+        },
         [event],
         probe,
         GRID,
         c=C,
         fnum=FNUM,
         rx_apodization=RX_APOD,
-        t_offset_s=lag,
     )
     iq_e = hilbert(vol_e, axis=2)  # analytic along the axial axis
     iq = iq_e if iq is None else iq + iq_e
@@ -285,7 +288,7 @@ m = axs[2].imshow(
 )
 axs[2].set(title=f"C-plane z = {SC['tier_z']:g} mm", xlabel="x (mm)", ylabel="y (mm)")
 fig.colorbar(m, ax=axs, label="dB", shrink=0.8)
-plt.savefig(str(FIG_DIR / f"{SCENARIO}_bmode.png"), dpi=150, bbox_inches="tight")
+plt.savefig(str(FIG_DIR / f"ex21_{SCENARIO}_bmode.png"), dpi=150, bbox_inches="tight")
 if not SAVE_FIG:
     plt.show()
 plt.close()
@@ -360,7 +363,7 @@ for j, (title, cut, ext, xl, yl, orig, plane) in enumerate(cuts):
 # so a single dB bar to the right is enough to read the whole figure.
 fig.colorbar(m, ax=axs.ravel().tolist(), location="right", shrink=0.6, label="dB")
 plt.savefig(
-    str(FIG_DIR / f"{SCENARIO}_slices_compare.png"), dpi=150, bbox_inches="tight"
+    str(FIG_DIR / f"ex21_{SCENARIO}_slices_compare.png"), dpi=150, bbox_inches="tight"
 )
 if not SAVE_FIG:
     plt.show()

@@ -37,7 +37,12 @@ PULSE_CYCLES = 2
 # Phantom box (mm). Thin elevation slab: scatterers only need to fill the
 # elevation beamwidth, and fewer scatterers per cell means faster simulation.
 BOX = {"x_extent": [-12.0, 12.0], "y_extent": [-1.0, 1.0], "z_extent": [12.0, 38.0]}
-N_SCATTERERS = 10000
+# Fully developed speckle needs >= ~5-10 scatterers per resolution cell. Here the
+# cell is ~0.6 mm (lateral, lambda*F#) x ~1.5 mm (elevation beamwidth at focus)
+# x ~0.3 mm (half the 2-cycle pulse) ~= 0.27 mm^3, and the box is 1248 mm^3:
+# 25000 scatterers ~= 5.4 per cell. Fewer and the texture and contrast numbers
+# become artefacts of the particular random draw.
+N_SCATTERERS = 25000
 
 CYST_CENTER = (-4.0, 25.0)  # (x, z) mm — anechoic
 CYST_RADIUS = 3.0
@@ -80,7 +85,7 @@ plt.title("Echogenicity map")
 plt.xlabel("x (mm)")
 plt.ylabel("Depth z (mm)")
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "phantom_map.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex20_phantom_map.png"), dpi=150)
 plt.show()
 
 # ============================================================================
@@ -111,6 +116,14 @@ excitation = (np.sin(2 * np.pi * FC * t_pulse) * np.hanning(len(t_pulse))).astyp
     np.float32
 )
 
+# A physical probe band-passes the signal twice: drive ⊛ TX piezo impulse
+# response ⊛ RX piezo impulse response. Without the IR the elements are ideally
+# broadband and the aperture's low-frequency diffraction tails dominate the
+# received spectrum — the PSF widens well beyond lambda*z/D and the sidelobe
+# skirt fills the anechoic cyst. tx doubles as rx here, so one assignment
+# applies the IR on both transmit and receive.
+tx.impulse_response = excitation.copy()
+
 sim = ReceptionSDI(tx, tx, c=C, fs=FS, excitation=excitation, verbose=False)
 
 # Preview: cyst shows as a hole (amplitude 0 → fully transparent), lesion as
@@ -118,9 +131,9 @@ sim = ReceptionSDI(tx, tx, c=C, fs=FS, excitation=excitation, verbose=False)
 sim.show(
     scat_pos,
     scat_amp,
-    TX_color="lightsteelblue",
+    TX_color="blue",
     legend=False,
-    save_path=str(FIG_FOLDER / "phantom_setup.png") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex20_phantom_setup.png") if SAVE_FIG else None,
 )
 
 # ============================================================================
@@ -178,7 +191,7 @@ plt.colorbar(im, ax=ax1, label="dB")
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "phantom_bmode.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex20_phantom_bmode.png"), dpi=150)
 
 plt.show()
 

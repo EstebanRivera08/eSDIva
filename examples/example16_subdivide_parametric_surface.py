@@ -208,7 +208,7 @@ for spine in ax2d.spines.values():
 fig.tight_layout()
 
 if SAVE_FIG:
-    out = FIG_FOLDER / "subdivision_ellipsoid_cap.png"
+    out = FIG_FOLDER / "ex16_subdivision_ellipsoid_cap.png"
     fig.savefig(
         out, dpi=100 * SCALE, bbox_inches="tight", facecolor=fig.get_facecolor()
     )
@@ -273,7 +273,7 @@ pl.view_isometric()
 pl.reset_camera()
 
 if SAVE_FIG:
-    out = FIG_FOLDER / "subdivision_ellipsoid_cap_pyvista.png"
+    out = FIG_FOLDER / "ex16_subdivision_ellipsoid_cap_pyvista.png"
     pl.screenshot(str(out))
     print(f"  Saved: {out}")
 else:
@@ -282,41 +282,44 @@ else:
 pl.close()
 
 # ============================================================================
-# STEP 6: COMPARE border_refine VALUES
+# STEP 6: COMPARE SUBDIVISION DENSITIES (n_u = n_v)
 # ============================================================================
-refine_values = [1, 2, 4]
-print(f"\nStep 6: Comparing border_refine = {refine_values}")
+# The subdivision density is the accuracy knob: each patch must stay inside
+# the far-field limit w << sqrt(4·l·c/f), so more (smaller) patches follow
+# the curved surface more faithfully at the cost of more SIR evaluations.
+density_values = [6, 12, 24]
+print(f"\nStep 6: Comparing subdivision density n_u = n_v = {density_values}")
 print("-" * 40)
 results = {}
 
-for br in refine_values:
+for nd in density_values:
     f = subdivide_parametric_surface(
         ellipsoid_cap,
         u_range=(-R_ap, R_ap),
         v_range=(-R_ap, R_ap),
-        n_u=10,
-        n_v=10,
+        n_u=nd,
+        n_v=nd,
         inside_fn=lambda x, y: x**2 / a**2 + y**2 / b**2 <= 1.0,
         normal_sign=1.0,
-        border_refine=br,
+        border_refine=3,
     )
-    results[br] = f
+    results[nd] = f
     print(
-        f"  border_refine={br}: {f['centers'].shape[0]:3d} patches, "
+        f"  n_u=n_v={nd}: {f['centers'].shape[0]:4d} patches, "
         f"coverage={f['coverage']:.1%}"
     )
 
 fig2, axes = plt.subplots(1, 3, figsize=(13, 4))
 fig2.patch.set_facecolor("#1a1a2e" if THEME == "dark" else "white")
 fig2.suptitle(
-    "Effect of border_refine on ellipsoidal cap subdivision",
+    "Effect of subdivision density on ellipsoidal cap subdivision",
     color=text_color,
     fontsize=11,
 )
 
-for ax, br in zip(axes, refine_values):
+for ax, nd in zip(axes, density_values):
     ax.set_facecolor(ax_bg)
-    f = results[br]
+    f = results[nd]
     ax.scatter(
         f["centers"][:, 0] * 1e3,
         f["centers"][:, 1] * 1e3,
@@ -332,7 +335,8 @@ for ax, br in zip(axes, refine_values):
         lw=0.8,
     )
     ax.set_title(
-        f"border_refine={br}  coverage={f['coverage']:.0%}",
+        f"n_u=n_v={nd}  ({f['centers'].shape[0]} patches, "
+        f"coverage {f['coverage']:.0%})",
         color=text_color,
         fontsize=9,
     )
@@ -346,7 +350,7 @@ for ax, br in zip(axes, refine_values):
 fig2.tight_layout()
 
 if SAVE_FIG:
-    out = FIG_FOLDER / "subdivision_border_refine_comparison.png"
+    out = FIG_FOLDER / "ex16_subdivision_density_comparison.png"
     fig2.savefig(
         out, dpi=100 * SCALE, bbox_inches="tight", facecolor=fig2.get_facecolor()
     )

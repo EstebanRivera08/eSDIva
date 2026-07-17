@@ -11,7 +11,7 @@ visualise the complete experimental configuration in a single 3-D scene.
 
 ## Output
 
-![Full experimental scene: transducer + pressure + petri dish](assets/stl_simulation.png)
+![Full experimental scene: transducer + pressure + petri dish](assets/ex15_stl_simulation.png)
 
 ## Run it
 

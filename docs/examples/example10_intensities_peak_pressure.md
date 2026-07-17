@@ -16,7 +16,7 @@ linear-frequency approximation.
 
 ## Output
 
-![On-axis Ispta and peak pressure](assets/intensities_peak_pressure.png)
+![On-axis Ispta and peak pressure](assets/ex10_intensities_peak_pressure.png)
 
 ## Run it
 

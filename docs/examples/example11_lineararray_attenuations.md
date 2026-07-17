@@ -8,13 +8,17 @@ brain tissue (causal power-law attenuation with Kramers–Kronig dispersion,
 
 - Enabling causal attenuation: `Emission(alpha0=..., freq_power=...)`
 - How attenuation reshapes a high-frequency focused beam
-- Building a dB attenuation map from the two fields
+- Building a dB attenuation map: the map uses `fast_attenuation=True`
+  (TX-centre distance), whose brain/water ratio is exactly the smooth
+  distance-dependent loss `exp(−α·f^y·d)`. The per-element model cannot be
+  used for this ratio: its per-element Kramers–Kronig dispersion shifts the
+  interference fringes, so the pointwise ratio oscillates along the fringes.
 
 ## Output
 
-![Water — no attenuation](assets/attenuation_water.png)
-![Brain tissue — causal K-K attenuation](assets/attenuation_brain.png)
-![Attenuation map (dB)](assets/attenuation_map.png)
+![Water — no attenuation](assets/ex11_attenuation_water.png)
+![Brain tissue — causal K-K attenuation](assets/ex11_attenuation_brain.png)
+![Attenuation map (dB)](assets/ex11_attenuation_map.png)
 
 ## Run it
 

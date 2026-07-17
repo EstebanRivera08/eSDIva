@@ -166,7 +166,7 @@ plotter.camera_position = [
 ]
 
 if SAVE_FIG:
-    plotter.screenshot(str(FIG_FOLDER / "stl_simulation.png"))
+    plotter.screenshot(str(FIG_FOLDER / "ex15_stl_simulation.png"))
 else:
     plotter.show()
 

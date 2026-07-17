@@ -7,12 +7,12 @@ figures re-render in seconds. Three figures, saved to ``figures/<scenario>/``
 when ``SAVE_FIG`` is on (interactive windows otherwise). The acquisition
 setup (probe + cloud + virtual sources) lives in ``preview_phantom.py``.
 
-1. ``<scenario>_volume_3d.png`` — the beamformed B-mode volume rendered in
+1. ``ex21_<scenario>_volume_3d.png`` — the beamformed B-mode volume rendered in
                                   gray with sigmoid opacity (bright speckle
                                   opaque, cyst hollow)
-2. ``<scenario>_mpr_3d.png``    — orthogonal cut planes through the targets +
+2. ``ex21_<scenario>_mpr_3d.png``    — orthogonal cut planes through the targets +
                                   a −6 dB iso-surface of the bright bodies
-3. ``<scenario>_slices.png``    — phantom-truth vs image slice pairs (wires
+3. ``ex21_<scenario>_slices.png``    — phantom-truth vs image slice pairs (wires
                                   marked red), one shared dB colorbar
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
@@ -29,7 +29,7 @@ from scipy.ndimage import gaussian_filter1d
 
 sys.path.insert(0, str(Path(__file__).parents[1]))
 sys.path.insert(0, str(Path(__file__).parent))
-from config import SAVE_FIG, SCALE
+from config import SAVE_FIG
 from step1_define_phantom_TX_RX import (
     FIG_DIR,
     IQ_DIR,
@@ -44,6 +44,17 @@ from pyfield.utilities import to_dB
 
 GRID = SC["grid"]
 CUT = (SC["tubes"][0][0][0], 0.0, SC["tier_z"])  # MPR planes through the cyst
+
+
+def _add_volume_box(plotter, x_mm, y_mm, z_mm, color="black"):
+    """Wireframe cube marking the extent of the beamformed volume."""
+    box = pv.Box(bounds=(x_mm[0], x_mm[-1], y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]))
+    plotter.add_mesh(box, style="wireframe", color=color, line_width=scale)
+    del box
+
+
+SCALE = 4
+SVG_FIG = False  # save vector graphics (SVG) instead of PNG (docs embed PNG)
 # SAVE_FIG = True
 DB_RANGE = 30
 # Volume ray-casting cost scales with voxel count; the full grid (~1 M+ voxels)
@@ -54,6 +65,9 @@ VOL_STRIDE = 2
 scale = SCALE if SAVE_FIG else 1
 if SAVE_FIG:
     FIG_DIR.mkdir(parents=True, exist_ok=True)
+
+FONTSIZE = 19
+plt.rcParams.update({"font.size": FONTSIZE})
 
 
 def _finish(plotter, fname):
@@ -91,35 +105,43 @@ env_db = to_dB(np.abs(iq) * tgc[None, None, :])
 # ============================================================================
 s = VOL_STRIDE
 vol_mesh = create_3Dvol_mesh(
-    np.clip(env_db[::s, ::s, ::s], -DB_RANGE, 0.0) + DB_RANGE,
+    np.clip(env_db[::s, ::s, ::s], -DB_RANGE, 0.0),
     x_mm[::s],
     y_mm[::s],
     z_mm[::s],
     scalars="Envelope (dB)",
 )
-plotter = pv.Plotter(window_size=[600 * scale, 950 * scale], off_screen=SAVE_FIG)
+plotter = pv.Plotter(window_size=[850 * scale, 950 * scale], off_screen=SAVE_FIG)
 add_transducer_mesh(probe.get_mesh(), plotter=plotter, color="blue", scale=scale)
+_add_volume_box(plotter, x_mm, y_mm, z_mm)
 plotter.add_volume(
     vol_mesh,
     scalars="Envelope (dB)",
     mapper="smart",
     cmap="binary",
-    opacity="sigmoid_8",
-    show_scalar_bar=False,
+    opacity="sigmoid_7",
+    show_scalar_bar=True,
+    scalar_bar_args={
+        "title": "dB",
+        "title_font_size": 20 * scale,
+        "label_font_size": 20 * scale,
+        "position_x": 0.3,
+        "position_y": 0.05,
+    },
 )
-plotter.show_grid(
-    xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)", font_size=13 * scale
-)
+# plotter.show_grid(
+#     xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)", font_size=13 * scale
+# )
 plotter.camera_position = "yz"
 plotter.camera.azimuth = 40
 plotter.camera.elevation = -25
 plotter.camera.up = (0.0, 0.0, -1.0)  # ty: ignore[unresolved-attribute]
 plotter.camera_position = [
-    (33.81642692224723, 47.0376767940543, -4.8126564612443135),
-    (-0.4816218561819192, 0.9031184462297706, 11.050740666463357),
-    (-0.15288196066302562, -0.2177956774055811, -0.9639461338722581),
+    (13.378040491070358, 44.161316083419806, -10.470568079647542),
+    (-0.5859471497780473, 1.4651943972742822, 9.805476223963389),
+    (-0.12900800212517702, -0.3906497673463856, -0.9114547134443298),
 ]
-_finish(plotter, f"{SCENARIO}_volume_3d.png")
+_finish(plotter, f"ex21_{SCENARIO}_volume_3d.png")
 
 # ============================================================================
 # FIGURE 2 — MPR: cut planes through the targets + −6 dB iso-surface
@@ -130,8 +152,9 @@ igrid = pv.ImageData(
     origin=(x_mm[0], y_mm[0], z_mm[0]),
 )
 igrid.point_data["dB"] = np.clip(env_db, -DB_RANGE, 0.0).flatten(order="F")
-plotter = pv.Plotter(window_size=[600 * scale, 950 * scale], off_screen=SAVE_FIG)
+plotter = pv.Plotter(window_size=[750 * scale, 950 * scale], off_screen=SAVE_FIG)
 add_transducer_mesh(probe.get_mesh(), plotter=plotter, color="blue", scale=scale)
+_add_volume_box(plotter, x_mm, y_mm, z_mm)
 sl = igrid.slice_orthogonal(x=CUT[0], y=CUT[1], z=CUT[2])
 plotter.add_mesh(
     sl,
@@ -141,6 +164,8 @@ plotter.add_mesh(
         "title": "dB",
         "title_font_size": 16 * scale,
         "label_font_size": 14 * scale,
+        "position_x": 0.3,
+        "position_y": 0.05,
     },
 )
 plotter.add_mesh(igrid.contour([-6.0], scalars="dB"), color="gold", opacity=0.35)
@@ -152,11 +177,11 @@ plotter.camera.azimuth = 35
 plotter.camera.elevation = -20
 plotter.camera.up = (0.0, 0.0, -1.0)  # ty: ignore[unresolved-attribute]
 plotter.camera_position = [
-    (41.77154148269394, 39.04599968757766, -7.887129879915577),
-    (0.11539277786213886, 1.0701105757145721, 12.202835986672724),
-    (-0.24283660695784068, -0.23193064240712927, -0.941933415605275),
+    (49.257390450467156, 45.65136551981425, -16.808795747374276),
+    (0.5175521500055128, 1.2820914515172719, 13.170394487026305),
+    (-0.3007284715333519, -0.2846701998928786, -0.9102336313838126),
 ]
-_finish(plotter, f"{SCENARIO}_mpr_3d.png")
+_finish(plotter, f"ex21_{SCENARIO}_mpr_3d.png")
 
 # ============================================================================
 # FIGURE 3 — phantom truth vs image: y=0, elevation slice, C-plane
@@ -180,11 +205,8 @@ def _mark_wires(ax, plane):
     if plane.startswith("xz"):
         for zw in SC["wire_z"]:
             ax.plot(SC["wire_x"], zw, "r+", ms=12, mew=2)
-        if plane == "xz0":  # the axial wire lives in the y=0 plane
-            ax.axvline(SC["wire_x"], color="r", lw=0.6, ls=":")
     else:  # xy C-plane
-        ax.axvline(SC["wire_x"], color="r", lw=0.6, ls=":")
-        ax.plot(SC["wire_x"], 0, "r+", ms=12, mew=2)
+        ax.axvline(SC["wire_x"], color="r", lw=1.5, ls=":")
 
 
 ext_xz = [x_mm[0], x_mm[-1], z_mm[-1], z_mm[0]]
@@ -210,7 +232,7 @@ cuts = [
         "xy",
     ),
 ]
-fig, axs = plt.subplots(2, 3, figsize=(14, 8))
+fig, axs = plt.subplots(2, 3, figsize=(16, 8), constrained_layout=True)
 for j, (title, cut, ext, xl, yl, orig, plane) in enumerate(cuts):
     axs[0, j].imshow(
         cut(truth), origin=orig, cmap="gray", vmin=0, vmax=2, extent=ext, aspect="equal"
@@ -230,15 +252,29 @@ for j, (title, cut, ext, xl, yl, orig, plane) in enumerate(cuts):
     # _mark_wires(axs[1, j], plane)
 # One shared dB colorbar (the image row); the phantom row is a 0–2 truth map,
 # so a single dB bar to the right is enough to read the whole figure.
-fig.colorbar(m, ax=axs.ravel().tolist(), location="right", shrink=0.6, label="dB")
+fig.colorbar(
+    m,
+    ax=axs.ravel().tolist(),
+    location="right",
+    shrink=0.6,
+    label="dB",
+)
 if SAVE_FIG:
-    plt.savefig(
-        str(FIG_DIR / f"{SCENARIO}_slices.png"), dpi=150 * scale, bbox_inches="tight"
-    )
+    if SVG_FIG:
+        plt.savefig(
+            str(FIG_DIR / f"ex21_{SCENARIO}_slices.svg"),
+            dpi=150 * scale,
+            bbox_inches="tight",
+        )
+    else:
+        plt.savefig(
+            str(FIG_DIR / f"ex21_{SCENARIO}_slices.png"), dpi=150, bbox_inches="tight"
+        )
     plt.close()
-    print(f"saved {FIG_DIR / f'{SCENARIO}_slices.png'}")
+    ext = "svg" if SVG_FIG else "png"
+    print(f"saved {FIG_DIR / f'ex21_{SCENARIO}_slices.{ext}'}")
 else:
     plt.show()
 
 
-del plotter
+del plotter, igrid, sl, vol_mesh

@@ -14,7 +14,7 @@ animated in 3-D together with the transducer mesh.
 ## Output
 
 <video controls loop>
-  <source src="../assets/matrix_pw_3d.mp4" type="video/mp4">
+  <source src="../assets/ex05_matrix_pw_3d.mp4" type="video/mp4">
 </video>
 
 ## Run it

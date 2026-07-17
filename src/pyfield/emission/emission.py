@@ -11,6 +11,7 @@ from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
     create_3D_spatial_grid_from_points,
+    eta_progress as _eta_progress,
     method_to_flag as _method_to_flag,
     next_pow2 as _next_pow2,
     reshape_to_mapped_points,
@@ -562,7 +563,7 @@ class Emission(SimulationBase):
                 f"\nFFT processing: {P} points, nfft={nfft}, batch_P={batch_P} ({n_batches} batches)"
             )
 
-        for p_start in range(0, P, batch_P):
+        for p_start in _eta_progress(range(0, P, batch_P), n_batches, label="batches"):
             p_end = min(p_start + batch_P, P)
             pts_batch = points_m[p_start:p_end]
 
@@ -621,13 +622,13 @@ class Emission(SimulationBase):
             if self.verbose
             else range(n_elements)
         )
+        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # (tqdm already shows progress in verbose mode).
+        el_iter = _eta_progress(
+            el_iter, n_elements, label="elements", progress=not self.verbose
+        )
 
         for e in el_iter:
-            if not self.verbose and (
-                e % max(1, n_elements // 10) == 0 or e == n_elements - 1
-            ):
-                print(f"\r  Element {e + 1}/{n_elements}", end="", flush=True)
-
             # ONE Numba call for all P — maximizes parallel utilization.
             h_e = self._compute_h_sir_batch(
                 points_m, T, dt, time_grid, method_flag, patch_slices[e]
@@ -651,9 +652,6 @@ class Emission(SimulationBase):
                         acc_flat[p_start:p_end] += H_e_fc
 
             del h_e
-
-        if not self.verbose:
-            print()
 
         return np.abs(acc_flat).astype(np.float32)  # (P,)
 
@@ -711,6 +709,11 @@ class Emission(SimulationBase):
             if self.verbose
             else range(0, P, batch_P)
         )
+        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # (tqdm already shows progress in verbose mode).
+        batch_iter = _eta_progress(
+            batch_iter, n_batches, label="batches", progress=not self.verbose
+        )
 
         # Pre-allocate one zero-padded h_pad buffer reused for every element call.
         # scipy.fft receives an already-nfft-length input → no internal zero-padding
@@ -718,12 +721,7 @@ class Emission(SimulationBase):
         # Tail columns [:, T:] are zeroed once here and never modified.
         h_pad_buf = np.zeros((batch_P, nfft), dtype=np.float32)
 
-        _t_batch0 = None  # wall time of first batch start (used for ETA estimate)
-
-        for ib, p_start in enumerate(batch_iter):
-            if ib == 0:
-                _t_batch0 = time.time()
-
+        for p_start in batch_iter:
             p_end = min(p_start + batch_P, P)
             cols = p_end - p_start
             pts_batch = points_m[p_start:p_end]
@@ -768,18 +766,6 @@ class Emission(SimulationBase):
                     irfft(acc_H, n=nfft, axis=1, workers=-1)[:, :T]
                 ).T.astype(np.float32)
             del acc_H
-
-            # After first batch: print ETA based on measured batch time.
-            if ib == 0 and self.verbose and _t_batch0 is not None:
-                t_first = time.time() - _t_batch0
-                est_s = t_first * n_batches
-                unit = "min" if est_s >= 60 else "s"
-                est_val = est_s / 60 if est_s >= 60 else est_s
-                print(
-                    f"  First batch: {t_first:.1f}s → "
-                    f"estimated total: ~{est_val:.1f} {unit} "
-                    f"(FFT-bound: {n_elements}×{n_batches} batches)"
-                )
 
         return pressure_flat  # (T, P)
 

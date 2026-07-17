@@ -29,7 +29,7 @@ Run any example with `uv run examples/<script>.py`.
 |---|--------|-------------|:-----------------:|
 | 06 | `example06_concave_PSF.py` | Pulse-echo PSF of a concave single-element transducer; conventional vs PE-SDI backend comparison. | ✓ `example_concave_psf.m` |
 | 07 | `example07_lineararray_TXfocus_RXall.py` | Focused TX with all-RX reception; `sim.show()` setup preview, RF waterfall and envelope. | |
-| 08 | `example08_anotherreceptionexample.py` | Full Matrix Capture (FMC) with `synthetic_aperture_rf()`; peak amplitude matrix visualization. | |
+| 08 | `example08_synthetic_aperture.py` | Full Matrix Capture (FMC) with `synthetic_aperture_rf()`; peak amplitude matrix visualization. | |
 | 09 | `example09_lineararray_imagePSF.py` | Line-by-line B-mode via `scan_focusline()` (like Field II `calc_scat`) → B-mode PSF image. | ✓ `linear_psf_example/` |
 
 ## Attenuation & Safety Metrics (10 – 11)
@@ -59,6 +59,8 @@ Run any example with `uv run examples/<script>.py`.
 | 17 | `example17_import_fieldii_transducer.py` | Import a Field II probe (`xdc_get(Th,'rect')` export) with `from_fieldii_rect_data`. |
 | 18 | `example18_customtransducer_3Dplanes.py` | Sparse spiral `CustomTransducer`, `transform()` repositioning, 3-D plane-slice visualization. |
 | 19 | `example19_dualprobe_reception_show.py` | Pitch-catch pulse-echo: RX array tilted with `transform()`; `sim.show()` 3-D preview. |
+| 20 | `example20_phantom_simulation.py` | Speckle phantom via `make_phantom()` (cyst + lesion), piezo impulse response set, focused B-mode with `scan_focusline()`. |
+| 21 | `example21_rca_volume/` | Full volumetric case study: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics. See its `README.md` + `TROUBLESHOOTING.md`. |
 
 ---
 
@@ -88,15 +90,17 @@ so Unicode symbols print correctly.
 | `Emission.set()` runtime update | 18 |
 | `pulse_echo_rf()` (calc_scat ≡ calc_hhp) | 06, 07, 19 |
 | `pulse_echo_rf(per_scatterer=True)` (PSF) | 06 |
-| `scan_focusline()` (conventional B-mode line) | 09 |
+| `scan_focusline()` (conventional B-mode line) | 09, 20 |
 | `synthetic_aperture_rf()` FMC | 08 |
-| `sequence_rf()` (PW/DW event sweep) | — |
-| `Reception.show()` 3-D setup preview | 07, 19 |
+| `sequence_rf()` (PW/DW event sweep, checkpointed) | 21 |
+| `Reception.show()` 3-D setup preview | 07, 19, 20 |
 | `transform()` rigid aperture motion | 18, 19 |
 | `CustomTransducer` | 01, 18 |
 | `from_fieldii_rect_data` (Field II import) | 17 |
 | Attenuation (`alpha0`, `freq_power`) | 10, 11 |
 | `pyfield.beamforming.das` | 09 |
+| `das_volume` (general 3-D DAS) + IQ compounding | 21 |
+| `make_phantom` (speckle phantom) | 20, 21 |
 | `plot2D_pressure_slices` | 02, 04, 11, 17 |
 | `plot3D_transient_slices` | 05 |
 | `create_2Dimage_mesh` / `add_2D_image` | 18 |

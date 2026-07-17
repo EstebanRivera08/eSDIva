@@ -72,6 +72,9 @@ rx = ConcaveCircularTransducer(
     refine_factor=1,
     no_sub_diameter=16,
 )
+# The receiving piezo band-passes the echo a second time (drive ⊛ h_tx ⊛ h_rx);
+# both backends get the same chain, so the comparison stays exact.
+rx.impulse_response = ir
 
 field_points_mm = np.column_stack(
     [
@@ -262,7 +265,7 @@ plt.suptitle(
 plt.tight_layout()
 
 if SAVE_FIG:
-    plt.savefig(str(FIG_FOLDER / "concave_psf_comparison.png"), dpi=150)
+    plt.savefig(str(FIG_FOLDER / "ex06_concave_psf_comparison.png"), dpi=150)
     print(f"Saved to {FIG_FOLDER / 'concave_psf_comparison.png'}")
 
 plt.show()

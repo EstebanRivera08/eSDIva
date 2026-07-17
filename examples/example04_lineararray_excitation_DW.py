@@ -93,5 +93,5 @@ plot2D_pressure_slices(
     figsize=FIGSIZE,
     vmin=-40,
     title="Diverging Wave — transient propagation",
-    save_path=str(FIG_FOLDER / "dw_transient.gif") if SAVE_FIG else None,
+    save_path=str(FIG_FOLDER / "ex04_dw_transient.gif") if SAVE_FIG else None,
 )

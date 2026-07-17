@@ -23,8 +23,8 @@ the volume is genuinely 3-D), an anechoic cyst at the volume mid-depth (the
 compound transmit-focus peak) and a x4 tube below it; a second x4 tube
 column on the other side; and dim PSF wires (amplitude 4 ≈ +10 dB over
 speckle) on the clear lane between the columns — three lateral (along y) at
-fixed depths plus one axial (along z at y=0) crossing them, so the lateral
-PSF is read continuously with depth. Only what the physics
+fixed depths plus a column of point beads (along z at y=0) crossing them, so
+the lateral PSF is read at a ladder of depths. Only what the physics
 dictates changes per scenario: the scatterer COUNT (the resolution cell
 (λz/D)²·pulse/2 shrinks with frequency and aperture) and the virtual-source
 layout (coverage + steep-wavefront rules).
@@ -60,30 +60,41 @@ Run with:
 """
 
 import os
+import sys
 from pathlib import Path
 
 import numpy as np
 
+sys.path.insert(0, str(Path(__file__).parents[1]))
+from config import FIG_FOLDER
+
 from pyfield.transducers import MatrixArrayTransducer
 
-SCENARIO = os.environ.get("SCENARIO", "vermon")
+# Default scenario: vermon — the fastest acquisition, so the whole pipeline
+# (steps 1-3 + visualizers) regenerates the documentation figures in minutes.
+SCENARIO = os.environ.get("SCENARIO", "zeus10")
 
 # --- Medium / sampling (shared by all scenarios) -------------------------------
 C = 1540.0  # speed of sound (m/s)
 FS = 100e6  # simulation sampling rate (Hz); RF is stored decimated
 PULSE_CYCLES = 2  # cycles of the Hann-windowed drive burst
+BEAD_DZ_MM = 1.0  # axial-bead spacing (mm), FIXED for every scenario so the
+# beads sit at the SAME depths on all probes (comparable across frequency);
+# 1 mm ≥ twice the coarsest axial resolution (Vermon PULSE_CYCLES·λ/2 = 0.51 mm)
+# → beads always resolved, never λ-tied.
 DOWNSAMPLING = 2  # store RF at FS/2 = 50 MHz (Nyquist-safe for all drives)
 SEED = 2026  # one seed → every script rebuilds the identical phantom
 
-# Data and figures are grouped per scenario so probes never collide:
+# Data is grouped per scenario so probes never collide:
 # out/<scenario>/RF  — the checkpointed acquisition (step 2, RFDataset)
 # out/<scenario>/IQ  — the beamformed complex IQ volume + axes (step 3);
 #                      visualization scripts read this, never re-beamform
-# figures/<scenario> — every plot of that scenario
+# Figures go to the shared examples asset folder (docs/examples/assets), named
+# ex21_<scenario>_*.png so every image traces back to this example.
 OUT_DIR = Path(__file__).parent / "out" / SCENARIO
 RF_DIR = OUT_DIR / "RF"
 IQ_DIR = OUT_DIR / "IQ"
-FIG_DIR = Path(__file__).parent / "figures" / SCENARIO
+FIG_DIR = FIG_FOLDER
 
 
 # --- Probes ---------------------------------------------------------------------
@@ -162,17 +173,6 @@ def excitation(fc: float):
     return (np.sin(2 * np.pi * fc * t) * np.hanning(t.size)).astype(np.float32)
 
 
-def pulse_center_lag_s(fc: float) -> float:
-    """Axial-bias correction for the beamformer.
-
-    The received waveform is the drive convolved with the TX and RX impulse
-    responses (three L-sample bursts → 3L−2 samples, symmetric), so its
-    envelope peaks half that length after the geometric arrival time; passing
-    this lag as ``t_offset_s`` to the beamformer removes the depth bias.
-    """
-    return 3.0 * (excitation(fc).size - 1) / 2.0 / FS
-
-
 # --- Phantom: the shared contrast-ladder design -----------------------------------
 def resolution_cell_mm3(z_mm: float, fc: float, aperture_mm: float) -> float:
     """Approximate resolution-cell volume at depth ``z_mm``.
@@ -246,7 +246,8 @@ def build_phantom(sc: dict):
     ``N(0,1)`` x echogenicity map, plus dim PSF wires — dense scatterer
     lines (spacing < λ/2 → acoustically continuous) whose image collapses to
     the PSF, so their width reads the resolution: three along y (elevation)
-    at fixed depths, one along z (axial) crossing them at y=0. Wire
+    at fixed depths, plus a column of point beads along z (axial) crossing
+    them at y=0 (beads, not a dense line — see below). Wire
     amplitude 4 ≈ +10 dB over speckle: bright enough to read, faint enough
     that the sidelobe skirt stays below the speckle (amplitude 10 once washed
     whole depth planes).
@@ -265,15 +266,8 @@ def build_phantom(sc: dict):
     pos, amp = make_phantom(vol, n_scat, echogenicity_map=emap, seed=SEED)
     ys = np.arange(*vol["y_extent"], sc["wire_dy"])
     wires = np.array([[sc["wire_x"], y, z] for z in sc["wire_z"] for y in ys])
-    # One AXIAL wire along z at (wire_x, y=0), crossing the three lateral
-    # wires: its image is a continuous vertical line whose lateral width
-    # reads the PSF at EVERY depth (the lateral wires sample it at three).
-    zs_w = np.arange(*vol["z_extent"], sc["wire_dy"])
-    zwire = np.column_stack(
-        [np.full(zs_w.size, sc["wire_x"]), np.zeros(zs_w.size), zs_w]
-    )
-    pos = np.vstack([pos, wires, zwire])
-    amp = np.concatenate([amp, np.full(len(wires) + len(zwire), sc["wire_amp"])])
+    pos = np.vstack([pos, wires])
+    amp = np.concatenate([amp, np.full(len(wires), sc["wire_amp"])])
     return pos, amp
 
 
@@ -333,6 +327,25 @@ def _rings(z_mm, radii_deg_pairs):
     return np.array(vs)
 
 
+# The FIRST transmit event is the on-axis diverging wave; the next 8 form a
+# ring at the SAME steering angle on every probe, so ``vs_mm[:9]`` is a
+# comparable 9-event acquisition across scenarios — the base ring is matched by
+# transmit TILT, not radius, because the coverage rule sets a different virtual-
+# source depth ``z_vs`` for each aperture. The tilt is fixed by the ZeUS-10 MHz
+# reference (its 9 sources are r = 4 mm at z_vs = −40 mm → atan(4/40) = 5.7°);
+# each probe's base radius is then |z_vs|·tan θ. Extra rings (indices ≥ 9) add
+# the wider tilt diversity each aperture can afford for the full-quality
+# compound, so ``vs_mm`` (full) images best while ``vs_mm[:9]`` stays matched.
+BASE_TILT_DEG = float(np.degrees(np.arctan(4.0 / 40.0)))  # 5.71°, ZeUS-10 reference
+
+
+def _base_ring(z_mm, extra=()):
+    """Centre + a shared 8-source base ring at ``BASE_TILT_DEG`` (indices 1–8),
+    then any ``extra`` rings appended — see the comment above for why."""
+    r0 = abs(z_mm) * np.tan(np.deg2rad(BASE_TILT_DEG))
+    return _rings(z_mm, [(r0, 8, 0.0), *extra])
+
+
 # --- Scenarios --------------------------------------------------------------------
 # The contrast-ladder layout, per probe scale. All coordinates in mm.
 # zeus*: cyst r=2 at the z=15 mid-depth, x4 tube r=1 below it (z=18.5) and a
@@ -378,7 +391,9 @@ SCENARIOS = {
         "per_cell": 10,
         "checkpoint_chunks": 2,
         "wire_dy": 0.1,  # < λ/2 = 0.154 mm → acoustically continuous wire
-        "vs_mm": _rings(-20.0, [(3.0, 4, 0.0), (4.5, 8, 0.0), (6.0, 8, 22.5)]),
+        # Base 8-ring at 5.7° (r = 20·tan5.7° = 2.0 mm), then two wider rings
+        # out to r = 6 mm (16.7° tilt): 21 sources total, vs_mm[:9] comparable.
+        "vs_mm": _base_ring(-20.0, [(4.0, 8, 0.0), (6.0, 4, 22.5)]),
     },
     # The cautionary counterpart: at 10 MHz the same pitch is 2λ — the echo
     # field is spatially aliased and every voxel collects faint coherent
@@ -393,7 +408,9 @@ SCENARIOS = {
         "per_cell": 5,
         "checkpoint_chunks": 4,
         "wire_dy": 0.05,  # < λ/2 = 0.077 mm at 10 MHz
-        "vs_mm": _rings(-40.0, [(4.0, 8, 0.0)]),
+        # The reference layout: 9 sources = centre + the base 8-ring (r = 4 mm
+        # at z_vs = −40 → 5.7°), which fixes BASE_TILT_DEG for every scenario.
+        "vs_mm": _base_ring(-40.0),
     },
     # The real-probe scenario: the IDENTICAL phantom (same volume, same
     # targets) imaged by the Vermon at 3 MHz — only the scatterer count
@@ -421,7 +438,10 @@ SCENARIOS = {
         "checkpoint_chunks": 1,
         "wire_dy": 0.15,  # < λ/2 = 0.257 mm at 3 MHz
         "aperture_mm": 32 * 0.30 - 0.025,  # 9.575 (overrides the ZeUS value)
-        "vs_mm": _rings(-10.0, [(2.2, 8, 0.0), (4.4, 16, 11.25)]),
+        # Base 8-ring at 5.7° (r = 10·tan5.7° = 1.0 mm), then two wider rings
+        # out to r = 4.4 mm (23.7° tilt, at the coverage limit): 25 sources
+        # total, vs_mm[:9] comparable with the other probes.
+        "vs_mm": _base_ring(-10.0, [(2.5, 8, 0.0), (4.4, 8, 11.25)]),
     },
 }
 

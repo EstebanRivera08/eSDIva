@@ -84,7 +84,7 @@ coloured by area.  Outward normals are drawn as red arrows.  The right panel
 is a top-down scatter plot showing how patch centres distribute across the
 circular aperture.
 
-![Ellipsoidal cap — 3-D mosaic and top-down area map](assets/subdivision_ellipsoid_cap.png)
+![Ellipsoidal cap — 3-D mosaic and top-down area map](assets/ex16_subdivision_ellipsoid_cap.png)
 
 ---
 
@@ -96,15 +96,15 @@ patches and surface near the rim is why the coverage metric can exceed 100 %:
 flat tangent-plane patches lift slightly above the curved surface and their
 areas sum to more than the actual curved area.
 
-![Theoretical vs approximated surface](assets/subdivision_ellipsoid_cap_pyvista.png)
+![Theoretical vs approximated surface](assets/ex16_subdivision_ellipsoid_cap_pyvista.png)
 
 ---
 
-## Step 6 — Effect of `border_refine`
+## Step 6 — Effect of subdivision density
 
-Running the same subdivision at `border_refine` = 1, 2, and 4 shows the
-trade-off between patch count and how faithfully the mosaic tracks the
-aperture boundary — higher values add small patches only where the rim cuts
-the grid:
+Running the same subdivision at `n_u = n_v` = 6, 12, and 24 shows the accuracy
+knob of the SIR method: each flat patch must stay inside the far-field limit
+`w << sqrt(4·l·c/f)`, so a denser grid follows the curved surface more
+faithfully at the cost of more patches (and SIR evaluations):
 
-![border_refine comparison](assets/subdivision_border_refine_comparison.png)
+![subdivision density comparison](assets/ex16_subdivision_density_comparison.png)

@@ -15,7 +15,7 @@ self-validation of the reception engine.
 
 ## Output
 
-![Concave PSF comparison (FST vs SDI)](assets/concave_psf_comparison.png)
+![Concave PSF comparison (FST vs SDI)](assets/ex06_concave_psf_comparison.png)
 
 ## Run it
 

@@ -13,8 +13,8 @@ imaging. Includes the `sim.show()` 3-D preview of the full setup.
 
 ## Output
 
-![Setup preview: apertures + scatterers](assets/reception_setup.png)
-![Reception RF: waterfall, channel, envelope](assets/reception_txfocus.png)
+![Setup preview: apertures + scatterers](assets/ex07_reception_setup.png)
+![Reception RF: waterfall, channel, envelope](assets/ex07_reception_txfocus.png)
 
 ## Run it
 

@@ -1,4 +1,4 @@
-"""Tests for RFDataset — checkpointed per-event RF storage with a manifest."""
+"""Tests for RFDataset — checkpointed per-event RF storage with a contents file."""
 
 import numpy as np
 import pytest

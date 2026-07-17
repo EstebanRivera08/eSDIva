@@ -17,7 +17,7 @@ This example requires the BrainGlobe atlas API.  The mouse atlas data
 
 ## Output
 
-![Mouse brain atlas with transducer and pressure field](assets/brain_mouse_scene.png)
+![Mouse brain atlas with transducer and pressure field](assets/ex12_brain_mouse_scene.png)
 
 ## Run it
 

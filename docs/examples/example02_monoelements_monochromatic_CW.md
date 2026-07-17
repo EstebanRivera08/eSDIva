@@ -20,10 +20,10 @@ transducer types: flat piston, concave bowl, cylindrical focus, and convex dome.
 
 ## Output
 
-![FlatCircularTransducer pressure field](assets/mono_flat.png)
-![ConcaveCircularTransducer pressure field](assets/mono_concave.png)
-![FocusedCircularTransducer pressure field](assets/mono_focused.png)
-![ConvexCircularTransducer pressure field](assets/mono_convex.png)
+![FlatCircularTransducer pressure field](assets/ex02_mono_flat.png)
+![ConcaveCircularTransducer pressure field](assets/ex02_mono_concave.png)
+![FocusedCircularTransducer pressure field](assets/ex02_mono_focused.png)
+![ConvexCircularTransducer pressure field](assets/ex02_mono_convex.png)
 
 ## Run it
 

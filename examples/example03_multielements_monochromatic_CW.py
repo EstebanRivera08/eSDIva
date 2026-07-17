@@ -135,7 +135,7 @@ if RUN_LINEAR_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl.screenshot(str(FIG_FOLDER / "linear_array_field.png"))
+        pl.screenshot(str(FIG_FOLDER / "ex03_linear_array_field.png"))
     else:
         pl.show()
     pl.close()
@@ -169,7 +169,7 @@ if RUN_LINEAR_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl2.screenshot(str(FIG_FOLDER / "linear_array_pressure_field.png"))
+        pl2.screenshot(str(FIG_FOLDER / "ex03_linear_array_pressure_field.png"))
     else:
         pl2.show()
     pl2.close()
@@ -231,7 +231,7 @@ if RUN_MATRIX_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl.screenshot(str(FIG_FOLDER / "matrix_array_field.png"))
+        pl.screenshot(str(FIG_FOLDER / "ex03_matrix_array_field.png"))
     else:
         pl.show()
     pl.close()
@@ -265,7 +265,7 @@ if RUN_MATRIX_ARRAY:
     ]
 
     if SAVE_FIG:
-        pl2.screenshot(str(FIG_FOLDER / "matrix_array_pressure_field.png"))
+        pl2.screenshot(str(FIG_FOLDER / "ex03_matrix_array_pressure_field.png"))
     else:
         pl2.show()
     pl2.close()

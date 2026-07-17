@@ -13,8 +13,8 @@ imaging research.
 
 ## Output
 
-![Setup: TX, tilted RX, scatterers](assets/dualprobe_setup.png)
-![Pitch-catch RF](assets/dualprobe_rf.png)
+![Setup: TX, tilted RX, scatterers](assets/ex19_dualprobe_setup.png)
+![Pitch-catch RF](assets/ex19_dualprobe_rf.png)
 
 ## Run it
 

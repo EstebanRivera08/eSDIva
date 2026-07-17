@@ -17,7 +17,7 @@ downloaded automatically on first run.
 
 ## Output
 
-![Rat brain zones with focused pressure field](assets/rat_brain_zones.png)
+![Rat brain zones with focused pressure field](assets/ex13_rat_brain_zones.png)
 
 ## Run it
 

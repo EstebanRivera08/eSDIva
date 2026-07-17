@@ -27,6 +27,7 @@ from pyfield.hsir.farfield_rect_patch import compute_h_sir
 from pyfield.plotting import add_transducer_mesh
 from pyfield.simulation_base import SimulationBase
 from pyfield.utilities.helper_functions import (
+    announce_eta as _announce_eta,
     compute_sub_elem_attributes,
     compute_time_grid,
     create_3D_spatial_grid_from_points,
@@ -304,12 +305,38 @@ class ReceptionBase(SimulationBase):
         """
         t0 = pe_t0 - float(np.max(self.tx.delays)) - float(np.max(self.rx.delays))
         t0 += (self.tx.elevation_lens_sag + self.rx.elevation_lens_sag) / self.c
-        coords = {"t0": t0, "dt": dt}
+        coords = {"t0": t0, "dt": dt, "pulse_center_lag_s": self._pulse_center_lag_s()}
         if downsampling is not None and int(downsampling) > 1:
             step = int(downsampling)
             rf = _anti_alias_decimate(rf, step)  # anti-aliased along last (time) axis
             coords["dt"] = dt * step
         return rf, coords
+
+    def _pulse_center_lag_s(self) -> float:
+        """Envelope-centre lag of the two-way pulse (seconds), for the beamformer.
+
+        The received waveform is the electric drive convolved with the transmit
+        and receive element impulse responses, ``e ⊛ h_tx ⊛ h_rx``. Three bursts
+        of lengths ``L_e``, ``L_tx``, ``L_rx`` convolve to ``N = L_e + L_tx +
+        L_rx − 2`` samples; each factor has a symmetric envelope, so the two-way
+        envelope peaks at the centre of that support, ``(N − 1)/2`` samples after
+        the geometric arrival. The delay-and-sum reads samples at the geometric
+        round-trip time, so it lands this lag BEFORE the echo peak; the beamformer
+        adds it back (``t_offset_s``) to remove the resulting axial bias. It
+        depends only on the pulse model and ``fs`` — never on the phantom — so it
+        is carried in ``coords`` and applied automatically at beamforming.
+        """
+
+        def length(sig):
+            return 1 if sig is None else int(np.asarray(sig).size)
+
+        n_wave = (
+            length(self.excitation)
+            + length(self.tx.impulse_response)
+            + length(self.rx.impulse_response)
+            - 2
+        )
+        return (n_wave - 1) / 2.0 / self.fs
 
     def _accumulate_depth_bins(self, points_m, n_bins, per_bin_fn):
         """Compute the RF one depth bin at a time and sum onto one shared time axis.
@@ -441,12 +468,12 @@ class ReceptionBase(SimulationBase):
         window_size=(900, 700),
         notebook=False,
         jupyter_backend=None,
-        scatterers_cmap="gray",
         legend=True,
         scale=1.0,
         save_path=None,
         off_screen=None,
         return_plotter=False,
+        db_scale=True,
         **kwargs,
     ):
         """Interactive 3-D preview of the pulse-echo setup (TX, RX, scatterers).
@@ -490,9 +517,6 @@ class ReceptionBase(SimulationBase):
             Enable Jupyter notebook rendering.
         jupyter_backend : str, optional
             Backend string passed to PyVista (``'static'``, ``'trame'`` …).
-        scatterers_cmap : str, default "gray"
-            Matplotlib colormap for the scatterer points (colour encodes each
-            point's scattering amplitude).
         legend : bool, default True
             Draw the TX/RX/Scatterers legend. Note the colour bars belong to
             the ``"Delays"``/``"Apodization"`` aperture colouring — pass plain
@@ -502,6 +526,9 @@ class ReceptionBase(SimulationBase):
             (grid, aperture tags, colour bars) and the saved screenshot together,
             so a higher value yields a larger, sharper image without changing the
             framing (e.g. ``scale=3`` for print figures).
+        db_scale : bool, default True
+            When True, the scatterer amplitudes are converted to dB scale for
+            visualization.
         save_path : str or pathlib.Path, optional
             Screenshot file path (e.g. ``"setup.png"``). When given, the
             scene is rendered off-screen and saved instead of opening a
@@ -611,26 +638,39 @@ class ReceptionBase(SimulationBase):
                 scatterer_positions_mm, amplitudes
             )
             cloud = pv.PolyData(np.asarray(points_m, dtype=np.float64) * 1e3)
-            cloud["Amplitude"] = amps
             # Fade each point by |amplitude| so weak scatterers recede visually.
             a = np.abs(amps.astype(np.float64))
             peak = a.max() if a.size and a.max() > 0 else 1.0
+
+            a_norm = a / (peak + 1e-12)  # avoid divide-by-zero
+
+            if db_scale:
+                a_db = 20 * np.log10(a_norm + 1e-12)  # avoid log(0)
+                amplitude = np.clip(a_db, -60, 0)  # clip to [-60 dB, 0 dB]
+                opacity = "sigmoid"
+                scale_label = "(dB)"
+            else:
+                amplitude = a  # linear scale
+                opacity = a / peak  # linear opacity
+                scale_label = "(a.u.)"
+
+            cloud["Amplitude"] = amplitude
             defaults = {
                 "scalars": "Amplitude",
-                "cmap": scatterers_cmap,
-                "opacity": a / peak,
+                "cmap": "binary",
+                "opacity": opacity,
                 "render_points_as_spheres": True,
-                "point_size": 10.0 * scale,
+                "point_size": 5 * scale,
                 # Horizontal amplitude bar, bottom-centred, clear of the aperture
                 # colour bars on the left/right edges.
                 "scalar_bar_args": {
-                    "title": "Amplitude",
+                    "title": f"Amplitude {scale_label}",
                     "title_font_size": int(20 * scale),
                     "label_font_size": int(18 * scale),
                     "vertical": False,
                     "position_x": 0.35,
                     "position_y": 0.03,
-                    "width": 0.3,
+                    "width": 0.5,
                 },
                 "label": "Scatterers",
             }
@@ -679,10 +719,10 @@ class ReceptionBase(SimulationBase):
         (summed over scatterers). Useful as the emission basis for matrix imaging.
 
         With ``out_path``, the sequence is CHECKPOINTED: each event's RF is
-        written to disk (one compressed file per event + a manifest) the moment
-        it finishes, and re-running the same call on the same folder skips the
-        completed events and resumes from the first missing one. The manifest
-        fingerprints the full simulation (probe, medium, excitation,
+        written to disk (one compressed file per event + a contents file) the
+        moment it finishes, and re-running the same call on the same folder skips
+        the completed events and resumes from the first missing one. The contents
+        file fingerprints the full simulation (probe, medium, excitation,
         scatterers, events); re-running with anything changed raises instead of
         silently mixing incompatible data.
 
@@ -790,6 +830,10 @@ class ReceptionBase(SimulationBase):
 
         orig_delays = self.tx.delays.copy()
         orig_apod = self.tx.apodization.copy()
+        # Sequence-level ETA: extrapolate the first computed event over the
+        # events still to simulate (resumed checkpoints are excluded).
+        n_todo = n_ev * n_chunks - len(done)
+        n_done_run, long_run = 0, False
         results, coords_out, t0_events = [], None, []
         try:
             for i, event in enumerate(tx_events):
@@ -823,6 +867,15 @@ class ReceptionBase(SimulationBase):
                     rf_i, coords_i = self.pulse_echo_rf(
                         pts_k, amp_k, downsampling=downsampling
                     )
+                    dt_ev = time.perf_counter() - t_ev  # this event's sim wall time
+                    n_done_run += 1
+                    if n_done_run == 1:
+                        long_run = _announce_eta(dt_ev, n_todo, "TX events")
+                    elif long_run and not self.verbose:
+                        print(f"  TX event {n_done_run}/{n_todo} done", flush=True)
+                    if self.verbose:
+                        tag = f", chunk {k + 1}/{n_chunks}" if n_chunks > 1 else ""
+                        print(f"    TX event {i + 1}/{n_ev}{tag}: {dt_ev:.2f} s")
                     if coords_out is None:
                         n_rx, nt = rf_i.shape
                         est = n_ev * n_rx * nt * 4
@@ -841,9 +894,10 @@ class ReceptionBase(SimulationBase):
                             rf_i,
                             coords_i["t0"],
                             coords_i["dt"],
-                            duration_s=round(time.perf_counter() - t_ev, 2),
+                            duration_s=round(dt_ev, 2),
                             tx_event=i,
                             chunk=k,
+                            pulse_center_lag_s=coords_i["pulse_center_lag_s"],
                         )
                     else:
                         results.append(rf_i)

@@ -14,8 +14,8 @@ visualised, and used in any `Emission` / `ReceptionSDI` simulation.
 
 ## Output
 
-![Imported aperture with focusing delays](assets/fieldii_import_mesh.png)
-![CW field of the imported probe](assets/fieldii_import_cw.png)
+![Imported aperture with focusing delays](assets/ex17_fieldii_import_mesh.png)
+![CW field of the imported probe](assets/ex17_fieldii_import_cw.png)
 
 ## Run it
 

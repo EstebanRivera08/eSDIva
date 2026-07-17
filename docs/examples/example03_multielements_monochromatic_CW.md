@@ -13,10 +13,10 @@ geometry and pressure volume together in 3-D using PyVista.
 
 ## Output
 
-![Linear array 3-D scene](assets/linear_array_field.png)
-![Linear array pressure volume](assets/linear_array_pressure_field.png)
-![Matrix array 3-D scene](assets/matrix_array_field.png)
-![Matrix array pressure volume](assets/matrix_array_pressure_field.png)
+![Linear array 3-D scene](assets/ex03_linear_array_field.png)
+![Linear array pressure volume](assets/ex03_linear_array_pressure_field.png)
+![Matrix array 3-D scene](assets/ex03_matrix_array_field.png)
+![Matrix array pressure volume](assets/ex03_matrix_array_pressure_field.png)
 
 ## Run it
 

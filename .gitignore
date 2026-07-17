@@ -6,6 +6,7 @@ build/
 dist/
 wheels/
 results/
+out/
 log/
 site/
 *.mp4
@@ -14,7 +15,6 @@ site/
 *.egg-info
 pressure_fields/
 test_models/
-example21_rca_volume/
 
 
 # Virtual environments

@@ -129,7 +129,7 @@ linear = LinearArrayTransducer(
 linear.compute_delays(focus_mm=FOCUS_MM)
 linear.compute_apodization(focus_mm=FOCUS_MM, FoverD=2.0)
 _plot_beamforming(linear)
-_show_or_save(linear, "gallery_linear.png")
+_show_or_save(linear, "ex01_gallery_linear.png")
 
 # ============================================================================
 # STEP 2: CONVEX (CURVILINEAR) ARRAY
@@ -148,7 +148,7 @@ convex = ConvexArrayTransducer(
 convex.compute_delays(focus_mm=[0, 0, 60])
 convex.compute_apodization(focus_mm=[0, 0, 60], FoverD=1.5)
 _plot_beamforming(convex)
-_show_or_save(convex, "gallery_convex.png")
+_show_or_save(convex, "ex01_gallery_convex.png")
 
 # ============================================================================
 # STEP 3: CONVEX ARRAY WITH ELEVATION FOCUS
@@ -168,7 +168,7 @@ convex_focused = ConvexArrayTransducer(
 convex_focused.compute_delays(focus_mm=[0, 0, 60])
 convex_focused.compute_apodization(focus_mm=[0, 0, 60], FoverD=1.5)
 _plot_beamforming(convex_focused)
-_show_or_save(convex_focused, "gallery_convex_focused.png")
+_show_or_save(convex_focused, "ex01_gallery_convex_focused.png")
 
 # ============================================================================
 # STEP 4: MATRIX ARRAY
@@ -188,7 +188,7 @@ matrix = MatrixArrayTransducer(
 matrix.compute_delays(focus_mm=FOCUS_MM)
 matrix.compute_apodization(focus_mm=FOCUS_MM, FoverD=2.0)
 _plot_beamforming(matrix)
-_show_or_save(matrix, "gallery_matrix.png")
+_show_or_save(matrix, "ex01_gallery_matrix.png")
 
 # ============================================================================
 # STEP 5: CIRCULAR FLAT PISTON
@@ -199,7 +199,7 @@ circ = FlatCircularTransducer(
     no_sub_diameter=30,
     frequency_Hz=FC_HZ,
 )
-_show_or_save(circ, "gallery_flat_circular.png")
+_show_or_save(circ, "ex01_gallery_flat_circular.png")
 
 # ============================================================================
 # STEP 6: CONCAVE BOWL (HIFU / TUS)
@@ -211,7 +211,7 @@ bowl = ConcaveCircularTransducer(
     no_sub_diameter=30,
     frequency_Hz=0.5e6,
 )
-_show_or_save(bowl, "gallery_concave.png")
+_show_or_save(bowl, "ex01_gallery_concave.png")
 
 # ============================================================================
 # STEP 7: FOCUSED CIRCULAR (LINE FOCUS)
@@ -224,7 +224,7 @@ cyl = FocusedCircularTransducer(
     focus_axis="y",
     frequency_Hz=FC_HZ,
 )
-_show_or_save(cyl, "gallery_focused_circular.png")
+_show_or_save(cyl, "ex01_gallery_focused_circular.png")
 
 # ============================================================================
 # STEP 8: CUSTOM TRANSDUCER — TUS HELMET (6 BOWL ELEMENTS)
@@ -260,6 +260,6 @@ helmet = CustomTransducer(
     frequency_Hz=0.5e6,
 )
 helmet.compute_delays(focus_mm=[0.0, 0.0, 0.0])
-_show_or_save(helmet, "gallery_custom_helmet.png", scalars="Delays")
+_show_or_save(helmet, "ex01_gallery_custom_helmet.png", scalars="Delays")
 
 print("\nGallery complete.")

@@ -40,6 +40,7 @@ import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
 from pyfield.utilities.helper_functions import (
+    eta_progress as _eta_progress,
     method_to_flag as _method_to_flag,
     next_pow2 as _next_pow2,
     wrap_tqdm as _wrap_tqdm,
@@ -527,6 +528,9 @@ class Reception(ReceptionBase):
             if show
             else range(n_out)
         )
+        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # (tqdm already shows progress in verbose mode).
+        el_iter = _eta_progress(el_iter, n_out, label="RX elements", progress=not show)
 
         for e_rx in el_iter:
             # rx_ap / rx_dl carry this group's RX apodization + delays. Per element
