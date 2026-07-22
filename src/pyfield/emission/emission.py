@@ -37,7 +37,7 @@ class Emission(SimulationBase):
         Speed of sound (m/s).
     rho : float, default 1.0
         Medium density (kg/m^3).
-    fs : float, default 200e6
+    fs : float, default 100e6
         Sampling frequency (Hz).
     alpha0 : float or None, default None
         Attenuation in dB/(MHz^y·cm). None = no attenuation.
@@ -57,11 +57,11 @@ class Emission(SimulationBase):
         ``scipy.fft.rfftfreq``.
     monochromatic : bool, default False
         If True, return CW amplitude at fc.
-    fast_attenuation : bool, default False
-        If True and ``alpha0`` is set, use transducer-center distance for all
-        field points (fast approximation, ignores element spatial spread).
-        If False (default), run the per-element loop using each element's
-        center as the propagation origin (accurate near-field attenuation).
+    fast_attenuation : bool, default True
+        If True (default) and ``alpha0`` is set, use transducer-center distance
+        for all field points (fast approximation, ignores element spatial spread).
+        Set False to run the per-element loop using each element's center as the
+        propagation origin (accurate near-field attenuation, much slower).
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -84,13 +84,13 @@ class Emission(SimulationBase):
         *,
         c=1540.0,
         rho=1.0,
-        fs=200e6,
+        fs=100e6,
         alpha0=None,
         freq_power=1.0,
         excitation=None,
         transfer_function=None,
         monochromatic=False,
-        fast_attenuation=False,
+        fast_attenuation=True,
         verbose=True,
     ):
         self.tx = transducer

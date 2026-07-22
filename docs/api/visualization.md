@@ -57,7 +57,8 @@ Key parameters:
 | `fps` | `30` | Reserved for API compatibility.  Save fps is derived from `Nt / video_duration_s`. |
 | `save_path` | `None` | Path for output file (`.mp4`, `.gif`). |
 | `vmin`, `vmax` | auto | Colorbar limits (applied consistently across all frames). |
-| `centered_to_max` | `False` | Slice planes through pressure maximum (True) or geometric centre (False). |
+| `center` | `None` | Physical `(xc, yc, zc)` in mm the three slice planes pass through (nearest grid index each; None component keeps that axis centred). Overrides `center_to_max`. |
+| `center_to_max` | `False` | Slice planes through pressure maximum (True) or geometric centre (False). Ignored when `center` is set. |
 
 ---
 

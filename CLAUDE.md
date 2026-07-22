@@ -196,9 +196,16 @@ env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
 3. Phantom: ≥5–10 scatterers per resolution cell (cell ~λ³), anechoic targets
    ≥3 PSF radii, wires dim (+10 dB) and far from contrast targets.
 4. Preview (`sim.show`) + one-event speckle check BEFORE the long run.
-5. Beamform: `das_volume` auto-applies `pulse_center_lag_s` and recovers each
-   event's delay reference; rect RX apodization (element directivity already
-   tapers); RCA bars → `das_rca_volume`.
+5. Beamform: all DAS beamformers (`das_volume`/`das_dw_volume`/`das_rca_volume`)
+   auto-apply `pulse_center_lag_s` (default `t_offset_s=None` → read from
+   `coords`) and recover each event's delay reference; rect RX apodization
+   (element directivity already tapers); RCA bars → `das_rca_volume`. **Custom
+   beamformers must add this lag themselves** — the reception RF is the raw echo
+   at the *geometric* round-trip time; the band-limited two-way envelope peaks
+   ~half a pulse later, so every beamformer reads the sample at
+   `t_geom + coords["pulse_center_lag_s"]`. It is NOT baked into the RF (that
+   would double-count in the built-in beamformers); it lives in `coords` and is
+   applied at beamform time.
 6. Metrics: TGC from speckle-only, PSF-scaled ROIs/margins (λz/D units, not mm),
    plain DAS numbers (CF only as ceiling), ~30 dB display window.
 

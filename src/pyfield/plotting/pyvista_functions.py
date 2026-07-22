@@ -47,7 +47,7 @@ def _normalize_window_size(window_size, scale=1.0):
     return (int(ws[0]), int(ws[1]))
 
 
-def _set_custom_style(plotter, *, scale=1.0):
+def _set_custom_style(plotter, *, scale=1.0, **kwargs):
     """
     Apply a consistent axis-label and gridline style to a PyVista plotter.
 
@@ -63,6 +63,7 @@ def _set_custom_style(plotter, *, scale=1.0):
         xtitle="X (mm)",
         ytitle="Y (mm)",
         ztitle="Z (mm)",
+        **kwargs,
     )
     # turn on outer gridlines and inner gridlines if you want them
     cube_actor.DrawXGridlinesOn()

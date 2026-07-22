@@ -160,7 +160,7 @@ def das_rca_volume(
     c: float = 1540.0,
     fnum: float = 1.0,
     rx_apodization: str = "hann",
-    t_offset_s: float = 0.0,
+    t_offset_s: float | None = None,
 ) -> tuple[npt.NDArray[np.float32], dict]:
     """3-D delay-and-sum for a row-column (RCA) plane-wave sequence.
 
@@ -219,10 +219,14 @@ def das_rca_volume(
         rows) are summed.
     rx_apodization : {'hann', 'rect'}, default 'hann'
         Taper of the dynamic receive aperture.
-    t_offset_s : float, default 0.0
-        Extra delay added to every sample lookup — use the pulse-centre lag
-        (about half the two-way waveform length) to remove the axial bias of
-        a band-limited pulse.
+    t_offset_s : float or None, default None
+        Extra delay added to every sample lookup, to remove the axial bias of a
+        band-limited pulse: the delay-and-sum reads the geometric round-trip
+        time, but the two-way echo envelope peaks about half a pulse length
+        later. When ``None`` (default) this lag is taken from
+        ``coords["pulse_center_lag_s"]`` (the reception simulator stores it), so
+        the correction is applied automatically; pass a float to override it (or
+        ``0.0`` to disable it).
 
     Returns
     -------
@@ -239,6 +243,10 @@ def das_rca_volume(
     """
     if rx_apodization not in ("hann", "rect"):
         raise ValueError("rx_apodization must be 'hann' or 'rect'.")
+    # The band-limited two-way pulse peaks about half its length after the
+    # geometric arrival; unless overridden, apply the lag the reception stored.
+    if t_offset_s is None:
+        t_offset_s = float(coords.get("pulse_center_lag_s", 0.0))
     rf = np.ascontiguousarray(rf, dtype=np.float32)
     angles = np.deg2rad(np.asarray(angles_deg, dtype=np.float64))
     if rf.shape[0] != angles.size:
@@ -384,7 +392,7 @@ def das_dw_volume(
     c: float = 1540.0,
     fnum: float = 1.0,
     rx_apodization: str = "hann",
-    t_offset_s: float = 0.0,
+    t_offset_s: float | None = None,
     coherence_weight: bool = False,
 ) -> tuple[npt.NDArray[np.float32], dict]:
     """3-D delay-and-sum for a diverging-wave (virtual source) sequence.
@@ -435,10 +443,14 @@ def das_dw_volume(
         voxel are summed.
     rx_apodization : {'hann', 'rect'}, default 'hann'
         Taper of the dynamic receive aperture.
-    t_offset_s : float, default 0.0
-        Extra delay added to every sample lookup — use the pulse-centre lag
-        (about half the two-way waveform length) to remove the axial bias of
-        a band-limited pulse.
+    t_offset_s : float or None, default None
+        Extra delay added to every sample lookup, to remove the axial bias of a
+        band-limited pulse: the delay-and-sum reads the geometric round-trip
+        time, but the two-way echo envelope peaks about half a pulse length
+        later. When ``None`` (default) this lag is taken from
+        ``coords["pulse_center_lag_s"]`` (the reception simulator stores it), so
+        the correction is applied automatically; pass a float to override it (or
+        ``0.0`` to disable it).
     coherence_weight : bool, default False
         Multiply each voxel by its aperture coherence factor
         ``CF = |Σ s|² / (N·Σ s²)`` over the contributing (event, channel)
@@ -461,6 +473,10 @@ def das_dw_volume(
     """
     if rx_apodization not in ("hann", "rect"):
         raise ValueError("rx_apodization must be 'hann' or 'rect'.")
+    # The band-limited two-way pulse peaks about half its length after the
+    # geometric arrival; unless overridden, apply the lag the reception stored.
+    if t_offset_s is None:
+        t_offset_s = float(coords.get("pulse_center_lag_s", 0.0))
     rf = np.ascontiguousarray(rf, dtype=np.float32)
     vs = np.atleast_2d(np.asarray(virtual_sources_mm, dtype=np.float64)) * 1e-3
     if rf.shape[0] != vs.shape[0]:

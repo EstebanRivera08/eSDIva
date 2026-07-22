@@ -193,6 +193,28 @@ def plot2D_planes(
     plt.show()
 
 
+def _pick_slice_indices(x, y, z, max_source, center, center_to_max):
+    """Pick the (i, j, k) grid indices the three orthogonal slices pass through.
+
+    Precedence: an explicit physical ``center=(xc, yc, zc)`` in mm (each
+    coordinate snapped to its nearest value in the ``x``/``y``/``z`` axes; a
+    None component keeps that axis at the geometric centre), else the location
+    of the field maximum when ``center_to_max`` is set, else the geometric
+    centre of the grid.
+    """
+    if center is not None:
+        cx, cy, cz = center
+        i = len(x) // 2 if cx is None else int(np.argmin(np.abs(np.asarray(x) - cx)))
+        j = len(y) // 2 if cy is None else int(np.argmin(np.abs(np.asarray(y) - cy)))
+        k = len(z) // 2 if cz is None else int(np.argmin(np.abs(np.asarray(z) - cz)))
+        return i, j, k
+    if center_to_max:
+        return tuple(
+            int(v) for v in np.unravel_index(np.nanargmax(max_source), max_source.shape)
+        )
+    return len(x) // 2, len(y) // 2, len(z) // 2
+
+
 def plot2D_pressure_slices(
     pressure_field,
     x=None,
@@ -207,7 +229,8 @@ def plot2D_pressure_slices(
     file_name="pressure_field.png",
     video_duration_s=5,
     fps=30,
-    centered_to_max=False,
+    center=None,
+    center_to_max=False,
     title=None,
     label=None,
     ratios=None,
@@ -257,9 +280,16 @@ def plot2D_pressure_slices(
         evenly over this duration. Default 5.
     fps : int, optional
         Frame rate for 4D display and export. Default 30.
-    centered_to_max : bool, optional
+    center : tuple of float, optional
+        Physical location ``(xc, yc, zc)`` in mm through which the three slice
+        planes are taken (the XZ plane sits at ``y = yc``, XY at ``z = zc``,
+        YZ at ``x = xc``). Each coordinate is matched to its nearest grid
+        index from *coords*/*x*/*y*/*z*. A component may be None to keep the
+        geometric centre on that axis. Overrides *center_to_max*. Default None.
+    center_to_max : bool, optional
         If True, slice planes pass through the pressure maximum; otherwise
-        through the geometric centre. Default False.
+        through the geometric centre. Ignored when *center* is given.
+        Default False.
     title : str, optional
         Figure suptitle. For 4D data the time stamp is appended when None.
     label : str, optional
@@ -381,13 +411,9 @@ def plot2D_pressure_slices(
 
         else:
             # --- three-panel layout for full 3D volumes ---
-            if centered_to_max:
-                max_idx = np.unravel_index(
-                    np.nanargmax(pressure_plot), pressure_plot.shape
-                )
-                x0, y0, z0 = max_idx[0], max_idx[1], max_idx[2]
-            else:
-                x0, y0, z0 = len(x) // 2, len(y) // 2, len(z) // 2
+            x0, y0, z0 = _pick_slice_indices(
+                x, y, z, pressure_plot, center, center_to_max
+            )
 
             print(
                 f"Taking slice ({x[x0]:.1e},{y[y0]:.1e},{z[z0]:.1e}) mm"
@@ -518,13 +544,9 @@ def plot2D_pressure_slices(
     is_plane_yz = nx == 1
     is_plane = is_plane_xz or is_plane_xy or is_plane_yz
 
-    if centered_to_max:
-        xi, yi, zi = np.unravel_index(
-            np.nanargmax(np.abs(pressure_field[frame_indices[0]])),
-            pressure_field.shape[1:],
-        )
-    else:
-        xi, yi, zi = len(x) // 2, len(y) // 2, len(z) // 2
+    xi, yi, zi = _pick_slice_indices(
+        x, y, z, np.abs(pressure_field[frame_indices[0]]), center, center_to_max
+    )
 
     if is_plane:
         fig, ax_main = plt.subplots(1, 1, figsize=figsize)

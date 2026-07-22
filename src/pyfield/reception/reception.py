@@ -83,7 +83,7 @@ class Reception(ReceptionBase):
         Speed of sound (m/s).
     rho : float, default 1.0
         Medium density (kg/m^3).
-    fs : float, default 200e6
+    fs : float, default 100e6
         Sampling frequency (Hz).
     alpha0 : float or None, default None
         Attenuation in dB/(MHz^y·cm). None = no attenuation.
@@ -124,7 +124,7 @@ class Reception(ReceptionBase):
         *,
         c=1540.0,
         rho=1.0,
-        fs=200e6,
+        fs=100e6,
         alpha0=None,
         freq_power=1.0,
         excitation=None,

@@ -303,7 +303,7 @@ def add_pressure_vol(
             "show_scalar_bar": False,
             "label": "Focal Spot",  # label for the legend
             "color": "r",  # color of the mesh
-            "ambient": 0.3,
+            "ambient": 0.7,
         }
         for key, value in default_kwargs.items():
             if key not in kwargs:
@@ -339,10 +339,10 @@ def add_pressure_vol(
             "show_scalar_bar": True,
             "scalar_bar_args": {
                 "title": colorbar_title,
-                "title_font_size": int(30 * scale),
-                "label_font_size": int(26 * scale),
+                "title_font_size": int(20 * scale),
+                "label_font_size": int(18 * scale),
                 "vertical": True,
-                "position_x": 0.8,
+                "position_x": 0.75,
                 "position_y": 0.1,
                 "height": 0.3,
             },
@@ -444,7 +444,7 @@ def add_transducer_mesh(
                 "title_font_size": int(20 * scale),
                 "label_font_size": int(18 * scale),
                 "vertical": True,
-                "position_x": 0.8,
+                "position_x": 0.75,
                 "position_y": 0.5,
                 "height": 0.3,
             },

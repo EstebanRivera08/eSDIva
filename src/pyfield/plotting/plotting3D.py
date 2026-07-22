@@ -40,9 +40,7 @@ def plot3D_pressure_vol(
     box_color="#b0b0b0",
     box_opacity=0.2,
     contour_levels=11,
-    camera_position=None,
-    camera_elevation=None,
-    camera_azimuth=None,
+    bounds_kwargs=None,
     **kwargs,
 ):
     """Plot a 3D pressure field as a PyVista volume with bounding box and axes.
@@ -67,8 +65,8 @@ def plot3D_pressure_vol(
     save_path : str or Path, optional
         Path to save a screenshot. If None, no file is written. Default None.
     file_name : str, optional
-        File name for saved video/screenshot. Default
-        ``"3D_pressure_slices.mp4"``.
+        File name for saved screenshot. Default
+        ``"3D_pressure_volume.png"``.
     scalars : str, optional
         Name of the scalar array attached to the volume. Default ``"Pressure"``.
     plotter : pyvista.Plotter, optional
@@ -94,12 +92,8 @@ def plot3D_pressure_vol(
         Bounding-box opacity. Default 0.2.
     contour_levels : int, optional
         Number of isosurface contour levels. Default 11.
-    camera_position : str or list, optional
-        PyVista camera position. If None, the default view is used.
-    camera_elevation : float, optional
-        Camera elevation angle in degrees. If None, the default is used.
-    camera_azimuth : float, optional
-        Camera azimuth angle in degrees. If None, the default is used.
+    bounds_kwargs : dict, optional
+        Keyword arguments forwarded to ``plotter.show_bounds()``.
     **kwargs
         Forwarded to ``plotter.add_mesh()``.
 
@@ -143,21 +137,17 @@ def plot3D_pressure_vol(
     )
 
     _ = plotter.add_mesh(box, opacity=box_opacity, color=box_color)
-
-    _set_custom_style(plotter, scale=scale)
-
-    if camera_position is not None:
-        plotter.camera_position = camera_position
-    if camera_elevation is not None:
-        plotter.camera.elevation = camera_elevation
-    if camera_azimuth is not None:
-        plotter.camera.azimuth = camera_azimuth
+    if bounds_kwargs is None:
+        bounds_kwargs = {}
+    _set_custom_style(plotter, scale=scale, **bounds_kwargs)
 
     if save_path is not None:
         from pathlib import Path
 
-        Path(save_path).parent.mkdir(parents=True, exist_ok=True)
-        plotter.screenshot(str(save_path), transparent_background=True)
+        file_path = Path(save_path) / file_name
+        file_path.parent.mkdir(parents=True, exist_ok=True)
+
+        plotter.screenshot(str(file_path), transparent_background=True)
         print(f"\nPlot saved to: {save_path}")
 
     elif show_fig:

@@ -77,11 +77,20 @@ def announce_eta(t_first_s, n_units, label, threshold_s=30.0):
     finish = time.strftime("%H:%M", time.localtime(time.time() + est_s - t_first_s))
     est_val, unit = (est_s / 60, "min") if est_s >= 60 else (est_s, "s")
     # ASCII only: Windows consoles often decode cp1252, mangling dashes.
-    print(
+    msg = (
         f"  Estimated run time ~{est_val:.1f} {unit} "
-        f"({n_units} {label}) - expect finish around {finish}",
-        flush=True,
+        f"({n_units} {label}) - expect finish around {finish}"
     )
+    # Route through tqdm.write when tqdm is present: a raw print() here lands in the
+    # middle of an active progress bar's line, so tqdm reprints the bar on the next
+    # update and the user sees it twice. tqdm.write clears the bar, writes the line
+    # above it, and redraws — one bar, one estimate. Falls back to print without tqdm.
+    try:
+        from tqdm import tqdm
+
+        tqdm.write(msg)
+    except ImportError:
+        print(msg, flush=True)
     return True
 
 
@@ -283,7 +292,7 @@ def compute_sub_elem_attributes(transducer):
 
 
 # Spatial grid
-def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
+def create_spatial_grid_from_dict(simulation_struct):
     """Create a simulation mesh for the ultrasound field.
 
     Parameters
@@ -302,10 +311,6 @@ def create_spatial_grid_from_dict(simulation_struct, *, fs=200e6, c=1540.0):
             The grid spacing in the y direction (in mm).
         - dz (or dz_mm) : float
             The grid spacing in the z direction (in mm).
-    fs : float, default: 200e6
-        Sampling frequency in Hz. Used to compute far-field condition warnings.
-    c : float, default: 1540.0
-        Speed of sound in m/s. Used for patch-size validation.
 
     Returns
     -------

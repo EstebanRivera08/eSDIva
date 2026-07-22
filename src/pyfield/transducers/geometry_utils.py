@@ -68,6 +68,14 @@ def windowed_apodization_1d(
 
     # Slide the window so its centre sits on the element nearest x_foc.
     offset = (N - n_virt) // 2 + int(np.round(x_foc_m / pitch_m))
+    # Clamp the window CENTRE to the physical aperture [0, N-1]: the profile
+    # centre a_xc tracks the lateral focus but stops at the edge element when the
+    # focus steers past the aperture. A focus beyond the array then yields a full
+    # edge sub-aperture (window butted against the last element), not a thin
+    # sliver of the window sliding off the array entirely.
+    half = (n_virt - 1) // 2
+    center = min(max(offset + half, 0), N - 1)
+    offset = center - half
     idxs = np.arange(n_virt) + offset
     valid = (idxs >= 0) & (idxs < N)
     apod = np.zeros(N, dtype=float)

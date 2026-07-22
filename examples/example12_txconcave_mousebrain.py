@@ -30,13 +30,13 @@ import pyvista as pv
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
+from pyfield.emission import Emission
 from pyfield.plotting import (
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
     create_3Dvol_mesh,
 )
-from pyfield.emission import Emission
 from pyfield.transducers import ConcaveCircularTransducer
 from pyfield.utilities import BG_Atlas
 
@@ -59,6 +59,9 @@ print("\n --- Example 12: Mouse Brain Atlas + Focused Ultrasound --- \n")
 
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
+    SCALE = SCALE
+else:
+    SCALE = 1
 
 # ============================================================================
 # STEP 1: CREATE TRANSDUCER AND COMPUTE PRESSURE FIELD

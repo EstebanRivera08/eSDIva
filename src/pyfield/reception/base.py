@@ -28,6 +28,8 @@ from pyfield.plotting import add_transducer_mesh
 from pyfield.simulation_base import SimulationBase
 from pyfield.utilities.helper_functions import (
     announce_eta as _announce_eta,
+)
+from pyfield.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
     create_3D_spatial_grid_from_points,
@@ -526,9 +528,6 @@ class ReceptionBase(SimulationBase):
             (grid, aperture tags, colour bars) and the saved screenshot together,
             so a higher value yields a larger, sharper image without changing the
             framing (e.g. ``scale=3`` for print figures).
-        db_scale : bool, default True
-            When True, the scatterer amplitudes are converted to dB scale for
-            visualization.
         save_path : str or pathlib.Path, optional
             Screenshot file path (e.g. ``"setup.png"``). When given, the
             scene is rendered off-screen and saved instead of opening a
@@ -545,6 +544,9 @@ class ReceptionBase(SimulationBase):
             meshes) before calling ``plotter.show()`` or ``plotter.screenshot()``.
             The axis grid is then NOT drawn, so the caller can apply their own
             ``plotter.show_grid(...)`` settings.
+        db_scale : bool, default True
+            When True, the scatterer amplitudes are converted to dB scale for
+            visualization.
         **kwargs
             Forwarded to the scatterer ``add_mesh`` call (e.g. ``point_size``).
 
@@ -663,6 +665,7 @@ class ReceptionBase(SimulationBase):
                 "point_size": 5 * scale,
                 # Horizontal amplitude bar, bottom-centred, clear of the aperture
                 # colour bars on the left/right edges.
+                "show_scalar_bar": True,
                 "scalar_bar_args": {
                     "title": f"Amplitude {scale_label}",
                     "title_font_size": int(20 * scale),
@@ -672,6 +675,7 @@ class ReceptionBase(SimulationBase):
                     "position_y": 0.03,
                     "width": 0.5,
                 },
+                "clim": [-60, 0] if db_scale else [0, 1],
                 "label": "Scatterers",
             }
             for key, val in defaults.items():

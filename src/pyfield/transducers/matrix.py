@@ -278,8 +278,15 @@ class MatrixArrayTransducer(TransducerBase):
 
             sx = int(np.round(x_foc / self.elem_width))
             sy = int(np.round(y_foc / self.elem_height))
-            ix = np.arange(Nvx) - (Nvx - 1) // 2 + N_x // 2 + sx
-            iy = np.arange(Nvy) - (Nvy - 1) // 2 + N_y // 2 + sy
+            # Clamp each window CENTRE to the physical aperture ([0, N_x-1] /
+            # [0, N_y-1]): the profile centre (a_xc, a_yc) tracks the focus but
+            # stops at the edge element when the focus steers past the aperture,
+            # so a focus beyond the array gives a full edge sub-aperture butted
+            # against the last row/column, not a sliver sliding off the array.
+            cx = min(max(N_x // 2 + sx, 0), N_x - 1)
+            cy = min(max(N_y // 2 + sy, 0), N_y - 1)
+            ix = np.arange(Nvx) - (Nvx - 1) // 2 + cx
+            iy = np.arange(Nvy) - (Nvy - 1) // 2 + cy
             valid_x = (ix >= 0) & (ix < N_x)
             valid_y = (iy >= 0) & (iy < N_y)
 

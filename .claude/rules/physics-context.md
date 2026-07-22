@@ -247,6 +247,31 @@ Code: `compute_pe_complete` (paired) / `compute_oneway_spectrum_band` +
 `compute_twoway_spectrum_summed` (spectral) in `transducer_sir_pe_sdi.py`. The
 conventional path delegates to `Reception` (`farfield_rect_patch.compute_h_sir`).
 
+## 9.2 Pulse-centre lag — a beamforming correction, NOT part of the RF
+
+The reception RF is the raw echo referenced to the **geometric** round-trip time
+`t0` (nearest-patch arrival). But the recorded echo is the geometric SIR convolved
+with the band-limited two-way pulse `exc ⊛ ir_tx ⊛ ir_rx`, whose envelope peaks
+about **half a pulse length after** the geometric arrival. So a delay-and-sum that
+reads the geometric time `t_tx + t_rx − t0` lands the point-spread function ~0.5–1
+mm too deep (≈1 µs for a 2-cycle 5 MHz pulse). Every beamformer must instead read
+the sample at `t_geom + coords["pulse_center_lag_s"]`.
+
+This lag is **stored in `coords["pulse_center_lag_s"]`** by the reception
+simulators (`ReceptionBase._pulse_center_lag_s`, from the drive + element impulse
+responses), NOT applied to the RF samples. Rationale: the RF is the physical echo;
+baking the lag into it would (a) misrepresent the raw signal and (b) double-count
+in the built-in beamformers, which already add it. All three DAS beamformers
+(`das_volume`, `das_dw_volume`, `das_rca_volume`) default `t_offset_s=None` →
+auto-read the lag from `coords`; pass a float to override, `0.0` to disable.
+
+**When writing a custom beamformer** (e.g. a torch/differentiable one), you MUST
+add this term yourself: `idx = (t_tx + t_rx − t0 + coords["pulse_center_lag_s"])·fs`.
+Forgetting it biases every PSF axially by a constant ~half-pulse depth. (Distinct
+from the per-event TX time reference, which must be recovered from the event's own
+delays — `t_ref = mean_e(τ_e ∓ |r_e − r_vs|/c)` — or the events desynchronise and
+the compounded PSF splits into one ray per transmit.)
+
 ## 10. Attenuation in SIR Simulations
 
 **Core approach**: Post-hoc frequency-domain transfer function. SIR stays lossless.

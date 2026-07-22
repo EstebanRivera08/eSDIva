@@ -15,6 +15,7 @@ Run with:
 import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
+
 from pyfield.reception import ReceptionSDI
 from pyfield.transducers import LinearArrayTransducer
 
@@ -42,7 +43,12 @@ tx = LinearArrayTransducer(
     no_sub_y=4,
     frequency_Hz=5e6,
 )
-rx = tx  # same transducer for TX and RX
+rx = tx.copy()  # same transducer for TX and RX
+# rotate in the xy plane 90 degrees to show that can be used for RCA simulation
+T_matrix = np.array(
+    [[0, -1, 0, 0], [1, 0, 0, 0], [0, 0, 1, 0.01], [0, 0, 0, 1]], dtype=np.float32
+)
+rx.transform(T_matrix)
 
 fc = tx.fc
 t_pulse = np.arange(0, PULSE_CYCLES / fc, 1.0 / FS)
@@ -75,6 +81,10 @@ print(f"Scatterers: {len(scatterer_pos)} point targets")
 # STEP 3: FULL MATRIX CAPTURE
 # ============================================================================
 sim = ReceptionSDI(tx, rx, c=C, fs=FS)
+
+if not SAVE_FIG:
+    sim.show(scatterer_pos, scatterer_amp, TX_color="red", RX_color="blue")
+
 rf_fmc, coords = sim.synthetic_aperture_rf(
     scatterer_pos, scatterer_amp, decimation=1, countdown=False
 )

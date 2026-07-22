@@ -161,12 +161,24 @@ class RFDataset:
     # ------------------------------------------------------------------
     @property
     def meta(self) -> dict:
-        """Free-form info stored at creation."""
+        """Free-form info stored at creation.
+
+        Returns
+        -------
+        dict
+            The metadata dictionary recorded when the dataset was created.
+        """
         return self._contents["meta"]
 
     @property
     def completed(self) -> list[int]:
-        """Sorted indices of events whose file exists and is recorded done."""
+        """Sorted indices of events whose file exists and is recorded done.
+
+        Returns
+        -------
+        list[int]
+            Sorted TX event indices with a present, completed RF file.
+        """
         return sorted(
             int(k)
             for k, ev in self._contents["events"].items()
@@ -227,8 +239,11 @@ class RFDataset:
         Returns
         -------
         rf : (Erx, Nt) numpy.ndarray
+            Per-receive-channel RF of the event.
         t0 : float
+            Beam-axis time origin of the first sample (s).
         dt : float
+            Sample period (s).
 
         Raises
         ------
@@ -317,7 +332,13 @@ class RFDataset:
 
     # ------------------------------------------------------------------
     def summary(self) -> str:
-        """Human-readable status table (also returned as a string)."""
+        """Human-readable status table (also returned as a string).
+
+        Returns
+        -------
+        str
+            The status table text (printed and returned).
+        """
         n_target = self.meta.get("n_events")
         done = self.completed
         lines = [
