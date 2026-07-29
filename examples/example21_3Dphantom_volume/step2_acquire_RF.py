@@ -11,7 +11,7 @@ simulation event by event:
   pulse of a physical probe. Essential: without the impulse responses the
   elements are ideally broadband and the aperture impulse-response tails
   dominate the received spectrum (PSF +60 %, sidelobe skirt −22 → −10 dB).
-- ``ReceptionSDI(method="spectral")``: at matrix channel counts the spectral
+- ``Reception(method="spectral")``: at matrix channel counts the spectral
   pulse-echo kernel builds every receive channel's spectrum in one batched
   call — measured ~3x faster per event than the conventional path at 3025
   channels (and ~20x faster than Field II on the same machine).
@@ -23,7 +23,7 @@ simulation event by event:
   change the pulse model, delete ``out/<scenario>/RF`` yourself.
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_rca_volume/step2_acquire_RF.py
+    uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
 """
 
 import sys
@@ -44,7 +44,7 @@ from step1_define_phantom_TX_RX import (
 )
 
 from pyfield.io import RFDataset
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
 print(f"\n--- Example 21 · Step 2: acquisition, scenario '{SCENARIO}' ---\n")
 
@@ -57,7 +57,7 @@ print(f"{len(SC['vs_mm'])} virtual sources at z = {SC['vs_mm'][0, 2]:.0f} mm")
 # Separate TX/RX instances: reception applies RX delays per channel, so a
 # shared object would leak each event's TX delays onto the receive channels.
 tx, rx = SC["make_probe"](SC["fc"]), SC["make_probe"](SC["fc"])
-sim = ReceptionSDI(
+sim = Reception(
     tx,
     rx,
     c=C,

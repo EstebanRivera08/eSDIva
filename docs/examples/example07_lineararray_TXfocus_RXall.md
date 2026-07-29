@@ -26,14 +26,14 @@ uv run examples/example07_lineararray_TXfocus_RXall.py
 
 ```python
 import pyfield.transducers as transducers
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
 tx = transducers.Domino()
 tx.compute_delays(focus_mm=[0, 0, 20])
 tx.compute_apodization(focus_mm=[0, 0, 20], FoverD=2.0)
 rx = transducers.Domino()          # flat reception — no delays
 
-sim = ReceptionSDI(tx, rx, c=1540, fs=200e6, excitation=excitation)
+sim = Reception(tx, rx, c=1540, fs=200e6, excitation=excitation)
 sim.show(scatterer_pos, scatterer_amp)   # 3-D sanity check
 rf, coords = sim(scatterer_pos, scatterer_amp)   # (E_rx, Nt)
 ```

@@ -9,15 +9,17 @@ receive elements — the raw channel data a scanner would digitise. It is the ba
 for PSF, phantom, FMC, and sequence (PW/DW) imaging studies, and matches Field II
 to correlation ~1.0 while running **>20× faster** on large apertures.
 
-Two classes share one API:
+One class, `Reception`, does everything; its `method` selector picks how the two-way
+SIR is evaluated (speed only — all give the same RF):
 
-- **`ReceptionSDI`** — fast sparse-delta kernel (default choice).
-- **`Reception`** — conventional Tupholme-Stepanishen reference.
+- **`"spectral"`** (default) — fast sparse-delta kernel via closed-form one-way SIR spectra.
+- **`"fst"` / `"sdi"` / `"auto"`** — conventional Tupholme-Stepanishen sampled convolution.
+- **`"paired"`** — exact but slow pedagogic reference (warns on selection).
 
 ```python
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
-sim = ReceptionSDI(tx, rx, fs=200e6, c=1540)          # separate TX / RX transducers
+sim = Reception(tx, rx, fs=200e6, c=1540)             # separate TX / RX transducers
 rf, coords = sim.pulse_echo_rf(scatterer_pos_mm, scatterer_amp)   # (Erx, Nt)
 ```
 
@@ -29,12 +31,12 @@ Field II — no explicit derivative applied).
 
 ```mermaid
 flowchart LR
-    TX[TX transducer] --> R[ReceptionSDI<br/>fs · c · method]
+    TX[TX transducer] --> R[Reception<br/>fs · c · method]
     RX[RX transducer] --> R
     R --> M{method}
-    M -->|spectral| SP[Closed-form one-way<br/>spectra · no FFT]
-    M -->|paired| PA[16 corner deltas / pair<br/>splat drive]
-    M -->|conventional| CV[sample SIRs + FFT]
+    M -->|spectral · default| SP[Closed-form one-way<br/>spectra · no FFT]
+    M -->|paired · pedagogic| PA[16 corner deltas / pair<br/>splat drive]
+    M -->|fst / sdi / auto| CV[sample SIRs + FFT]
     SP --> API
     PA --> API
     CV --> API
@@ -56,8 +58,9 @@ flowchart LR
 | `synthetic_aperture_rf` | FMC — per-element transmit basis | `(Etx, Erx, Nt)` |
 | `scan_focusline` | One focused B-mode line, RX summed in-kernel | `(Nt,)` |
 
-The `method=` flag (`auto` / `spectral` / `paired` / `conventional`) only trades
-speed — all produce the same RF.
+The `method=` flag (`spectral` / `fst` / `sdi` / `auto` / `paired`) only trades
+speed — all produce the same RF. `paired` is a slow pedagogic reference and warns
+on selection.
 
 ## Scatterers, PSF, and phantoms
 

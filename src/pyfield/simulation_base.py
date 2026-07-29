@@ -1,4 +1,4 @@
-"""Shared base for the acoustic simulators (`Emission`, `Reception`, `ReceptionSDI`).
+"""Shared base for the acoustic simulators (`Emission`, `Reception`, `ReceptionConventional`).
 
 `SimulationBase` holds the small amount of state and plumbing that emission and
 reception genuinely share — the medium parameters (speed of sound, density,

@@ -4,7 +4,7 @@ Two analytic forms of the pulse-echo response are implemented in
 ``transducer_sir_pe_sdi.py``: the paired form (`compute_pe_complete`, which splats the
 integrated drive per patch pair) and the spectral form (`compute_oneway_spectrum_band`,
 the closed-form one-way SIR-delta spectrum). This test checks the spectrum kernel produces
-a sane, position-dependent spectrum — the end-to-end equivalence of the three ReceptionSDI
+a sane, position-dependent spectrum — the end-to-end equivalence of the three Reception
 methods is covered in test_reception.py.
 """
 

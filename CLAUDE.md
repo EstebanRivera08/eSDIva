@@ -69,7 +69,7 @@ under `[project.theme]`.
 1. **`src/pyfield/hsir/`** — Spatial Impulse Response computation. **Core engine — modify carefully.**
 2. **`src/pyfield/transducers/`** — Transducer geometry. Under active development; prioritize generalization, keep backward compatibility.
 3. **`src/pyfield/emission/`** — Emission simulation (`Emission`, deprecated `PyField` alias). **Primary API — keep intuitive/consistent.**
-4. **`src/pyfield/reception/`** — Reception simulation (`ReceptionSDI`, `Reception`). **Primary API.**
+4. **`src/pyfield/reception/`** — Reception simulation (`Reception`, backed by `ReceptionConventional`). **Primary API.**
 5. **`src/pyfield/attenuation/`** — Power-law attenuation transfer functions.
 6. **`src/pyfield/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
 7. **`src/pyfield/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
@@ -136,22 +136,22 @@ sim = Emission(tx, fs=200e6, excitation=exc_LE)    # per-element excitation (L,E
 p, coords = sim(field_points, method="auto")       # always returns (pressure, coords)
 ```
 
-**Reception** (pulse-echo RF): two classes — `ReceptionSDI` (fast PE-SDI kernel,
-default) and `Reception` (conventional Tupholme-Stepanishen), same API, sharing
-`ReceptionBase` (`base.py`). Physics: the pulse-echo signal carries the 3rd
-derivative of the excitation (`v_pe = ρ₀/2c₀² · E_m ⊛ ∂³v/∂t³`); in practice that
-∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
-(`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither class applies an explicit ∂³.
-`ReceptionSDI` exposes three formulations of `v_pe ⊛ (h_tx ⊛ h_rx)` via `method=`
-(default `auto`): **`conventional`** (sample both SIRs, FFT-convolve — delegates to
-`Reception`); **`paired`** (the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16
-deltas/pair; pushes `I⁴` onto the drive `w = I⁴ v_pe` once and splats a copy of `w` per
-corner event — **no FFT, no cumsum**, cost ∝ M²·len(w), the exact reference path);
-**`spectral`** (closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**,
-cost ∝ M, exact, band-limited bins only, every RX element's spectrum built in one batched
-kernel call, supports per-patch one-way attenuation). `auto` → `paired` only for a
-near-monoelement aperture, else `spectral` (band-limited drive) or `conventional`
-(wideband). Field II shares the convention
+**Reception** (pulse-echo RF): one public class — `Reception` (the fast PE-SDI kernel),
+with `ReceptionConventional` (conventional Tupholme-Stepanishen) as the sampled-convolution
+backend it delegates to. Both share `ReceptionBase` (`base.py`). Physics: the pulse-echo
+signal carries the 3rd derivative of the excitation (`v_pe = ρ₀/2c₀² · E_m ⊛ ∂³v/∂t³`); in
+practice that ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
+(`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither applies an explicit ∂³.
+`Reception` selects how `v_pe ⊛ (h_tx ⊛ h_rx)` is evaluated via `method=` (default
+`spectral`): **`spectral`** (closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`, **no
+forward FFT**, cost ∝ M, exact, band-limited bins only, every RX element's spectrum built in
+one batched kernel call, supports per-patch one-way attenuation); **`fst` / `sdi` / `auto`**
+(sample both SIRs and FFT-convolve — delegates to `ReceptionConventional`; the string is its
+SIR-sampling kernel, `auto` lets it choose per grid); **`paired`** (pedagogic reference
+only — the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair; pushes `I⁴` onto
+the drive `w = I⁴ v_pe` once and splats a copy of `w` per corner event — **no FFT, no
+cumsum**, exact but cost ∝ M²·len(w), so far slower than `spectral` and **warns on
+selection**). Field II shares the convention
 (`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
 parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
@@ -176,8 +176,8 @@ phantom — periodic lattices give coherent echoes, not speckle). For phantoms u
 `ARCHITECTURE.md`.
 
 ```python
-from pyfield.reception import ReceptionSDI
-sim = ReceptionSDI(tx, rx, fs=200e6, c=1540)
+from pyfield.reception import Reception
+sim = Reception(tx, rx, fs=200e6, c=1540)
 rf, coords = sim.pulse_echo_rf(scatterer_pos_mm, scatterer_amp)        # (Erx, Nt)
 psf, coords = sim.pulse_echo_rf(pts, per_scatterer=True)               # (P, Erx, Nt) PSF
 env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
@@ -216,108 +216,13 @@ transient 4D); `plot2D_transient_slices(...)` for transient planes.
 
 ## Mathematical Foundations
 
-### 1. Spatial Impulse Response (SIR) — Tupholme-Stepanishen
-
-Pressure from vibrating aperture S at field point r_p:
-
-    p_m(r_p, t) = rho_0 * dv_n/dt *_t h_m(r_p, t)
-
-Where h_m is the SIR:
-
-    h_m(r_p, t) = (1/2pi) * integral_S [ delta(t - |r_m - r_p|/c_0) / |r_m - r_p| ] dS
-
-### 2. Far-Field Trapezoidal SIR (Rectangular Patch)
-
-For patch m with dimensions (w_mx, w_my), center r_m, field point r_p:
-- Distance: `l = |r_p - r_m|`
-- Unit vector: `u = (r_p - r_m) / l`
-
-Trapezoid parameters:
-- `dt1 = min(w_mx*|u_x|, w_my*|u_y|) / c_0`  (shorter side crossing)
-- `dt2 = max(w_mx*|u_x|, w_my*|u_y|) / c_0`  (longer side crossing)
-- `t1 = l/c_0 - (dt1 + dt2)/2`  (first corner TOF)
-- `t2 = t1 + dt1`, `t3 = t1 + dt2`, `t4 = t1 + dt1 + dt2`
-- `h_max = w_mx * w_my / (2*pi * dt2 * l)` (plateau amplitude)
-- `slope = h_max / dt1`
-
-**Far-field validity**: `w << sqrt(4*l*c_0/f)` — controls required subdivision density.
-
-### 3. SDI Method (Sparse Delta Integration)
-
-Key insight: 2nd derivative of trapezoid = 4 weighted Dirac deltas:
-
-    d2h/dt2 = slope * [delta(t-t1) - delta(t-t2) - delta(t-t3) + delta(t-t4)]
-
-Discrete: 8 sample writes per trapezoid (2 per corner via linear interpolation).
-Recover h by double cumsum. SDI wins when `avg_dk >> 8 + 2T/M`.
-
-### 4. Transducer = Sum of M Patches
-
-    h_tx(r_p, t) = sum_{m=1}^{M} a_m * h_m(r_p, t - tau_m)
-
-Where a_m = apodization, tau_m = delay per patch.
-
-### 5. Emission Signal Chain
-
-    p_e(r, t) = rho_0 * v_n(t) *_t dh(r, t)/dt
-
-For monochromatic CW: `p_e,cw(r) = |H(r, omega_c)|` (SIR Fourier transform at fc).
-
-### 6. PE SDI (Pulse-Echo Combined SDI)
-
-The pulse-echo signal physically carries the 3rd derivative of the excitation:
-
-    v_pe(t) = (rho_0/2c_0^2) * E_m(t) *_t d3v/dt3   ∝   e(t) *_t h_e(t) *_t h_r(t)
-
-The ∂³ is baked into the band-limited excitation e and TX/RX impulse responses h_e,
-h_r (never formed explicitly), same as Field II. So the pulse-echo RF is just
-`p_r = v_pe *_t (h_tx *_t h_rx)`.
-
-PE-SDI builds the two-way SIR from the delta product. Each one-way SIR is the double
-integral of its corner deltas (h = I² d²h), so:
-
-    Δδ_pe = d2h^e *_t d2h^r = 16 Dirac deltas per (m_e, m_r) pair   (deltas ⊛ deltas)
-    h_tx *_t h_rx = I⁴ Δδ_pe
-
-Each TX corner (4) × each RX corner (4) = 16 events per pair (×fs: Δδ_pe holds delta
-*areas*, ÷(jω) weights each sample by dt). The two SDI forms apply I⁴ differently:
-
-    p_r(t) = (rho_0/2c_0^2) * f_m(r) *_r [(E_m * v) *_t (I⁴ Δδ_pe)(r, t)]
-
-Both recover exactly `h_tx *_t h_rx`, so all formulations ≡ Field II. Three `method=`:
-**`paired`** forms the integrated drive `w = I⁴ v_pe` once and splats a copy of `w` per
-corner event (`compute_pe_complete`, **no FFT, no cumsum**, cost ∝ M²·len(w) — exact
-reference); **`spectral`** uses the closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`
-(`compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF;
-`compute_oneway_spectrum_band` builds one element's spectrum for the per-scatterer PSF —
-no forward FFT, applies ÷(jω)⁴ in Fourier, cost ∝ M not M², exact, per-patch attenuation);
-**`conventional`** samples and convolves. Full taxonomy and complexity:
-`PE_SDI_kernel_analysis.md`.
-
-### 7. Causal Power-Law Attenuation
-
-General case (y != 1), Szabo (1994), Holm (2019):
-
-    H_att(w, d) = exp(-alpha0*|w|^y*d) * exp(-j*alpha0*|w|^y*tan(y*pi/2)*d)
-
-Special case (y = 1), O'Donnell (1981):
-
-    H_att(w, d) = exp(-alpha0*|w|*d) * exp(-j*(2*alpha0/pi)*w*ln(|w|/w0)*d)
-
-Unit conversion: `alpha0_neper = alpha0_dB * 100 / (20*log10(e) * 1e6^y)`
-
-Always causal (both absorption + K-K dispersion terms). Non-causal produces precursors.
-
-### 8. Plane-Wave Steering Delays
-
-    n = [sin(theta_x), sin(theta_y), sqrt(1 - sin^2(theta_x) - sin^2(theta_y))]
-    d_e = element_centers @ n
-    delays = (d_e - d_min) / c
-
-Physical: the emitted plane wave travels along `n`, so an element's emit time is
-proportional to its projection `d_e = r_e·n`. The element with the **minimum**
-projection fires first (zero delay); larger projections fire progressively later.
-Constraint: `sin^2(theta_x) + sin^2(theta_y) <= 1`.
+All SIR/SDI equations — trapezoidal SIR params, the SDI delta train, the sum
+over M patches, the emission/pulse-echo signal chains, the three PE-SDI
+evaluations (`spectral`/`paired`/conventional), causal power-law attenuation, and
+plane-wave steering delays — live in `.claude/rules/physics-context.md`, which
+auto-loads whenever you touch `hsir/`, `emission/`, `reception/`, or
+`transducers/`. Attenuation *implementation* rules: `.claude/rules/attenuation.md`.
+Kept in one place so the physics can't drift between two copies.
 
 ---
 

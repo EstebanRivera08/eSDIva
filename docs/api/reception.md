@@ -4,14 +4,20 @@ icon: lucide/activity
 
 # Reception
 
-Pulse-echo RF simulators. See the [Reception user guide](../user-guide/reception.md)
+Pulse-echo RF simulator. See the [Reception user guide](../user-guide/reception.md)
 for the method taxonomy, PSF, and phantom recipes.
 
-## ReceptionSDI
+## Reception
 
-Fast sparse-delta pulse-echo kernel (default choice).
+The single pulse-echo class. Its `method` selector chooses how the two-way SIR is
+evaluated — all methods give the same RF, they trade speed only:
 
-::: pyfield.reception.ReceptionSDI
+- `"spectral"` (default) — fast sparse-delta kernel via closed-form one-way SIR spectra.
+- `"fst"` / `"sdi"` / `"auto"` — sampled two-way SIR convolution (delegated to the
+  conventional `ReceptionConventional` backend; the string names its SIR-sampling kernel).
+- `"paired"` — exact but slow pedagogic reference (warns on selection).
+
+::: pyfield.reception.Reception
     options:
       members:
         - pulse_echo_rf
@@ -21,11 +27,13 @@ Fast sparse-delta pulse-echo kernel (default choice).
         - show
         - set
 
-## Reception
+## ReceptionConventional (backend)
 
-Conventional Tupholme-Stepanishen reference implementation (same API).
+The conventional Tupholme-Stepanishen sampled-convolution backend that `Reception`
+delegates to for `method="fst"/"sdi"/"auto"`. Same API; normally reached through
+`Reception`, documented here for reference.
 
-::: pyfield.reception.Reception
+::: pyfield.reception.ReceptionConventional
     options:
       members:
         - pulse_echo_rf

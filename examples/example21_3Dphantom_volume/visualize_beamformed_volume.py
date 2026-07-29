@@ -16,7 +16,7 @@ setup (probe + cloud + virtual sources) lives in ``preview_phantom.py``.
                                   marked red), one shared dB colorbar
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_rca_volume/visualize_beamformed_volume.py
+    uv run examples/example21_3Dphantom_volume/visualize_beamformed_volume.py
 """
 
 import sys

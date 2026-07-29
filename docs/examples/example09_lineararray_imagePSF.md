@@ -25,9 +25,9 @@ uv run examples/example09_lineararray_imagePSF.py
 ## Key code
 
 ```python
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
-sim = ReceptionSDI(tx, rx, c=1540, fs=100e6, excitation=pulse)
+sim = Reception(tx, rx, c=1540, fs=100e6, excitation=pulse)
 
 env_lines = []
 for x in x_lines_mm:

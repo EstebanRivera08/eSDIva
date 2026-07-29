@@ -6,6 +6,11 @@
 
 📖 **Documentation:** <https://estebanrivera08.github.io/PyField/>
 
+<p align="center">
+  <img src="docs/examples/assets/readme_dw_transient.gif" width="70%" alt="Diverging-wave transient acoustic field"><br>
+  <em>Transient acoustic field of a diverging wave — computed with the fast SDI method.</em>
+</p>
+
 > [!WARNING]
 > PyField is currently under development. The API is subject to change, and some features may be incomplete or unstable.
 
@@ -27,6 +32,19 @@ PyField implements both the naïve and Sparse Delta Integration (SDI) methods fo
 - **Brain Atlas Integration** — Maps pressure simulations onto standard brain atlases for neuro‑ultrasound research.
 
 - **Visualization** — Rich plotting utilities using Matplotlib and PyVista for visualizing transducers, pressure fields, and brain atlases.
+
+## Gallery
+
+<table>
+<tr>
+<td width="50%"><img src="docs/examples/assets/ex03_matrix_array_pressure_field.png" width="100%" alt="Focused pressure field"><br><sub><b>Focused CW field</b> — matrix array</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex05_matrix_pw_3d.gif" width="100%" alt="Steered plane-wave transient"><br><sub><b>Steered plane wave</b> — 3-D transient</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/examples/assets/ex13_rat_brain_zones.png" width="100%" alt="Transcranial targeting"><br><sub><b>Transcranial targeting</b> — rat-brain atlas</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex21_zeus10_volume_3d.png" width="100%" alt="3-D B-mode volume"><br><sub><b>3-D B-mode volume</b> — Zeus matrix, fast RF + DAS</sub></td>
+</tr>
+</table>
 
 ---
 

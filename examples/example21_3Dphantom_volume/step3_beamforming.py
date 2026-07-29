@@ -35,7 +35,7 @@ phantom-truth vs image slices in ``figures/<scenario>/``.
 Re-run freely: beamforming never touches the RF checkpoints.
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_rca_volume/step3_beamforming.py
+    uv run examples/example21_3Dphantom_volume/step3_beamforming.py
 """
 
 import json

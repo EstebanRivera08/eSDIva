@@ -20,7 +20,7 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 import pyfield.transducers as transducers
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
 # ============================================================================
 # CONFIGURATION
@@ -115,7 +115,7 @@ excitation = (np.sin(2 * np.pi * fc * t_pulse) * np.hanning(len(t_pulse))).astyp
 # API demo; for realistic imaging set tx/rx `.impulse_response` as in example20.
 
 # The simulator snapshots both apertures at construction, AFTER the moves.
-sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation)
+sim = Reception(tx, rx, c=C, fs=FS, excitation=excitation)
 
 
 if SAVE_FIG:

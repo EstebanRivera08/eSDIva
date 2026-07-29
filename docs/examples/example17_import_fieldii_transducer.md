@@ -3,7 +3,7 @@
 Turns a probe exported from MATLAB Field II (`xdc_get(Th, 'rect')`) into a
 native PyField transducer. Per-element apodization and delays from the
 export are preserved exactly; the imported aperture can then be focused,
-visualised, and used in any `Emission` / `ReceptionSDI` simulation.
+visualised, and used in any `Emission` / `Reception` simulation.
 
 ## What you will learn
 

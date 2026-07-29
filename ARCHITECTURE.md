@@ -104,29 +104,30 @@ common_t, [pxz_a, pyz_a] = align_to_common_time(
 
 ### Reception (Pulse-Echo RF Simulation)
 
-Two reception classes are available:
-- `Reception` — conventional FieldII-style: `h_pe = h_tx ⊛ h_rx` (each SIR built
-  separately, convolved by FFT). Depth-binned post-processing (see
-  [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes it
-  **the fast choice for real arrays** (many patches): cost ~`O(P·M + P·log nfft)`.
-  Beats Field II `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
-- `ReceptionSDI` — three SDI formulations via `method=` (default `auto`):
-  - `paired` — forms the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx` over all TX/RX
-    patch pairs (16 corner events per pair, **no cumsum, no FFT**): pushes the four
-    integrations onto the drive once (`w = I⁴ v_pe`) and splats a shifted, scaled copy of
-    `w` per corner event. Cost ~`O(P·M_tx·M_rx·len(w))` — **quadratic in patch count**,
-    the exact reference path for small `M` (few-patch / monoelement / PSF)
-    (`compute_pe_complete`).
-  - `spectral` — builds each one-way SIR spectrum in closed form from the corner times
-    (`Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**), evaluated on the in-band bins only, then
-    applies `I⁴ = ÷(jω)⁴`. Cost ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**,
+One public reception class, `Reception`, with `ReceptionConventional` as its
+sampled-convolution backend. `Reception` selects the formulation via `method=`
+(default `spectral`):
+  - `spectral` (default) — builds each one-way SIR spectrum in closed form from the corner
+    times (`Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**), evaluated on the in-band bins only,
+    then applies `I⁴ = ÷(jω)⁴`. Cost ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**,
     exact (no interpolation), and folds in per-patch one-way attenuation. Best for PSFs
     and large apertures (`compute_oneway_spectrum_band` per element for the PSF;
     `compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF).
-  - `conventional` — delegates to `Reception` (the depth-binned sampled-SIR path) for a
-    near-delta / wideband drive where band-limiting gives no benefit.
+  - `fst` / `sdi` / `auto` — sampled two-way convolution `h_pe = h_tx ⊛ h_rx` (each SIR
+    built separately, convolved by FFT), delegated to `ReceptionConventional`. The string
+    is its SIR-sampling kernel (`fst` fully samples each trapezoid, `sdi` places sparse
+    corner deltas, `auto` chooses per grid). Depth-binned post-processing (see
+    [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes this
+    path competitive for real arrays: cost ~`O(P·M + P·log nfft)`, beating Field II
+    `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
+  - `paired` — **pedagogic reference only** (warns on selection): forms the two-way delta
+    train `Δδ_pe = D²h_tx ⊛ D²h_rx` over all TX/RX patch pairs (16 corner events per pair,
+    **no cumsum, no FFT**), pushing the four integrations onto the drive once
+    (`w = I⁴ v_pe`) and splatting a shifted, scaled copy of `w` per corner event. Cost
+    ~`O(P·M_tx·M_rx·len(w))` — **quadratic in patch count**, exact but far slower than
+    `spectral` (`compute_pe_complete`).
 
-All give the same RF (corr ~1.0); `auto` picks by aperture size + bandwidth.
+All give the same RF (corr ~1.0); the choice trades speed only.
 
 **Public API** (axis order `[emission, reception, Nt]` — channels before time;
 `coords["t0"]` beam-axis referenced). The pulse-echo signal physically carries the
@@ -153,22 +154,23 @@ methods plus all common state (`set`, patch extraction, validation) live in
 `ReceptionBase` (`reception/base.py`); each subclass adds only its constructor,
 time-grid helper, `_compute_rf_inner`, and the convention wrappers.
 
-The physical ∂³ is carried by the exc/IR chain (`v_pe ∝ e ⊛ h_e ⊛ h_r`), so neither
-class adds it. `Reception` builds `h_tx ⊛ h_rx` by FFT directly. `ReceptionSDI` places
-`Δδ_pe = D²h_tx ⊛ D²h_rx` (16 deltas/pair, no cumsum) and recovers the **same** two-way
-SIR via `I⁴ = ÷(jω)⁴` in the frequency domain (no group delay → sample-aligned with
-`Reception`). Both equal `v_pe ⊛ (h_tx ⊛ h_rx)` and match Field II corr≈1.0000 at the
-RF level (per-element RF verified 0.997 vs `calc_scat_multi`).
+The physical ∂³ is carried by the exc/IR chain (`v_pe ∝ e ⊛ h_e ⊛ h_r`), so no method
+adds it. The `fst`/`sdi`/`auto` (conventional) methods build `h_tx ⊛ h_rx` by FFT
+directly. The `spectral`/`paired` (SDI) methods place `Δδ_pe = D²h_tx ⊛ D²h_rx`
+(16 deltas/pair, no cumsum) and recover the **same** two-way SIR via `I⁴ = ÷(jω)⁴` in the
+frequency domain (no group delay → sample-aligned with the conventional path). All equal
+`v_pe ⊛ (h_tx ⊛ h_rx)` and match Field II corr≈1.0000 at the RF level (per-element RF
+verified 0.997 vs `calc_scat_multi`).
 
 ```python
-from pyfield.reception import ReceptionSDI  # or Reception for conventional
+from pyfield.reception import Reception
 
 tx = LinearArrayTransducer(...)
 tx.impulse_response = ir_pulse
 tx.excitation = excitation_pulse
 rx = tx.copy()
 rx.impulse_response = ir_pulse
-sim = ReceptionSDI(tx, rx, fs=200e6, c=1540)
+sim = Reception(tx, rx, fs=200e6, c=1540)   # default method="spectral"
 
 scatterer_pos = np.array([[0, 0, 30], [1, 0, 35]])  # mm
 scatterer_amp = np.array([1.0, 0.5])
@@ -197,14 +199,14 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 - `alpha0=None` — attenuation in dB/(MHz^y·cm)
 - `freq_power=1.0` — power-law exponent y
 - `excitation=None` — TX excitation `(L,)` float32 (or uses `tx.excitation`)
-- `method="auto"` (`ReceptionSDI`) — `auto`/`conventional`/`paired`/`spectral`
+- `method="spectral"` (`Reception`) — `spectral`/`fst`/`sdi`/`auto`/`paired`
 - `n_depth_bins="auto"` — depth bins for the summed-RF fast path (`"auto"` or int; `1` disables)
 - `verbose=True`
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `ReceptionSDI` evaluates the SDI forms (`paired` via `compute_pe_complete`; `spectral` via `compute_oneway_spectrum_band` / `compute_twoway_spectrum_summed`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
-- `Reception` builds `h_tx ⊛ h_rx` by conventional FFT convolution (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
+- `spectral`/`paired` evaluate the SDI forms (`paired` via `compute_pe_complete`; `spectral` via `compute_oneway_spectrum_band` / `compute_twoway_spectrum_summed`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
+- `fst`/`sdi`/`auto` build `h_tx ⊛ h_rx` by conventional FFT convolution via `ReceptionConventional` (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
 - Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
 
@@ -356,7 +358,7 @@ conventional: build h_tx, h_rx by sampling and FFT-convolve (delegates to Recept
 
 ### Pulse-Echo Post-Processing & Depth Binning
 
-This is why `Reception` (conventional) is fast. After the SIR kernels run (which are
+This is why `ReceptionConventional` (the `fst`/`sdi`/`auto` backend) is fast. After the SIR kernels run (which are
 *not* the bottleneck — ~6% of runtime), the work is the per-element convolution
 `h_pe = h_tx ⊛ h_rx`, done by FFT. Three layers cut its cost:
 
@@ -396,7 +398,7 @@ broad; binning off (`n_depth_bins=1`) recovers the single-grid path.
 Result (Domino linear, E=128, M=1280, vs Field II `calc_scat_multi` time): N=100
 1.1×, N=1000 2.0×, N=10⁴ 2.1×. The 3 layers preserve the RF to ~4e-4 (binned vs
 unbinned) — within float/grid-snap tolerance. Attenuation, `per_scatterer`, and
-`focused_sum` keep the non-binned path. (`ReceptionSDI` is not binned — its cost is
+`focused_sum` keep the non-binned path. (the `spectral`/`paired` methods are not binned — their cost is
 the `O(M²)` kernel, not the FFT.)
 
 ### sequence_rf
@@ -430,8 +432,8 @@ One conventional focused scan line: recompute TX focus+apod from `focus_mm`,
 
 ## Imaging Simulation Recipe (phantom / sequence studies)
 
-Distilled from the example21 volume case study (its `TROUBLESHOOTING.md` holds the
-measured evidence). Follow this order when designing any pulse-echo imaging
+Distilled from the example21 volume case study (its `README.md` "Design notes &
+pitfalls" holds the measured evidence). Follow this order when designing any pulse-echo imaging
 simulation; each rule below cost at least one wasted multi-hour acquisition.
 
 ### 1. Signal chain — set the impulse responses, always
@@ -526,7 +528,7 @@ yourself; resume cannot detect it.
 | `xdc_focus(Th, ...)` | `transducer.compute_delays(focus_mm=...)` | Existing |
 | `xdc_apodization(Th, ...)` | `transducer.compute_apodization(...)` | Existing |
 | `calc_hp(Th, pts)` | `Emission(tx)(field_points)` | Emitted pressure (1 derivative) |
-| `calc_hhp(tx, rx, pts)` | `(Reception\|ReceptionSDI)(tx, rx).pulse_echo_rf(pts, per_scatterer=True)` | Pulse-echo response / PSF (0 derivatives; bare exc⊛ir⊛ir⊛h) |
+| `calc_hhp(tx, rx, pts)` | `Reception(tx, rx).pulse_echo_rf(pts, per_scatterer=True)` (any `method`) | Pulse-echo response / PSF (0 derivatives; bare exc⊛ir⊛ir⊛h) |
 | `calc_scat_multi(tx, rx, pos, amp)` | `pulse_echo_rf(pos, amp)` | Per-element scattered RF (0 derivatives, = amp-weighted calc_hhp) |
 | `calc_scat_all(tx, rx, pos, amp)` | `synthetic_aperture_rf(...)` | Full matrix capture / synthetic aperture |
 | `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
@@ -621,8 +623,8 @@ splats `w = I⁴ v_pe` at the combined corner sum. Because `pe_t0 = tx_t0 + rx_t
 combined onset matches the FST `h_tx ⊛ h_rx` onset exactly — **no extra sample shift**.
 
 **History**: an earlier kernel added a +2-sample shift (derived on the wrong premise that
-single-SDI added +1 per side), placing `ReceptionSDI` 2 samples late vs
-`Reception(method="FST"|"sdi")` (= 20 ns at 100 MHz). Removing it made the on-axis lag
+single-SDI added +1 per side), placing the SDI methods 2 samples late vs
+`method="fst"|"sdi"` (= 20 ns at 100 MHz). Removing it made the on-axis lag
 of FST vs PE-SDI 0 (Emission and `Reception(method="sdi")` were already lag-0).
 
 **Test gap**: `test_pe_sdi.py` checks only peak ratio (<5%) + correlation (>0.90), both

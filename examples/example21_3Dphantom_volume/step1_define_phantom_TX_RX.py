@@ -55,7 +55,7 @@ NOT the impulse responses — if you change the pulse model, delete the RF
 folder yourself (the resume cannot detect the change).
 
 Run with:
-    uv run examples/example21_rca_volume/step1_define_phantom_TX_RX.py
+    uv run examples/example21_3Dphantom_volume/step1_define_phantom_TX_RX.py
 (prints the selected scenario; normally imported by steps 2 and 3).
 """
 

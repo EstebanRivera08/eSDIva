@@ -1,0 +1,56 @@
+name: Bug report
+description: Report incorrect physics, a crash, or unexpected output
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting. A minimal, runnable script that reproduces the problem
+        is by far the most helpful thing you can provide.
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: What did you observe, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Minimal reproducer
+      description: A short script that triggers the bug (transducer + simulation call).
+      render: python
+    validations:
+      required: true
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      description: Which part of the package?
+      options:
+        - transducers
+        - emission
+        - reception
+        - hsir (SIR core)
+        - beamforming
+        - attenuation
+        - plotting
+        - io
+        - brain atlas
+        - other / not sure
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: PyField version
+      description: "`python -c \"import pyfield; print(pyfield.__version__)\"`"
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS + Python
+      placeholder: "Windows 11, Python 3.12"
+    validations:
+      required: true

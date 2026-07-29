@@ -3,7 +3,7 @@
 Two levels: (1) synthetic RF with a delta placed at the analytic two-way
 delay of a known point — verifies the delay model, axis inference, t0
 handling and interpolation localize the point exactly; (2) end-to-end
-against ReceptionSDI — verifies the DAS time convention matches the
+against Reception — verifies the DAS time convention matches the
 simulator's beam-axis-referenced ``t0`` (the real regression risk).
 """
 
@@ -14,7 +14,7 @@ import pytest
 from scipy.signal import hilbert
 
 from pyfield.beamforming import das_rca_volume
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import LinearArrayTransducer
 
 C = 1540.0
@@ -118,7 +118,7 @@ def test_invalid_apodization_raises():
 
 
 def test_point_localized_end_to_end():
-    """Full chain: ReceptionSDI RCA sequence → DAS → peak at the scatterer.
+    """Full chain: Reception RCA sequence → DAS → peak at the scatterer.
 
     This is the convention guard: it fails if the beamformer's time origin
     disagrees with the simulator's beam-axis-referenced ``t0`` or if the
@@ -152,7 +152,7 @@ def test_point_localized_end_to_end():
 
     t = np.arange(0, 2 / fc, 1 / fs)
     exc = (np.sin(2 * np.pi * fc * t) * np.hanning(t.size)).astype(np.float32)
-    sim = ReceptionSDI(tx, rx, c=C, fs=fs, excitation=exc, verbose=False)
+    sim = Reception(tx, rx, c=C, fs=fs, excitation=exc, verbose=False)
 
     point = np.array([[0.8, -0.6, 12.0]], dtype=np.float32)
     angles = [-5.0, 0.0, 5.0]

@@ -1,4 +1,4 @@
-"""Shared base class for Reception and ReceptionSDI.
+"""Shared base class for Reception and ReceptionConventional.
 
 `ReceptionBase` holds everything common to both backends: the patch-state
 extraction (`_refresh_sub_elem_attributes`), runtime parameter update (`set`),
@@ -95,7 +95,7 @@ def _countdown(est_bytes, label, enabled):
 
 
 class ReceptionBase(SimulationBase):
-    """Shared state + public API for `Reception` and `ReceptionSDI`.
+    """Shared state + public API for `Reception` and `ReceptionConventional`.
 
     Subclasses provide the constructor (setting ``tx``/``rx``/``c``/``fs``/…),
     a per-backend ``_SETTABLE`` map, the SIR core ``_compute_rf_inner`` and its
@@ -105,7 +105,7 @@ class ReceptionBase(SimulationBase):
     """
 
     if TYPE_CHECKING:
-        # Provided by the concrete Reception / ReceptionSDI classes.
+        # Provided by the concrete Reception / ReceptionConventional classes.
         tx: Any
         rx: Any
         c: float

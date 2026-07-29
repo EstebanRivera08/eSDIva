@@ -1,0 +1,25 @@
+name: Feature request
+description: Suggest a new transducer, method, or capability
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: motivation
+    attributes:
+      label: What do you want to do?
+      description: The acoustics/imaging problem you are trying to solve, not just the API.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed approach
+      description: How you imagine it working (API sketch, reference paper, or equation).
+    validations:
+      required: false
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives / current workaround
+      description: How you handle this today, if at all.
+    validations:
+      required: false

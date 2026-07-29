@@ -43,9 +43,9 @@ Run any example with `uv run examples/<script>.py`.
 > - Field II uses a non-causal linear-frequency attenuation approximation.
 >   PyField implements causal power-law attenuation with Kramers–Kronig dispersion
 >   (Szabo 1994 / Holm 2019).
-> - Field II `calc_hhp` ≡ `calc_scat` (unit point) ↔ `pulse_echo_rf()` on both
->   `Reception` and `ReceptionSDI` — zero explicit temporal derivatives; all pulse
->   shaping lives in excitation + impulse responses. RF correlation ≈ 0.997.
+> - Field II `calc_hhp` ≡ `calc_scat` (unit point) ↔ `Reception.pulse_echo_rf()`
+>   (any `method`) — zero explicit temporal derivatives; all pulse shaping lives in
+>   excitation + impulse responses. RF correlation ≈ 0.997.
 
 ## Applications (12 – 19)
 
@@ -60,7 +60,7 @@ Run any example with `uv run examples/<script>.py`.
 | 18 | `example18_customtransducer_3Dplanes.py` | Sparse spiral `CustomTransducer`, `transform()` repositioning, 3-D plane-slice visualization. |
 | 19 | `example19_dualprobe_reception_show.py` | Pitch-catch pulse-echo: RX array tilted with `transform()`; `sim.show()` 3-D preview. |
 | 20 | `example20_phantom_simulation.py` | Speckle phantom via `make_phantom()` (cyst + lesion), piezo impulse response set, focused B-mode with `scan_focusline()`. |
-| 21 | `example21_rca_volume/` | Full volumetric case study: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics. See its `README.md` + `TROUBLESHOOTING.md`. |
+| 21 | `example21_3Dphantom_volume/` | Full volumetric case study: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics. See its `README.md` (incl. "Design notes & pitfalls"). |
 
 ---
 

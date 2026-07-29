@@ -22,7 +22,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import LinearArrayTransducer
 from pyfield.utilities import align_to_common_time, make_phantom
 
@@ -124,7 +124,7 @@ excitation = (np.sin(2 * np.pi * FC * t_pulse) * np.hanning(len(t_pulse))).astyp
 # applies the IR on both transmit and receive.
 tx.impulse_response = excitation.copy()
 
-sim = ReceptionSDI(tx, tx, c=C, fs=FS, excitation=excitation, verbose=False)
+sim = Reception(tx, tx, c=C, fs=FS, excitation=excitation, verbose=False)
 
 # Preview: cyst shows as a hole (amplitude 0 → fully transparent), lesion as
 # a bright clot. This is the check that the map, box and units line up.

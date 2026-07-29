@@ -6,13 +6,15 @@ Field II parallel: ``fieldiiexamples/example_concave_psf.m``
 Computes the pulse-echo Point Spread Function (PSF) of a spherically focused
 single-element transducer and compares two simulation backends:
 
-- ``Reception(method="FST")`` — conventional Field II-style: sample both
+- ``Reception(method="fst")`` — conventional Field II-style: sample both
   one-way SIRs, convolve h_tx ⊛ h_rx with the excitation (the pulse-echo ∂³
   is already baked into the band-limited excitation/impulse responses).
-- ``ReceptionSDI()`` — pulse-echo SDI: the two-way SIR is built from the
-  16 corner deltas per (TX, RX) patch pair; the four integrations are
-  applied in the Fourier domain (no cumsum), which keeps both backends
+- ``Reception()`` — default pulse-echo SDI ("spectral"): the two-way SIR is
+  built from the closed-form one-way SIR spectra; the four integrations are
+  applied in the Fourier domain (no cumsum), which keeps both methods
   sample-aligned.
+
+Both are the same `Reception` class — only the ``method`` selector differs.
 
 Run with:
     uv run examples/example06_concave_PSF.py
@@ -25,7 +27,7 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 from scipy.signal import hilbert
 
-from pyfield.reception import Reception, ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import ConcaveCircularTransducer
 from pyfield.utilities import to_dB
 
@@ -89,16 +91,16 @@ field_points_mm = np.column_stack(
 # ============================================================================
 print(f"Simulating {len(X_SCAT_MM)} lateral positions at z={SCATTERER_Z_MM} mm ...")
 
-print("\n  [1/2] Reception(method='FST') ...")
+print("\n  [1/2] Reception(method='fst') ...")
 t_start = time.time()
-sim_FST = Reception(tx, rx, fs=FS, c=C, method="FST", verbose=False)
+sim_FST = Reception(tx, rx, fs=FS, c=C, method="fst", verbose=False)
 rf_FST, coords_FST = sim_FST.pulse_echo_rf(field_points_mm, per_scatterer=True)
 t_FST = time.time() - t_start
 print(f" Done in {t_FST:.2f} s")
 
-print("\n  [2/2] ReceptionSDI() ...")
+print("\n  [2/2] Reception() [spectral] ...")
 t_start = time.time()
-sim_sdi = ReceptionSDI(tx, rx, fs=FS, c=C, verbose=False)
+sim_sdi = Reception(tx, rx, fs=FS, c=C, verbose=False)
 rf_sdi, coords_sdi = sim_sdi.pulse_echo_rf(field_points_mm, per_scatterer=True)
 t_sdi = time.time() - t_start
 print(f" Done in {t_sdi:.2f} s")
@@ -180,7 +182,7 @@ ax.imshow(
     vmin=-1,
     vmax=1,
 )
-ax.set_title(f"ReceptionSDI — raw RF  ({t_sdi:.1f} s)")
+ax.set_title(f"Reception [spectral] — raw RF  ({t_sdi:.1f} s)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 ax.sharex(axes[0, 0])
@@ -212,7 +214,7 @@ im = ax.imshow(
     env_sdi_db, aspect="auto", extent=extent_sdi, cmap="hot", vmin=-60, vmax=0
 )
 plt.colorbar(im, ax=ax, label="dB")
-ax.set_title("ReceptionSDI — envelope (dB)")
+ax.set_title("Reception [spectral] — envelope (dB)")
 ax.set_xlabel("Lateral (mm)")
 ax.set_ylabel("Time (µs)")
 

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import LinearArrayTransducer
 from pyfield.utilities.helper_functions import create_3D_spatial_grid_from_points
 
@@ -58,7 +58,7 @@ class TestReceptionBasic:
     def test_rf_output_shape(self, simple_tx, simple_rx, on_axis_scatterer):
         """RF output shape must be (E_rx, Nt)."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         rf, coords = sim(pos, amp)
 
         assert rf.ndim == 2
@@ -70,7 +70,7 @@ class TestReceptionBasic:
     def test_rf_nonzero(self, simple_tx, simple_rx, on_axis_scatterer):
         """RF must be non-zero for on-axis scatterer."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         rf, _ = sim(pos, amp)
         assert np.any(rf != 0), "RF should be non-zero for on-axis scatterer."
 
@@ -84,7 +84,7 @@ class TestReceptionBasic:
             "dy": 1.0,
             "dz": 2.0,
         }
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         rf_dict, _ = sim(grid)
         *_, pts_m = create_3D_spatial_grid_from_points(grid)
         rf_pts, _ = sim(pts_m * 1e3)
@@ -102,7 +102,7 @@ class TestReceptionBasic:
         """
         pos, amp = on_axis_scatterer
         with pytest.warns(UserWarning, match="per receive element"):
-            sim = ReceptionSDI(simple_tx, simple_tx, verbose=False)
+            sim = Reception(simple_tx, simple_tx, verbose=False)
         rf, coords = sim(pos, amp)
 
         assert rf.ndim == 2
@@ -112,7 +112,7 @@ class TestReceptionBasic:
     def test_excitation_none_pure_pe_sir(self, simple_tx, simple_rx, on_axis_scatterer):
         """excitation=None → pure PE SIR derivative (no excitation conv)."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, excitation=None, verbose=False)
+        sim = Reception(simple_tx, simple_rx, excitation=None, verbose=False)
         rf, _ = sim(pos, amp)
         assert rf.ndim == 2
         assert np.any(rf != 0)
@@ -124,7 +124,7 @@ class TestReceptionAttenuation:
     def test_no_attenuation_default(self, simple_tx, simple_rx, on_axis_scatterer):
         """alpha0=None → no attenuation applied."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, alpha0=None, verbose=False)
+        sim = Reception(simple_tx, simple_rx, alpha0=None, verbose=False)
         rf_noatt, _ = sim(pos, amp)
         assert np.any(rf_noatt != 0)
 
@@ -133,10 +133,10 @@ class TestReceptionAttenuation:
         pos = np.array([[0, 0, 30]], dtype=np.float32)  # mm, deeper point
         amp = np.array([1.0], dtype=np.float32)
 
-        sim_noatt = ReceptionSDI(simple_tx, simple_rx, alpha0=None, verbose=False)
+        sim_noatt = Reception(simple_tx, simple_rx, alpha0=None, verbose=False)
         rf_noatt, _ = sim_noatt(pos, amp)
 
-        sim_att = ReceptionSDI(
+        sim_att = Reception(
             simple_tx, simple_rx, alpha0=0.5, freq_power=1.0, verbose=False
         )
         rf_att, _ = sim_att(pos, amp)
@@ -156,7 +156,7 @@ class TestReceptionDownsampling:
     def test_downsampling_reduces_nt(self, simple_tx, simple_rx, on_axis_scatterer):
         """downsampling=10 → output Nt = ceil(Nt_full / 10)."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
 
         rf_full, _ = sim(pos, amp)
         rf_ds, coords_ds = sim(pos, amp, downsampling=10)
@@ -172,29 +172,29 @@ class TestReceptionSet:
     """Runtime parameter update via .set()."""
 
     def test_set_alpha0(self, simple_tx, simple_rx):
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         sim.set("alpha0", 0.5)
         assert sim.alpha0 == 0.5
 
     def test_set_excitation(self, simple_tx, simple_rx):
         exc = np.sin(2 * np.pi * 5e6 * np.arange(0, 1e-6, 5e-9)).astype(np.float32)
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         sim.set("excitation", exc)
         assert sim.excitation is not None
 
     def test_set_unknown_raises(self, simple_tx, simple_rx):
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         with pytest.raises(ValueError, match="Unknown parameter"):
             sim.set("nonexistent", 42)
 
     def test_set_wrong_type_raises(self, simple_tx, simple_rx):
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         with pytest.raises(TypeError):
             sim.set("c", "fast")
 
     def test_set_tx_refreshes(self, simple_tx, simple_rx):
         """Setting 'tx' must refresh sub-element attributes."""
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         old_centers = sim._tx_centers.copy()
 
         new_tx = LinearArrayTransducer(
@@ -216,7 +216,7 @@ class TestReceptionSequence:
     def test_single_event_matches_call(self, simple_tx, simple_rx, on_axis_scatterer):
         """sequence_rf with 1 event == __call__ with same delays/apod."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
 
         rf_single, coords_single = sim(pos, amp)
         rf_seq, coords_seq = sim.sequence_rf(
@@ -238,7 +238,7 @@ class TestReceptionSequence:
     def test_sequence_restores_tx_state(self, simple_tx, simple_rx, on_axis_scatterer):
         """TX delays/apod must be restored after sequence_rf."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
 
         orig_delays = simple_tx.delays.copy()
         orig_apod = simple_tx.apodization.copy()
@@ -257,7 +257,7 @@ class TestReceptionSequence:
     def test_t0_per_event(self, simple_tx, simple_rx, on_axis_scatterer):
         """Each event reports its own beam-axis t0; first equals coords['t0']."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         n_el = simple_tx.n_elements
         events = [
             {"delays": np.zeros(n_el, dtype=np.float32)},
@@ -297,83 +297,69 @@ class TestReceptionFormulations:
 
     def test_invalid_method_raises(self, simple_tx, simple_rx):
         with pytest.raises(ValueError, match="Unknown method"):
-            ReceptionSDI(simple_tx, simple_rx, method="bogus", verbose=False)
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+            Reception(simple_tx, simple_rx, method="bogus", verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         with pytest.raises(ValueError, match="Unknown method"):
             sim.set("method", "bogus")
 
     def test_all_methods_agree(self, simple_tx, simple_rx):
-        """conventional ≈ spectral ≈ paired produce the same physical RF."""
+        """fst ≈ spectral ≈ paired produce the same physical RF."""
         exc = self._exc()
         simple_tx.impulse_response = exc  # band-limited chain → splat is exact
         simple_rx.impulse_response = exc
         pos = np.array([[0, 0, 18], [1.0, 0, 22], [-1.5, 0, 26]], dtype=np.float32)
         amp = np.array([1.0, 0.8, 1.2], dtype=np.float32)
         cases = {
-            "conventional": {"method": "conventional"},
+            "fst": {"method": "fst"},
             "spectral": {"method": "spectral"},
             "paired": {"method": "paired"},
         }
         out = {}
         for name, kw in cases.items():
-            sim = ReceptionSDI(
-                simple_tx,
-                simple_rx,
-                fs=100e6,
-                c=1540,
-                excitation=exc,
-                verbose=False,
-                **kw,
-            )
+            # paired warns (pedagogic reference); silence it here.
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore", UserWarning)
+                sim = Reception(
+                    simple_tx,
+                    simple_rx,
+                    fs=100e6,
+                    c=1540,
+                    excitation=exc,
+                    verbose=False,
+                    **kw,
+                )
             out[name], _ = sim.pulse_echo_rf(pos, amp)
         n = min(v.shape[-1] for v in out.values())
 
         def corr(a, b):
             return np.corrcoef(a[..., :n].ravel(), b[..., :n].ravel())[0, 1]
 
-        ref = out["conventional"]
+        ref = out["fst"]
         pk_ref = float(np.abs(ref).max())
         for name, v in out.items():
             assert corr(v, ref) > 0.99, name
             assert abs(float(np.abs(v).max()) / pk_ref - 1) < 0.05, name
 
-    def test_router_paired_for_monoelement(self):
-        """auto on a near-monoelement aperture → paired (its splat cost is tiny there).
-
-        `paired` splats the full integrated drive per patch pair, so it only undercuts the
-        transform when there are barely any patches — a single 1×1 element each way.
-        """
+    def test_default_method_is_spectral(self):
+        """The default (unspecified) method is the fast spectral core."""
         exc = self._exc()
-        mono = LinearArrayTransducer(
-            n_elements=1,
-            element_width_mm=0.25,
-            element_height_mm=5.0,
-            kerf_mm=0.05,
-            no_sub_x=1,
-            no_sub_y=1,
-            frequency_Hz=5e6,
-        )
-        sim = ReceptionSDI(mono, mono, excitation=exc, verbose=False)
-        sim.pulse_echo_rf(np.array([[0, 0, 20]], dtype=np.float32), per_scatterer=True)
-        assert sim._last_method == "paired"
-
-    def test_router_spectral_for_large_aperture(self):
-        """auto on a many-patch aperture with band-limited drive → spectral."""
-        exc = self._exc()
-        sim = ReceptionSDI(
-            self._big_tx(), self._big_tx(), excitation=exc, verbose=False
-        )
+        sim = Reception(self._big_tx(), self._big_tx(), excitation=exc, verbose=False)
         sim.pulse_echo_rf(np.array([[0, 0, 30]], dtype=np.float32))
         assert sim._last_method == "spectral"
 
-    def test_router_conventional_without_band_limit(self):
-        """auto with no excitation/impulse-response on a large aperture → conventional."""
-        sim = ReceptionSDI(self._big_tx(), self._big_tx(), verbose=False)  # wideband
+    def test_auto_delegates_to_conventional(self):
+        """method='auto' routes to the conventional backend (its SIR-kernel auto-picker)."""
+        sim = Reception(self._big_tx(), self._big_tx(), method="auto", verbose=False)
         sim.pulse_echo_rf(
             np.array([[0, 0, 30]], dtype=np.float32),
             amplitudes=np.array([1.0], dtype=np.float32),
         )
-        assert sim._last_method == "conventional"
+        assert sim._last_method == "auto"
+
+    def test_paired_warns_pedagogic(self, simple_tx, simple_rx):
+        """Selecting the pedagogic 'paired' method warns that it is slow."""
+        with pytest.warns(UserWarning, match="pedagogic"):
+            Reception(simple_tx, simple_rx, method="paired", verbose=False)
 
     def test_spectral_binning_matches_single_window(self):
         """Depth-binned spectral RF == single-window spectral RF (binning is exact).
@@ -392,7 +378,7 @@ class TestReceptionFormulations:
         ).astype(np.float32)
         amp = rng.standard_normal(P).astype(np.float32)
 
-        binned = ReceptionSDI(
+        binned = Reception(
             tx, tx, fs=100e6, excitation=exc, method="spectral", verbose=False
         )
         n_bins = binned._auto_depth_bins(pos * 1e-3, max(int(tx.delays.shape[0]), 2))
@@ -400,7 +386,7 @@ class TestReceptionFormulations:
         rf_b, _ = binned.pulse_echo_rf(pos, amp)
         assert binned._last_method == "spectral"
 
-        single = ReceptionSDI(
+        single = Reception(
             tx,
             tx,
             fs=100e6,
@@ -415,25 +401,26 @@ class TestReceptionFormulations:
         corr = np.corrcoef(rf_b[..., :n].ravel(), rf_s[..., :n].ravel())[0, 1]
         assert corr > 0.999
 
-    def test_explicit_method_overrides_router(self, simple_tx, simple_rx):
-        """A non-auto method is used verbatim (no regime select)."""
+    def test_explicit_method_used_verbatim(self, simple_tx, simple_rx):
+        """A conventional-family method delegates and is reported verbatim."""
         pos = np.array([[0, 0, 20]], dtype=np.float32)
         amp = np.array([1.0], dtype=np.float32)
-        sim = ReceptionSDI(simple_tx, simple_rx, method="conventional", verbose=False)
+        sim = Reception(simple_tx, simple_rx, method="fst", verbose=False)
         sim.pulse_echo_rf(pos, amp)
-        assert sim._last_method == "conventional"
+        assert sim._last_method == "fst"
 
     def test_paired_attenuation_not_supported(self, simple_tx, simple_rx):
         exc = self._exc()
-        sim = ReceptionSDI(
-            simple_tx,
-            simple_rx,
-            fs=100e6,
-            excitation=exc,
-            alpha0=0.5,
-            method="paired",
-            verbose=False,
-        )
+        with pytest.warns(UserWarning, match="pedagogic"):
+            sim = Reception(
+                simple_tx,
+                simple_rx,
+                fs=100e6,
+                excitation=exc,
+                alpha0=0.5,
+                method="paired",
+                verbose=False,
+            )
         with pytest.raises(NotImplementedError, match="attenuation"):
             sim.pulse_echo_rf(np.array([[0, 0, 20]], dtype=np.float32))
 
@@ -442,7 +429,7 @@ class TestReceptionFormulations:
         exc = self._exc()
         pos = np.array([[0, 0, 20], [0, 0, 40]], dtype=np.float32)
         amp = np.ones(2, dtype=np.float32)
-        sim_att = ReceptionSDI(
+        sim_att = Reception(
             simple_tx,
             simple_rx,
             fs=100e6,
@@ -451,7 +438,7 @@ class TestReceptionFormulations:
             method="spectral",
             verbose=False,
         )
-        sim_no = ReceptionSDI(
+        sim_no = Reception(
             simple_tx,
             simple_rx,
             fs=100e6,
@@ -485,7 +472,7 @@ class TestSequenceCheckpoint:
     ):
         """Disk round-trip must return exactly the in-RAM sequence result."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         events = self._events(simple_tx)
 
         rf_ram, coords_ram = sim.sequence_rf(pos, amp, events)
@@ -502,7 +489,7 @@ class TestSequenceCheckpoint:
     ):
         """Re-running recomputes ONLY missing events, and the result is intact."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         events = self._events(simple_tx)
         out = tmp_path / "ds"
 
@@ -528,7 +515,7 @@ class TestSequenceCheckpoint:
     ):
         """Same folder + different scatterers must raise, never mix data."""
         pos, amp = on_axis_scatterer
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         events = self._events(simple_tx)
         out = tmp_path / "ds"
         sim.sequence_rf(pos, amp, events, out_path=out)
@@ -556,7 +543,7 @@ class TestSequenceCheckpoint:
         misalignment or lost/duplicated scatterer breaks this hard.
         """
         pos, amp = self._cloud()
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         events = self._events(simple_tx)
 
         rf2, c2 = sim.sequence_rf(
@@ -577,7 +564,7 @@ class TestSequenceCheckpoint:
         compare after interpolating onto the unchunked absolute time axis.
         """
         pos, amp = self._cloud()
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         events = self._events(simple_tx)[:1]
 
         rf_ref, c_ref = sim.sequence_rf(pos, amp, events, out_path=tmp_path / "u")
@@ -599,7 +586,7 @@ class TestSequenceCheckpoint:
     ):
         """Losing one chunk file must cost exactly one chunk, not an event."""
         pos, amp = self._cloud()
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         events = self._events(simple_tx)
         out = tmp_path / "ds"
         rf_full, _ = sim.sequence_rf(
@@ -618,7 +605,7 @@ class TestSequenceCheckpoint:
 
     def test_chunks_require_out_path(self, simple_tx, simple_rx):
         pos, amp = self._cloud()
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
         with pytest.raises(ValueError, match="out_path"):
             sim.sequence_rf(pos, amp, self._events(simple_tx), checkpoint_chunks=4)
 
@@ -628,7 +615,7 @@ class TestSequenceCheckpoint:
         applied per element), silently corrupting the RF."""
         pos, amp = self._cloud()
         with pytest.warns(UserWarning, match="per receive element"):
-            sim = ReceptionSDI(simple_tx, simple_tx, verbose=False)
+            sim = Reception(simple_tx, simple_tx, verbose=False)
         with pytest.raises(ValueError, match="same transducer"):
             sim.sequence_rf(pos, amp, self._events(simple_tx))
 
@@ -643,7 +630,7 @@ class TestSequenceCheckpoint:
         refocused re-run on the same folder refuses.
         """
         pos, amp = self._cloud()
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
 
         rf_direct, c_direct = sim.pulse_echo_rf(pos, amp)
         rf_ck, c_ck = sim.pulse_echo_rf(pos, amp, out_path=tmp_path / "pe")
@@ -664,7 +651,7 @@ class TestSequenceCheckpoint:
     ):
         """FMC via checkpoints must equal the in-RAM run (one file per group)."""
         pos, amp = self._cloud()
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
+        sim = Reception(simple_tx, simple_rx, verbose=False)
 
         rf_ram, c_ram = sim.synthetic_aperture_rf(
             pos, amp, decimation=2, countdown=False

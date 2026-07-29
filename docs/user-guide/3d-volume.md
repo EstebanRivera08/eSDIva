@@ -17,9 +17,18 @@ pl.show()
 
 Transient volumes animate the propagating wavefront:
 
-<video controls loop muted width="100%">
-  <source src="../../examples/assets/ex05_matrix_pw_3d.mp4" type="video/mp4">
-</video>
+![Matrix-array steered plane-wave transient (3-D)](../examples/assets/ex05_matrix_pw_3d.gif)
+
+For imaging studies, the same scene shows a 3-D scatterer phantom together with the
+matrix probe — here a Zeus matrix array above a speckle phantom with anechoic targets
+and wires:
+
+![3-D phantom with Zeus matrix transducer](../examples/assets/ex21_zeus5_phantom_setup.png)
+
+Beamforming the received echoes reconstructs the full 3-D B-mode volume — here the
+Zeus matrix array resolving anechoic targets and wires inside the speckle:
+
+![Reconstructed 3-D B-mode volume — Zeus matrix array](../examples/assets/ex21_zeus10_volume_3d.png)
 
 ### Composing scenes
 

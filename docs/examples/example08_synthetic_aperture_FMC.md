@@ -23,7 +23,7 @@ uv run examples/example08_synthetic_aperture.py
 ## Key code
 
 ```python
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import LinearArrayTransducer
 
 tx = LinearArrayTransducer(n_elements=16, element_width_mm=0.3,
@@ -32,7 +32,7 @@ tx = LinearArrayTransducer(n_elements=16, element_width_mm=0.3,
 tx.excitation = excitation
 rx = tx                                   # same aperture for TX and RX
 
-sim = ReceptionSDI(tx, rx, c=1540, fs=100e6)
+sim = Reception(tx, rx, c=1540, fs=100e6)
 rf_fmc, coords = sim.synthetic_aperture_rf(scatterer_pos, scatterer_amp,
                                            decimation=1)
 # rf_fmc.shape = (E_tx, E_rx, Nt)

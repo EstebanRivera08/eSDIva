@@ -1,7 +1,7 @@
 """
 Example 08: Linear Array — Full Matrix Capture (FMC)
 
-Demonstrates ``ReceptionSDI.synthetic_aperture_rf()`` for Full Matrix Capture (FMC), where
+Demonstrates ``Reception.synthetic_aperture_rf()`` for Full Matrix Capture (FMC), where
 each TX element fires individually while all RX elements record.
 
 Output shape: ``(E_tx, Nt, E_rx)`` — one complete RF dataset per TX element.
@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================
@@ -80,7 +80,7 @@ print(f"Scatterers: {len(scatterer_pos)} point targets")
 # ============================================================================
 # STEP 3: FULL MATRIX CAPTURE
 # ============================================================================
-sim = ReceptionSDI(tx, rx, c=C, fs=FS)
+sim = Reception(tx, rx, c=C, fs=FS)
 
 if not SAVE_FIG:
     sim.show(scatterer_pos, scatterer_amp, TX_color="red", RX_color="blue")

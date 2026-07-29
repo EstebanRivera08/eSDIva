@@ -199,11 +199,12 @@ truncation, where T = temporal sampling length.
 The pulse-echo RF of one scatterer is p_pe = v_pe *_t h_tx *_t h_rx. Each one-way SIR is
 a trapezoid whose 2nd derivative is four corner deltas (d2h = sum of 4 signed Diracs,
 signs +,-,-,+, each scaled by the rising slope). PyField evaluates p_pe three ways; all
-agree to corr ~1.0 with each other and Field II. ReceptionSDI's `method=` picks one:
+agree to corr ~1.0 with each other and Field II. Reception's `method=` picks one:
 
-**conventional** — sample both one-way SIRs (place corner deltas, double-cumsum to a
-trapezoid) and FFT-convolve. SIR build is linear in patch count M; the convolution is
-M-independent. (`Reception`, with a depth-bin fast path.)
+**fst / sdi / auto (conventional)** — sample both one-way SIRs (place corner deltas,
+double-cumsum to a trapezoid) and FFT-convolve. SIR build is linear in patch count M; the
+convolution is M-independent. (`ReceptionConventional`, with a depth-bin fast path; the
+string names its SIR-sampling kernel.)
 
 **paired** — convolve the two corner-delta trains *analytically* (deltas *_t deltas =
 deltas), giving the two-way train
@@ -245,7 +246,7 @@ This differs from Emission, where the chain has an explicit dv/dt.
 
 Code: `compute_pe_complete` (paired) / `compute_oneway_spectrum_band` +
 `compute_twoway_spectrum_summed` (spectral) in `transducer_sir_pe_sdi.py`. The
-conventional path delegates to `Reception` (`farfield_rect_patch.compute_h_sir`).
+conventional path delegates to `ReceptionConventional` (`farfield_rect_patch.compute_h_sir`).
 
 ## 9.2 Pulse-centre lag — a beamforming correction, NOT part of the RF
 
@@ -320,3 +321,14 @@ PSF almost as well as full model.
 
 Key refs: Holm 2019 (theory), Kelly & McGough 2013/2022 (SIR-specific).
 See attenuation.md for implementation rules.
+
+## 11. Plane-Wave Steering Delays
+
+    n = [sin(theta_x), sin(theta_y), sqrt(1 - sin^2(theta_x) - sin^2(theta_y))]
+    d_e = element_centers @ n
+    delays = (d_e - d_min) / c
+
+Physical: the emitted plane wave travels along the unit normal `n`, so an element's
+emit time is proportional to its projection `d_e = r_e·n` onto that direction. The
+element with the **minimum** projection fires first (zero delay); larger projections
+fire progressively later. Constraint: `sin^2(theta_x) + sin^2(theta_y) <= 1`.

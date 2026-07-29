@@ -34,13 +34,13 @@ uv run examples/example20_phantom_simulation.py
 ## Key code
 
 ```python
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.utilities import make_phantom
 
 scat_pos, scat_amp = make_phantom(BOX, N_SCATTERERS, echogenicity_map=emap, seed=2026)
 
 tx.impulse_response = excitation.copy()   # piezo band-pass, applied TX and RX
-sim = ReceptionSDI(tx, tx, c=C, fs=FS, excitation=excitation)
+sim = Reception(tx, tx, c=C, fs=FS, excitation=excitation)
 sim.show(scat_pos, scat_amp, TX_color="blue")   # preview before the long run
 
 for xl in LINE_X:                          # one focused line per lateral position

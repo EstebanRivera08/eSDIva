@@ -1,10 +1,10 @@
 # Example 6: Concave Transducer — Pulse-Echo PSF
 
 Computes the pulse-echo point spread function (PSF) of a spherically focused
-single-element transducer, comparing the two reception backends: conventional
-(`Reception`, Field II-style SIR convolution) and PE-SDI (`ReceptionSDI`).
-Both agree to a fraction of a percent — the comparison doubles as a
-self-validation of the reception engine.
+single-element transducer, comparing two methods of the one `Reception` class:
+conventional (`method="fst"`, Field II-style SIR convolution) and the default
+PE-SDI (`method="spectral"`). Both agree to a fraction of a percent — the
+comparison doubles as a self-validation of the reception engine.
 
 ## What you will learn
 
@@ -26,7 +26,7 @@ uv run examples/example06_concave_PSF.py
 ## Key code
 
 ```python
-from pyfield.reception import Reception, ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import ConcaveCircularTransducer
 
 tx = ConcaveCircularTransducer(diameter_mm=16, focus_mm=80, frequency_Hz=3e6,
@@ -35,7 +35,7 @@ tx.impulse_response = pulse
 tx.excitation = pulse
 rx = tx.copy()
 
-sim = ReceptionSDI(tx, rx, fs=100e6, c=1540)
+sim = Reception(tx, rx, fs=100e6, c=1540)   # default method="spectral"
 rf, coords = sim.pulse_echo_rf(scatterer_positions_mm, per_scatterer=True)
 # rf.shape = (N_scat, E_rx, Nt) — the PSF, one trace per lateral position
 ```

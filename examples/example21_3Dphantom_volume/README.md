@@ -1,175 +1,211 @@
-# Example 21 — Volumetric ultrafast imaging with matrix arrays
+# Example 21 — 3-D volume imaging with a matrix array
 
-A full pulse-echo **volume imaging case study**: a matrix probe transmits a
-few tens of diverging waves, every element receives, and a 3-D delay-and-sum
-with coherent compounding turns the stored RF into a volumetric B-mode of a
-tissue-mimicking phantom. It runs at channel counts (up to 3025) where
-Field II needs ~20× longer per event (~5 days for the flagship acquisition
-vs an afternoon here), and every stage of the pipeline was verified against
-independent references along the way. The lessons that verification bought —
-physics traps, design rules, and a symptom→cause table — live in
-[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md): read it before designing your
-own simulation.
+This folder is a complete **pulse-echo volume imaging experiment**, from a
+tissue-mimicking phantom to a beamformed 3-D B-mode. A matrix probe transmits a
+few tens of **diverging waves**, every element records the echoes, and a 3-D
+delay-and-sum with **coherent compounding** reconstructs the volume. It runs at
+channel counts (up to 3025) where a classical spatial-impulse-response simulator
+would need days per event; here a flagship acquisition takes an afternoon.
 
-## The three steps
+The point of the example is not one pretty image — it is to show the *whole
+chain* (define → acquire → beamform → measure) and the handful of physics
+choices that decide whether the final volume is trustworthy or garbage.
 
-| Script | What it does |
-|---|---|
-| `step1_define_phantom_TX_RX.py` | **All definitions, one place**: pick the scenario (probe + drive frequency), the phantom, the diverging-wave sequence, the drive burst + probe impulse response, the beamforming grid. The other scripts import from here. |
-| `step2_acquire_RF.py` | Run the acquisition with `ReceptionSDI(method="spectral")`, one TX event at a time, checkpointed to `out/<scenario>/RF/` (`RFDataset`: crash-safe, resumable, refuses a silently-changed config). |
-| `step3_beamforming.py` | Load the RF, beamform **each event** with the general `das_volume` beamformer, form IQ (Hilbert along z), **compound the per-event IQ coherently**, save the IQ volume to `out/<scenario>/IQ/`, apply depth-only TGC, measure contrast/SNR/PSF, save B-mode figures + `out/<scenario>/metrics.json`. |
+## The pipeline
 
-Everything is grouped per scenario, and the beamformed volume is a stored
-product — the visualization scripts read it, they never re-beamform:
+Three scripts, run in order. Each imports its definitions from step 1, so there
+is a single source of truth for the geometry, phantom, and sequence.
+
+| Script | Stage | What it produces |
+|---|---|---|
+| `step1_define_phantom_TX_RX.py` | **Define** | The scenario (probe + drive frequency), the scatterer phantom, the diverging-wave sequence, the drive pulse + probe impulse response, and the beamforming grid. Nothing is simulated here — it is the experiment's parameter file. |
+| `step2_acquire_RF.py` | **Acquire** | Runs `Reception(method="spectral")` one transmit event at a time and writes the raw per-channel RF to `out/<scenario>/RF/`. The store is checkpointed: a killed run resumes where it stopped, and it refuses to continue if you silently change the config. |
+| `step3_beamforming.py` | **Beamform + measure** | Loads the RF, beamforms **each event** with `das_volume`, forms IQ (analytic signal along depth), **sums the per-event IQ coherently**, applies a depth-only time-gain curve, then measures contrast / speckle SNR / PSF width and saves the B-mode figures and `metrics.json`. |
+
+Helper scripts (same scenario switch):
+
+- `preview_phantom.py` — render the phantom truth and the acquisition geometry
+  **before** spending simulation hours.
+- `visualize_beamformed_volume.py` — 3-D renders of the reconstructed volume
+  (volume render, cut-planes, truth-vs-image slices).
+- `psf_grid.py` — 12 isolated point targets through the full sequence,
+  beamformed per sub-aperture: the pure PSF vs position and vs compounding.
+
+The beamformed volume is a **stored product** — visualization scripts read it,
+they never re-beamform:
 
 ```
-out/<scenario>/RF/                # checkpointed acquisition (RFDataset)
-out/<scenario>/IQ/iq_volume.npz   # compounded complex IQ + voxel axes (step 3)
-out/<scenario>/metrics.json       # timings + contrast/SNR/PSF metrics
-docs/examples/assets/ex21_<scenario>_*.png   # every plot (shared examples asset folder)
+out/<scenario>/RF/                # checkpointed raw channel data
+out/<scenario>/IQ/iq_volume.npz   # compounded complex IQ + voxel axes
+out/<scenario>/metrics.json       # timings + contrast/SNR/PSF numbers
 ```
 
-Pick the scenario by editing `SCENARIO` in step 1 or via the environment:
+## Running it
 
 ```bash
-SCENARIO=vermon uv run examples/example21_rca_volume/step2_acquire_RF.py
-SCENARIO=vermon uv run examples/example21_rca_volume/step3_beamforming.py
+uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
+uv run examples/example21_3Dphantom_volume/step3_beamforming.py
 ```
 
-Auxiliary scripts (all follow the same scenario switch):
+Pick the probe with the `SCENARIO` environment variable (or edit it in step 1):
 
-- `preview_phantom.py` — truth slices + 3-D scene of the phantom **before**
-  spending simulation hours.
-- `visualize_beamformed_volume.py` — 3-D renders of the beamformed volume
-  (setup scene, sigmoid volume render, MPR cut-planes, truth-vs-image slices).
-- `psf_grid.py` — 12 isolated points through the full sequence, beamformed
-  per ring subset: the pure PSF vs position and vs compounding count.
+```bash
+SCENARIO=vermon uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
+```
 
-Companion notes: [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) — the design
-rules and failure modes behind every choice in these scripts.
+Start with `vermon`: it images the same phantom in a few minutes and is the
+end-to-end pipeline test. Only commit hours to a ZeUS run once that passes.
+
+## The phantom (one shared truth)
+
+All scenarios image the **same** scatterer cloud (same volume, targets, and
+random seed) so probes are compared on identical ground truth — a "contrast
+ladder":
+
+- an **anechoic cyst** tube (r = 2 mm) at mid-depth, where the compound
+  transmit focus is strongest;
+- two **hyperechoic** (×4) tube columns, one under the cyst and one beside it;
+- a ×4 **sphere** offset in elevation — absent in the central slice, present in
+  the +y slice, proving the reconstruction is genuinely 3-D;
+- dim **PSF wires** (~+10 dB over speckle) on a clear lane: three lateral at
+  fixed depths plus one axial, so the point-spread width is read continuously
+  with depth.
+
+Build it with `pyfield.utilities.make_phantom`, which places random scatterers
+and draws their amplitudes from `N(0,1)` times an echogenicity map. Two things
+change per scenario, both dictated by physics, not taste:
+
+- **Scatterer count** — fully developed speckle needs ≥ 5–10 random scatterers
+  per resolution cell, and the cell shrinks with frequency (~λ³), so the 10 MHz
+  run needs ~1.3 M scatterers where the 3 MHz one needs ~23 k.
+- **Virtual-source layout** — re-derived per probe from the coverage rule
+  below, never copied between probes.
 
 ## The scenarios
 
-| | `zeus5` (flagship) | `zeus10` (high-frequency) | `vermon` (real probe) |
+| | `zeus5` (flagship) | `zeus10` (high-freq) | `vermon` (real probe) |
 |---|---|---|---|
 | Probe | ZeUS 55×55, 3025 ch | same probe | Vermon-type 32×32, 1024 ch |
 | Pitch / aperture | 0.30 mm / 16.5 mm | 0.30 mm / 16.5 mm | 0.30 mm / 9.6 mm |
-| Drive | 5 MHz → pitch **0.97λ** | 10 MHz → pitch **2λ** | 3 MHz → pitch **0.58λ** |
-| Sequence | 21 DW, z=−20 mm, tilt ≤16.7° | 9 DW, z=−40 mm | 25 DW, z=−10 mm |
-| Volume | 11×7×10 mm, z 10–20 | **same** | **same** |
-| Scatterers | ~319k (10/cell) | ~1.3M (5/cell) | ~23k (10/cell) |
-| Cost (spectral kernel) | ~4–6 h | ~8 h | **minutes** |
-| Expected image | diffraction-limited (0.3–0.4 mm PSF), cyst ≈ −18 dB | clean at 2λ pitch (2026-07 rerun — earlier grating-lobe prediction falsified) | textbook at its ~0.8 mm PSF |
+| Drive | 5 MHz (pitch 0.97λ) | 10 MHz (pitch 2λ) | 3 MHz (pitch 0.58λ) |
+| Sequence | 21 DW, z = −20 mm | 9 DW, z = −40 mm | 25 DW, z = −10 mm |
+| Volume | 11×7×10 mm, z 10–20 | same | same |
+| Scatterers | ~319 k | ~1.3 M | ~23 k |
+| Cost | ~4–6 h | ~8 h | minutes |
 
-The `vermon` scenario is also the **end-to-end pipeline test**: same phantom,
-25 events in a few minutes — run steps 2–3 on it before committing hours to
-a ZeUS acquisition. Because the acquisition is checkpointed per event, an
-interrupted run (or one killed mid-way) simply resumes where it stopped.
+The drive frequency sets pitch/λ (the pitch is fixed at 0.30 mm). Classical
+sampling theory predicts grating-lobe clutter above 1λ, and we first blamed the
+10 MHz images on it — wrongly: a rerun produced clean images at 2λ pitch. Treat
+pitch/λ as a number to check per system, not a verdict. What frequency really
+decides here is *cost*, through the scatterer count above.
 
-A note on drive frequency and pitch: the elements are fixed at 0.30 mm
-pitch, so the drive sets pitch/λ — **2λ** at 10 MHz (λ=0.154 mm), 0.97λ at
-5 MHz. Classical spatial-sampling arguments predict grating-lobe clutter at
-2λ, and early image problems in this study were blamed on it — wrongly: a
-2026-07 rerun of the 10 MHz scenario produced good images at 2λ pitch (see
-the correction note in `TROUBLESHOOTING.md`). Treat pitch/λ as a parameter
-to check per system, not a verdict. What the frequency *does* decide here is
-cost: the resolution cell shrinks ~λ³, so the 10 MHz run needs far more
-scatterers (and hours) than the 5 MHz one for the same speckle statistics.
+## The beamformer
 
-All three scenarios image the **same phantom** (identical volume, targets
-and seed — the "contrast ladder"): an anechoic cyst tube (r=2 mm) at the
-volume mid-depth (where the compound transmit focus peaks), a ×4 hyperechoic
-tube below it on the same vertical and a second ×4 tube column beside it, a
-×4 sphere above the cyst **offset in elevation** (absent at y=0, present in
-the +y slice — the proof the volume is genuinely 3-D), and dim PSF wires
-(amplitude 4 ≈ +10 dB over speckle) on the clear lane between the columns:
-three lateral (along y) at fixed depths plus one axial (along z at y=0)
-crossing them, so the lateral PSF is read continuously with depth. Only what
-the physics dictates changes per scenario: the **scatterer count** — speckle
-needs ≥ ~5–10 random scatterers per resolution cell `(λz/D)² · pulse/2` to
-be fully developed (Rayleigh envelope, SNR = mean/std = 1.91), and that cell
-shrinks with frequency and aperture, which is why the 10 MHz run needs 1.3 M
-scatterers and the Vermon one 23k for the same statistics — and the
-**virtual sources**, re-derived per probe from the coverage and
-steep-wavefront rules (`TROUBLESHOOTING.md` §2): two probes are comparable
-when each runs at its own coverage limit, not when they share coordinates.
+`pyfield.beamforming.das_volume` beamforms **any** transmit scheme (plane wave,
+diverging wave, focused, synthetic aperture) in one call, assuming the transmit
+and receive apertures coincide. Each event carries its `delays`/`apodization`
+plus one geometric key:
 
-One thing is **not** optional: every probe builder sets
-`probe.impulse_response` (a 2-cycle burst at `fc`). A physical probe
-band-passes the signal twice through its piezo impulse responses — the
-chain is `drive ⊛ h_tx ⊛ h_rx`, which the Reception class convolves in the
-frequency domain. Simulating without them models ideal broadband elements,
-and the aperture impulse-response tails then dominate the received spectrum:
-the PSF widens ~60 % and the sidelobe skirt rises ~12 dB. Full story and the
-checkpoint caveat: `TROUBLESHOOTING.md` §1.
+- `virtual_source_mm=[x, y, z]` — a spherical wavefront: `z < 0` diverging,
+  `z > 0` focused, `z ≈ 0` single-element synthetic aperture;
+- `angles_deg=(θx, θy)` — a steered plane wave.
 
-## The beamformer: one DAS for every transmission basis
+The transmit time origin is recovered from **each event's own delay vector**, so
+you do not have to tell the beamformer which element the delays were referenced
+to — a common source of ~1 mm axial misplacement (see troubleshooting). Receive
+uses a depth-dependent radial aperture set by the f-number.
 
-`pyfield.beamforming.das_volume` beamforms **any** transmit scheme with one
-call, assuming TX aperture = RX aperture. Each event dict carries the same
-`delays`/`apodization` given to `sequence_rf` plus one geometric key:
+`das_volume` works for any aperture of point-like elements (flat, curved,
+sparse, ring). It does **not** fit row-column (RCA) probes, whose long bars
+receive at the nearest point of the bar rather than the element centre — those
+use `das_rca_volume`.
 
-- `virtual_source_mm=[x, y, z]` — spherical wavefront: `z<0` diverging wave,
-  `z>0` focused transmit (converges to the focus, then diverges — the
-  virtual-source model), `z≈0` single-element synthetic aperture;
-- `angles_deg=(θx, θy)` — steered plane wave.
+## Reference results
 
-The transmit time origin is recovered **from the event's own delays**
-(element `e` fires at `delays_e − max(delays)` in the data's time frame,
-because the simulator's `t0` is beam-axis referenced), so no min/max delay
-reference convention has to be assumed — the convention trap that once
-misplaced points by `(d_max−d_min)/2c ≈ 1 mm` cannot occur. Receive is a
-dynamic radial aperture `|r_xy − r_e,xy| ≤ z/(2·F#)`, rect or Hann, with
-optional coherence-factor weighting. Verified in
-`tests/unit/test_das_volume.py`: a synthetic point echo reconstructs at its
-exact position for all four bases.
+`zeus5`, 21 diverging waves, plain DAS + depth TGC, 30 dB display:
 
-**Which probes fit `das_volume`?** Any aperture whose elements act as
-point-like receivers: it only uses `element_centers`, so the layout may be
-flat, curved, sparse, or a ring — the direct-path `t_rx = |r − r_e|/c` and
-the delay-recovered `t_tx` stay exact (only the `fnum` gate, defined per
-depth `z`, becomes approximate for strongly curved apertures). **Not RCA**:
-its long row/column elements receive at the *nearest point of the bar*
-(a stationary-phase arrival), not at the element centre — use
-`das_rca_volume`, which models exactly that segment geometry.
-
-Step 3 applies it per event, converts each RF volume to IQ (analytic signal
-along z) and sums the IQ complex — coherent compounding — then applies one
-depth-only TGC gain curve. The default settings that matter (full-aperture
-rect receive, the pulse-centre `t_offset_s`, the wire-free TGC median) each
-guard against a measured failure mode: `TROUBLESHOOTING.md` §4–5.
-
-## Reference results (plain DAS + TGC, 30 dB display)
-
-ZeUS 5 MHz, 21 DW (3.75 h acquisition, seconds to beamform):
-
-| Metric | value | truth |
+| Metric | measured | ground truth |
 |---|---|---|
-| Anechoic cyst r=2 mm | **−17.5 dB** | −∞ |
-| Lesion ×4 r=1 (side / under the cyst) | **+12.0 / +12.0 dB** | +12 |
-| Sphere ×4 r=0.8 (elevation) | **+12.2 dB** | +12 |
+| Anechoic cyst (r = 2 mm) | −17.5 dB | −∞ |
+| Lesion ×4 (side / under cyst) | +12.0 / +12.0 dB | +12 |
+| Sphere ×4 (elevation) | +12.2 dB | +12 |
 | Speckle SNR | 1.86 | 1.91 (Rayleigh) |
-| Wire lateral FWHM z=11/15/19 | 0.30 / 0.40 / 0.40 mm | diffraction ≈ 0.3–0.4 |
+| Wire lateral FWHM (z = 11/15/19) | 0.30 / 0.40 / 0.40 mm | 0.3–0.4 (diffraction) |
 | Wire axial FWHM | 0.15–0.25 mm | pulse-limited |
 
-Every number sits at its physical ground truth — the acquisition, the
-kernel, the beamformer and the phantom statistics all close simultaneously.
-The Vermon scenario images the identical phantom at its own ~0.8 mm PSF in
-minutes (an earlier ×2-scaled campaign of the same design read cyst
-−24.5 dB, lesion +10.6, sphere +11.3, Rayleigh speckle). The zeus10 scenario
-images the same phantom at 10 MHz: its 2026-07 rerun came out clean at 2λ
-pitch, falsifying the grating-lobe degradation once predicted for it.
+Every number lands at its physical limit at once — acquisition, beamformer, and
+phantom statistics all close together, which is the real validation. `vermon`
+reproduces the same targets at its coarser ~0.8 mm PSF in minutes.
 
-Every design rule behind these numbers, the failure modes that were hit
-getting there, and a symptom→cause table live in
-[`TROUBLESHOOTING.md`](TROUBLESHOOTING.md).
+## Troubleshooting — read before running your own
 
-## Artifacts
+Each item below cost us at least one wasted acquisition. General lesson first:
+**do not name a cause you have not tested.** We attributed early 10 MHz problems
+to grating lobes and impulse-response handling; a controlled rerun falsified
+both. A wrong-but-confident physics explanation is worse than none.
 
-- `out/<scenario>/RF/` — the checkpointed acquisition (compressed chunk
-  files + fingerprinted contents file; resumable).
-- `out/<scenario>/IQ/iq_volume.npz` — the compounded complex IQ volume +
-  voxel axes (what the visualization scripts read).
-- `out/<scenario>/metrics.json` — timings + all metrics.
-- `docs/examples/assets/ex21_<scenario>_*.png` — B-modes, truth-vs-image
-  panels, 3-D renders (named `ex21_*` so each image traces back here).
+**Always set the impulse responses.** A real probe band-passes the echo twice,
+`drive ⊛ h_tx ⊛ h_rx`. If you leave `probe.impulse_response` unset you are
+modelling ideally broadband elements, and the low-frequency tails of the
+*aperture* diffraction response take over the spectrum: the received centroid
+drops (we measured 3.0 → 1.86 MHz), the lateral PSF widens ~60 %, and the
+sidelobe skirt rises from about −22 to −10 dB and becomes the dominant clutter —
+enough to fill an anechoic cyst. The tell-tale: point targets far wider than the
+diffraction limit *while every arrival time is exact*. When timing is right but
+the PSF is fat, look at the spectrum, not the beamformer. (The RF checkpoint
+fingerprint does **not** cover the impulse responses — after changing the pulse,
+delete `out/<scenario>/RF/` by hand.)
+
+**Cover the whole volume with every transmit.** A diverging wave from a virtual
+source only insonifies the cone through the aperture edges. With half-aperture
+`a`, the wave from `(r, −z_s)` reaches laterally out to `a + (a−r)·z/z_s` at
+depth `z`. If any volume corner falls outside any event's cone the failure is
+silent — the image just bands in brightness with depth and the contrast numbers
+stop making sense. Note too that compounding sharpens the synthesized focus only
+until the tilt span matches the aperture's own half-angle; beyond that, extra
+transmits only lower the sidelobe pedestal (~1/N). Derive the sources for each
+probe and volume; comparable probes each run at their own coverage limit.
+
+**Design the phantom for speckle.** Below ~5–10 scatterers per resolution cell
+the texture — and every contrast number read from it — is an artefact of the
+particular random draw. Make anechoic targets at least ~3 PSF radii across or
+they fill in from their own blurred edges. Keep wires dim and few: a dense
+scatterer line integrates coherently and can paint sidelobe arcs across the
+whole frame. Preview the phantom and run a single event to check speckle
+statistics before launching the full acquisition.
+
+**Beamform honestly.**
+
+- *Double apodization.* Elements about one wavelength wide already taper the
+  aperture through their own directivity. Adding a Hann receive window on top
+  halves the effective aperture (we measured 0.98 vs 0.52 mm FWHM on the same
+  RF). Prefer a rectangular receive window and a low f-number.
+- *Pulse-centre lag.* A band-limited pulse peaks about half its length after the
+  geometric arrival, so a naive delay-and-sum places the whole image too deep.
+  `das_volume` reads this lag from the RF metadata automatically; a custom
+  beamformer must add it.
+- *Delay reference.* Referencing transmit delays to the earliest vs the latest
+  element shifts the time origin by `(d_max − d_min)/c` — about a millimetre.
+  `das_volume` avoids this by reading each event's own delays; a single 0° plane
+  wave is the test that exposes the mistake.
+
+**Measure honestly.** Take the depth-gain curve from speckle-only regions, never
+across an anechoic target. Scale every region of interest with the PSF (in units
+of `λz/D`), not in fixed millimetres, or the same margins that are clean on a
+sharp probe sit inside a wire's mainlobe on a blurrier one. Coherence-factor
+weighting flatters the contrast number but destroys speckle texture and lets
+coherent clutter through — report plain DAS and quote CF only as a ceiling.
+
+### Symptom → likely cause
+
+| Symptom | Likely cause | Check |
+|---|---|---|
+| PSF wide, timing exact | impulse responses not set | received spectrum centroid |
+| Sidelobe arcs across the frame | missing impulse responses, or a too-bright wire | spectrum; wire amplitude |
+| Brightness banding with depth | virtual-source coverage violated | per-event cone vs volume corners |
+| Anechoic target filled (≫ PSF) | clutter floor | received spectrum |
+| Anechoic target filled (~PSF) | resolution, not clutter | enlarge target or aperture |
+| Point misplaced ~1 mm | delay-reference convention | one 0° plane wave |
+| Whole image shifted deep | pulse-centre lag not applied | beamformer time offset |
+| Metrics collapse on a new probe | fixed-mm ROIs on a different PSF | rescale ROIs by PSF |
+| Kernel edits have no effect | stale numba cache | delete `__pycache__/*.nb*` |

@@ -60,7 +60,7 @@ emission, **>20×** on reception) with negligible difference from Field II.
 
 ## Medium properties
 
-Override defaults in the constructor (shared by `Emission`, `ReceptionSDI`, `Reception`):
+Override defaults in the constructor (shared by `Emission` and `Reception`):
 
 ```python
 sim = Emission(tx, c=1540, rho=1.0, fs=200e6, alpha0=None)

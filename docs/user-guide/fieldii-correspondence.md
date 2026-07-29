@@ -36,9 +36,9 @@ angle θ (nodes at `y = R·sin θ`), exactly matching Field II's tiling of
 |---|---|
 | `calc_h` | `Emission(tx)` — pulsed mode (returns `ρ₀·h`; identical arrays at `rho=1`) |
 | `calc_hp` | `Emission(tx, fs=..., excitation=e)` with `xdc_impulse` ↔ `tx.set_impulse_response` |
-| `calc_scat` | `ReceptionSDI(tx, rx).scan_focusline(...)` (focused, apodized, summed on receive) |
-| `calc_hhp` / `calc_scat` (unit point) | `ReceptionSDI(tx, rx).pulse_echo_rf(...)` per-element RF |
-| `calc_scat_all` | `ReceptionSDI(tx, rx).synthetic_aperture_rf(...)` (FMC) |
+| `calc_scat` | `Reception(tx, rx).scan_focusline(...)` (focused, apodized, summed on receive) |
+| `calc_hhp` / `calc_scat` (unit point) | `Reception(tx, rx).pulse_echo_rf(...)` per-element RF |
+| `calc_scat_all` | `Reception(tx, rx).synthetic_aperture_rf(...)` (FMC) |
 
 The pulse-echo derivative convention is shared: the physical `∂³v/∂t³` is
 carried by the band-limited excitation and TX/RX impulse responses — neither

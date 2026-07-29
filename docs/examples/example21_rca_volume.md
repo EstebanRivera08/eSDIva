@@ -13,7 +13,7 @@ minutes.
 | Script | What it does |
 |--------|--------------|
 | `step1_define_phantom_TX_RX.py` | All definitions in one place: scenario (probe + drive), phantom, virtual-source sequence, drive burst + piezo impulse response, beamforming grid |
-| `step2_acquire_RF.py` | `ReceptionSDI(method="spectral")`, one TX event at a time, checkpointed to `out/<scenario>/RF/` (resumable, refuses a changed config) |
+| `step2_acquire_RF.py` | `Reception(method="spectral")`, one TX event at a time, checkpointed to `out/<scenario>/RF/` (resumable, refuses a changed config) |
 | `step3_beamforming.py` | Per-event `das_volume` → Hilbert IQ → coherent compound → depth-only TGC → contrast/SNR/PSF metrics + B-mode figures |
 
 Supporting scripts: `preview_phantom.py` (truth + acquisition scene BEFORE the
@@ -31,8 +31,8 @@ volume — never re-beamforms).
 ## Run it
 
 ```bash
-uv run examples/example21_rca_volume/step2_acquire_RF.py
-uv run examples/example21_rca_volume/step3_beamforming.py
+uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
+uv run examples/example21_3Dphantom_volume/step3_beamforming.py
 # pick another probe: SCENARIO=zeus5 (or zeus10) before the commands
 ```
 
@@ -41,6 +41,5 @@ uv run examples/example21_rca_volume/step3_beamforming.py
 Every design rule this case study cost us — impulse responses, virtual-source
 coverage, phantom density, wire brightness, honest metrics — is distilled in
 the example folder's
-[`README.md`](https://github.com/EstebanRivera08/PyField/blob/main/examples/example21_rca_volume/README.md)
-and
-[`TROUBLESHOOTING.md`](https://github.com/EstebanRivera08/PyField/blob/main/examples/example21_rca_volume/TROUBLESHOOTING.md).
+[`README.md`](https://github.com/EstebanRivera08/PyField/blob/main/examples/example21_3Dphantom_volume/README.md)
+under "Design notes & pitfalls".

@@ -1,6 +1,6 @@
 """Pulse-echo RF simulation engine."""
 
+from .conventional import ReceptionConventional
 from .reception import Reception
-from .reception_sdi import ReceptionSDI
 
-__all__ = ["Reception", "ReceptionSDI"]
+__all__ = ["Reception", "ReceptionConventional"]

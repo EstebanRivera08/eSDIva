@@ -10,7 +10,7 @@ the sphere's elevation. Right: C-plane at the tier depth. Then two 3-D scenes:
                 anechoic void, gold = x4 hyperechoic, red = the PSF wires).
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_rca_volume/preview_phantom.py
+    uv run examples/example21_3Dphantom_volume/preview_phantom.py
 """
 
 import sys
@@ -34,7 +34,7 @@ from step1_define_phantom_TX_RX import (
 )
 
 from pyfield.plotting.plotting_pyvista import add_transducer_mesh
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
 # "bmode"  = phantom truth as a gray volume (sigmoid opacity, whole volume).
 # "shapes" = the target geometry drawn as translucent solids.
@@ -105,7 +105,7 @@ if not SAVE_FIG:
 pos, amp = build_phantom(SC)
 print(f"{pos.shape[0]:,d} scatterers")
 probe = SC["make_probe"](SC["fc"])
-sim = ReceptionSDI(
+sim = Reception(
     probe,
     SC["make_probe"](SC["fc"]),
     c=C,

@@ -9,7 +9,7 @@ imaging research.
 
 - Rotating an aperture *about the target point* with a single 4×4 transform
 - `sim.show(scatterers, amplitudes)` — 3-D preview of both apertures
-- Pulse-echo RF between two different apertures (`ReceptionSDI(tx, rx)`)
+- Pulse-echo RF between two different apertures (`Reception(tx, rx)`)
 
 ## Output
 
@@ -27,7 +27,7 @@ uv run examples/example19_dualprobe_reception_show.py
 ```python
 import numpy as np
 import pyfield.transducers as transducers
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 
 tx = transducers.Domino()
 tx.compute_delays(focus_mm=[0, 0, 20])
@@ -40,7 +40,7 @@ T[:3, :3] = R
 T[:3, 3] = target_mm - R @ target_mm    # rotate about the target, not the origin
 rx.transform(T)
 
-sim = ReceptionSDI(tx, rx, c=1540, fs=200e6, excitation=excitation)
+sim = Reception(tx, rx, c=1540, fs=200e6, excitation=excitation)
 sim.show(scatterer_pos, scatterer_amp)  # 3-D preview
 rf, coords = sim(scatterer_pos, scatterer_amp)
 ```

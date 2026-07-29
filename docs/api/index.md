@@ -27,7 +27,7 @@ cross-links — search a name and read everything you need without opening the s
 
     ---
 
-    `ReceptionSDI` / `Reception` — pulse-echo RF, PSF, phantoms, FMC, sequences.
+    `Reception` — pulse-echo RF, PSF, phantoms, FMC, sequences.
 
 -   :lucide-git-merge: **[Beamforming](beamforming.md)**
 

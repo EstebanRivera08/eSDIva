@@ -12,7 +12,7 @@ import pyfield.utilities as utilities
 from pyfield.beamforming import DAS_focused_scanline, envelope_db
 from pyfield.emission import Emission, PyField
 from pyfield.plotting import plot2D_pressure_slices
-from pyfield.reception import Reception, ReceptionSDI
+from pyfield.reception import Reception, ReceptionConventional
 from pyfield.utilities import align_to_common_time, to_dB
 
 
@@ -45,7 +45,7 @@ __all__ = [
     "Emission",
     "PyField",
     "Reception",
-    "ReceptionSDI",
+    "ReceptionConventional",
     "attenuation",
     "beamforming",
     "DAS_focused_scanline",

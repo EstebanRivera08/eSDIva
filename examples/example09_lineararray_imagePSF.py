@@ -5,7 +5,7 @@ Field II parallel: ``fieldiiexamples/linear_psf_example/`` (sesr.m scenario)
 
 Simulates a PSF phantom (20 on-axis point scatterers at 5 mm intervals,
 z = 15–110 mm) and builds a B-mode line by line with
-``ReceptionSDI.scan_focusline`` (one focused scan line per lateral position),
+``Reception.scan_focusline`` (one focused scan line per lateral position),
 then log-compresses to a B-mode image.
 
   1. PSF phantom: 20 on-axis scatterers, z = 15, 20, …, 110 mm
@@ -28,7 +28,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.reception import ReceptionSDI
+from pyfield.reception import Reception
 from pyfield.transducers import LinearArrayTransducer
 
 # ============================================================================
@@ -110,7 +110,7 @@ excitation = pulse.copy()
 # image_data(:,i). `coords["t0"]` is beam-axis referenced (TX+RX focusing bulk
 # subtracted), so no manual bulk correction is needed; we only map each line's
 # time axis to display depth.
-sim = ReceptionSDI(tx, rx, c=C, fs=FS, excitation=excitation, verbose=False)
+sim = Reception(tx, rx, c=C, fs=FS, excitation=excitation, verbose=False)
 common_depth_mm = np.arange(9.0, 120.0 + 0.05, 0.05)  # shared display axis
 env_lines = []
 for x in X_LINES_MM:

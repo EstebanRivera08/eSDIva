@@ -64,7 +64,7 @@ class FieldIITransducer(TransducerBase):
     The transducer behaves identically to any other PyField transducer —
     it can be passed to :class:`~pyfield.emission.Emission`,
     :class:`~pyfield.reception.Reception`, or
-    :class:`~pyfield.reception.ReceptionSDI`.
+    :class:`~pyfield.reception.ReceptionConventional`.
 
     Parameters
     ----------
