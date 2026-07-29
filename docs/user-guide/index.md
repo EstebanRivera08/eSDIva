@@ -6,7 +6,8 @@ hide:
 
 # User Guide
 
-Everything you need to simulate acoustic pressure fields with PyField — from installation to advanced transducer geometry and background theory.
+Everything you need to simulate acoustic pressure fields and pulse-echo RF with
+PyField — from installation to transducer geometry, emission, and reception.
 
 <div class="grid cards" markdown>
 
@@ -32,7 +33,7 @@ Everything you need to simulate acoustic pressure fields with PyField — from i
 
     ---
 
-    Monochromatic and transient simulation modes, field grid format, method selection, and medium properties.
+    **Emission** (monochromatic, transient, attenuation) and **Reception** (pulse-echo RF for PSF, phantoms, FMC, sequences). Field grid format, SDI method selection, medium properties.
 
 -   :lucide-square-activity: **[Visualization](visualization.md)**
 
@@ -45,11 +46,5 @@ Everything you need to simulate acoustic pressure fields with PyField — from i
     ---
 
     Geometry functions, BrainGlobe brain atlas integration, and PyVista scene-building helpers.
-
--   :lucide-book-open: **[Background Theory](theory.md)**
-
-    ---
-
-    Spatial Impulse Response method, rectangular aperture SIR, FST vs. SDI algorithms, patch subdivision, and the path from SIR to pressure.
 
 </div>

@@ -43,7 +43,7 @@ Acoustic field simulator for ultrasound transducers, based on the Tupholme–Ste
 
 ```python
 from pyfield.transducers import LinearArrayTransducer
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 from pyfield.plotting import plot2D_pressure_slices
 
 # 64-element linear array focused at 30 mm depth
@@ -70,51 +70,69 @@ field_points = {
 }
 
 # Run monochromatic simulation and visualize
-sim = PyField(tx)
+sim = Emission(tx, monochromatic=True)
 p, coords = sim(field_points, method="auto")
-plot2D_pressure_slices(p, x=coords["x"], y=coords["y"], z=coords["z"], db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
 
 ---
 
-## Features
+## Why PyField
+
+!!! tip "Sparse Delta Integration — the core of PyField"
+    The **SDI** method reformulates the spatial impulse response as a sparse train
+    of Dirac deltas integrated in time or frequency, evaluated with **Numba-parallel
+    CPU kernels** (no GPU required). For large apertures this delivers
+    **>100× faster emission** and **>20× faster reception (RF)** than sample-by-sample
+    evaluation — with **negligible difference from Field II** — making full RF and
+    phantom simulations practical on a laptop.
 
 <div class="grid cards" markdown>
 
--   :lucide-cpu: **SIR-based computation**
+-   :lucide-zap: **SDI — very fast SIR**
 
     ---
 
-    Patch-based Spatial Impulse Response engine derived from the Tupholme–Stepanishen method. Accurate for arbitrary transducer geometries.
+    Sparse Delta Integration in time **and** frequency domain. >100× emission and
+    >20× reception speedup on large apertures, Field II-accurate.
+
+-   :lucide-cpu: **Numba-parallel, CPU-only**
+
+    ---
+
+    Parallel JIT kernels run on any multi-core CPU. No CUDA, no GPU dependency —
+    fast RF simulation anywhere.
+
+-   :lucide-activity: **Emission & Reception**
+
+    ---
+
+    CW / transient / attenuated emission fields, and full pulse-echo **RF** for
+    PSF, phantom, FMC, and sequence (PW/DW) studies.
 
 -   :lucide-radio-tower: **Rich transducer library**
 
     ---
 
-    Linear, convex, and matrix arrays; flat, concave, convex, and focused circular mono-elements; fully custom multi-element configurations.
-
--   :lucide-zap: **Monochromatic & transient**
-
-    ---
-
-    Compute steady-state continuous-wave fields or full time-domain pulsed simulations with user-defined excitation pulses.
-
--   :lucide-brain: **Brain atlas integration**
-
-    ---
-
-    Register acoustic fields onto anatomical structures via the BrainGlobe API. Includes rat and mouse atlases out of the box.
+    Linear, convex, matrix arrays; flat, concave, convex, focused circular
+    mono-elements; fully custom geometries. Import Field II probes.
 
 -   :lucide-box: **3-D visualization**
 
     ---
 
-    Interactive 3-D scenes with PyVista: compose transducer geometry, pressure volumes, STL meshes, and brain anatomy in one renderer.
+    Interactive PyVista scenes: transducer geometry, pressure volumes, STL meshes,
+    and brain anatomy composed in one renderer.
 
--   :lucide-flask-conical: **Research-grade accuracy**
+-   :lucide-brain: **Brain atlas integration**
 
     ---
 
-    Validated against SIR benchmarks. FST and SDI methods with automatic selection for optimal speed and numerical accuracy.
+    Map acoustic fields onto anatomy via BrainGlobe. Rat and mouse atlases out of
+    the box.
 
 </div>
+
+!!! note "Background theory"
+    The SIR/SDI derivations are covered in the accompanying PyField paper — see
+    [Citing PyField](citing.md).

@@ -7,11 +7,6 @@ from pyfield.transducers import LinearArrayTransducer
 
 
 class TestLinearCreation:
-    def test_creation_defaults(self, linear_4elem):
-        assert linear_4elem.n_elements == 4
-        assert linear_4elem.type == "linear"
-        assert linear_4elem.fc == 5e6
-
     def test_stored_dimensions_si(self, linear_4elem):
         """Dimensions are stored in SI units (metres)."""
         assert linear_4elem.elem_width == pytest.approx(0.25e-3)

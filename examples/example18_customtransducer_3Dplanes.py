@@ -181,6 +181,14 @@ if SAVE_FIG:
     plotter.screenshot(str(FIG_FOLDER / "ex18_custom_sparse_3dplanes.png"))
 else:
     plotter.show()
+
+# Finalise every PyVista object while the interpreter is still alive, so VTK's
+# __del__ does not fire during shutdown ("Exception ignored ... meta_path is None").
+import gc  # noqa: E402
+
 plotter.close()
+pv.close_all()
+del plotter
+gc.collect()
 
 print("\nDone.")

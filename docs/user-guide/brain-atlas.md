@@ -7,7 +7,7 @@ icon: lucide/brain
 !!! warning "Coming soon"
     This section is under active development. Content will be added in a future release.
 
-    See the [Mouse Brain Atlas](../examples/example6_monoelement_mouse.md) and [Rat Brain Targeting](../examples/example7_ratbrainzones_focus.md) examples for working atlas integration code.
+    See the [Mouse Brain Atlas](../examples/example12_txconcave_mousebrain.md) and [Rat Brain Targeting](../examples/example13_txlinear_ratbrainzones.md) examples for working atlas integration code.
 
 ## Overview
 

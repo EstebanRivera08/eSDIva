@@ -7,7 +7,7 @@ icon: lucide/box
 !!! warning "Coming soon"
     This section is under active development. Content will be added in a future release.
 
-    See the [Multi-element 3-D example](../examples/example4_multielement_transducers.md) for working 3-D volume rendering.
+    See the [Multi-element 3-D example](../examples/example03_multielements_monochromatic_CW.md) for working 3-D volume rendering.
 
 ## Overview
 

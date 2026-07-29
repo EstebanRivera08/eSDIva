@@ -7,7 +7,7 @@ icon: lucide/box
 !!! warning "Coming soon"
     This section is under active development. Content will be added in a future release.
 
-    See the [STL Meshes](../examples/example8_importstl_petridish.md) and [STL + Simulation](../examples/example9_monoelement_petridish.md) examples for composing 3-D scenes.
+    See the [STL Meshes](../examples/example14_importstl_petri_dish.md) and [STL + Simulation](../examples/example15_monoelement_petridish.md) examples for composing 3-D scenes.
 
 ## Overview
 

@@ -4,24 +4,20 @@ icon: lucide/waves
 
 # Transient Impulse Simulation
 
-!!! warning "Coming soon"
-    This section is under active development. Content will be added in a future release.
-
-    See the [Transient Simulation example](../examples/example5_lineartx_transient.md) for a working pulsed simulation.
-
-## Overview
-
-Transient impulse simulation returns the spatial impulse response `h(t, x, y, z)` without convolving an excitation pulse. This is the raw SIR output for each field point.
+Transient impulse mode returns the raw spatial impulse response `h(t, x, y, z)` —
+no excitation convolution. This is the pure geometric SIR sampled at `fs`.
 
 ```python
-sim = PyField(tx, fs=200e6)
-p, coords = sim(field_points, method="auto", monochromatic=False)
-# Structured (dict): p.shape == (Nt, Nx, Ny, Nz), coords has "x", "y", "z", "t0", "dt"
-# Raw array:         p.shape == (Nt, N_points), user reshapes
+sim = Emission(tx, fs=200e6)            # excitation=None, monochromatic=False
+p, coords = sim(field_points, method="auto")
+# dict input : p.shape == (Nt, Nx, Ny, Nz), coords has "x","y","z","t0","dt"
+# (N,3) input: p.shape == (Nt, N_points)
 ```
 
 ## When to use
 
-- Inspecting the raw SIR at specific field points
-- Debugging transducer geometry by examining arrival times
-- Applying a custom convolution outside PyField
+- Inspecting the raw SIR / arrival times at chosen field points.
+- Debugging transducer geometry.
+- Applying a custom convolution outside PyField.
+
+For a full pulsed wavefront, add an excitation → [Transient + Excitation](transient-excitation.md).

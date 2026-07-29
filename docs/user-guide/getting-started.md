@@ -74,11 +74,10 @@ field_points = {
 ### 4. Run the simulation
 
 ```python
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 
-sim = PyField(tx)
+sim = Emission(tx, monochromatic=True)   # continuous-wave amplitude at fc
 p, coords = sim(field_points, method="auto")
-x, y, z = coords["x"], coords["y"], coords["z"]
 ```
 
 ### 5. Visualize results
@@ -86,10 +85,10 @@ x, y, z = coords["x"], coords["y"], coords["z"]
 ```python
 from pyfield.plotting import plot2D_pressure_slices
 
-plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
 
-![Monochromatic pressure field — linear array](../examples/assets/lineartx_monochromatic.png)
+![Monochromatic pressure field — linear array](../examples/assets/ex03_linear_array_field.png)
 
 ## Key concepts
 
@@ -106,5 +105,6 @@ plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 ## Next steps
 
 - [Transducer types](transducers.md) -- learn about all available geometries
-- [Simulation modes](simulation.md) -- monochromatic vs transient
+- [Emission](emission.md) -- monochromatic, transient, and attenuated fields
+- [Reception (RF)](reception.md) -- pulse-echo RF for PSF and phantom studies
 - [Visualization](visualization.md) -- 2D and 3D plotting options

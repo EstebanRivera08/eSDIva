@@ -6,6 +6,11 @@ icon: lucide/container
 
 PyField models every transducer geometry as a collection of small flat rectangular patches. The Spatial Impulse Response (SIR) is computed for each patch independently, then summed with per-element delays and apodization weights to produce the total field.
 
+| | |
+|---|---|
+| ![Linear array](../examples/assets/ex01_gallery_linear.png) | ![Matrix array](../examples/assets/ex01_gallery_matrix.png) |
+| ![Concave circular](../examples/assets/ex01_gallery_concave.png) | ![Custom helmet](../examples/assets/ex01_gallery_custom_helmet.png) |
+
 <div class="grid cards" markdown>
 
 -   :lucide-circle: **[Mono-elements](mono-elements.md)**

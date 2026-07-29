@@ -7,7 +7,7 @@ icon: lucide/chart-area
 !!! warning "Coming soon"
     This section is under active development. Content will be added in a future release.
 
-    See the [Visualization Guide](visualization.md) for a quick reference, and [Mono-element Fields](../examples/example2_monoelement_transducers.md) for working plot examples.
+    See the [Visualization Guide](visualization.md) for a quick reference, and [Mono-element Fields](../examples/example02_monoelements_monochromatic_CW.md) for working plot examples.
 
 ## Overview
 

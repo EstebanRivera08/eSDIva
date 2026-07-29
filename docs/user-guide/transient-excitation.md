@@ -4,33 +4,30 @@ icon: lucide/radio
 
 # Transient + Excitation
 
-!!! warning "Coming soon"
-    This section is under active development. Content will be added in a future release.
-
-    See the [Transient Simulation example](../examples/example5_lineartx_transient.md) for a working end-to-end example with excitation.
-
-## Overview
-
-Full time-domain simulation: the spatial impulse response is convolved with a user-defined excitation pulse. Returns `p(t, x, y, z)`.
+The SIR is convolved (in the frequency domain) with a user excitation pulse,
+giving the full time-domain pressure wavefront `p(t, x, y, z)`. Pass one global
+pulse `(L,)` or a per-element pulse `(L, E)`.
 
 ```python
 import numpy as np
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 
-fs = 200e6
-fc = tx.fc
-n_cycles = 2
-t_pulse = np.arange(0, n_cycles / fc, 1 / fs)
-excitation = np.hanning(len(t_pulse)) * np.sin(2 * np.pi * fc * t_pulse)
+fs, fc, n_cycles = 200e6, tx.fc, 2
+t = np.arange(0, n_cycles / fc, 1 / fs)
+excitation = np.hanning(len(t)) * np.sin(2 * np.pi * fc * t)
 
-sim = PyField(tx, fs=fs)
-p, coords = sim(field_points, method="auto", excitation=excitation)
-# Structured (dict): p.shape == (Nt, Nx, Ny, Nz), coords has "x", "y", "z", "t0", "dt"
-# Raw array:         p.shape == (Nt, N_points), user reshapes
+sim = Emission(tx, fs=fs, excitation=excitation)
+p, coords = sim(field_points, method="auto")
+# dict input : p.shape == (Nt, Nx, Ny, Nz), coords has "x","y","z","t0","dt"
 ```
+
+![Steered plane-wave transient — matrix array](../examples/assets/ex04_dw_transient.gif)
 
 ## When to use
 
-- Realistic pulsed propagation waveforms
-- Tissue heating estimates and acoustic intensity maps
-- Comparing pulse shapes and their effect on the focal pattern
+- Realistic pulsed propagation waveforms (DW, steered PW, focused).
+- Acoustic intensity / heating maps.
+- Comparing pulse shapes and their effect on the focal pattern.
+
+See [Example 4 — Diverging Wave](../examples/example04_lineararray_excitation_DW.md)
+and [Example 5 — Steered Plane Wave](../examples/example05_matrixarray_pulsed_steeredPW.md).

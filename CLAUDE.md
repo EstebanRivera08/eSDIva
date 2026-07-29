@@ -73,8 +73,8 @@ under `[project.theme]`.
 5. **`src/pyfield/attenuation/`** — Power-law attenuation transfer functions.
 6. **`src/pyfield/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
 7. **`src/pyfield/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
-8. **`src/pyfield/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_dw_volume` (numba 3-D DAS for diverging-wave / virtual-source sequences, coherent compounding; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed), `envelope_db`.
-9. **`src/pyfield/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`).
+8. **`src/pyfield/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW/multiplane (θx,θy)); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`. (Diverging waves use `das_volume` with `virtual_source_mm` z<0 — the former `das_dw_volume` was a redundant subset, removed.)
+9. **`src/pyfield/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
 
 ### Key Design Patterns
 
@@ -196,7 +196,7 @@ env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
 3. Phantom: ≥5–10 scatterers per resolution cell (cell ~λ³), anechoic targets
    ≥3 PSF radii, wires dim (+10 dB) and far from contrast targets.
 4. Preview (`sim.show`) + one-event speckle check BEFORE the long run.
-5. Beamform: all DAS beamformers (`das_volume`/`das_dw_volume`/`das_rca_volume`)
+5. Beamform: all DAS beamformers (`das_volume`/`das_rca_volume`)
    auto-apply `pulse_center_lag_s` (default `t_offset_s=None` → read from
    `coords`) and recover each event's delay reference; rect RX apodization
    (element directivity already tapers); RCA bars → `das_rca_volume`. **Custom

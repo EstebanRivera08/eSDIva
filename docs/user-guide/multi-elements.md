@@ -4,10 +4,14 @@ icon: lucide/layout-grid
 
 # Multi-element Transducers
 
-!!! warning "Coming soon"
-    This section is under active development. Content will be added in a future release.
+Arrays of independently driven elements — electronic steering and focusing via
+per-element delays and apodization. See the
+[Transducers API](../api/transducers.md) and
+[Example 3 — Multi-element 3-D](../examples/example03_multielements_monochromatic_CW.md).
 
-    For now, see the [Transducers API reference](../api/transducers.md) and the [Linear Array (CW)](../examples/example3_lineartx_monochromatic.md) and [Multi-element 3-D](../examples/example4_multielement_transducers.md) examples.
+| | |
+|---|---|
+| ![Linear array field](../examples/assets/ex03_linear_array_pressure_field.png) | ![Matrix array field](../examples/assets/ex03_matrix_array_pressure_field.png) |
 
 ## At a glance
 

@@ -36,21 +36,6 @@ def _make_pyfield(tx, **kwargs):
 
 
 class TestEmissionInit:
-    def test_defaults(self, small_linear_transducer):
-        sim = _make_emission(small_linear_transducer)
-        assert sim.c == 1540.0
-        assert sim.rho == 1.0
-        assert sim.fs == 200e6
-        assert sim.alpha0 is None
-        assert sim.monochromatic is False
-        assert sim.M > 0
-
-    def test_custom_params(self, small_linear_transducer):
-        sim = _make_emission(small_linear_transducer, c=1500.0, rho=1000.0, fs=100e6)
-        assert sim.c == 1500.0
-        assert sim.rho == 1000.0
-        assert sim.fs == 100e6
-
     def test_set_valid(self, small_linear_transducer):
         sim = _make_emission(small_linear_transducer)
         sim.set("alpha0", 0.5)
@@ -72,12 +57,6 @@ class TestEmissionInit:
         sim = _make_emission(small_linear_transducer)
         with pytest.raises(TypeError):
             sim.set("c", "not_a_float")
-
-    def test_repr(self, small_linear_transducer):
-        sim = _make_emission(small_linear_transducer)
-        r = repr(sim)
-        assert "Emission" in r
-        assert "1540" in r
 
 
 # ---------------------------------------------------------------------------

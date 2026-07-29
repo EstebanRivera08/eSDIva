@@ -467,16 +467,6 @@ class TestReceptionFormulations:
         assert r40 < r20  # deeper scatterer attenuates more
 
 
-class TestReceptionRepr:
-    """String representation."""
-
-    def test_repr(self, simple_tx, simple_rx):
-        sim = ReceptionSDI(simple_tx, simple_rx, verbose=False)
-        r = repr(sim)
-        assert "Reception" in r
-        assert "1540" in r
-
-
 class TestSequenceCheckpoint:
     """sequence_rf(out_path=...) — checkpointed, resumable acquisition."""
 

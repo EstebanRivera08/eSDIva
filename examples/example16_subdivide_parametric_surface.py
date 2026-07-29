@@ -364,9 +364,11 @@ print("\n" + "=" * 70)
 print("Done.")
 print("=" * 70)
 
-del (
-    pl,
-    mosaic_mesh,
-    grid,
-    cloud,
-)
+# Finalise every PyVista object while the interpreter is still alive: close the
+# render windows, drop the last references and force a collection now, so VTK's
+# __del__ does not fire during shutdown ("Exception ignored ... meta_path is None").
+import gc  # noqa: E402
+
+pv.close_all()
+del pl, mosaic_mesh, grid, cloud
+gc.collect()

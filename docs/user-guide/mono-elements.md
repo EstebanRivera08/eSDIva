@@ -4,10 +4,14 @@ icon: lucide/circle
 
 # Mono-element Transducers
 
-!!! warning "Coming soon"
-    This section is under active development. Content will be added in a future release.
+Single-element circular transducers. Focusing comes from the physical curvature of
+the surface, not electronic delays. See the [Transducers API](../api/transducers.md)
+for full parameters and [Example 2 — Mono-element Fields](../examples/example02_monoelements_monochromatic_CW.md).
 
-    For now, see the [Transducers API reference](../api/transducers.md) for parameter details and the [Transducer Gallery](../examples/example1_transducer_gallery.md) example for usage patterns.
+| | |
+|---|---|
+| ![Flat circular](../examples/assets/ex02_mono_flat.png) | ![Concave circular](../examples/assets/ex02_mono_concave.png) |
+| ![Convex circular](../examples/assets/ex02_mono_convex.png) | ![Focused circular](../examples/assets/ex02_mono_focused.png) |
 
 ## At a glance
 

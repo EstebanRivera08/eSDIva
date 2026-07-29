@@ -27,9 +27,14 @@ nav = [
     ]},
     { "Simulation" = [
       { "Overview" = "user-guide/simulation.md" },
-      { "Monochromatic" = "user-guide/monochromatic.md" },
-      { "Transient Impulse" = "user-guide/transient-impulse.md" },
-      { "Transient + Excitation" = "user-guide/transient-excitation.md" },
+      { "Emission" = [
+        { "Overview" = "user-guide/emission.md" },
+        { "Monochromatic" = "user-guide/monochromatic.md" },
+        { "Transient Impulse" = "user-guide/transient-impulse.md" },
+        { "Transient + Excitation" = "user-guide/transient-excitation.md" },
+        { "Attenuation" = "user-guide/attenuation.md" },
+      ]},
+      { "Reception (RF)" = "user-guide/reception.md" },
     ]},
     { "Visualization" = [
       { "Overview" = "user-guide/visualization.md" },
@@ -43,23 +48,16 @@ nav = [
       { "Brain Atlas" = "user-guide/brain-atlas.md" },
       { "PyVista Integration" = "user-guide/pyvista.md" },
     ]},
-    { "Background Theory" = [
-      { "Overview" = "user-guide/theory.md" },
-      { "Spatial Impulse Response" = "user-guide/sir.md" },
-      { "Rectangular Aperture SIR" = "user-guide/rect-aperture.md" },
-      { "FST and SDI Methods" = "user-guide/methods.md" },
-      { "Patch Subdivision" = "user-guide/subdivision.md" },
-      { "Transducer SIR" = "user-guide/transducer-sir.md" },
-      { "From SIR to Pressure" = "user-guide/pressure.md" },
-    ]},
   ]},
   { "API Reference" = [
     { "Overview" = "api/index.md" },
     { "Transducers" = "api/transducers.md" },
-    { "Simulation" = "api/simulation.md" },
-    { "Visualization" = "api/visualization.md" },
-    { "Brain Atlas" = "api/brain_atlas.md" },
+    { "Emission" = "api/emission.md" },
+    { "Reception" = "api/reception.md" },
+    { "Beamforming" = "api/beamforming.md" },
+    { "I/O" = "api/io.md" },
     { "Plotting" = "api/plotting.md" },
+    { "Brain Atlas" = "api/brain_atlas.md" },
   ]},
   { "Examples" = [
     { "Overview" = "examples/index.md" },
@@ -87,6 +85,28 @@ nav = [
   ]},
   { "Contributing" = "contributing.md" },
 ]
+
+# Auto-generated API reference from NumPy-style docstrings (mkdocstrings-python).
+# Renders each MAIN class/method with its full signature, typed parameter table,
+# and cross-links — so users read the API on the docs site, not in the source.
+[project.plugins.mkdocstrings.handlers.python]
+paths = ["src"]
+
+[project.plugins.mkdocstrings.handlers.python.options]
+docstring_style = "numpy"
+docstring_section_style = "table"
+merge_init_into_class = true
+inherited_members = true
+show_root_heading = true
+show_root_full_path = false
+show_symbol_type_heading = true
+show_symbol_type_toc = true
+separate_signature = true
+show_signature_annotations = true
+signature_crossrefs = true
+members_order = "source"
+show_source = false
+filters = ["!^_"]
 
 [project.theme]
 variant = "modern"

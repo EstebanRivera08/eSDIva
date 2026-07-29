@@ -2,6 +2,9 @@
 [![Python versions](https://img.shields.io/pypi/pyversions/pyfield)](https://pypi.org/project/pyfield/)
 [![DOI]()]()
 [![codecov](https://codecov.io/gh/EstebanRivera08/PyField/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/PyField)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://estebanrivera08.github.io/PyField/)
+
+📖 **Documentation:** <https://estebanrivera08.github.io/PyField/>
 
 > [!WARNING]
 > PyField is currently under development. The API is subject to change, and some features may be incomplete or unstable.

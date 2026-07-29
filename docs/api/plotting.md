@@ -1,19 +1,27 @@
 ---
-icon: lucide/bar-chart
+icon: lucide/square-activity
 ---
 
 # Plotting
 
-!!! warning "Under development — coming soon"
-    The `plotting` module is currently under active development and has not been released yet.
+2-D Matplotlib and 3-D PyVista visualization. All PyVista helpers accept
+`plotter=` to compose several objects in one scene. See the
+[Visualization user guide](../user-guide/visualization.md).
 
-    Core visualization functions are available in the [Visualization module](visualization.md).
+## 2-D (Matplotlib)
 
-## Planned scope
+::: pyfield.plotting.plot2D_pressure_slices
 
-The `plotting` module will expose low-level figure construction utilities and export helpers that complement the higher-level functions in `pyfield.utilities`:
+::: pyfield.plotting.plot2D_transient_slices
 
-- Figure layout and subplot management
-- Colormap and normalisation helpers
-- Export to publication-quality formats (PDF, SVG, PNG at configurable DPI)
-- Batch export for parameter sweeps
+::: pyfield.plotting.plot2D_pressure_plane
+
+## 3-D (PyVista)
+
+::: pyfield.plotting.plot3D_pressure_vol
+
+::: pyfield.plotting.plot3D_pressure_slices
+
+::: pyfield.plotting.add_pressure_vol
+
+::: pyfield.plotting.add_transducer_mesh

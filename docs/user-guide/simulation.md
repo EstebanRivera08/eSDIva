@@ -4,94 +4,71 @@ icon: lucide/audio-lines
 
 # Simulation
 
-PyField supports two simulation modes — monochromatic and transient — both driven by the same `PyField` simulator class.
+PyField splits simulation into two families, both driven by the **SDI** spatial
+impulse response engine:
 
 <div class="grid cards" markdown>
 
--   :lucide-activity: **[Monochromatic](monochromatic.md)**
+-   :lucide-radio-tower: **[Emission](emission.md)**
 
     ---
 
-    Steady-state continuous-wave pressure field `p(x, y, z)`. Fast and ideal for beam pattern analysis and transducer design comparison.
+    Forward pressure field radiated by the transducer — **monochromatic** CW,
+    **transient** pulsed, or with power-law **attenuation**. Returns `p(x, y, z)`
+    (CW) or `p(t, x, y, z)` (transient).
 
--   :lucide-waves: **[Transient Impulse](transient-impulse.md)**
-
-    ---
-
-    Pulsed simulation using only the spatial impulse response (no excitation convolution). Returns `h(t, x, y, z)`.
-
--   :lucide-radio: **[Transient + Excitation](transient-excitation.md)**
+-   :lucide-activity: **[Reception (RF)](reception.md)**
 
     ---
 
-    Full time-domain simulation: SIR convolved with a user-defined excitation pulse. Returns `p(t, x, y, z)`.
+    Pulse-echo **RF** from point scatterers: PSF, phantoms, FMC, and PW/DW
+    sequences. Returns per-element channel data `(Erx, Nt)`. Field II-accurate,
+    >20× faster on large apertures.
 
 </div>
 
 ---
 
-## Common interface
-
-All modes use the same entry point:
-
-```python
-from pyfield.psimulation import PyField
-
-sim = PyField(tx)
-p, coords = sim(field_points, method="auto")                # monochromatic
-p, coords = sim(field_points, method="auto", monochromatic=False)  # transient impulse
-p, coords = sim(field_points, method="auto", excitation=pulse)  # transient + excitation
-```
-
-## Method selection
-
-| Method | Description | When to use |
-|--------|-------------|-------------|
-| `"auto"` | Automatic selection | Always recommended |
-| `"FST"` | Sample-by-sample evaluation | Small grids, reference results |
-| `"sdi"` | Sparse Delta Integration | Large or dense field grids |
-
 ## Field input format
 
-### Structured grid (dict)
+Emission field points and reception scatterer lattices share the same grid dict:
 
 ```python
 field_points = {
-    "x_extent": [-5, 5],    # mm
-    "y_extent": [-0.5, 0.5],
-    "z_extent": [5, 55],
+    "x_extent": [-5, 5],    # mm — lateral
+    "y_extent": [-0.5, 0.5],  # mm — elevation
+    "z_extent": [5, 55],    # mm — axial (depth)
     "dx": 0.1,
     "dy": 1.0,
     "dz": 0.2,
 }
 ```
 
-Set one dimension to a single value with `d=0` to compute a 2-D plane.
+Set one axis to a single value with its `d=0` to compute a 2-D plane. Emission
+also accepts a raw `(N, 3)` mm array; you then reshape the flat output yourself.
 
-Returns `p.shape = (Nx, Ny, Nz)` (monochromatic) or `(Nt, Nx, Ny, Nz)` (transient), with `coords` containing `"x"`, `"y"`, `"z"` arrays.
+## Method selection (SDI)
 
-### Raw point array
+| Method | Meaning | When |
+|--------|---------|------|
+| `"auto"` | Picks FST or SDI from grid size | Always recommended |
+| `"FST"` | Fully-Sampled Trapezoid — direct evaluation | Small grids, reference |
+| `"sdi"` | Sparse Delta Integration — sparse deltas + integration | Large / dense grids |
 
-```python
-pts = np.array([[x1, y1, z1], [x2, y2, z2], ...])  # (N, 3) in mm
-p, coords = sim(pts, method="auto")
-# p.shape == (N_points,)  — monochromatic
-# p.shape == (Nt, N_points)  — transient
-```
-
-Raw input returns a flat pressure array. User handles reshaping. `coords` omits `"x"`, `"y"`, `"z"` (only `"t0"`, `"dt"` for transient). Use dict input or `compute_mesh=True` for automatic grid construction.
+Both give the same result; SDI is the fast path for large apertures (**>100×** on
+emission, **>20×** on reception) with negligible difference from Field II.
 
 ## Medium properties
 
-Override defaults in the `PyField` constructor:
+Override defaults in the constructor (shared by `Emission`, `ReceptionSDI`, `Reception`):
 
 ```python
-sim = PyField(tx, c=1540, rho=1.0, fs=200e6, alpha0=0)
+sim = Emission(tx, c=1540, rho=1.0, fs=200e6, alpha0=None)
 ```
 
 | Parameter | Default | Description |
 |-----------|---------|-------------|
 | `c` | 1540 m/s | Speed of sound |
 | `rho` | 1.0 kg/m³ | Medium density |
-| `fs` | 200 MHz | Sampling frequency |
-| `alpha0` | 0 dB/(MHz·cm) | Attenuation coefficient |
+| `fs` | 100 MHz | Sampling frequency |
+| `alpha0` | `None` | Power-law attenuation dB/(MHz·cm); `None` disables it |

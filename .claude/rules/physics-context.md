@@ -261,8 +261,8 @@ This lag is **stored in `coords["pulse_center_lag_s"]`** by the reception
 simulators (`ReceptionBase._pulse_center_lag_s`, from the drive + element impulse
 responses), NOT applied to the RF samples. Rationale: the RF is the physical echo;
 baking the lag into it would (a) misrepresent the raw signal and (b) double-count
-in the built-in beamformers, which already add it. All three DAS beamformers
-(`das_volume`, `das_dw_volume`, `das_rca_volume`) default `t_offset_s=None` →
+in the built-in beamformers, which already add it. The DAS beamformers
+(`das_volume`, `das_rca_volume`) default `t_offset_s=None` →
 auto-read the lag from `coords`; pass a float to override, `0.0` to disable.
 
 **When writing a custom beamformer** (e.g. a torch/differentiable one), you MUST

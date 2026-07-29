@@ -331,6 +331,41 @@ class RFDataset:
         return rf_all, coords
 
     # ------------------------------------------------------------------
+    def to_hdf5(self, path, *, probe_geometry_mm=None, sound_speed: float = 1540.0):
+        """Export the whole dataset to one interchange HDF5 file.
+
+        Consolidates the per-event ``.npz`` checkpoint store into a single
+        self-describing ``.h5`` (channel data + timing) that MATLAB, USTB and
+        other Python tools read natively — see `save_rf_hdf5`.
+
+        Parameters
+        ----------
+        path : str or pathlib.Path
+            Output ``.h5`` file.
+        probe_geometry_mm : (Erx, 3) numpy.ndarray, optional
+            Receive-element centres in mm, stored so the file is beamformable
+            on its own.
+        sound_speed : float, default 1540.0
+            Speed of sound (m/s) recorded in the file.
+
+        Returns
+        -------
+        pathlib.Path
+            The written file path.
+        """
+        from .hdf5 import save_rf_hdf5
+
+        rf, coords = self.load_all()
+        return save_rf_hdf5(
+            path,
+            rf,
+            coords,
+            probe_geometry_mm=probe_geometry_mm,
+            sound_speed=sound_speed,
+            meta=self.meta,
+        )
+
+    # ------------------------------------------------------------------
     def summary(self) -> str:
         """Human-readable status table (also returned as a string).
 
