@@ -11,7 +11,10 @@ per-element delays and apodization. See the
 
 | | |
 |---|---|
-| ![Linear array field](../examples/assets/ex03_linear_array_pressure_field.png) | ![Matrix array field](../examples/assets/ex03_matrix_array_pressure_field.png) |
+| ![Linear array](../examples/assets/ex01_gallery_linear.png) | ![Convex array](../examples/assets/ex01_gallery_convex.png) |
+| ![Matrix array](../examples/assets/ex01_gallery_matrix.png) | ![Custom array](../examples/assets/ex01_gallery_custom_helmet.png) |
+
+Radiated pressure fields for these arrays live in the [Emission guide](emission.md).
 
 ## At a glance
 

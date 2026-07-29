@@ -27,6 +27,29 @@ Thank you for your interest in contributing to PyField!
    just pre-commit
    ```
 
+## Contributing with AI tools
+
+The development checkout ships a ready-made **AI-agent architecture** so that
+contributions made with modern coding assistants still respect the physics and the
+design philosophy of the package. When you clone the repo (or install the dev
+extra), you get:
+
+- **`CLAUDE.md`** — a project brief the agent reads on every session: architecture
+  map, the SIR/SDI physics, unit conventions, and the "audience-first, physics-first"
+  documentation rules.
+- **`.claude/rules/`** — focused rule files loaded by context (coding guidelines,
+  SIR/SDI physics, transducer conventions, attenuation) plus
+  **doubt-driven development** (never assert an untested physical cause).
+- **`graphify-out/`** — a knowledge graph of the codebase (god nodes, communities,
+  cross-file relationships) that an agent can query for scoped context instead of
+  grepping the whole tree; regenerate it with `graphify update .` after code changes.
+
+These files are written for [Claude Code](https://claude.com/claude-code) but the
+conventions are plain Markdown — adapt them to Cursor, Copilot, or any other
+assistant (e.g. copy the rules into `AGENTS.md` / `.cursorrules`). The intent is
+that an agent contributing to PyField produces code that is physically correct,
+documented for ultrasound researchers, and consistent with the rest of the package.
+
 ## Code style
 
 - **Formatter**: [Ruff](https://docs.astral.sh/ruff/) (Black-compatible)

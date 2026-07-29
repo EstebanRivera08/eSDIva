@@ -27,6 +27,7 @@ jobs:
           python-version: "3.12"
       - run: uv sync
       - run: uv run zensical build   # → site/
+      - run: touch site/.nojekyll    # serve the built site as-is, never re-run Jekyll
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site

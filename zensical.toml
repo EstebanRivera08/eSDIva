@@ -44,9 +44,9 @@ nav = [
     ]},
     { "Utilities" = [
       { "Overview" = "user-guide/utilities.md" },
-      { "Geometry Functions" = "user-guide/geometry.md" },
       { "Brain Atlas" = "user-guide/brain-atlas.md" },
       { "PyVista Integration" = "user-guide/pyvista.md" },
+      { "Geometry Functions" = "user-guide/geometry.md" },
     ]},
   ]},
   { "API Reference" = [

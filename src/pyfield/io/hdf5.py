@@ -70,7 +70,8 @@ def save_rf_hdf5(
     dt = float(coords["dt"])
     n_ev = rf.shape[0]
     t0_per_event = np.asarray(
-        coords["t0_per_event"] if "t0_per_event" in coords
+        coords["t0_per_event"]
+        if "t0_per_event" in coords
         else np.full(n_ev, coords.get("t0", 0.0)),
         dtype=np.float64,
     )

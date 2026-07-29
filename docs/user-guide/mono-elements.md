@@ -8,10 +8,11 @@ Single-element circular transducers. Focusing comes from the physical curvature 
 the surface, not electronic delays. See the [Transducers API](../api/transducers.md)
 for full parameters and [Example 2 — Mono-element Fields](../examples/example02_monoelements_monochromatic_CW.md).
 
-| | |
-|---|---|
-| ![Flat circular](../examples/assets/ex02_mono_flat.png) | ![Concave circular](../examples/assets/ex02_mono_concave.png) |
-| ![Convex circular](../examples/assets/ex02_mono_convex.png) | ![Focused circular](../examples/assets/ex02_mono_focused.png) |
+| | | |
+|---|---|---|
+| ![Flat circular](../examples/assets/ex01_gallery_flat_circular.png) | ![Concave circular](../examples/assets/ex01_gallery_concave.png) | ![Focused circular](../examples/assets/ex01_gallery_focused_circular.png) |
+
+The radiated pressure fields for these transducers live in the [Emission guide](emission.md).
 
 ## At a glance
 
