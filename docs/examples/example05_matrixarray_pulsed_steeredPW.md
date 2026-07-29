@@ -9,13 +9,11 @@ animated in 3-D together with the transducer mesh.
 - Plane-wave steering delays via `compute_delays(angle_steering_deg=(θx, θy))`
 - Computing planes instead of full volumes (same physics, far cheaper)
 - Synchronising plane time axes with `align_to_common_time`
-- 3-D animation with `plot3D_transient_slices` (MP4 export)
+- 3-D animation with `plot3D_transient_slices` (GIF export)
 
 ## Output
 
-<video controls loop>
-  <source src="../assets/ex05_matrix_pw_3d.mp4" type="video/mp4">
-</video>
+![Matrix-array steered plane-wave transient (3-D)](../assets/ex05_matrix_pw_3d.gif)
 
 ## Run it
 

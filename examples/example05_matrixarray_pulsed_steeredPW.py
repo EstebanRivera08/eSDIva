@@ -120,15 +120,21 @@ print(f"Time range: {t[0] * 1e6:.2f} – {t[-1] * 1e6:.2f} µs")
 # ============================================================================
 # STEP 5: ANIMATE IN 3-D (PyVista)
 # ============================================================================
-plotter = add_transducer_mesh(tx.get_mesh(), scalars="Delays")
+SCALE = 1  # TEMP: forced to 1 for a check (was: 3 if SAVE_FIG else 1)
+# off_screen when saving: on-screen render clamps the scaled window to the
+# physical screen height and distorts the gif aspect.
+plotter = add_transducer_mesh(
+    tx.get_mesh(), scalars="Delays", scale=SCALE, off_screen=SAVE_FIG
+)
 plotter = plot3D_transient_slices(
     planes,
     coords=coords,
     plotter=plotter,
     time_array=t,
     db_scale=True,
+    scale=SCALE,
     save_path=str(FIG_FOLDER) if SAVE_FIG else None,
-    file_name="ex05_matrix_pw_3d.mp4",
+    file_name="ex05_matrix_pw_3d.gif",
 )
 
 del plotter

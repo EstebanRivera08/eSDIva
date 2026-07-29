@@ -3,6 +3,8 @@
 import numpy as np
 import pyvista as pv
 
+from .pyvista_functions import _normalize_window_size
+
 
 # ------------- Brain Regions Mesh -------------
 def add_regions_mesh(
@@ -387,13 +389,14 @@ def add_transducer_mesh(
         An existing PyVista plotter to which the transducer mesh will be added. If None
         a new plotter will be created. Default is None.
     window_size : list, optional
-        Size of the plot window. Default is [800, 800].
+        Base size of the plot window before ``scale``. Default is [800, 800].
     notebook : bool, optional
         Whether to use notebook mode for the plotter. Default is False.
     off_screen : bool, optional
         Whether to render the plot off-screen. Default is False.
     scale : float, optional
-        Scaling factor for font sizes in the scalar bar. Default is 1.
+        Resolution scale factor applied to window size and scalar-bar fonts
+        (only when this call creates the plotter). Default is 1.
     scalars : str, optional
         Which scalar field to use for coloring the transducer mesh. Must be either
         "Apodization" or "Delays". Default is "Apodization".
@@ -415,7 +418,9 @@ def add_transducer_mesh(
 
     if plotter is None:
         plotter = pv.Plotter(
-            notebook=notebook, window_size=window_size, off_screen=off_screen
+            notebook=notebook,
+            window_size=_normalize_window_size(window_size, scale=scale),
+            off_screen=off_screen,
         )
 
     if color is not None:

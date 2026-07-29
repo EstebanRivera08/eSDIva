@@ -6,16 +6,11 @@
 
 📖 **Documentation:** <https://estebanrivera08.github.io/PyField/>
 
-<p align="center">
-  <img src="docs/examples/assets/readme_dw_transient.gif" width="70%" alt="Diverging-wave transient acoustic field"><br>
-  <em>Transient acoustic field of a diverging wave — computed with the fast SDI method.</em>
-</p>
-
 > [!WARNING]
 > PyField is currently under development. The API is subject to change, and some features may be incomplete or unstable.
 
 PyField is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
-PyField implements both the naïve and Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
+PyField implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
 
 > [!NOTE]
 > PyField is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
@@ -37,7 +32,7 @@ PyField implements both the naïve and Sparse Delta Integration (SDI) methods fo
 
 <table>
 <tr>
-<td width="50%"><img src="docs/examples/assets/ex03_matrix_array_pressure_field.png" width="100%" alt="Focused pressure field"><br><sub><b>Focused CW field</b> — matrix array</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex03_matrix_array_field.png" width="100%" alt="Focused pressure field"><br><sub><b>Focused CW field</b> — matrix array</sub></td>
 <td width="50%"><img src="docs/examples/assets/ex05_matrix_pw_3d.gif" width="100%" alt="Steered plane-wave transient"><br><sub><b>Steered plane wave</b> — 3-D transient</sub></td>
 </tr>
 <tr>
@@ -90,12 +85,11 @@ If no error is raised, you have installed PyField correctly.
 ## Quick Start
 
 ```python
-import numpy as np
-from pyfield.psimulation import PyField
+from pyfield.emission import Emission
 from pyfield.transducers import LinearArrayTransducer
 from pyfield.plotting import plot2D_pressure_slices
 
-# Define transducer
+# Define transducer (mm units; no_sub_x/no_sub_y are keyword-only)
 tx = LinearArrayTransducer(
     n_elements=64,
     element_width_mm=0.25,
@@ -118,20 +112,20 @@ field_points = {
     "dz": 0.2,
 }
 
-# Run simulation
-sim = PyField(tx)
-x, y, z, p = sim(field_points, method="auto")
+# Run a monochromatic (CW) simulation → pressure amplitude at fc
+sim = Emission(tx, monochromatic=True)
+p, coords = sim(field_points, method="auto")
 
 # Visualize
-plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
+plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
 
 From the project folder you can also run the bundled examples directly:
 
 ```bash
-uv run example1_monochrom_focus.py
-uv run example3_transient_focusing.py
-uv run example5_transducer_gallery.py
+uv run examples/example03_multielements_monochromatic_CW.py
+uv run examples/example04_lineararray_excitation_DW.py
+uv run examples/example01_transducer_gallery.py
 ```
 
 ---

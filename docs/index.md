@@ -13,7 +13,6 @@ Acoustic field simulator for ultrasound transducers, based on the Tupholme–Ste
 [![PyPI](https://img.shields.io/pypi/v/pyfield?color=9575cd&logo=pypi&logoColor=white&label=PyPI)](https://pypi.org/project/pyfield/)
 [![Python](https://img.shields.io/pypi/pyversions/pyfield?color=00897b&logo=python&logoColor=white)](https://pypi.org/project/pyfield/)
 [![License](https://img.shields.io/github/license/EstebanRivera08/PyField?color=9575cd)](https://github.com/EstebanRivera08/PyField/blob/main/LICENSE)
-[![Stars](https://img.shields.io/github/stars/EstebanRivera08/PyField?color=9575cd&logo=github)](https://github.com/EstebanRivera08/PyField/stargazers)
 
 [Get Started :lucide-arrow-right:](user-guide/getting-started.md){ .md-button .md-button--primary }
 [GitHub :lucide-github:](https://github.com/EstebanRivera08/PyField){ .md-button }
