@@ -140,7 +140,7 @@ def add_3D_vol(
             "vertical": False,
             "position_x": 0.1,
             "position_y": 0.1,
-            "height": 0.3,
+            "height": 0.1,
         },
     }
     for key, value in default_kwargs.items():
@@ -203,7 +203,7 @@ def add_2D_image(
     cb_title = colorbar_title if colorbar_title is not None else scalars
     default_kwargs = {
         "show_edges": False,
-        "cmap": "gray",
+        "cmap": "inferno",
         "opacity": 1.0,
         "show_scalar_bar": True,
         "scalar_bar_args": {
