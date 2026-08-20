@@ -104,7 +104,9 @@ class BG_Atlas:
         self.atlas_name = atlas_name
 
         try:
-            self.bg_atlas = BrainGlobeAtlas(atlas_name)
+            # check_latest hits the network (fetches last_versions.conf) on every
+            # construction; skip it so a slow/offline link cannot stall the load ~10 s.
+            self.bg_atlas = BrainGlobeAtlas(atlas_name, check_latest=False)
         except Exception as e:
             print(f"Error loading atlas '{atlas_name}': {e}")
             self.show_atlases()
