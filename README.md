@@ -22,7 +22,7 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 > [!NOTE]
 > SonDI is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
-> Utilities such as the integration with the GlobeBrain atlas may still evolve to improve robustness.
+> Utilities such as the integration with the BrainGlobe atlas may still evolve to improve robustness.
 
 ### Main Features
 
@@ -30,11 +30,19 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 - **SIR simulation** — The `H_sir` module computes discrete spatial impulse responses \( h(r, t) \) produced by apertures discretized into rectangular patches. It includes naïve, SDI, and automatic methods implemented with Numba‑accelerated kernels for field‑point‑parallel execution.
 
-- **Pressure simulation** — Converts time‑domain SIRs into acoustic pressure fields. Supports monochromatic fields (spatial‑only) and broadband transient simulations with defined excitation pulses (producing spatio‑temporal pressure matrices).
+- **Emission simulation** — Converts time‑domain SIRs into acoustic pressure fields via the `Emission` class. Supports monochromatic fields (spatial‑only, CW amplitude at `fc`) and broadband transient simulations with defined excitation pulses (spatio‑temporal pressure matrices), with global or per‑element excitation.
 
-- **Brain Atlas Integration** — Maps pressure simulations onto standard brain atlases for neuro‑ultrasound research.
+- **Pulse‑echo reception** — The `Reception` class simulates pulse‑echo RF from scatterers using a fast closed‑form PE‑SDI spectral kernel (plus conventional Tupholme–Stepanishen and pedagogic reference backends). Generates PSFs, focused B‑mode lines, plane‑wave / diverging‑wave event sequences, and full‑matrix / synthetic‑aperture (FMC) acquisitions, with crash‑safe checkpointing of long runs.
 
-- **Visualization** — Rich plotting utilities using Matplotlib and PyVista for visualizing transducers, pressure fields, and brain atlases.
+- **Beamforming** — Numba‑accelerated 3‑D delay‑and‑sum (`das_volume`, `das_rca_volume`) and focused scanline (`DAS_focused_scanline`) reconstructors for plane‑wave, diverging‑wave, focused, and row‑column sequences, with optional coherence weighting and envelope/log‑compression helpers.
+
+- **Attenuation** — Causal power‑law (frequency‑dependent) attenuation transfer functions applicable per patch in both emission and reception.
+
+- **Phantoms & I/O** — Random‑scatterer phantom generation with echogenicity maps, and a checkpointed on‑disk RF store (`RFDataset`, `.npz`) with HDF5 export (UFF‑compatible fields) for MATLAB/USTB interchange.
+
+- **Brain Atlas Integration** — Maps pressure simulations onto standard brain atlases (via BrainGlobe) for neuro‑ultrasound research.
+
+- **Visualization** — Rich plotting utilities using Matplotlib and PyVista for visualizing transducers, pressure fields, pulse‑echo setups, and brain atlases.
 
 ## Gallery
 
@@ -138,6 +146,7 @@ uv run examples/example01_transducer_gallery.py
 
 ---
 
+
 ## Citing SonDI
 
 If you use SonDI in your research, please cite it using the following reference:
@@ -147,3 +156,26 @@ If you use SonDI in your research, please cite it using the following reference:
 ```bibtex
 % BibTeX entry will be added here
 ```
+
+
+## References
+
+These works underpin the theory and methods implemented in SonDI (SIR/SDI formulation,
+pulse‑echo modelling, power‑law attenuation, and related simulators).
+
+1. B. T. Cox, S. Kara, S. R. Arridge, and P. C. Beard, "k‑space propagation models for acoustically heterogeneous media: Application to biomedical photoacoustics," *The Journal of the Acoustical Society of America*, vol. 121, no. 6, pp. 3453–3464, Jun. 2007. [Online]. Available: <https://pubs.aip.org/jasa/article/121/6/3453/537252/>
+2. G. Pinton, J. Dahl, S. Rosenzweig, and G. Trahey, "A heterogeneous nonlinear attenuating full‑wave model of ultrasound," *IEEE Trans. Ultrason., Ferroelect., Freq. Contr.*, vol. 56, no. 3, pp. 474–488, Mar. 2009. [Online]. Available: <http://ieeexplore.ieee.org/document/4816057/>
+3. E. Bossy, M. Talmant, and P. Laugier, "Three‑dimensional simulations of ultrasonic axial transmission velocity measurement on cortical bone models," *The Journal of the Acoustical Society of America*, vol. 115, no. 5, pp. 2314–2324, May 2004. [Online]. Available: <https://pubs.aip.org/jasa/article/115/5/2314/546299/>
+4. B. E. Treeby and B. T. Cox, "k‑Wave: MATLAB toolbox for the simulation and reconstruction of photoacoustic wave fields," *J. Biomed. Opt.*, vol. 15, no. 2, p. 021314, 2010. [Online]. Available: <http://biomedicaloptics.spiedigitallibrary.org/article.aspx?doi=10.1117/1.3360308>
+5. J. A. Jensen, "FIELD: A program for simulating ultrasound systems," *Medical & Biological Engineering & Computing*, vol. 34, no. Supplement 1, Part 1, pp. 351–352, Jan. 1996.
+6. G. E. Tupholme, "Generation of acoustic pulses by baffled plane pistons," *Mathematika*, vol. 16, no. 2, pp. 209–224, Dec. 1969. [Online]. Available: <https://onlinelibrary.wiley.com/doi/abs/10.1112/S0025579300008184>
+7. P. R. Stepanishen, "Transient Radiation from Pistons in an Infinite Planar Baffle," *Journal of the Acoustical Society of America*, vol. 49, pp. 1629–1638, Mar. 1971. [Online]. Available: <https://doi.org/10.1121/1.1912541>
+8. P. R. Stepanishen, "The Time‑Dependent Force and Radiation Impedance on a Piston in a Rigid Infinite Planar Baffle," *Journal of the Acoustical Society of America*, vol. 49, pp. 841–849, Mar. 1971. [Online]. Available: <https://doi.org/10.1121/1.1912424>
+9. J. Jensen and N. Svendsen, "Calculation of pressure fields from arbitrarily shaped, apodized, and excited ultrasound transducers," *IEEE Trans. Ultrason., Ferroelect., Freq. Contr.*, vol. 39, no. 2, pp. 262–267, Mar. 1992. [Online]. Available: <http://ieeexplore.ieee.org/document/139123/>
+10. D. Garcia, "SIMUS: An open‑source simulator for medical ultrasound imaging. Part I: Theory & examples," *Computer Methods and Programs in Biomedicine*, vol. 218, p. 106726, May 2022. [Online]. Available: <https://linkinghub.elsevier.com/retrieve/pii/S0169260722001122>
+11. A. Cigier, F. Varray, and D. Garcia, "SIMUS: An open‑source simulator for medical ultrasound imaging. Part II: Comparison with four simulators," *Computer Methods and Programs in Biomedicine*, vol. 220, p. 106774, 2022. [Online]. Available: <https://www.sciencedirect.com/science/article/pii/S0169260722001602>
+12. G. S. Kino, *Acoustic waves: devices, imaging, and analog signal processing*, ser. Prentice‑Hall signal processing series. Englewood Cliffs: Prentice‑Hall, 1987.
+13. J. Jensen, D. Gandhi, and W. O'Brien, Jr., "Ultrasound fields in an attenuating medium," in *1993 Proceedings IEEE Ultrasonics Symposium*, Baltimore, MD, USA: IEEE, 1993, pp. 943–946 vol.2. [Online]. Available: <https://ieeexplore.ieee.org/document/5727212/>
+14. J. A. Jensen, "A model for the propagation and scattering of ultrasound in tissue," *The Journal of the Acoustical Society of America*, vol. 89, no. 1, pp. 182–190, Jan. 1991. [Online]. Available: <https://pubs.aip.org/jasa/article/89/1/182/678841/>
+15. B. A. J. Angelsen, "A Theoretical Study of the Scattering of Ultrasound from Blood," *IEEE Transactions on Biomedical Engineering*, vol. BME‑27, no. 2, pp. 61–67, Feb. 1980.
+16. J. Jensen and I. Nikolov, "Fast simulation of ultrasound images," in *2000 IEEE Ultrasonics Symposium. Proceedings*, vol. 2, San Juan, Puerto Rico: IEEE, 2000, pp. 1721–1724. [Online]. Available: <http://ieeexplore.ieee.org/document/921654/>

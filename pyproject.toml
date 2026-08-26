@@ -1,6 +1,6 @@
 [project]
 name = "sondi"
-version = "0.0.1"
+version = "0.1.0"
 description = "SonDI — the friendly acoustic field simulator. From sono- (sound) + SDI (Sparse Delta Integration): fast, exact ultrasound pressure fields for any transducer geometry."
 readme = "README.md"
 authors = [
