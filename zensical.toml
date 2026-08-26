@@ -1,11 +1,11 @@
 [project]
 
-site_name = "SonDI"
-site_description = "SonDI — the friendly acoustic field simulator. From sono- (sound) + SDI (Sparse Delta Integration): fast, exact ultrasound pressure fields for any transducer geometry."
+site_name = "eSDIva"
+site_description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. A friendly, fast, exact ultrasound pressure-field simulator for any transducer geometry."
 site_author = "Esteban Rivera"
-site_url = "https://estebanrivera08.github.io/SonDI/"
-repo_url = "https://github.com/EstebanRivera08/SonDI"
-repo_name = "EstebanRivera08/SonDI"
+site_url = "https://estebanrivera08.github.io/eSDIva/"
+repo_url = "https://github.com/EstebanRivera08/eSDIva"
+repo_name = "EstebanRivera08/eSDIva"
 edit_uri = "edit/main/docs/"
 
 copyright = "Copyright &copy; 2026 Esteban Rivera"
@@ -160,10 +160,10 @@ toggle.name = "Switch to dark mode"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/github"
-link = "https://github.com/EstebanRivera08/SonDI"
-name = "SonDI on GitHub"
+link = "https://github.com/EstebanRivera08/eSDIva"
+name = "eSDIva on GitHub"
 
 [[project.extra.social]]
 icon = "fontawesome/brands/python"
-link = "https://pypi.org/project/sondi/"
-name = "SonDI on PyPI"
+link = "https://pypi.org/project/esdiva/"
+name = "eSDIva on PyPI"

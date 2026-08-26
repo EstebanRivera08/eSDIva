@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from sondi.io import RFDataset
+from esdiva.io import RFDataset
 
 
 def _config(**overrides):

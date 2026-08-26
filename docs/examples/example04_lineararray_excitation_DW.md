@@ -26,9 +26,9 @@ uv run examples/example04_lineararray_excitation_DW.py
 
 ```python
 import numpy as np
-import sondi.transducers as transducers
-from sondi.emission import Emission
-from sondi.plotting import plot2D_pressure_slices
+import esdiva.transducers as transducers
+from esdiva.emission import Emission
+from esdiva.plotting import plot2D_pressure_slices
 
 tx = transducers.Domino()
 tx.compute_delays(focus_mm=[0, 0, -10])  # virtual focus behind the array
@@ -44,4 +44,4 @@ t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]
 plot2D_pressure_slices(p, coords=coords, time_array=t, db_scale=True, vmin=-40)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example04_lineararray_excitation_DW.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example04_lineararray_excitation_DW.py)

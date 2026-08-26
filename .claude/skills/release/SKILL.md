@@ -1,6 +1,6 @@
 ---
 name: release
-description: Create a new SonDI release (version bump, commit, tag, push, release notes)
+description: Create a new eSDIva release (version bump, commit, tag, push, release notes)
 argument-hint: <new-version>
 disable-model-invocation: true
 ---
@@ -39,7 +39,7 @@ Replace `version = "OLD"` with `version = "NEW"`.
 
 ### `README.md`
 In the citation section only (do **not** touch badge URLs or Zenodo DOI links):
-- Replace the prose citation version: `SonDI (vOLD)` → `SonDI (vNEW)`.
+- Replace the prose citation version: `eSDIva (vOLD)` → `eSDIva (vNEW)`.
 - Replace the BibTeX version field: `version   = {vOLD}` → `version   = {vNEW}`.
 - Replace the BibTeX year field if the current year differs: `year      = {OLD_YEAR}` → `year      = {CURRENT_YEAR}`.
 

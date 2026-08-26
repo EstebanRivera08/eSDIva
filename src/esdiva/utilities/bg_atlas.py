@@ -32,7 +32,7 @@ _ATLAS_LANDMARKS: dict = {
 
 
 class BG_Atlas:
-    """Wrap a BrainGlobe atlas and align it to the SonDI brain coordinate space.
+    """Wrap a BrainGlobe atlas and align it to the eSDIva brain coordinate space.
 
     Parameters
     ----------

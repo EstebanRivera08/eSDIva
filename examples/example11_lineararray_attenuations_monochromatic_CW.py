@@ -9,7 +9,7 @@ an unattenuated simulation (water) against a brain-tissue model.
 Key differences from Field II:
   - Field II uses a linear approximation: α(f) ≈ α₀ + (∂α/∂f)·(f − f₀),
     which is non-causal.
-  - SonDI implements causal power-law attenuation with Kramers–Kronig
+  - eSDIva implements causal power-law attenuation with Kramers–Kronig
     dispersion (Szabo 1994 / Holm 2019): H_att(f, d) = exp(−α|f|^y·d)
     × exp(−jφ_KK), which is physically exact.
 
@@ -21,9 +21,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from sondi.emission import Emission
-from sondi.plotting import plot2D_pressure_slices
-from sondi.transducers import LinearArrayTransducer
+from esdiva.emission import Emission
+from esdiva.plotting import plot2D_pressure_slices
+from esdiva.transducers import LinearArrayTransducer
 
 # ============================================================================
 # CONFIGURATION  (Domino-like 128-element probe at 10 MHz)
@@ -171,4 +171,4 @@ if SAVE_FIG:
 plt.show()
 
 print("\nNote: Field II uses non-causal linear-in-frequency approximation.")
-print("SonDI causal K-K model preserves correct phase dispersion.")
+print("eSDIva causal K-K model preserves correct phase dispersion.")

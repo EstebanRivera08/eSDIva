@@ -23,13 +23,13 @@ import numpy as np
 import pyvista as pv
 from scipy.signal import decimate, hilbert
 
-from sondi.hsir.farfield_rect_patch import compute_h_sir
-from sondi.plotting import add_transducer_mesh
-from sondi.simulation_base import SimulationBase
-from sondi.utilities.helper_functions import (
+from esdiva.hsir.farfield_rect_patch import compute_h_sir
+from esdiva.plotting import add_transducer_mesh
+from esdiva.simulation_base import SimulationBase
+from esdiva.utilities.helper_functions import (
     announce_eta as _announce_eta,
 )
-from sondi.utilities.helper_functions import (
+from esdiva.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
     create_3D_spatial_grid_from_points,
@@ -432,7 +432,7 @@ class ReceptionBase(SimulationBase):
         the PSF across the field. A regular lattice is NOT a tissue phantom (its
         periodicity returns coherent lattice echoes, not speckle); for phantoms
         draw random scatterers, e.g. with
-        [make_phantom][sondi.utilities.phantom.make_phantom].
+        [make_phantom][esdiva.utilities.phantom.make_phantom].
         """
         if isinstance(positions_mm, dict):
             # Grid dict → regular lattice of unit point targets (already metres).
@@ -979,7 +979,7 @@ class ReceptionBase(SimulationBase):
         the fingerprint too (chunk files are indexed by it), but only when
         chunking is on, so unchunked datasets keep their original fingerprint.
         """
-        from sondi.io import RFDataset
+        from esdiva.io import RFDataset
 
         config = {
             "tx": repr(self.tx),

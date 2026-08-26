@@ -1,14 +1,14 @@
 # Example 17: Import a Field II Transducer
 
 Turns a probe exported from MATLAB Field II (`xdc_get(Th, 'rect')`) into a
-native SonDI transducer. Per-element apodization and delays from the
+native eSDIva transducer. Per-element apodization and delays from the
 export are preserved exactly; the imported aperture can then be focused,
 visualised, and used in any `Emission` / `Reception` simulation.
 
 ## What you will learn
 
 - The one-line MATLAB export: `geom = xdc_get(Th, 'rect')`
-- Inspecting `.mat` files with `sondi.utilities.explore_mat`
+- Inspecting `.mat` files with `esdiva.utilities.explore_mat`
 - `from_fieldii_rect_data` → `FieldIITransducer`
 - Electronic focusing and CW simulation of the imported probe
 
@@ -27,15 +27,15 @@ uv run examples/example17_import_fieldii_transducer.py
 
 ```python
 import scipy.io
-from sondi.emission import Emission
-from sondi.transducers import from_fieldii_rect_data
-from sondi.utilities import explore_mat
+from esdiva.emission import Emission
+from esdiva.transducers import from_fieldii_rect_data
+from esdiva.utilities import explore_mat
 
 data = scipy.io.loadmat("linear_psf_fieldii.mat", simplify_cells=True)
 explore_mat(data)                       # inspect the exported structure
 
 tx = from_fieldii_rect_data(data["geom"], frequency_hz=float(data["f0"]))
-tx.compute_delays(focus_mm=[0, 0, 60])  # behaves like any SonDI transducer
+tx.compute_delays(focus_mm=[0, 0, 60])  # behaves like any eSDIva transducer
 
 sim = Emission(tx, monochromatic=True)
 p, coords = sim(plane, method="auto")
@@ -46,4 +46,4 @@ p, coords = sim(plane, method="auto")
     `elevation_focus_mm=Rfocus_mm` to the import so the reception time origin
     includes the lens transit.
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example17_import_fieldii_transducer.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example17_import_fieldii_transducer.py)

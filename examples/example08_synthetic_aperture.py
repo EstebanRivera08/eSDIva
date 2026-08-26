@@ -16,8 +16,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from sondi.reception import Reception
-from sondi.transducers import LinearArrayTransducer
+from esdiva.reception import Reception
+from esdiva.transducers import LinearArrayTransducer
 
 # ============================================================================
 # CONFIGURATION

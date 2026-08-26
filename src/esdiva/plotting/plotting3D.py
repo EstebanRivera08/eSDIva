@@ -5,7 +5,7 @@ from pathlib import Path
 import numpy as np
 import pyvista as pv
 
-import sondi as pf
+import esdiva as pf
 
 from .plane_utils import AXIS_IDX, PLANE_META, compute_plane_extents, parse_planes
 from .plotting_pyvista import add_2D_image, add_pressure_vol

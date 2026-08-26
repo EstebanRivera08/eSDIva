@@ -9,7 +9,7 @@ covers four modes, selected by constructor flags; `__call__` always returns
 `(pressure, coords)`.
 
 ```python
-from sondi.emission import Emission
+from esdiva.emission import Emission
 
 sim = Emission(tx, monochromatic=True)          # CW amplitude at fc  → (Nx, Ny, Nz)
 sim = Emission(tx)                              # pulsed transient (raw SIR) → (Nt, …)

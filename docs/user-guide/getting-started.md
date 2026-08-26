@@ -4,7 +4,7 @@ icon: lucide/rocket
 
 # Getting Started
 
-This guide walks you through installing SonDI and running your first simulation.
+This guide walks you through installing eSDIva and running your first simulation.
 
 ## Installation
 
@@ -16,25 +16,25 @@ This guide walks you through installing SonDI and running your first simulation.
 ### Install from GitHub
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/SonDI.git
+uv add git+https://github.com/EstebanRivera08/eSDIva.git
 ```
 
 ### Verify installation
 
 ```python
-import sondi
-print(sondi.__version__)
+import esdiva
+print(esdiva.__version__)
 ```
 
 ## Your first simulation
 
 ### 1. Create a transducer
 
-SonDI models transducers as collections of rectangular patches. Start with a
+eSDIva models transducers as collections of rectangular patches. Start with a
 simple linear array:
 
 ```python
-from sondi.transducers import LinearArrayTransducer
+from esdiva.transducers import LinearArrayTransducer
 
 tx = LinearArrayTransducer(
     n_elements=64,
@@ -74,7 +74,7 @@ field_points = {
 ### 4. Run the simulation
 
 ```python
-from sondi.emission import Emission
+from esdiva.emission import Emission
 
 sim = Emission(tx, monochromatic=True)   # continuous-wave amplitude at fc
 p, coords = sim(field_points, method="auto")
@@ -83,7 +83,7 @@ p, coords = sim(field_points, method="auto")
 ### 5. Visualize results
 
 ```python
-from sondi.plotting import plot2D_pressure_slices
+from esdiva.plotting import plot2D_pressure_slices
 
 plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```

@@ -24,7 +24,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from sondi.utilities.surface_subdivision import (
+from esdiva.utilities.surface_subdivision import (
     subdivide_parametric_surface,
     subdivide_spherical_cap,
 )

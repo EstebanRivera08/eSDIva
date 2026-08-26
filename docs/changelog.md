@@ -4,7 +4,7 @@ icon: lucide/history
 
 # Changelog
 
-All notable changes to SonDI are documented here.
+All notable changes to eSDIva are documented here.
 
 ---
 

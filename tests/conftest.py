@@ -15,7 +15,7 @@ def rng():
 @pytest.fixture
 def small_linear_transducer():
     """A small 4-element LinearArrayTransducer for fast tests."""
-    from sondi.transducers import LinearArrayTransducer
+    from esdiva.transducers import LinearArrayTransducer
 
     tx = LinearArrayTransducer(
         n_elements=4,

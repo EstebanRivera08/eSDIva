@@ -1,4 +1,4 @@
-<!-- Thanks for contributing to SonDI! Keep the description short and to the point. -->
+<!-- Thanks for contributing to eSDIva! Keep the description short and to the point. -->
 
 ## Summary
 

@@ -28,7 +28,7 @@ Radiated pressure fields for these arrays live in the [Emission guide](emission.
 ## Basic usage
 
 ```python
-from sondi.transducers import LinearArrayTransducer
+from esdiva.transducers import LinearArrayTransducer
 
 tx = LinearArrayTransducer(
     n_elements=64,

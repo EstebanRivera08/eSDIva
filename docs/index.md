@@ -6,18 +6,18 @@ hide:
 
 <div class="hero-banner" markdown>
 
-# SonDI
+# eSDIva
 
-**The friendly acoustic field simulator.**
+**Efficient Sparse Delta Integration for Vectorized Acoustics.**
 
-From *sono-* (sound) + **SDI** (Sparse Delta Integration) — like a little *sonde*, your probe into ultrasound fields: fast and exact. Built on the Tupholme–Stepanishen Spatial Impulse Response formulation and accelerated by the SDI method.
+A friendly, fast, and exact acoustic field simulator — your probe into ultrasound fields. Built on the Tupholme–Stepanishen Spatial Impulse Response formulation and accelerated by the SDI method.
 
-[![PyPI](https://img.shields.io/pypi/v/sondi?color=9575cd&logo=pypi&logoColor=white&label=PyPI)](https://pypi.org/project/sondi/)
-[![Python](https://img.shields.io/pypi/pyversions/sondi?color=00897b&logo=python&logoColor=white)](https://pypi.org/project/sondi/)
-[![License](https://img.shields.io/github/license/EstebanRivera08/SonDI?color=9575cd)](https://github.com/EstebanRivera08/SonDI/blob/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/esdiva?color=9575cd&logo=pypi&logoColor=white&label=PyPI)](https://pypi.org/project/esdiva/)
+[![Python](https://img.shields.io/pypi/pyversions/esdiva?color=00897b&logo=python&logoColor=white)](https://pypi.org/project/esdiva/)
+[![License](https://img.shields.io/github/license/EstebanRivera08/eSDIva?color=9575cd)](https://github.com/EstebanRivera08/eSDIva/blob/main/LICENSE)
 
 [Get Started :lucide-arrow-right:](user-guide/getting-started.md){ .md-button .md-button--primary }
-[GitHub :lucide-github:](https://github.com/EstebanRivera08/SonDI){ .md-button }
+[GitHub :lucide-github:](https://github.com/EstebanRivera08/eSDIva){ .md-button }
 
 </div>
 
@@ -28,14 +28,14 @@ From *sono-* (sound) + **SDI** (Sparse Delta Integration) — like a little *son
 === "From GitHub"
 
     ```bash
-    uv add git+https://github.com/EstebanRivera08/SonDI.git
+    uv add git+https://github.com/EstebanRivera08/eSDIva.git
     ```
 
 === "Development"
 
     ```bash
-    git clone https://github.com/EstebanRivera08/SonDI.git
-    cd SonDI && uv sync
+    git clone https://github.com/EstebanRivera08/eSDIva.git
+    cd eSDIva && uv sync
     ```
 
 ---
@@ -43,9 +43,9 @@ From *sono-* (sound) + **SDI** (Sparse Delta Integration) — like a little *son
 ## Quickstart
 
 ```python
-from sondi.transducers import LinearArrayTransducer
-from sondi.emission import Emission
-from sondi.plotting import plot2D_pressure_slices
+from esdiva.transducers import LinearArrayTransducer
+from esdiva.emission import Emission
+from esdiva.plotting import plot2D_pressure_slices
 
 # 64-element linear array focused at 30 mm depth
 tx = LinearArrayTransducer(
@@ -78,9 +78,9 @@ plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 
 ---
 
-## Why SonDI
+## Why eSDIva
 
-!!! tip "Sparse Delta Integration — the core of SonDI"
+!!! tip "Sparse Delta Integration — the core of eSDIva"
     The **SDI** method reformulates the spatial impulse response as a sparse train
     of Dirac deltas integrated in time or frequency, evaluated with **Numba-parallel
     CPU kernels** (no GPU required). For large apertures this delivers
@@ -135,5 +135,5 @@ plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 </div>
 
 !!! note "Background theory"
-    The SIR/SDI derivations are covered in the accompanying SonDI paper — see
-    [Citing SonDI](citing.md).
+    The SIR/SDI derivations are covered in the accompanying eSDIva paper — see
+    [Citing eSDIva](citing.md).

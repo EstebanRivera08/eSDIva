@@ -12,12 +12,12 @@ import warnings
 
 import numpy as np
 
-from sondi.hsir.transducer_sir_pe_sdi import (
+from esdiva.hsir.transducer_sir_pe_sdi import (
     compute_oneway_spectrum_band,
     compute_twoway_spectrum_summed,
 )
-from sondi.transducers import LinearArrayTransducer
-from sondi.utilities.helper_functions import (
+from esdiva.transducers import LinearArrayTransducer
+from esdiva.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
 )

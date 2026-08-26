@@ -4,7 +4,7 @@ icon: lucide/container
 
 # Transducers
 
-SonDI models every transducer geometry as a collection of small flat rectangular patches. The Spatial Impulse Response (SIR) is computed for each patch independently, then summed with per-element delays and apodization weights to produce the total field.
+eSDIva models every transducer geometry as a collection of small flat rectangular patches. The Spatial Impulse Response (SIR) is computed for each patch independently, then summed with per-element delays and apodization weights to produce the total field.
 
 | | |
 |---|---|
@@ -29,7 +29,7 @@ SonDI models every transducer geometry as a collection of small flat rectangular
 
     ---
 
-    How SonDI represents transducers as Python objects: geometry properties, patch frames, delays, apodization, and 3-D visualization.
+    How eSDIva represents transducers as Python objects: geometry properties, patch frames, delays, apodization, and 3-D visualization.
 
 </div>
 

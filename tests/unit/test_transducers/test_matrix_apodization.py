@@ -8,7 +8,7 @@ snapshots lock the exact weights so any change to the convention fails loudly.
 import numpy as np
 from numpy.testing import assert_allclose
 
-from sondi.transducers import MatrixArrayTransducer
+from esdiva.transducers import MatrixArrayTransducer
 
 
 def _matrix_6x5():

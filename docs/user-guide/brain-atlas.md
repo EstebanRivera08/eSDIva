@@ -4,9 +4,9 @@ icon: lucide/brain
 
 # Brain Atlas Integration
 
-SonDI integrates with the [BrainGlobe Atlas API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html) to map acoustic pressure fields onto anatomical brain structures.
+eSDIva integrates with the [BrainGlobe Atlas API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html) to map acoustic pressure fields onto anatomical brain structures.
 
-The `BG_Atlas` class in `sondi.utilities` wraps the BrainGlobe API and provides:
+The `BG_Atlas` class in `esdiva.utilities` wraps the BrainGlobe API and provides:
 
 - Loading and querying rat and mouse brain atlases
 - Coordinate registration between the transducer frame and atlas space
@@ -17,12 +17,12 @@ The `BG_Atlas` class in `sondi.utilities` wraps the BrainGlobe API and provides:
 
 Load anatomy, register it into the transducer frame, then compose brain regions,
 the transducer, and a simulated pressure volume in a single PyVista scene using
-SonDI's own helpers:
+eSDIva's own helpers:
 
 ```python
 import pyvista as pv
-from sondi.utilities import BG_Atlas
-from sondi.plotting import add_regions_mesh, add_transducer_mesh, add_pressure_vol
+from esdiva.utilities import BG_Atlas
+from esdiva.plotting import add_regions_mesh, add_transducer_mesh, add_pressure_vol
 
 # 1. Load named structures (downloads the atlas on first use).
 atlas = BG_Atlas("allen_mouse_25um", region_names=["root", "CTX", "TH"])

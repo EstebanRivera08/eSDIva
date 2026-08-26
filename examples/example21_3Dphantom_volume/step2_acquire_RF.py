@@ -43,8 +43,8 @@ from step1_define_phantom_TX_RX import (
     excitation,
 )
 
-from sondi.io import RFDataset
-from sondi.reception import Reception
+from esdiva.io import RFDataset
+from esdiva.reception import Reception
 
 print(f"\n--- Example 21 · Step 2: acquisition, scenario '{SCENARIO}' ---\n")
 

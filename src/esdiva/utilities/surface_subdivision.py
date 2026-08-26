@@ -31,7 +31,7 @@ Examples
 Spherical bowl (concave transducer)::
 
     import numpy as np
-    from sondi.utilities.surface_subdivision import subdivide_parametric_surface
+    from esdiva.utilities.surface_subdivision import subdivide_parametric_surface
 
     R, R_ap = 20e-3, 8e-3
 

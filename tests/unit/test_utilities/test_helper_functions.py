@@ -1,6 +1,6 @@
-"""Tests for sondi.utilities.helper_functions."""
+"""Tests for esdiva.utilities.helper_functions."""
 
-from sondi.utilities.helper_functions import (
+from esdiva.utilities.helper_functions import (
     create_spatial_grid_from_dict,
 )
 

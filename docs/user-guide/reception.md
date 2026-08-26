@@ -17,7 +17,7 @@ SIR is evaluated (speed only — all give the same RF):
 - **`"paired"`** — exact but slow pedagogic reference (warns on selection).
 
 ```python
-from sondi.reception import Reception
+from esdiva.reception import Reception
 
 sim = Reception(tx, rx, fs=200e6, c=1540)             # separate TX / RX transducers
 rf, coords = sim.pulse_echo_rf(scatterer_pos_mm, scatterer_amp)   # (Erx, Nt)
@@ -66,11 +66,11 @@ on selection.
 
 - **PSF** — pass field points and `per_scatterer=True` to get each target's
   point-spread response. A grid dict gives a regular lattice of unit targets.
-- **Phantoms** — `sondi.utilities.make_phantom(extents_mm, n, echogenicity_map)`
+- **Phantoms** — `esdiva.utilities.make_phantom(extents_mm, n, echogenicity_map)`
   returns random positions with `N(0,1)·map(r)` amplitudes → realistic speckle.
 
 ```python
-from sondi.utilities import make_phantom
+from esdiva.utilities import make_phantom
 
 pos, amp = make_phantom(extents_mm, n=20000, echogenicity_map=my_map)
 rf, coords = sim.pulse_echo_rf(pos, amp)

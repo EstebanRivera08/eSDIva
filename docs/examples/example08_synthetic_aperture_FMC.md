@@ -23,8 +23,8 @@ uv run examples/example08_synthetic_aperture.py
 ## Key code
 
 ```python
-from sondi.reception import Reception
-from sondi.transducers import LinearArrayTransducer
+from esdiva.reception import Reception
+from esdiva.transducers import LinearArrayTransducer
 
 tx = LinearArrayTransducer(n_elements=16, element_width_mm=0.3,
                            element_height_mm=5.0, kerf_mm=0.05,
@@ -38,4 +38,4 @@ rf_fmc, coords = sim.synthetic_aperture_rf(scatterer_pos, scatterer_amp,
 # rf_fmc.shape = (E_tx, E_rx, Nt)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example08_synthetic_aperture.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example08_synthetic_aperture.py)

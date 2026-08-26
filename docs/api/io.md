@@ -10,7 +10,7 @@ self-describing, UFF/MATLAB-compatible HDF5 file.
 
 ## RFDataset
 
-::: sondi.io.RFDataset
+::: esdiva.io.RFDataset
     options:
       members:
         - write_event
@@ -21,4 +21,4 @@ self-describing, UFF/MATLAB-compatible HDF5 file.
 
 ## save_rf_hdf5
 
-::: sondi.io.save_rf_hdf5
+::: esdiva.io.save_rf_hdf5

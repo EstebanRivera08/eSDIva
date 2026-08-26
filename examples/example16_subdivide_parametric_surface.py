@@ -1,7 +1,7 @@
 """
 Example 16: Parametric Surface Subdivision
 
-Demonstrates ``sondi.utilities.surface_subdivision.subdivide_parametric_surface``,
+Demonstrates ``esdiva.utilities.surface_subdivision.subdivide_parametric_surface``,
 the public utility that tiles any C1 parametric surface with flat tangent-plane
 rectangles for use by the SIR kernel.
 
@@ -31,7 +31,7 @@ import pyvista as pv
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from sondi.utilities.surface_subdivision import subdivide_parametric_surface
+from esdiva.utilities.surface_subdivision import subdivide_parametric_surface
 
 WIN_W, WIN_H = 500, 500
 THEME = "dark"

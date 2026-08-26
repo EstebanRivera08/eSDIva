@@ -8,7 +8,7 @@ Computes the on-axis peak pressure and spatial-peak temporal-average intensity
 Directly comparable to the Field II intensity example.
 
 Differences from Field II:
-  - SonDI uses causal power-law attenuation with Kramers–Kronig dispersion
+  - eSDIva uses causal power-law attenuation with Kramers–Kronig dispersion
     instead of non-causal minimum-phase correction.
   - Explicit excitation pulse passed to ``Emission``; no internal ``calc_hp``
     call needed.
@@ -22,8 +22,8 @@ import numpy as np
 
 from config import FIG_FOLDER, SAVE_FIG
 
-import sondi.transducers as transducers
-from sondi.emission import Emission
+import esdiva.transducers as transducers
+from esdiva.emission import Emission
 
 # ============================================================================
 # CONFIGURATION  (mirrors Field II example_intensity.m)
@@ -141,7 +141,7 @@ ax.legend()
 ax.grid(True, alpha=0.3)
 
 plt.suptitle(
-    "Field II parallel: example_intensity.m\n(SonDI uses causal K-K attenuation)"
+    "Field II parallel: example_intensity.m\n(eSDIva uses causal K-K attenuation)"
 )
 plt.tight_layout()
 

@@ -1,9 +1,9 @@
-"""Tests for sondi.transducers.linear.LinearArrayTransducer."""
+"""Tests for esdiva.transducers.linear.LinearArrayTransducer."""
 
 import numpy as np
 import pytest
 
-from sondi.transducers import LinearArrayTransducer
+from esdiva.transducers import LinearArrayTransducer
 
 
 class TestLinearCreation:

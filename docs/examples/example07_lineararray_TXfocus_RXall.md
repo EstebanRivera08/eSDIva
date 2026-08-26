@@ -25,8 +25,8 @@ uv run examples/example07_lineararray_TXfocus_RXall.py
 ## Key code
 
 ```python
-import sondi.transducers as transducers
-from sondi.reception import Reception
+import esdiva.transducers as transducers
+from esdiva.reception import Reception
 
 tx = transducers.Domino()
 tx.compute_delays(focus_mm=[0, 0, 20])
@@ -38,4 +38,4 @@ sim.show(scatterer_pos, scatterer_amp)   # 3-D sanity check
 rf, coords = sim(scatterer_pos, scatterer_amp)   # (E_rx, Nt)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example07_lineararray_TXfocus_RXall.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example07_lineararray_TXfocus_RXall.py)

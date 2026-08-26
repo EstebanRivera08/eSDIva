@@ -13,9 +13,9 @@ import numpy as np
 import pytest
 from scipy.signal import hilbert
 
-from sondi.beamforming import das_rca_volume
-from sondi.reception import Reception
-from sondi.transducers import LinearArrayTransducer
+from esdiva.beamforming import das_rca_volume
+from esdiva.reception import Reception
+from esdiva.transducers import LinearArrayTransducer
 
 C = 1540.0
 

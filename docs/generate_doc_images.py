@@ -1,5 +1,5 @@
 """
-Generate some images used in the SonDI documentation besides the example ones.
+Generate some images used in the eSDIva documentation besides the example ones.
 
 Fill this file with the codes for new figures for the documentation.
 

@@ -43,8 +43,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: SonDI version
-      description: "`python -c \"import sondi; print(sondi.__version__)\"`"
+      label: eSDIva version
+      description: "`python -c \"import esdiva; print(esdiva.__version__)\"`"
     validations:
       required: true
   - type: input

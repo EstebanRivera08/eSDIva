@@ -27,9 +27,9 @@ import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 from scipy.signal import hilbert
 
-from sondi.reception import Reception
-from sondi.transducers import ConcaveCircularTransducer
-from sondi.utilities import to_dB
+from esdiva.reception import Reception
+from esdiva.transducers import ConcaveCircularTransducer
+from esdiva.utilities import to_dB
 
 # ============================================================================
 # CONFIGURATION

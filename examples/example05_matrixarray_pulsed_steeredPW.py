@@ -19,10 +19,10 @@ Run with:
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from sondi.emission import Emission
-from sondi.plotting import add_transducer_mesh, plot3D_transient_slices
-from sondi.transducers import MatrixArrayTransducer
-from sondi.utilities import align_to_common_time
+from esdiva.emission import Emission
+from esdiva.plotting import add_transducer_mesh, plot3D_transient_slices
+from esdiva.transducers import MatrixArrayTransducer
+from esdiva.utilities import align_to_common_time
 
 # ============================================================================
 # CONFIGURATION

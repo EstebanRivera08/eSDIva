@@ -1,7 +1,7 @@
 [project]
-name = "sondi"
+name = "esdiva"
 version = "0.1.0"
-description = "SonDI — the friendly acoustic field simulator. From sono- (sound) + SDI (Sparse Delta Integration): fast, exact ultrasound pressure fields for any transducer geometry."
+description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. A friendly, fast, exact ultrasound pressure-field simulator for any transducer geometry."
 readme = "README.md"
 authors = [
     { name = "Deyver Esteban Rivera", email = "113285895+EstebanRivera08@users.noreply.github.com" }
@@ -33,7 +33,7 @@ dependencies = [
 exclude = []
 
 [project.scripts]
-sondi = "sondi:main"
+esdiva = "esdiva:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -98,7 +98,7 @@ filterwarnings = [
 #  coverage
 # --------------------------------------------------------------------------- #
 [tool.coverage.run]
-source = ["sondi"]
+source = ["esdiva"]
 omit = ["*/examples/*"]
 
 [tool.coverage.report]

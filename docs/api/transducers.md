@@ -10,7 +10,7 @@ are mm at the API surface. See the [Transducers user guide](../user-guide/transd
 
 ## Shared interface — TransducerBase
 
-::: sondi.transducers.TransducerBase
+::: esdiva.transducers.TransducerBase
     options:
       members:
         - compute_delays
@@ -25,42 +25,42 @@ are mm at the API surface. See the [Transducers user guide](../user-guide/transd
 
 ## Array transducers
 
-::: sondi.transducers.LinearArrayTransducer
+::: esdiva.transducers.LinearArrayTransducer
     options:
       members: false
 
-::: sondi.transducers.ConvexArrayTransducer
+::: esdiva.transducers.ConvexArrayTransducer
     options:
       members: false
 
-::: sondi.transducers.MatrixArrayTransducer
+::: esdiva.transducers.MatrixArrayTransducer
     options:
       members: false
 
 ## Mono-element transducers
 
-::: sondi.transducers.FlatCircularTransducer
+::: esdiva.transducers.FlatCircularTransducer
     options:
       members: false
 
-::: sondi.transducers.ConcaveCircularTransducer
+::: esdiva.transducers.ConcaveCircularTransducer
     options:
       members: false
 
-::: sondi.transducers.ConvexCircularTransducer
+::: esdiva.transducers.ConvexCircularTransducer
     options:
       members: false
 
-::: sondi.transducers.FocusedCircularTransducer
+::: esdiva.transducers.FocusedCircularTransducer
     options:
       members: false
 
 ## Custom & imported
 
-::: sondi.transducers.CustomTransducer
+::: esdiva.transducers.CustomTransducer
     options:
       members: false
 
-::: sondi.transducers.from_fieldii_rect_data
+::: esdiva.transducers.from_fieldii_rect_data
 
-::: sondi.transducers.from_fieldii_xdc_data
+::: esdiva.transducers.from_fieldii_xdc_data

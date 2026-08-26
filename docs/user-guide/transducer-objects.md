@@ -11,7 +11,7 @@ icon: lucide/box
 
 ## Object structure
 
-Every transducer in SonDI inherits from `TransducerBase` and exposes:
+Every transducer in eSDIva inherits from `TransducerBase` and exposes:
 
 | Attribute / Method | Description |
 |--------------------|-------------|

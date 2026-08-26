@@ -1,8 +1,8 @@
-"""Tests for sondi.transducers.geometry_utils."""
+"""Tests for esdiva.transducers.geometry_utils."""
 
 import numpy as np
 
-from sondi.transducers.geometry_utils import (
+from esdiva.transducers.geometry_utils import (
     rotation_matrix_z_to_normal,
 )
 

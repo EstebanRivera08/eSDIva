@@ -12,7 +12,7 @@ convention, the plane-wave projection, and the sample interpolation.
 import numpy as np
 import pytest
 
-from sondi.beamforming import das_volume
+from esdiva.beamforming import das_volume
 
 C = 1540.0
 FS = 40e6

@@ -1,27 +1,26 @@
-<h1 align="center">🌊 SonDI</h1>
-<p align="center"><b>The friendly acoustic field simulator.</b></p>
+<h1 align="center">🌊 eSDIva</h1>
+<p align="center"><b>Efficient Sparse Delta Integration for Vectorized Acoustics.</b></p>
 <p align="center">
-From <i>sono-</i> (sound) + <b>SDI</b> (Sparse Delta Integration) — like a little <i>sonde</i>,
-your probe into ultrasound fields: <b>fast and exact</b>.
+A friendly acoustic field simulator — your probe into ultrasound fields: <b>fast and exact</b>.
 </p>
 
-[![PyPI version](https://img.shields.io/pypi/v/sondi)](https://pypi.org/project/sondi/)
-[![Python versions](https://img.shields.io/pypi/pyversions/sondi)](https://pypi.org/project/sondi/)
+[![PyPI version](https://img.shields.io/pypi/v/esdiva)](https://pypi.org/project/esdiva/)
+[![Python versions](https://img.shields.io/pypi/pyversions/esdiva)](https://pypi.org/project/esdiva/)
 [![DOI]()]()
-[![codecov](https://codecov.io/gh/EstebanRivera08/SonDI/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/SonDI)
-[![Docs](https://img.shields.io/badge/docs-online-blue)](https://estebanrivera08.github.io/SonDI/)
+[![codecov](https://codecov.io/gh/EstebanRivera08/eSDIva/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/eSDIva)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://estebanrivera08.github.io/eSDIva/)
 
-📖 **Documentation:** <https://estebanrivera08.github.io/SonDI/>
+📖 **Documentation:** <https://estebanrivera08.github.io/eSDIva/>
 
 > [!WARNING]
-> SonDI is currently under development. The API is subject to change, and some features may be incomplete or unstable.
+> eSDIva is currently under development. The API is subject to change, and some features may be incomplete or unstable.
 
-SonDI is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
-SonDI implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
+eSDIva is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
+eSDIva implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
 FST reproduces the classic Field II approach, while SDI is a new, algorithmically and mathematically improved method that computes the same SIRs — under identical assumptions — but substantially faster; an automatic mode picks the best method for each simulation.
 
 > [!NOTE]
-> SonDI is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
+> eSDIva is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
 > Utilities such as the integration with the BrainGlobe atlas may still evolve to improve robustness.
 
 ### Main Features
@@ -63,7 +62,7 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 ### 1. Set up a virtual environment
 
-We recommend installing SonDI in a virtual environment to avoid dependency conflicts with other Python packages. Using [uv](https://docs.astral.sh/uv/guides/install-python/), you can create a new project folder with a virtual environment as follows:
+We recommend installing eSDIva in a virtual environment to avoid dependency conflicts with other Python packages. Using [uv](https://docs.astral.sh/uv/guides/install-python/), you can create a new project folder with a virtual environment as follows:
 
 ```bash
 uv init new_project
@@ -75,35 +74,35 @@ If you already have a project folder, create a virtual environment with:
 uv venv
 ```
 
-### 2. Install SonDI
+### 2. Install eSDIva
 
 To install the latest development version from GitHub:
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/SonDI.git
+uv add git+https://github.com/EstebanRivera08/eSDIva.git
 ```
 
-SonDI will soon be available on PyPI.
+eSDIva will soon be available on PyPI.
 
 ### 3. Check installation
 
-Check that SonDI is correctly installed by opening a Python interpreter and
+Check that eSDIva is correctly installed by opening a Python interpreter and
 importing the package:
 
 ```python
-import sondi
+import esdiva
 ```
 
-If no error is raised, you have installed SonDI correctly.
+If no error is raised, you have installed eSDIva correctly.
 
 ---
 
 ## Quick Start
 
 ```python
-from sondi.emission import Emission
-from sondi.transducers import LinearArrayTransducer
-from sondi.plotting import plot2D_pressure_slices
+from esdiva.emission import Emission
+from esdiva.transducers import LinearArrayTransducer
+from esdiva.plotting import plot2D_pressure_slices
 
 # Define transducer (mm units; no_sub_x/no_sub_y are keyword-only)
 tx = LinearArrayTransducer(
@@ -147,9 +146,9 @@ uv run examples/example01_transducer_gallery.py
 ---
 
 
-## Citing SonDI
+## Citing eSDIva
 
-If you use SonDI in your research, please cite it using the following reference:
+If you use eSDIva in your research, please cite it using the following reference:
 
 <!-- citation text will be added here -->
 
@@ -160,7 +159,7 @@ If you use SonDI in your research, please cite it using the following reference:
 
 ## References
 
-These works underpin the theory and methods implemented in SonDI (SIR/SDI formulation,
+These works underpin the theory and methods implemented in eSDIva (SIR/SDI formulation,
 pulse‑echo modelling, power‑law attenuation, and related simulators).
 
 1. B. T. Cox, S. Kara, S. R. Arridge, and P. C. Beard, "k‑space propagation models for acoustically heterogeneous media: Application to biomedical photoacoustics," *The Journal of the Acoustical Society of America*, vol. 121, no. 6, pp. 3453–3464, Jun. 2007. [Online]. Available: <https://pubs.aip.org/jasa/article/121/6/3453/537252/>

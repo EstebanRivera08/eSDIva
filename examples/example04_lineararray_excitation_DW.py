@@ -18,9 +18,9 @@ import numpy as np
 
 from config import FIG_FOLDER, SAVE_FIG
 
-import sondi.transducers as transducers
-from sondi.plotting import plot2D_pressure_slices
-from sondi.emission import Emission
+import esdiva.transducers as transducers
+from esdiva.plotting import plot2D_pressure_slices
+from esdiva.emission import Emission
 
 # ============================================================================
 # CONFIGURATION

@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.gridspec import GridSpec
 
-from sondi.utilities import to_dB
+from esdiva.utilities import to_dB
 
 from .export_utils import _resolve_export_path, save_matplotlib_animation
 from .plane_utils import (

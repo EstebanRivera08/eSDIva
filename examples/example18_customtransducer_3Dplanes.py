@@ -21,10 +21,10 @@ import numpy as np
 import pyvista as pv
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-from sondi.emission import Emission
-from sondi.plotting import add_2D_image, add_transducer_mesh, create_2Dimage_mesh
-from sondi.transducers import CustomTransducer, FlatCircularTransducer
-from sondi.utilities import to_dB
+from esdiva.emission import Emission
+from esdiva.plotting import add_2D_image, add_transducer_mesh, create_2Dimage_mesh
+from esdiva.transducers import CustomTransducer, FlatCircularTransducer
+from esdiva.utilities import to_dB
 
 # ============================================================================
 # CONFIGURATION

@@ -41,5 +41,5 @@ uv run examples/example21_3Dphantom_volume/step3_beamforming.py
 Every design rule this case study cost us — impulse responses, virtual-source
 coverage, phantom density, wire brightness, honest metrics — is distilled in
 the example folder's
-[`README.md`](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example21_3Dphantom_volume/README.md)
+[`README.md`](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example21_3Dphantom_volume/README.md)
 under "Design notes & pitfalls".

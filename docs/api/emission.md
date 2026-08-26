@@ -7,7 +7,7 @@ icon: lucide/audio-lines
 Forward pressure-field simulator. See the [Emission user guide](../user-guide/emission.md)
 for modes and examples.
 
-::: sondi.emission.Emission
+::: esdiva.emission.Emission
     options:
       members:
         - __call__

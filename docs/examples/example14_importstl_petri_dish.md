@@ -41,11 +41,11 @@ uv run examples/example14_importstl_petri_dish.py
 ## Key code
 
 ```python
-from sondi.plotting import load_mesh_from_stl, add_stl_mesh
+from esdiva.plotting import load_mesh_from_stl, add_stl_mesh
 
 mesh = load_mesh_from_stl("Petri_dish.stl", scale=2.0, translation=(10, 5, 0))
 plotter = add_stl_mesh(mesh, color="coral", opacity=0.9)
 plotter.show()
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example14_importstl_petri_dish.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example14_importstl_petri_dish.py)

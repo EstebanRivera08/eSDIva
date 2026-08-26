@@ -3,8 +3,8 @@
 import numpy as np
 import pytest
 
-from sondi.transducers import FocusedCircularTransducer
-from sondi.transducers.fieldii_compat import FieldIITransducer
+from esdiva.transducers import FocusedCircularTransducer
+from esdiva.transducers.fieldii_compat import FieldIITransducer
 
 
 class TestSettableLensSag:

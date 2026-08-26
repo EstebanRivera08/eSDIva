@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 import pytest
 
-from sondi.emission import Emission
-from sondi.transducers import LinearArrayTransducer
+from esdiva.emission import Emission
+from esdiva.transducers import LinearArrayTransducer
 
 
 @pytest.fixture

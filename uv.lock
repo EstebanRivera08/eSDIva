@@ -489,6 +489,83 @@ wheels = [
 ]
 
 [[package]]
+name = "esdiva"
+version = "0.1.0"
+source = { editable = "." }
+dependencies = [
+    { name = "brainglobe-atlasapi" },
+    { name = "brainglobe-space" },
+    { name = "h5py" },
+    { name = "imageio" },
+    { name = "imageio-ffmpeg" },
+    { name = "matplotlib" },
+    { name = "numba" },
+    { name = "numpy" },
+    { name = "pyvista", extra = ["jupyter"] },
+    { name = "scipy" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "codespell" },
+    { name = "ipykernel" },
+    { name = "ipympl" },
+    { name = "ipython" },
+    { name = "ipyvtklink" },
+    { name = "mkdocstrings", extra = ["python"] },
+    { name = "numpydoc" },
+    { name = "openpyxl" },
+    { name = "pandas" },
+    { name = "prek" },
+    { name = "pytest" },
+    { name = "pytest-cov" },
+    { name = "pytest-mpl" },
+    { name = "pytest-pyvista" },
+    { name = "ruff" },
+    { name = "tqdm" },
+    { name = "ty" },
+    { name = "vtk" },
+    { name = "zensical" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "brainglobe-atlasapi", specifier = ">=2.2.1" },
+    { name = "brainglobe-space", specifier = ">=1.0.3" },
+    { name = "h5py", specifier = ">=3.13.0" },
+    { name = "imageio", specifier = ">=2.37.3" },
+    { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
+    { name = "matplotlib", specifier = ">=3.10.1" },
+    { name = "numba", specifier = ">=0.61" },
+    { name = "numpy", specifier = ">=2.1.2" },
+    { name = "pyvista", extras = ["jupyter"], specifier = ">=0.45.0" },
+    { name = "scipy", specifier = ">=1.15.2" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "codespell", specifier = ">=2.3.0" },
+    { name = "ipykernel", specifier = ">=6.29.5" },
+    { name = "ipympl", specifier = ">=0.9.7" },
+    { name = "ipython", specifier = ">=9.1.0" },
+    { name = "ipyvtklink", specifier = ">=0.2.3" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.3" },
+    { name = "numpydoc", specifier = ">=1.9.0" },
+    { name = "openpyxl", specifier = ">=3.1.5" },
+    { name = "pandas", specifier = ">=2.2.3" },
+    { name = "prek", specifier = ">=0.2.0" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-cov", specifier = ">=6.0.0" },
+    { name = "pytest-mpl", specifier = ">=0.16.0" },
+    { name = "pytest-pyvista", specifier = ">=0.3.2" },
+    { name = "ruff", specifier = ">=0.12.0" },
+    { name = "tqdm", specifier = "<=4.66.5" },
+    { name = "ty", specifier = ">=0.0.10" },
+    { name = "vtk", specifier = ">=9.2.2" },
+    { name = "zensical", specifier = ">=0.0.28" },
+]
+
+[[package]]
 name = "et-xmlfile"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -2417,83 +2494,6 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/75/a7/9810d872919697c9d01295633f5d574fb416d47e535f258272ca1f01f447/snowballstemmer-3.0.1.tar.gz", hash = "sha256:6d5eeeec8e9f84d4d56b847692bacf79bc2c8e90c7f80ca4444ff8b6f2e52895", size = 105575, upload-time = "2025-05-09T16:34:51.843Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/c8/78/3565d011c61f5a43488987ee32b6f3f656e7f107ac2782dd57bdd7d91d9a/snowballstemmer-3.0.1-py3-none-any.whl", hash = "sha256:6cd7b3897da8d6c9ffb968a6781fa6532dce9c3618a4b127d920dab764a19064", size = 103274, upload-time = "2025-05-09T16:34:50.371Z" },
-]
-
-[[package]]
-name = "sondi"
-version = "0.0.1"
-source = { editable = "." }
-dependencies = [
-    { name = "brainglobe-atlasapi" },
-    { name = "brainglobe-space" },
-    { name = "h5py" },
-    { name = "imageio" },
-    { name = "imageio-ffmpeg" },
-    { name = "matplotlib" },
-    { name = "numba" },
-    { name = "numpy" },
-    { name = "pyvista", extra = ["jupyter"] },
-    { name = "scipy" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "codespell" },
-    { name = "ipykernel" },
-    { name = "ipympl" },
-    { name = "ipython" },
-    { name = "ipyvtklink" },
-    { name = "mkdocstrings", extra = ["python"] },
-    { name = "numpydoc" },
-    { name = "openpyxl" },
-    { name = "pandas" },
-    { name = "prek" },
-    { name = "pytest" },
-    { name = "pytest-cov" },
-    { name = "pytest-mpl" },
-    { name = "pytest-pyvista" },
-    { name = "ruff" },
-    { name = "tqdm" },
-    { name = "ty" },
-    { name = "vtk" },
-    { name = "zensical" },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "brainglobe-atlasapi", specifier = ">=2.2.1" },
-    { name = "brainglobe-space", specifier = ">=1.0.3" },
-    { name = "h5py", specifier = ">=3.13.0" },
-    { name = "imageio", specifier = ">=2.37.3" },
-    { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
-    { name = "matplotlib", specifier = ">=3.10.1" },
-    { name = "numba", specifier = ">=0.61" },
-    { name = "numpy", specifier = ">=2.1.2" },
-    { name = "pyvista", extras = ["jupyter"], specifier = ">=0.45.0" },
-    { name = "scipy", specifier = ">=1.15.2" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "codespell", specifier = ">=2.3.0" },
-    { name = "ipykernel", specifier = ">=6.29.5" },
-    { name = "ipympl", specifier = ">=0.9.7" },
-    { name = "ipython", specifier = ">=9.1.0" },
-    { name = "ipyvtklink", specifier = ">=0.2.3" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=1.0.3" },
-    { name = "numpydoc", specifier = ">=1.9.0" },
-    { name = "openpyxl", specifier = ">=3.1.5" },
-    { name = "pandas", specifier = ">=2.2.3" },
-    { name = "prek", specifier = ">=0.2.0" },
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "pytest-cov", specifier = ">=6.0.0" },
-    { name = "pytest-mpl", specifier = ">=0.16.0" },
-    { name = "pytest-pyvista", specifier = ">=0.3.2" },
-    { name = "ruff", specifier = ">=0.12.0" },
-    { name = "tqdm", specifier = "<=4.66.5" },
-    { name = "ty", specifier = ">=0.0.10" },
-    { name = "vtk", specifier = ">=9.2.2" },
-    { name = "zensical", specifier = ">=0.0.28" },
 ]
 
 [[package]]

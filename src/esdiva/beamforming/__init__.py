@@ -1,4 +1,4 @@
-"""Post-processing beamforming functions for SonDI RF data."""
+"""Post-processing beamforming functions for eSDIva RF data."""
 
 from .das import (
     DAS_focused_scanline,

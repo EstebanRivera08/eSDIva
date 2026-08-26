@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 import pytest
 
-from sondi.transducers import LinearArrayTransducer
-from sondi.utilities.helper_functions import (
+from esdiva.transducers import LinearArrayTransducer
+from esdiva.utilities.helper_functions import (
     compute_sub_elem_attributes,
 )
 

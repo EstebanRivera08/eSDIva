@@ -24,10 +24,10 @@ uv run examples/example05_matrixarray_pulsed_steeredPW.py
 ## Key code
 
 ```python
-from sondi.emission import Emission
-from sondi.plotting import add_transducer_mesh, plot3D_transient_slices
-from sondi.transducers import MatrixArrayTransducer
-from sondi.utilities import align_to_common_time
+from esdiva.emission import Emission
+from esdiva.plotting import add_transducer_mesh, plot3D_transient_slices
+from esdiva.transducers import MatrixArrayTransducer
+from esdiva.utilities import align_to_common_time
 
 tx = MatrixArrayTransducer(
     n_elements_x=32, n_elements_y=32,
@@ -51,4 +51,4 @@ plotter = add_transducer_mesh(tx.get_mesh(), scalars="Delays")
 plot3D_transient_slices(planes, coords=coords, plotter=plotter, time_array=t, db_scale=True)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example05_matrixarray_pulsed_steeredPW.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example05_matrixarray_pulsed_steeredPW.py)

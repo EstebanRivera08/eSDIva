@@ -6,8 +6,8 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from sondi.hsir.farfield_rect_patch import compute_h_sir
-from sondi.utilities.helper_functions import (
+from esdiva.hsir.farfield_rect_patch import compute_h_sir
+from esdiva.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
     create_3D_spatial_grid_from_points,
@@ -786,7 +786,7 @@ class Emission(SimulationBase):
         **FieldII equivalences** (same transducer geometry):
 
         * Mode 2 → ``ρ₀ · h(r, t)``.  Equivalent to FieldII ``calc_h``;
-          with ``rho=1.0`` (SonDI default) the arrays are numerically
+          with ``rho=1.0`` (eSDIva default) the arrays are numerically
           identical up to floating-point precision.
         * Mode 1 → ``|H(r, ω_c)|`` (SIR Fourier magnitude at fc).
           Equivalent to FieldII ``calc_h`` → FFT → extract the fc bin.

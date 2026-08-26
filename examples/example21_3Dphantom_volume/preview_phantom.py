@@ -33,8 +33,8 @@ from step1_define_phantom_TX_RX import (
     phantom_map,
 )
 
-from sondi.plotting.plotting_pyvista import add_transducer_mesh
-from sondi.reception import Reception
+from esdiva.plotting.plotting_pyvista import add_transducer_mesh
+from esdiva.reception import Reception
 
 # "bmode"  = phantom truth as a gray volume (sigmoid opacity, whole volume).
 # "shapes" = the target geometry drawn as translucent solids.

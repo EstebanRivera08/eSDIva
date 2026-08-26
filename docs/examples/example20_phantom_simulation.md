@@ -34,8 +34,8 @@ uv run examples/example20_phantom_simulation.py
 ## Key code
 
 ```python
-from sondi.reception import Reception
-from sondi.utilities import make_phantom
+from esdiva.reception import Reception
+from esdiva.utilities import make_phantom
 
 scat_pos, scat_amp = make_phantom(BOX, N_SCATTERERS, echogenicity_map=emap, seed=2026)
 
@@ -48,4 +48,4 @@ for xl in LINE_X:                          # one focused line per lateral positi
                                      FoverD=2.0, apodization_type="hanning")
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example20_phantom_simulation.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example20_phantom_simulation.py)

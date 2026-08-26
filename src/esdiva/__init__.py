@@ -1,19 +1,19 @@
-"""SonDI: acoustic field simulator based on the spatial impulse response method."""
+"""Acoustic field simulator based on the spatial impulse response method (eSDIva)."""
 
 from importlib.metadata import PackageNotFoundError, version
 
-import sondi.attenuation as attenuation
-import sondi.beamforming as beamforming
-import sondi.emission as emission
-import sondi.plotting as plotting
-import sondi.reception as reception
-import sondi.transducers as transducers
-import sondi.utilities as utilities
-from sondi.beamforming import DAS_focused_scanline, envelope_db
-from sondi.emission import Emission
-from sondi.plotting import plot2D_pressure_slices
-from sondi.reception import Reception, ReceptionConventional
-from sondi.utilities import align_to_common_time, to_dB
+import esdiva.attenuation as attenuation
+import esdiva.beamforming as beamforming
+import esdiva.emission as emission
+import esdiva.plotting as plotting
+import esdiva.reception as reception
+import esdiva.transducers as transducers
+import esdiva.utilities as utilities
+from esdiva.beamforming import DAS_focused_scanline, envelope_db
+from esdiva.emission import Emission
+from esdiva.plotting import plot2D_pressure_slices
+from esdiva.reception import Reception, ReceptionConventional
+from esdiva.utilities import align_to_common_time, to_dB
 
 
 # backward-compat alias (old signature was x, y, z, p; new is p, x, y, z)
@@ -61,7 +61,7 @@ __all__ = [
 ]
 
 try:
-    __version__ = version("sondi")
+    __version__ = version("esdiva")
 except PackageNotFoundError:
     __version__ = "0.1.0"
 
@@ -69,7 +69,7 @@ except PackageNotFoundError:
 def main() -> None:
     """Greet the user and run a small timed demo field, then show it in 3-D.
 
-    Entry point for ``uv run sondi`` / the ``sondi`` console script. Prints a
+    Entry point for ``uv run esdiva`` / the ``esdiva`` console script. Prints a
     banner, focuses a 17x17 matrix array at 3 mm, computes one monochromatic
     (CW) pressure volume around the focus, reports how long the SIR took, and
     opens a PyVista window with the transducer mesh and the normalized pressure
@@ -83,14 +83,14 @@ def main() -> None:
     from .plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
     banner = rf"""
-   ____             ____ ___
-  / ___|  ___  _ __|  _ \_ _|
-  \___ \ / _ \| '_ \ | | | |
-   ___) | (_) | | | | |_| | |
-  |____/ \___/|_| |_|____/___|   v{__version__}
+  ___   ____    ____    ___            __ _
+ / _ \ / ___|  |  _ \  |_ _| __   __  / _` |
+|  __/ \___ \  | | | |  | |  \ \ / / | (_| |
+ \___|  ___) | | |_| |  | |   \ V /   \__,_|
+       |____/  |____/  |___|   \_/            v{__version__}
 
-  The friendly acoustic field simulator.
-  sono- (sound) + SDI (Sparse Delta Integration) - fast, exact ultrasound fields.
+  Efficient Sparse Delta Integration for Vectorized Acoustics.
+  A friendly, fast, exact ultrasound field simulator.
 """
     print(banner)
 

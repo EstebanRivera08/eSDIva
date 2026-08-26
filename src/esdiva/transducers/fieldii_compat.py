@@ -1,7 +1,7 @@
-"""Import Field II transducer geometry into SonDI.
+"""Import Field II transducer geometry into eSDIva.
 
 Converts the output of MATLAB ``xdc_get(Th, 'all')`` to a
-:class:`FieldIITransducer`, which is a standard SonDI transducer whose
+:class:`FieldIITransducer`, which is a standard eSDIva transducer whose
 patches are taken directly from the Field II internal representation.
 
 Typical MATLAB export workflow::
@@ -15,7 +15,7 @@ Typical MATLAB export workflow::
 Python import::
 
     import scipy.io
-    from sondi.transducers import from_fieldii_xdc_data
+    from esdiva.transducers import from_fieldii_xdc_data
 
     raw = scipy.io.loadmat('tx_fieldii.mat', simplify_cells=True)
     tx = from_fieldii_xdc_data(raw['all_data'], frequency_hz=3e6)
@@ -39,11 +39,11 @@ Corner vertices are reconstructed as::
     c2 = centre + hw * R[:,0] + hh * R[:,1]
     c3 = centre - hw * R[:,0] + hh * R[:,1]
 
-matching SonDI's quad-vertex ordering (edge v[1]-v[0] = u-direction,
+matching eSDIva's quad-vertex ordering (edge v[1]-v[0] = u-direction,
 edge v[3]-v[0] = v-direction).
 
 .. note::
-   Scale convention: SonDI uses ``rho / (2 * c²)`` while Field II uses
+   Scale convention: eSDIva uses ``rho / (2 * c²)`` while Field II uses
    approximately ``rho / 2``.  For a unit-amplitude scatterer the raw RF
    amplitudes therefore differ by a factor of ``c²`` (~2.37e6 at c=1540 m/s).
    Normalised PSF comparisons (envelope / peak) are unaffected.
@@ -61,10 +61,10 @@ class FieldIITransducer(TransducerBase):
 
     Each patch is treated as an independent element so that per-patch
     apodization and delay values from Field II are preserved exactly.
-    The transducer behaves identically to any other SonDI transducer —
-    it can be passed to :class:`~sondi.emission.Emission`,
-    :class:`~sondi.reception.Reception`, or
-    :class:`~sondi.reception.ReceptionConventional`.
+    The transducer behaves identically to any other eSDIva transducer —
+    it can be passed to :class:`~esdiva.emission.Emission`,
+    :class:`~esdiva.reception.Reception`, or
+    :class:`~esdiva.reception.ReceptionConventional`.
 
     Parameters
     ----------
@@ -193,7 +193,7 @@ def from_fieldii_xdc_data(
     Returns
     -------
     FieldIITransducer
-        SonDI transducer with one element per Field II mathematical element.
+        An eSDIva transducer with one element per Field II mathematical element.
 
     Raises
     ------
@@ -271,7 +271,7 @@ def from_fieldii_xdc_data(
     v_dir = np.where(v_norm > 1e-12, v_dir / v_norm, v_dir)
 
     # ---- Reconstruct 4 corner vertices per patch ----
-    # SonDI quad ordering: c0 = -u -v, c1 = +u -v, c2 = +u +v, c3 = -u +v
+    # eSDIva quad ordering: c0 = -u -v, c1 = +u -v, c2 = +u +v, c3 = -u +v
     hw = half_wx[:, None]  # (N, 1)
     hh = half_wy[:, None]  # (N, 1)
     c0 = centres - hw * u_dir - hh * v_dir
@@ -310,7 +310,7 @@ def from_fieldii_rect_data(
         row 22    : time delay [s]
 
     Field II lists the corners walking the rectangle perimeter, which is
-    NOT SonDI's quad ordering (``c1-c0`` must be the u-tangent and
+    NOT eSDIva's quad ordering (``c1-c0`` must be the u-tangent and
     ``c3-c0`` the v-tangent).  Each quad is therefore re-ordered from the
     corner positions themselves: the corner farthest from ``c0`` is the
     diagonal, the two remaining corners give the u and v edges.  This makes
@@ -335,7 +335,7 @@ def from_fieldii_rect_data(
     Returns
     -------
     FieldIITransducer
-        SonDI transducer with one element per Field II mathematical element.
+        An eSDIva transducer with one element per Field II mathematical element.
     """
     geom = np.asarray(rect, dtype=np.float64)
     if geom.ndim != 2:
@@ -354,7 +354,7 @@ def from_fieldii_rect_data(
 
     patch_quads = []
     for c4 in corners:
-        # Re-order to SonDI's quad convention from geometry alone: the
+        # Re-order to eSDIva's quad convention from geometry alone: the
         # farthest corner from c0 is the diagonal; the other two corners are
         # the u- and v-edge neighbours.
         d = np.linalg.norm(c4[1:] - c4[0], axis=1)
@@ -440,7 +440,7 @@ def from_fieldii_patch_arrays(
     Returns
     -------
     FieldIITransducer
-        SonDI transducer with one patch per supplied centre/tangent row.
+        An eSDIva transducer with one patch per supplied centre/tangent row.
     """
     centres = np.asarray(centres, dtype=np.float64)
     u_dir = np.asarray(u_tangents, dtype=np.float64)

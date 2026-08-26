@@ -29,7 +29,7 @@ uv run examples/example11_lineararray_attenuations_monochromatic_CW.py
 ## Key code
 
 ```python
-from sondi.emission import Emission
+from esdiva.emission import Emission
 
 sim_water = Emission(tx, monochromatic=True, fs=100e6)
 p_water, coords = sim_water(plane)
@@ -41,4 +41,4 @@ p_brain, coords = sim_brain(plane)
 att_map_db = 20 * np.log10(p_brain / p_water)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example11_lineararray_attenuations_monochromatic_CW.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example11_lineararray_attenuations_monochromatic_CW.py)

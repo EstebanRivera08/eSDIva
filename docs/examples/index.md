@@ -4,7 +4,7 @@ icon: lucide/book-open-check
 
 # Examples
 
-Worked examples that progressively introduce SonDI's features — from basic transducer geometry to pulse-echo imaging, brain-atlas integration and STL mesh simulation.
+Worked examples that progressively introduce eSDIva's features — from basic transducer geometry to pulse-echo imaging, brain-atlas integration and STL mesh simulation.
 
 Run any example directly:
 
@@ -12,7 +12,7 @@ Run any example directly:
 uv run examples/exampleN_name.py
 ```
 
-Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choose where images are saved and toggle `SAVE_FIG` (or set `SONDI_SAVE_FIG=1`) to switch between saving and interactive display.
+Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choose where images are saved and toggle `SAVE_FIG` (or set `ESDIVA_SAVE_FIG=1`) to switch between saving and interactive display.
 
 ---
 
@@ -138,7 +138,7 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     ---
 
-    One-line MATLAB export → `from_fieldii_rect_data` → a native SonDI transducer with the original delays and apodization.
+    One-line MATLAB export → `from_fieldii_rect_data` → a native eSDIva transducer with the original delays and apodization.
 
 -   :lucide-spline: **[18. Custom Sparse Array](example18_customtransducer_3Dplanes.md)**
 
@@ -172,6 +172,6 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
 | Examples | Requirements |
 |----------|-------------|
-| 1–11, 16–21 | Core SonDI installation |
+| 1–11, 16–21 | Core eSDIva installation |
 | 12–13 | `brainglobe-atlasapi` (atlas data downloaded on first run) |
 | 14–15 | `Petri_dish.stl` placed in `examples/` |

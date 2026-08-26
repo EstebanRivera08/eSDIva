@@ -28,7 +28,7 @@ uv run examples/example13_txlinear_ratbrainzones.py
 ## Key code
 
 ```python
-from sondi.utilities import BG_Atlas
+from esdiva.utilities import BG_Atlas
 
 brain_atlas = BG_Atlas("whs_sd_rat_39um", region_names=("root", "M1", "S1-hl"))
 
@@ -40,4 +40,4 @@ scale[:3, :3] *= 8.0  # mm
 brain_atlas.transform(T_matrix=T_matrix, inplace=True)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example13_txlinear_ratbrainzones.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example13_txlinear_ratbrainzones.py)

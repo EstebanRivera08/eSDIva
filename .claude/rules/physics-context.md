@@ -1,9 +1,9 @@
 ---
 paths:
-  - "src/sondi/hsir/**"
-  - "src/sondi/emission/**"
-  - "src/sondi/reception/**"
-  - "src/sondi/transducers/**"
+  - "src/esdiva/hsir/**"
+  - "src/esdiva/emission/**"
+  - "src/esdiva/reception/**"
+  - "src/esdiva/transducers/**"
 ---
 
 # Physics Context — SIR/SDI Theory
@@ -198,7 +198,7 @@ truncation, where T = temporal sampling length.
 
 The pulse-echo RF of one scatterer is p_pe = v_pe *_t h_tx *_t h_rx. Each one-way SIR is
 a trapezoid whose 2nd derivative is four corner deltas (d2h = sum of 4 signed Diracs,
-signs +,-,-,+, each scaled by the rising slope). SonDI evaluates p_pe three ways; all
+signs +,-,-,+, each scaled by the rising slope). eSDIva evaluates p_pe three ways; all
 agree to corr ~1.0 with each other and Field II. Reception's `method=` picks one:
 
 **fst / sdi / auto (conventional)** — sample both one-way SIRs (place corner deltas,

@@ -7,7 +7,7 @@ icon: lucide/ruler
 !!! warning "Coming soon"
     This section is under active development. Content will be added in a future release.
 
-    For now, refer to the [API Reference](../api/index.md) or explore `sondi.utilities` directly.
+    For now, refer to the [API Reference](../api/index.md) or explore `esdiva.utilities` directly.
 
 ## Overview
 

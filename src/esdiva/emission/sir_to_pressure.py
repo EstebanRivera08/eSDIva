@@ -5,7 +5,7 @@ from concurrent.futures import ThreadPoolExecutor
 
 import numpy as np
 
-from sondi.utilities.helper_functions import (
+from esdiva.utilities.helper_functions import (
     next_pow2 as _next_pow2,
     reshape_to_mapped_points,
 )

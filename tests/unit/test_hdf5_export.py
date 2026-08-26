@@ -3,7 +3,7 @@
 import h5py
 import numpy as np
 
-from sondi.io import save_rf_hdf5
+from esdiva.io import save_rf_hdf5
 
 
 def test_save_rf_hdf5_roundtrip(tmp_path):

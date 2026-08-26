@@ -2,7 +2,7 @@
 Example 14: STL Mesh Loading and Visualisation
 
 Demonstrates how to load and visualise STL files (e.g., experimental setup
-components like petri dishes, chambers, or custom holders) alongside SonDI
+components like petri dishes, chambers, or custom holders) alongside eSDIva
 transducers.  Three sub-examples illustrate different STL operations:
 
   14a. Simple STL visualisation
@@ -24,7 +24,7 @@ from pathlib import Path
 
 import pyvista as pv
 
-from sondi.plotting import add_stl_mesh, load_mesh_from_stl
+from esdiva.plotting import add_stl_mesh, load_mesh_from_stl
 
 # ============================================================================
 # CONFIGURATION

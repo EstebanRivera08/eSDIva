@@ -11,11 +11,11 @@ sync when code logic changes.
 
 ## Project Overview
 
-SonDI is a Python acoustic field simulator based on the Tupholme–Stepanishen Spatial
+eSDIva is a Python acoustic field simulator based on the Tupholme–Stepanishen Spatial
 Impulse Response (SIR) method. It models arbitrary transducer geometries as collections
 of rectangular patches and computes pressure fields via convolution with excitation pulses.
 
-> **Audience-first documentation (package philosophy).** SonDI is written for
+> **Audience-first documentation (package philosophy).** eSDIva is written for
 > ultrasound researchers and students, **not for programmers**. Every docstring and
 > comment — public *and* private — must be concise, clear, and **self-sufficient**:
 > a physicist must understand the acoustics being computed (and why) without opening
@@ -66,15 +66,15 @@ under `[project.theme]`.
 
 ### Module Structure (subject to change as project evolves)
 
-1. **`src/sondi/hsir/`** — Spatial Impulse Response computation. **Core engine — modify carefully.**
-2. **`src/sondi/transducers/`** — Transducer geometry. Under active development; prioritize generalization, keep backward compatibility.
-3. **`src/sondi/emission/`** — Emission simulation (`Emission`, deprecated `SonDI` alias). **Primary API — keep intuitive/consistent.**
-4. **`src/sondi/reception/`** — Reception simulation (`Reception`, backed by `ReceptionConventional`). **Primary API.**
-5. **`src/sondi/attenuation/`** — Power-law attenuation transfer functions.
-6. **`src/sondi/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
-7. **`src/sondi/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
-8. **`src/sondi/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW/multiplane (θx,θy)); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`. (Diverging waves use `das_volume` with `virtual_source_mm` z<0 — the former `das_dw_volume` was a redundant subset, removed.)
-9. **`src/sondi/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
+1. **`src/esdiva/hsir/`** — Spatial Impulse Response computation. **Core engine — modify carefully.**
+2. **`src/esdiva/transducers/`** — Transducer geometry. Under active development; prioritize generalization, keep backward compatibility.
+3. **`src/esdiva/emission/`** — Emission simulation (`Emission`, deprecated `eSDIva` alias). **Primary API — keep intuitive/consistent.**
+4. **`src/esdiva/reception/`** — Reception simulation (`Reception`, backed by `ReceptionConventional`). **Primary API.**
+5. **`src/esdiva/attenuation/`** — Power-law attenuation transfer functions.
+6. **`src/esdiva/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
+7. **`src/esdiva/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
+8. **`src/esdiva/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW/multiplane (θx,θy)); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`. (Diverging waves use `das_volume` with `virtual_source_mm` z<0 — the former `das_dw_volume` was a redundant subset, removed.)
+9. **`src/esdiva/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
 
 ### Key Design Patterns
 
@@ -111,8 +111,8 @@ Full parameter tables, all modes, return conventions, and visualization options:
 see [`ARCHITECTURE.md` § Full API Reference](ARCHITECTURE.md#full-api-reference).
 
 ```python
-from sondi.transducers import LinearArrayTransducer
-from sondi.emission import Emission
+from esdiva.transducers import LinearArrayTransducer
+from esdiva.emission import Emission
 
 # 1. Transducer (mm units; no_sub_x/no_sub_y are required, keyword-only)
 tx = LinearArrayTransducer(
@@ -171,12 +171,12 @@ in 3-D (TX/RX meshes + scatterers coloured/faded by amplitude). Takes separate T
 per-element RF `(Erx, Nt)`. Scatterer positions may also be an Emission-style grid
 dict (`x_extent`/`dx`…) → regular lattice of unit point targets (PSF maps; NOT a
 phantom — periodic lattices give coherent echoes, not speckle). For phantoms use
-`sondi.utilities.make_phantom(extents_mm, n, echogenicity_map)` → random positions
+`esdiva.utilities.make_phantom(extents_mm, n, echogenicity_map)` → random positions
 + `N(0,1)·map(r)` amplitudes (see `example20`). `coords["t0"]` is beam-axis referenced. Full details in
 `ARCHITECTURE.md`.
 
 ```python
-from sondi.reception import Reception
+from esdiva.reception import Reception
 sim = Reception(tx, rx, fs=200e6, c=1540)
 rf, coords = sim.pulse_echo_rf(scatterer_pos_mm, scatterer_amp)        # (Erx, Nt)
 psf, coords = sim.pulse_echo_rf(pts, per_scatterer=True)               # (P, Erx, Nt) PSF
@@ -238,7 +238,7 @@ Quick checklist — full rationale, locations, and history in
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
 6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect":
    ```powershell
-   Get-ChildItem -Path "src\sondi\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+   Get-ChildItem -Path "src\esdiva\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
    ```
 7. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
 

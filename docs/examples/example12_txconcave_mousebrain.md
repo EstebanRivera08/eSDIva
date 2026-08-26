@@ -28,8 +28,8 @@ uv run examples/example12_txconcave_mousebrain.py
 ## Key code
 
 ```python
-from sondi.utilities import BG_Atlas
-from sondi.transducers import ConcaveCircularTransducer
+from esdiva.utilities import BG_Atlas
+from esdiva.transducers import ConcaveCircularTransducer
 
 mouse_tx = ConcaveCircularTransducer(
     diameter_mm=10.0,
@@ -42,4 +42,4 @@ mouse_atlas = BG_Atlas("allen_mouse_25um", region_names=("root", "Isocortex", "C
 mouse_atlas.transform(T_matrix=T_matrix, inplace=True)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example12_txconcave_mousebrain.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example12_txconcave_mousebrain.py)

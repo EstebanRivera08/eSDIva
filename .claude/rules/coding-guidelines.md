@@ -1,8 +1,8 @@
-# SonDI Coding Guidelines
+# eSDIva Coding Guidelines
 
 ## Documentation & Comment Philosophy — Audience First (READ FIRST)
 
-**SonDI is written for ultrasound researchers and students, not for programmers.**
+**eSDIva is written for ultrasound researchers and students, not for programmers.**
 The readers of this code are physicists and engineers who want to understand and check
 the *implementation of the acoustics* — the SIR method, the pulse-echo chain, the
 beamforming — so they can trust it, reproduce it, and extend it. Every docstring and
@@ -117,7 +117,7 @@ Pre-commit hooks: ruff-check, ruff-format, ty, codespell, numpydoc-validation.
 ## Code Style
 
 ### Imports
-- Absolute imports: `from sondi.io import AUTCDAT`
+- Absolute imports: `from esdiva.io import AUTCDAT`
 - Group: standard library, third-party, local
 - Type-only: `from typing import TYPE_CHECKING`
 
@@ -165,7 +165,7 @@ Pre-commit hooks: ruff-check, ruff-format, ty, codespell, numpydoc-validation.
 - Array shapes: `(X, Y, Z) numpy.ndarray`
 - Multiple returns: separate lines per value, not `tuple[type1, type2]`
 - Module constants: triple-quoted docstring immediately after constant
-- Cross-references: `[name][sondi.module.path.name]` (mkdocs-style)
+- Cross-references: `[name][esdiva.module.path.name]` (mkdocs-style)
 - No Sphinx-style references (`.. [1]`)
 
 ### Code Structure

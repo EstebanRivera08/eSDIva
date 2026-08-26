@@ -12,13 +12,13 @@ icon: lucide/package
 ## Install from GitHub
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/SonDI.git
+uv add git+https://github.com/EstebanRivera08/eSDIva.git
 ```
 
 Or with pip:
 
 ```bash
-pip install git+https://github.com/EstebanRivera08/SonDI.git
+pip install git+https://github.com/EstebanRivera08/eSDIva.git
 ```
 
 ## Development installation
@@ -26,8 +26,8 @@ pip install git+https://github.com/EstebanRivera08/SonDI.git
 Clone the repository and sync all dependencies including dev tools:
 
 ```bash
-git clone https://github.com/EstebanRivera08/SonDI.git
-cd SonDI
+git clone https://github.com/EstebanRivera08/eSDIva.git
+cd eSDIva
 uv sync
 ```
 
@@ -43,9 +43,9 @@ These are installed automatically when running `uv sync` inside the cloned repos
 ## Verify installation
 
 ```python
-import sondi
-print(sondi.__version__)
+import esdiva
+print(esdiva.__version__)
 ```
 
 !!! note "PyPI release coming soon"
-    SonDI will be available on PyPI in a future release. For now, install from GitHub.
+    eSDIva will be available on PyPI in a future release. For now, install from GitHub.

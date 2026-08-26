@@ -2,7 +2,7 @@
 
 import pytest
 
-from sondi.transducers import (
+from esdiva.transducers import (
     ConcaveCircularTransducer,
     ConvexArrayTransducer,
     ConvexCircularTransducer,

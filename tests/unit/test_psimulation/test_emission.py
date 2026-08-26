@@ -15,7 +15,7 @@ def _make_excitation(fs=200e6, fc=5e6, n_cycles=2):
 
 
 def _make_emission(tx, **kwargs):
-    from sondi.emission import Emission
+    from esdiva.emission import Emission
 
     return Emission(tx, **kwargs)
 

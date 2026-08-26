@@ -38,9 +38,9 @@ from step1_define_phantom_TX_RX import (
     phantom_map,
 )
 
-from sondi.plotting.plotting_pyvista import add_transducer_mesh
-from sondi.plotting.pyvista_functions import create_3Dvol_mesh
-from sondi.utilities import to_dB
+from esdiva.plotting.plotting_pyvista import add_transducer_mesh
+from esdiva.plotting.pyvista_functions import create_3Dvol_mesh
+from esdiva.utilities import to_dB
 
 GRID = SC["grid"]
 CUT = (SC["tubes"][0][0][0], 0.0, SC["tier_z"])  # MPR planes through the cyst

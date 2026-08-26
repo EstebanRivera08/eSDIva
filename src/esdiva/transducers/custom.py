@@ -6,11 +6,11 @@ described by a simple rectangular grid (linear or matrix).  A TUS helmet, for
 example, is built from dozens of spherical-bowl transducers aimed at a common
 target from different directions.  ``CustomTransducer`` handles these cases by
 assembling any collection of mono-element transducer objects into a single
-array that the SonDI simulator can process normally.
+array that the eSDIva simulator can process normally.
 
 Usage example — TUS helmet::
 
-    from sondi.transducers import ConcaveCircularTransducer, CustomTransducer
+    from esdiva.transducers import ConcaveCircularTransducer, CustomTransducer
     import numpy as np
 
     # Ten identical bowl elements, positions and normals defined by the user
@@ -52,7 +52,7 @@ class CustomTransducer(TransducerBase):
     The patches of each element are rigidly transformed — rotated to align
     their normal axis with the provided direction, then translated to the
     given position.  By default, all elements point in the +z direction
-    (the SonDI propagation axis).
+    (the eSDIva propagation axis).
 
     Parameters
     ----------
@@ -143,7 +143,7 @@ class CustomTransducer(TransducerBase):
         self.n_elements = len(elements)
         self.fc = float(frequency_Hz) if frequency_Hz is not None else elements[0].fc
 
-        # Derive patch-size attributes from the first element (used by SonDI
+        # Derive patch-size attributes from the first element (used by eSDIva
         # to compute the far-field condition warning).
         ref = elements[0]
         self.elem_width = ref.elem_width

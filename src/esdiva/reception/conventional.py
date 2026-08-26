@@ -4,7 +4,7 @@ Pulse-echo RF model. Computes the received RF echo from point scatterers with Je
 spatial-impulse-response model (J. A. Jensen, "A model for the propagation and scattering
 of ultrasound in tissue", J. Acoust. Soc. Am. 89(1), 182-190, 1991), as in Field II. The
 SIRs themselves use the Tupholme-Stepanishen formulation (Tupholme, Mathematika 16, 1969;
-Stepanishen, J. Acoust. Soc. Am. 49, 1971) with SonDI's far-field trapezoidal SIR of
+Stepanishen, J. Acoust. Soc. Am. 49, 1971) with eSDIva's far-field trapezoidal SIR of
 rectangular patches.
 
 This class evaluates the RF equation the direct ("conventional") way — it builds the two
@@ -41,7 +41,7 @@ import time
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from sondi.utilities.helper_functions import (
+from esdiva.utilities.helper_functions import (
     eta_progress as _eta_progress,
     method_to_flag as _method_to_flag,
     next_pow2 as _next_pow2,

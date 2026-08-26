@@ -1,8 +1,8 @@
 """
-Example 17: Import a Field II Transducer and check it matches SonDI
+Example 17: Import a Field II Transducer and check it matches eSDIva
 
-Builds the native SonDI ``Domino`` probe and the SAME probe exported from
-MATLAB Field II, then overlays the two apertures to confirm SonDI imports
+Builds the native eSDIva ``Domino`` probe and the SAME probe exported from
+MATLAB Field II, then overlays the two apertures to confirm eSDIva imports
 Field II geometry patch-for-patch.
 
 Generate the Field II export first (needs MATLAB + the Field II toolbox)::
@@ -12,11 +12,11 @@ Generate the Field II export first (needs MATLAB + the Field II toolbox)::
 That script rebuilds the Domino probe with ``xdc_focused_array`` and saves
 ``rect = xdc_get(Th, 'rect')``.  This example loads it with
 ``from_fieldii_rect_data`` and compares the imported patch mosaic against
-``sondi.transducers.Domino()``.
+``esdiva.transducers.Domino()``.
 
 Steps
 -----
-1. Build the native SonDI Domino probe
+1. Build the native eSDIva Domino probe
 2. Load + import the Field II export (skipped with a hint if the .mat is absent)
 3. Compare the two patch mosaics numerically (sorted patch centres)
 4. Overlay both apertures in PyVista + simulate the imported probe's CW field
@@ -32,10 +32,10 @@ import numpy as np
 import scipy.io
 from config import FIG_FOLDER, SAVE_FIG
 
-from sondi.emission import Emission
-from sondi.plotting import plot2D_pressure_slices
-from sondi.transducers import Domino, from_fieldii_rect_data
-from sondi.utilities import explore_mat
+from esdiva.emission import Emission
+from esdiva.plotting import plot2D_pressure_slices
+from esdiva.transducers import Domino, from_fieldii_rect_data
+from esdiva.utilities import explore_mat
 
 # ============================================================================
 # CONFIGURATION
@@ -73,10 +73,10 @@ if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
 
 # ============================================================================
-# STEP 1: NATIVE SONDI DOMINO
+# STEP 1: NATIVE ESDIVA DOMINO
 # ============================================================================
 native = Domino()
-print(f"Native SonDI : {native}")
+print(f"Native eSDIva : {native}")
 
 # ============================================================================
 # STEP 2: IMPORT THE FIELD II EXPORT
@@ -120,7 +120,7 @@ else:
 import pyvista as pv  # noqa: E402
 
 pl = pv.Plotter(off_screen=SAVE_FIG, window_size=(1600, 1200))
-pl.add_mesh(native.get_mesh(), color="royalblue", show_edges=True, label="SonDI")
+pl.add_mesh(native.get_mesh(), color="royalblue", show_edges=True, label="eSDIva")
 if imported is not None:
     pl.add_mesh(
         imported.get_mesh(),

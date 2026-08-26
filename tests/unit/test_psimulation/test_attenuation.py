@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from sondi.attenuation import (
+from esdiva.attenuation import (
     causal_attenuation_tf,
     compute_attenuation_distances,
     compute_reception_distances,

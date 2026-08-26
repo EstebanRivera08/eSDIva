@@ -1,6 +1,6 @@
 """Export simulated RF to a single self-describing HDF5 file.
 
-The checkpointed `RFDataset` (one compressed ``.npz`` per event) is SonDI's
+The checkpointed `RFDataset` (one compressed ``.npz`` per event) is eSDIva's
 *internal* store — good for resuming a long run, but not meant for sharing.
 For interchange, ultrasound tools read HDF5: MATLAB (``h5read``), USTB, and
 Python (``h5py``) all open it natively. This writes one ``.h5`` holding the
@@ -43,7 +43,7 @@ def save_rf_hdf5(
         Timing from the reception simulator / ``RFDataset.load_all``: ``"dt"``
         (sample period, s), ``"t0"`` (first-sample time, s), optionally
         ``"t0_per_event"`` (s) and ``"pulse_center_lag_s"`` (the two-way pulse
-        lag a beamformer adds — stored so downstream tools reproduce SonDI's
+        lag a beamformer adds — stored so downstream tools reproduce eSDIva's
         depth referencing).
     probe_geometry_mm : (Erx, 3) numpy.ndarray, optional
         Receive-element centres in mm (``rx.element_centers * 1e3``), stored so
