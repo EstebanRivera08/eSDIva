@@ -19,9 +19,9 @@ from scipy.signal import hilbert
 
 from config import FIG_FOLDER, SAVE_FIG
 
-import pyfield.transducers as transducers
-from pyfield.reception import Reception
-from pyfield.utilities import to_dB
+import sondi.transducers as transducers
+from sondi.reception import Reception
+from sondi.utilities import to_dB
 
 # ============================================================================
 # CONFIGURATION

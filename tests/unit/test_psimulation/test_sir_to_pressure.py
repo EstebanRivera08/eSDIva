@@ -2,7 +2,7 @@
 
 import numpy as np
 
-from pyfield.emission.sir_to_pressure import (
+from sondi.emission.sir_to_pressure import (
     from_sir_to_monochromatic_pressure,
     from_sir_to_pressure,
 )

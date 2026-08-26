@@ -10,7 +10,7 @@ pulse `(L,)` or a per-element pulse `(L, E)`.
 
 ```python
 import numpy as np
-from pyfield.emission import Emission
+from sondi.emission import Emission
 
 fs, fc, n_cycles = 200e6, tx.fc, 2
 t = np.arange(0, n_cycles / fc, 1 / fs)

@@ -12,12 +12,12 @@ import warnings
 
 import numpy as np
 
-from pyfield.hsir.transducer_sir_pe_sdi import (
+from sondi.hsir.transducer_sir_pe_sdi import (
     compute_oneway_spectrum_band,
     compute_twoway_spectrum_summed,
 )
-from pyfield.transducers import LinearArrayTransducer
-from pyfield.utilities.helper_functions import (
+from sondi.transducers import LinearArrayTransducer
+from sondi.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,
 )

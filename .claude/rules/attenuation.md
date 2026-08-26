@@ -1,14 +1,14 @@
 ---
 paths:
-  - "src/pyfield/attenuation/**"
-  - "src/pyfield/emission/**"
-  - "src/pyfield/reception/**"
-  - "src/pyfield/hsir/**"
+  - "src/sondi/attenuation/**"
+  - "src/sondi/emission/**"
+  - "src/sondi/reception/**"
+  - "src/sondi/hsir/**"
 ---
 
 # Attenuation Implementation Rules
 
-Guidelines for implementing attenuation in PyField SIR-based simulations.
+Guidelines for implementing attenuation in SonDI SIR-based simulations.
 See physics-context.md §8–10 for underlying theory.
 
 ## Core Principle
@@ -23,7 +23,7 @@ One complex multiply per field point per frequency bin. Zero extra compute.
 
 ## Recommended Model: Causal Power-Law Transfer Function
 
-**Best candidate for PyField.** Supported by Szabo (1994), Holm (2019),
+**Best candidate for SonDI.** Supported by Szabo (1994), Holm (2019),
 Kelly & McGough (2013, 2021, 2022). Used in FOCUS, DiffUS.
 
 Always use causal model (adds Kramers-Kronig dispersion phase). Cost = zero.
@@ -88,7 +88,7 @@ is already multiplied.
 - User-facing: `alpha0` in dB/(MHz^y·cm) — matches clinical/literature convention.
 - Internal conversion to Np/m/Hz^y for computation:
   `alpha0_neper = alpha0_dB * 100 / (20 * log10(e) * 1e6^y)`
-- Store `alpha0` (dB units) on PyField/medium; convert at computation time.
+- Store `alpha0` (dB units) on SonDI/medium; convert at computation time.
 
 ## Frequency-Independent Shortcut
 

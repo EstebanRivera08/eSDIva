@@ -1,6 +1,6 @@
-# PyField Architecture & Internals
+# SonDI Architecture & Internals
 
-Deep reference for understanding PyField's internals — for contributors and anyone
+Deep reference for understanding SonDI's internals — for contributors and anyone
 who wants to know *how* the engine works, plus agents editing core code. The
 operational quickstart and physics context live in `CLAUDE.md`. User-facing
 conceptual guides live in `docs/` (Zensical site).
@@ -20,11 +20,11 @@ Sections:
 
 ### Emission
 
-`Emission` is the primary simulation class. `PyField` is a deprecated alias
+`Emission` is the primary simulation class. `SonDI` is a deprecated alias
 (emits `DeprecationWarning`, defaults `monochromatic=True` for backward compat).
 
 ```python
-from pyfield.emission import Emission
+from sondi.emission import Emission
 
 # Mode 1 — Monochromatic CW (returns spatial amplitude at fc)
 sim = Emission(tx, monochromatic=True)
@@ -91,7 +91,7 @@ All modes scale pressure by `rho` (unified exit path).
 
 **Time alignment** for multiple transient simulations:
 ```python
-from pyfield.utilities import align_to_common_time
+from sondi.utilities import align_to_common_time
 pxz, cxz = sim(plane_xz_dict)
 pyz, cyz = sim(plane_yz_dict)
 # Default: pads shorter fields with zeros to cover full time range
@@ -163,7 +163,7 @@ frequency domain (no group delay → sample-aligned with the conventional path).
 verified 0.997 vs `calc_scat_multi`).
 
 ```python
-from pyfield.reception import Reception
+from sondi.reception import Reception
 
 tx = LinearArrayTransducer(...)
 tx.impulse_response = ir_pulse
@@ -213,7 +213,7 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 ### Visualization
 
 ```python
-from pyfield.plotting import plot2D_pressure_slices
+from sondi.plotting import plot2D_pressure_slices
 # works for both monochromatic (3D) and transient (4D) pressure fields
 plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 # or explicit: plot2D_pressure_slices(p, x=coords["x"], y=coords["y"], z=coords["z"])
@@ -221,7 +221,7 @@ plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 
 **Transient plane plotting** accepts three input formats:
 ```python
-from pyfield.plotting import plot2D_transient_slices
+from sondi.plotting import plot2D_transient_slices
 
 # Format 1: old dict (backward compatible)
 plot2D_transient_slices({"xz": pxz_a, "yz": pyz_a}, coords=coords)
@@ -244,30 +244,30 @@ plot2D_transient_slices(p_4d, coords=coords)
 1. Create new class inheriting from `TransducerBase` in appropriate file
 2. Implement `_compute_element_centers()` to define element positions
 3. Implement `_build_subdivisions()` to generate rectangular patches
-4. Export in `src/pyfield/transducers/__init__.py`
+4. Export in `src/sondi/transducers/__init__.py`
 
 **Importing Field II Transducer Geometry**:
-- `FieldIITransducer` (`src/pyfield/transducers/fieldii_compat.py`) — transducer built from raw patches
+- `FieldIITransducer` (`src/sondi/transducers/fieldii_compat.py`) — transducer built from raw patches
 - `from_fieldii_xdc_data(data)` — parse MATLAB `xdc_get(Th,'all')` struct → `FieldIITransducer`
-- `from_fieldii_rect_data(rect)` — 26-row `xdc_get(Th,'rect')` matrix → `FieldIITransducer` (corners re-ordered to PyField's u/v quad convention from geometry alone, robust to Field II's perimeter corner ordering)
+- `from_fieldii_rect_data(rect)` — 26-row `xdc_get(Th,'rect')` matrix → `FieldIITransducer` (corners re-ordered to SonDI's u/v quad convention from geometry alone, robust to Field II's perimeter corner ordering)
 - `from_fieldii_patch_arrays(centres, u, v, hw, hh)` — explicit patch arrays → `FieldIITransducer`
-- Treats each Field II mathematical element as one PyField element (n_elements = N_patches)
+- Treats each Field II mathematical element as one SonDI element (n_elements = N_patches)
 - For monostatic reception, sum RF channels after simulation (all channels belong to the single aperture)
-- Scale convention: PyField uses `rho/(2c²)`, Field II uses `rho/2`. Raw amplitude differs by `c²≈2.37e6`. Normalised PSF unaffected.
+- Scale convention: SonDI uses `rho/(2c²)`, Field II uses `rho/2`. Raw amplitude differs by `c²≈2.37e6`. Normalised PSF unaffected.
 
 **Modifying SIR Computation**:
-- Core implementation: `src/pyfield/hsir/farfield_rect_patch.py`
+- Core implementation: `src/sondi/hsir/farfield_rect_patch.py`
 - Uses Numba JIT compilation for performance
 - Parallelized over field points (not patches)
 
 **Adding Visualization Methods**:
-- Plane metadata & parsing: `src/pyfield/plotting/plane_utils.py` (`PLANE_META`, `PlaneSpec`, `parse_planes`)
-- 2D/Matplotlib: Add to `src/pyfield/plotting/plotting2D.py`
-- 3D/PyVista helpers: Add to `src/pyfield/plotting/plotting_pyvista.py`
-- 3D/PyVista high-level: Add to `src/pyfield/plotting/plotting3D.py`
-- Export new functions from `src/pyfield/plotting/__init__.py`
+- Plane metadata & parsing: `src/sondi/plotting/plane_utils.py` (`PLANE_META`, `PlaneSpec`, `parse_planes`)
+- 2D/Matplotlib: Add to `src/sondi/plotting/plotting2D.py`
+- 3D/PyVista helpers: Add to `src/sondi/plotting/plotting_pyvista.py`
+- 3D/PyVista high-level: Add to `src/sondi/plotting/plotting3D.py`
+- Export new functions from `src/sondi/plotting/__init__.py`
 
-**Save/Export Convention** (defined in `src/pyfield/plotting/export_utils.py`):
+**Save/Export Convention** (defined in `src/sondi/plotting/export_utils.py`):
 - `save_path` = **always a directory** (or `None` to skip saving)
 - `file_name` = **always includes extension** (e.g. `"field.png"`, `"slices.mp4"`)
 - Use helpers: `save_matplotlib_animation`, `save_pyvista_screenshot`, `save_pyvista_movie`
@@ -521,7 +521,7 @@ yourself; resume cannot detect it.
 
 ## Field II Correspondence
 
-| Field II | PyField | Notes |
+| Field II | SonDI | Notes |
 |----------|---------|-------|
 | `xdc_impulse(Th, ir)` | `transducer.impulse_response = ir` | Per-transducer electromechanical IR |
 | `xdc_excitation(Th, exc)` | `transducer.excitation = exc` / `Emission(excitation=...)` | TX only |
@@ -645,7 +645,7 @@ Global path tiles `(L,) → (L, E)` and calls same element-loop as per-element p
 
 After editing Numba kernels, `.nbi`/`.nbc` cache files may retain old compiled versions. Symptom: fix "has no effect." Clear cache:
 ```powershell
-Get-ChildItem -Path "src\pyfield\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+Get-ChildItem -Path "src\sondi\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
 ```
 
 ### 7. `from_sir_to_pressure` Attenuation with No Excitation

@@ -1,5 +1,5 @@
 """
-Base class for all PyField transducer types.
+Base class for all SonDI transducer types.
 
 Every transducer is built from rectangular patches that approximate the
 physical aperture. Subclasses implement the geometry (element centers and
@@ -46,7 +46,7 @@ class TransducerBase(ABC):
     no_sub_x, no_sub_y : int
         Subdivision count along each axis (controls simulation accuracy).
     fc : float
-        Centre frequency in Hz (required by the PyField simulator).
+        Centre frequency in Hz (required by the SonDI simulator).
     speed_of_sound_mps : float
         Default propagation speed used when no ``c`` argument is supplied.
     """
@@ -110,7 +110,7 @@ class TransducerBase(ABC):
         Settable: assign a value in metres to override the geometric default —
         needed for imported geometries (e.g. a Field II ``xdc_focused_array``
         probe) whose lens curvature is present in the patches but whose focal
-        parameters are not known to PyField. Assign ``None`` to restore the
+        parameters are not known to SonDI. Assign ``None`` to restore the
         default. Subclasses with a native lens supply the default via
         ``_default_elevation_lens_sag``.
 

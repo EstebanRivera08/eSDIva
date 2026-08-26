@@ -18,6 +18,6 @@ p, coords = sim(field_points, method="auto")
 
 - Inspecting the raw SIR / arrival times at chosen field points.
 - Debugging transducer geometry.
-- Applying a custom convolution outside PyField.
+- Applying a custom convolution outside SonDI.
 
 For a full pulsed wavefront, add an excitation → [Transient + Excitation](transient-excitation.md).

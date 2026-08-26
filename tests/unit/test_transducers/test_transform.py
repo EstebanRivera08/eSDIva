@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pyfield.emission import Emission
+from sondi.emission import Emission
 
 
 def _homogeneous(R, t_mm):

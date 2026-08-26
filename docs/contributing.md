@@ -1,13 +1,13 @@
-# Contributing to PyField
+# Contributing to SonDI
 
-Thank you for your interest in contributing to PyField!
+Thank you for your interest in contributing to SonDI!
 
 ## Development setup
 
 1. **Clone the repository**:
    ```bash
-   git clone https://github.com/EstebanRivera08/PyField.git
-   cd PyField
+   git clone https://github.com/EstebanRivera08/SonDI.git
+   cd SonDI
    ```
 
 2. **Install dependencies** (including dev tools):
@@ -47,7 +47,7 @@ extra), you get:
 These files are written for [Claude Code](https://claude.com/claude-code) but the
 conventions are plain Markdown — adapt them to Cursor, Copilot, or any other
 assistant (e.g. copy the rules into `AGENTS.md` / `.cursorrules`). The intent is
-that an agent contributing to PyField produces code that is physically correct,
+that an agent contributing to SonDI produces code that is physically correct,
 documented for ultrasound researchers, and consistent with the rest of the package.
 
 ## Code style
@@ -75,16 +75,16 @@ uv run pytest tests/unit/ -v
 uv run pytest tests/integration/ -v
 
 # Run with coverage
-uv run pytest tests/ --cov=pyfield --cov-report=term-missing
+uv run pytest tests/ --cov=sondi --cov-report=term-missing
 ```
 
 ## Adding a new transducer type
 
 1. Create a new class inheriting from `TransducerBase` in the appropriate file
-   under `src/pyfield/transducers/`
+   under `src/sondi/transducers/`
 2. Implement `_compute_element_centers()` to define element positions
 3. Implement `_build_subdivisions()` to generate rectangular patches
-4. Export the new class in `src/pyfield/transducers/__init__.py`
+4. Export the new class in `src/sondi/transducers/__init__.py`
 5. Add tests in `tests/unit/test_transducers/`
 6. Add documentation in `docs/api/transducers.md`
 

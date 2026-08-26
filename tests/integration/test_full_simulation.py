@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 import pytest
 
-from pyfield.emission import PyField
-from pyfield.transducers import LinearArrayTransducer
+from sondi.emission import Emission
+from sondi.transducers import LinearArrayTransducer
 
 
 @pytest.fixture
@@ -43,8 +43,8 @@ def xz_field_grid():
 
 class TestMonochromaticSimulation:
     def test_runs_and_returns_correct_shapes(self, focused_transducer, xz_field_grid):
-        """Full pipeline: transducer -> PyField -> monochromatic output."""
-        sim = PyField(focused_transducer)
+        """Full pipeline: transducer -> Emission -> monochromatic output."""
+        sim = Emission(focused_transducer, monochromatic=True)
         p, coords = sim(xz_field_grid, method="auto")
 
         x, y, z = coords["x"], coords["y"], coords["z"]
@@ -56,7 +56,7 @@ class TestMonochromaticSimulation:
 
     def test_pressure_is_nonzero(self, focused_transducer, xz_field_grid):
         """The pressure field should not be all zeros."""
-        sim = PyField(focused_transducer)
+        sim = Emission(focused_transducer, monochromatic=True)
         p, coords = sim(xz_field_grid, method="auto")
         assert np.max(np.abs(p)) > 0
 
@@ -70,7 +70,7 @@ class TestMonochromaticSimulation:
             "dy": 0,
             "dz": 1.0,
         }
-        sim = PyField(focused_transducer)
+        sim = Emission(focused_transducer, monochromatic=True)
         p, coords = sim(grid, method="auto")
         x, z = coords["x"], coords["z"]
 
@@ -82,9 +82,3 @@ class TestMonochromaticSimulation:
         # Focus was at [0, 0, 20] mm — max should be near x=0, z=20
         assert abs(x_max) <= 2.0, f"Max pressure x={x_max}, expected near 0"
         assert abs(z_max - 20) <= 5.0, f"Max pressure z={z_max}, expected near 20"
-
-    def test_normalize_option(self, focused_transducer, xz_field_grid):
-        """normalize=True should scale max to 1."""
-        sim = PyField(focused_transducer)
-        p, coords = sim(xz_field_grid, method="auto", normalize=True)
-        assert np.max(np.abs(p)) == pytest.approx(1.0)

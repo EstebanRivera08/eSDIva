@@ -10,7 +10,7 @@ are mm at the API surface. See the [Transducers user guide](../user-guide/transd
 
 ## Shared interface — TransducerBase
 
-::: pyfield.transducers.TransducerBase
+::: sondi.transducers.TransducerBase
     options:
       members:
         - compute_delays
@@ -25,42 +25,42 @@ are mm at the API surface. See the [Transducers user guide](../user-guide/transd
 
 ## Array transducers
 
-::: pyfield.transducers.LinearArrayTransducer
+::: sondi.transducers.LinearArrayTransducer
     options:
       members: false
 
-::: pyfield.transducers.ConvexArrayTransducer
+::: sondi.transducers.ConvexArrayTransducer
     options:
       members: false
 
-::: pyfield.transducers.MatrixArrayTransducer
+::: sondi.transducers.MatrixArrayTransducer
     options:
       members: false
 
 ## Mono-element transducers
 
-::: pyfield.transducers.FlatCircularTransducer
+::: sondi.transducers.FlatCircularTransducer
     options:
       members: false
 
-::: pyfield.transducers.ConcaveCircularTransducer
+::: sondi.transducers.ConcaveCircularTransducer
     options:
       members: false
 
-::: pyfield.transducers.ConvexCircularTransducer
+::: sondi.transducers.ConvexCircularTransducer
     options:
       members: false
 
-::: pyfield.transducers.FocusedCircularTransducer
+::: sondi.transducers.FocusedCircularTransducer
     options:
       members: false
 
 ## Custom & imported
 
-::: pyfield.transducers.CustomTransducer
+::: sondi.transducers.CustomTransducer
     options:
       members: false
 
-::: pyfield.transducers.from_fieldii_rect_data
+::: sondi.transducers.from_fieldii_rect_data
 
-::: pyfield.transducers.from_fieldii_xdc_data
+::: sondi.transducers.from_fieldii_xdc_data

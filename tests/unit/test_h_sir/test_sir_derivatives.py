@@ -5,8 +5,8 @@ import warnings
 import numpy as np
 import pytest
 
-from pyfield.transducers import LinearArrayTransducer
-from pyfield.utilities.helper_functions import (
+from sondi.transducers import LinearArrayTransducer
+from sondi.utilities.helper_functions import (
     compute_sub_elem_attributes,
 )
 

@@ -2,7 +2,7 @@
 
 import pytest
 
-from pyfield.transducers import (
+from sondi.transducers import (
     ConcaveCircularTransducer,
     ConvexArrayTransducer,
     ConvexCircularTransducer,

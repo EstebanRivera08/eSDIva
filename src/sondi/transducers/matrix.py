@@ -96,7 +96,7 @@ class MatrixArrayTransducer(TransducerBase):
         self._widths_m = widths_mm * 1e-3  # shape (n_elements_x,)
         self._heights_m = heights_mm * 1e-3  # shape (n_elements_y,)
 
-        # Representative scalars for PyField compatibility
+        # Representative scalars for SonDI compatibility
         self.elem_width = float(self._widths_m.mean())
         self.elem_height = float(self._heights_m.mean())
 

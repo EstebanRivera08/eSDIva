@@ -13,9 +13,9 @@ import numpy as np
 import pytest
 from scipy.signal import hilbert
 
-from pyfield.beamforming import das_rca_volume
-from pyfield.reception import Reception
-from pyfield.transducers import LinearArrayTransducer
+from sondi.beamforming import das_rca_volume
+from sondi.reception import Reception
+from sondi.transducers import LinearArrayTransducer
 
 C = 1540.0
 

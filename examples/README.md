@@ -1,6 +1,6 @@
-# PyField Examples
+# SonDI Examples
 
-Complete example suite demonstrating every PyField capability.
+Complete example suite demonstrating every SonDI capability.
 Run any example with `uv run examples/<script>.py`.
 
 ---
@@ -41,7 +41,7 @@ Run any example with `uv run examples/<script>.py`.
 
 > **Field II notes**
 > - Field II uses a non-causal linear-frequency attenuation approximation.
->   PyField implements causal power-law attenuation with Kramers–Kronig dispersion
+>   SonDI implements causal power-law attenuation with Kramers–Kronig dispersion
 >   (Szabo 1994 / Holm 2019).
 > - Field II `calc_hhp` ≡ `calc_scat` (unit point) ↔ `Reception.pulse_echo_rf()`
 >   (any `method`) — zero explicit temporal derivatives; all pulse shaping lives in
@@ -74,7 +74,7 @@ FIG_FOLDER = ...            # destination directory (default: docs/examples/asse
 SCALE = 3                   # DPI multiplier for saved screenshots
 ```
 
-`PYFIELD_SAVE_FIG=1` in the environment overrides `SAVE_FIG` (used to
+`SONDI_SAVE_FIG=1` in the environment overrides `SAVE_FIG` (used to
 batch-regenerate documentation figures). On Windows also set `PYTHONUTF8=1`
 so Unicode symbols print correctly.
 
@@ -98,7 +98,7 @@ so Unicode symbols print correctly.
 | `CustomTransducer` | 01, 18 |
 | `from_fieldii_rect_data` (Field II import) | 17 |
 | Attenuation (`alpha0`, `freq_power`) | 10, 11 |
-| `pyfield.beamforming.das` | 09 |
+| `sondi.beamforming.das` | 09 |
 | `das_volume` (general 3-D DAS) + IQ compounding | 21 |
 | `make_phantom` (speckle phantom) | 20, 21 |
 | `plot2D_pressure_slices` | 02, 04, 11, 17 |

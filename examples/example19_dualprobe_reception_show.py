@@ -19,8 +19,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-import pyfield.transducers as transducers
-from pyfield.reception import Reception
+import sondi.transducers as transducers
+from sondi.reception import Reception
 
 # ============================================================================
 # CONFIGURATION

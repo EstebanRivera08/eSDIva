@@ -63,9 +63,9 @@ from step1_define_phantom_TX_RX import (
 )
 from config import SAVE_FIG
 
-from pyfield.beamforming import das_volume
-from pyfield.io import RFDataset
-from pyfield.utilities import to_dB
+from sondi.beamforming import das_volume
+from sondi.io import RFDataset
+from sondi.utilities import to_dB
 
 FNUM = 0.5  # full receive aperture (see the module docstring, point 1)
 RX_APOD = "rect"

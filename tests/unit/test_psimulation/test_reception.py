@@ -6,9 +6,9 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from pyfield.reception import Reception
-from pyfield.transducers import LinearArrayTransducer
-from pyfield.utilities.helper_functions import create_3D_spatial_grid_from_points
+from sondi.reception import Reception
+from sondi.transducers import LinearArrayTransducer
+from sondi.utilities.helper_functions import create_3D_spatial_grid_from_points
 
 
 @pytest.fixture

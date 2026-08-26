@@ -7,7 +7,7 @@ icon: lucide/box
 The PyVista backend renders the full 3-D pressure volume as isosurfaces, enabling interactive exploration of the focal region. See the [Multi-element 3-D example](../examples/example03_multielements_monochromatic_CW.md) for working code.
 
 ```python
-from pyfield.plotting import plot3D_pressure_vol
+from sondi.plotting import plot3D_pressure_vol
 
 pl = plot3D_pressure_vol(p, x=x, y=y, z=z, contour_levels=11)
 pl.show()
@@ -34,7 +34,7 @@ Zeus matrix array resolving anechoic targets and wires inside the speckle:
 
 ```python
 import pyvista as pv
-from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
+from sondi.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 pl = pv.Plotter()
 mesh = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p)

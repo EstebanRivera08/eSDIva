@@ -26,8 +26,8 @@ uv run examples/example19_dualprobe_reception_show.py
 
 ```python
 import numpy as np
-import pyfield.transducers as transducers
-from pyfield.reception import Reception
+import sondi.transducers as transducers
+from sondi.reception import Reception
 
 tx = transducers.Domino()
 tx.compute_delays(focus_mm=[0, 0, 20])
@@ -45,4 +45,4 @@ sim.show(scatterer_pos, scatterer_amp)  # 3-D preview
 rf, coords = sim(scatterer_pos, scatterer_amp)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example19_dualprobe_reception_show.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example19_dualprobe_reception_show.py)

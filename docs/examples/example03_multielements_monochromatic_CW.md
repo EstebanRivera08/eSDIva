@@ -27,9 +27,9 @@ uv run examples/example03_multielements_monochromatic_CW.py
 ## Key code
 
 ```python
-from pyfield.transducers import Domino
-from pyfield.emission import Emission
-from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
+from sondi.transducers import Domino
+from sondi.emission import Emission
+from sondi.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 probe = Domino()
 probe.compute_delays(focus_mm=[-2, 0, 8])
@@ -49,4 +49,4 @@ plotter = add_transducer_mesh(tx_mesh, plotter=plotter)
 plotter.show()
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example03_multielements_monochromatic_CW.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example03_multielements_monochromatic_CW.py)

@@ -34,9 +34,9 @@ uv run examples/example02_monoelements_monochromatic_CW.py
 ## Key code
 
 ```python
-from pyfield.emission import Emission
-from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.plotting import plot2D_pressure_slices
+from sondi.emission import Emission
+from sondi.transducers import ConcaveCircularTransducer
+from sondi.plotting import plot2D_pressure_slices
 
 bowl = ConcaveCircularTransducer(
     diameter_mm=40.0,
@@ -50,4 +50,4 @@ p, coords = sim(xz_grid, method="auto")
 plot2D_pressure_slices(p / p.max(), coords=coords)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example02_monoelements_monochromatic_CW.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example02_monoelements_monochromatic_CW.py)

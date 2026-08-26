@@ -98,7 +98,7 @@ def eta_progress(iterable, n_total, *, label="batches", progress=True):
     """Yield from ``iterable``, announcing an ETA and tracking progress for long runs.
 
     Times the first iteration and extrapolates to ``n_total`` via
-    [announce_eta][pyfield.utilities.helper_functions.announce_eta]; short runs
+    [announce_eta][sondi.utilities.helper_functions.announce_eta]; short runs
     (projected under 30 s) stay completely silent. For long runs, when
     ``progress`` is True a single carriage-return line keeps the iteration
     count, elapsed time, and remaining-time estimate updated (set it False when
@@ -654,7 +654,7 @@ def to_dB(matrix, *, vmin=None, vmax=None):
 def align_to_common_time(fields_and_coords, *, align_to_shorter=False):
     """Interpolate multiple transient fields to a common time grid.
 
-    When simulating separate planes, each call to ``PyField`` may produce a
+    When simulating separate planes, each call to ``SonDI`` may produce a
     different ``t0`` and number of time samples ``Nt``.  This function
     reconstructs the individual time vectors, computes a shared time axis,
     and interpolates every field onto it.
@@ -663,7 +663,7 @@ def align_to_common_time(fields_and_coords, *, align_to_shorter=False):
     ----------
     fields_and_coords : list of (pressure, coords) tuples
         Each element is a ``(pressure, coords)`` pair as returned by
-        ``PyField.__call__`` in transient mode.  ``coords`` must contain
+        ``SonDI.__call__`` in transient mode.  ``coords`` must contain
         ``"t0"`` (float) and ``"dt"`` (float).
     align_to_shorter : bool, optional
         If ``False`` (default), the common time grid spans the full range

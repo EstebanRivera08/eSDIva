@@ -71,7 +71,7 @@ ladder":
   fixed depths plus one axial, so the point-spread width is read continuously
   with depth.
 
-Build it with `pyfield.utilities.make_phantom`, which places random scatterers
+Build it with `sondi.utilities.make_phantom`, which places random scatterers
 and draws their amplitudes from `N(0,1)` times an echogenicity map. Two things
 change per scenario, both dictated by physics, not taste:
 
@@ -101,7 +101,7 @@ decides here is *cost*, through the scatterer count above.
 
 ## The beamformer
 
-`pyfield.beamforming.das_volume` beamforms **any** transmit scheme (plane wave,
+`sondi.beamforming.das_volume` beamforms **any** transmit scheme (plane wave,
 diverging wave, focused, synthetic aperture) in one call, assuming the transmit
 and receive apertures coincide. Each event carries its `delays`/`apodization`
 plus one geometric key:

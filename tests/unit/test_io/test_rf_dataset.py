@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pyfield.io import RFDataset
+from sondi.io import RFDataset
 
 
 def _config(**overrides):

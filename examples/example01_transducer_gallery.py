@@ -1,7 +1,7 @@
 """
 Example 1: Transducer Gallery
 
-Demonstrates all transducer types available in pyfield.transducers, showing
+Demonstrates all transducer types available in sondi.transducers, showing
 their geometry (PyVista mesh) and, where applicable, their apodization and
 delay patterns.
 
@@ -33,8 +33,8 @@ import pyvista as pv
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-import pyfield
-from pyfield.transducers import (
+import sondi
+from sondi.transducers import (
     ConcaveCircularTransducer,
     ConvexArrayTransducer,
     CustomTransducer,
@@ -105,11 +105,11 @@ def _show_or_save(tx, filename, scalars="Apodization"):
 
 
 print("\n" + "=" * 60)
-print("  PyField Transducer Gallery")
+print("  SonDI Transducer Gallery")
 print("=" * 60 + "\n")
 print(
-    "Available transducers in pyfield.transducers:",
-    pyfield.transducers.available_transducers(),
+    "Available transducers in sondi.transducers:",
+    sondi.transducers.available_transducers(),
 )
 
 # ============================================================================

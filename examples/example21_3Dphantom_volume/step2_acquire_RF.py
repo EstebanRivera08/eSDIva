@@ -43,8 +43,8 @@ from step1_define_phantom_TX_RX import (
     excitation,
 )
 
-from pyfield.io import RFDataset
-from pyfield.reception import Reception
+from sondi.io import RFDataset
+from sondi.reception import Reception
 
 print(f"\n--- Example 21 · Step 2: acquisition, scenario '{SCENARIO}' ---\n")
 

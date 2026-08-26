@@ -18,9 +18,9 @@ import numpy as np
 
 from config import FIG_FOLDER, SAVE_FIG
 
-import pyfield.transducers as transducers
-from pyfield.plotting import plot2D_pressure_slices
-from pyfield.emission import Emission
+import sondi.transducers as transducers
+from sondi.plotting import plot2D_pressure_slices
+from sondi.emission import Emission
 
 # ============================================================================
 # CONFIGURATION

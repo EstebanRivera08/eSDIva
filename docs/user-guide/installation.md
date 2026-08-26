@@ -12,13 +12,13 @@ icon: lucide/package
 ## Install from GitHub
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/PyField.git
+uv add git+https://github.com/EstebanRivera08/SonDI.git
 ```
 
 Or with pip:
 
 ```bash
-pip install git+https://github.com/EstebanRivera08/PyField.git
+pip install git+https://github.com/EstebanRivera08/SonDI.git
 ```
 
 ## Development installation
@@ -26,8 +26,8 @@ pip install git+https://github.com/EstebanRivera08/PyField.git
 Clone the repository and sync all dependencies including dev tools:
 
 ```bash
-git clone https://github.com/EstebanRivera08/PyField.git
-cd PyField
+git clone https://github.com/EstebanRivera08/SonDI.git
+cd SonDI
 uv sync
 ```
 
@@ -43,9 +43,9 @@ These are installed automatically when running `uv sync` inside the cloned repos
 ## Verify installation
 
 ```python
-import pyfield
-print(pyfield.__version__)
+import sondi
+print(sondi.__version__)
 ```
 
 !!! note "PyPI release coming soon"
-    PyField will be available on PyPI in a future release. For now, install from GitHub.
+    SonDI will be available on PyPI in a future release. For now, install from GitHub.

@@ -4,7 +4,7 @@ icon: lucide/box
 
 # PyVista Integration
 
-PyField's PyVista helpers compose rich 3-D scenes combining:
+SonDI's PyVista helpers compose rich 3-D scenes combining:
 
 - **Pressure volumes** — isosurfaces or volumetric rendering of `p(x, y, z)`
 - **Transducer meshes** — patch geometry coloured by apodization or delays

@@ -10,7 +10,7 @@ and its Fourier component at `fc` is taken — returning a 3-D amplitude field
 `p(x, y, z)`.
 
 ```python
-from pyfield.emission import Emission
+from sondi.emission import Emission
 
 sim = Emission(tx, monochromatic=True)
 p, coords = sim(field_points, method="auto")

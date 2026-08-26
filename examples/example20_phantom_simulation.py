@@ -22,9 +22,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.reception import Reception
-from pyfield.transducers import LinearArrayTransducer
-from pyfield.utilities import align_to_common_time, make_phantom
+from sondi.reception import Reception
+from sondi.transducers import LinearArrayTransducer
+from sondi.utilities import align_to_common_time, make_phantom
 
 # ============================================================================
 # CONFIGURATION

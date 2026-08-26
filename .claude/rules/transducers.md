@@ -1,6 +1,6 @@
 ---
 paths:
-  - "src/pyfield/transducers/**"
+  - "src/sondi/transducers/**"
 ---
 
 # Transducer Design Rules
@@ -103,7 +103,7 @@ Removed params: `center_refine`, `border_refine`, `filled_radius_with_big_patche
 1. Inherit from `TransducerBase`
 2. Implement `_compute_element_centers()` — element positions
 3. Implement `_build_subdivisions()` — rectangular patches
-4. Export in `src/pyfield/transducers/__init__.py`
+4. Export in `src/sondi/transducers/__init__.py`
 
 Design for generalization — backward compatibility matters since new transducers
 will be added over time.

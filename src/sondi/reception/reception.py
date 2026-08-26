@@ -1,6 +1,6 @@
 """Reception: pulse-echo RF from point scatterers, via the combined PE-SDI kernel.
 
-Pulse-echo RF model. PyField computes the received radio-frequency (RF) echo from a
+Pulse-echo RF model. SonDI computes the received radio-frequency (RF) echo from a
 field of point scatterers using the spatial-impulse-response scattering model introduced
 by Jensen (J. A. Jensen, "A model for the propagation and scattering of ultrasound in
 tissue", J. Acoust. Soc. Am. 89(1), 182-190, 1991), the same model implemented by Field
@@ -19,7 +19,7 @@ impulse responses, so in practice ``v_pe ∝ e ⊛ h_e ⊛ h_r`` (Field II's con
 
 SIR assumption (where SDI is valid). Everything here rests on the Tupholme-Stepanishen
 SIR formulation (G. E. Tupholme, Mathematika 16, 209-224, 1969; P. R. Stepanishen, J.
-Acoust. Soc. Am. 49, 1629-1638, 1971): PyField evaluates each aperture as a sum of small
+Acoust. Soc. Am. 49, 1629-1638, 1971): SonDI evaluates each aperture as a sum of small
 rectangular patches whose SIR, in the far field, is a trapezoid with four corner times.
 The SDI ("sparse delta integration") development below is purely a fast way to evaluate
 the RF equation under that assumption — it introduces NO new physics and is valid only
@@ -84,13 +84,13 @@ import warnings
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from pyfield.hsir.transducer_sir_pe_sdi import (
+from sondi.hsir.transducer_sir_pe_sdi import (
     compute_oneway_spectrum_band,
     compute_pe_complete,
     compute_twoway_spectrum_summed,
 )
 
-from pyfield.utilities.helper_functions import (
+from sondi.utilities.helper_functions import (
     eta_progress as _eta_progress,
     next_pow2 as _next_pow2,
     wrap_tqdm as _wrap_tqdm,

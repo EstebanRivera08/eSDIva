@@ -4,13 +4,13 @@ icon: lucide/arrow-right-left
 
 # Field II Correspondence
 
-PyField deliberately mirrors Field II's conventions so a Field II user can
+SonDI deliberately mirrors Field II's conventions so a Field II user can
 transition (and cross-validate) with minimal friction. This page collects the
 correspondences in one place.
 
 ## Transducer classes ↔ `xdc_*` functions
 
-| Field II | PyField | z-datum |
+| Field II | SonDI | z-datum |
 |---|---|---|
 | `xdc_linear_array` | `LinearArrayTransducer` | flat face at z = 0 |
 | `xdc_focused_array` | `LinearArrayTransducer(elevation_focus_mm=...)` | element face (rim) at z = 0, lens dished back to −sag |
@@ -32,7 +32,7 @@ angle θ (nodes at `y = R·sin θ`), exactly matching Field II's tiling of
 
 ## Simulation calls
 
-| Field II | PyField |
+| Field II | SonDI |
 |---|---|
 | `calc_h` | `Emission(tx)` — pulsed mode (returns `ρ₀·h`; identical arrays at `rho=1`) |
 | `calc_hp` | `Emission(tx, fs=..., excitation=e)` with `xdc_impulse` ↔ `tx.set_impulse_response` |
@@ -43,16 +43,16 @@ angle θ (nodes at `y = R·sin θ`), exactly matching Field II's tiling of
 The pulse-echo derivative convention is shared: the physical `∂³v/∂t³` is
 carried by the band-limited excitation and TX/RX impulse responses — neither
 simulator applies an explicit derivative, so `calc_scat` for a unit point
-equals `calc_hhp` and PyField's RF coincides with both (correlation ≈ 1.0000).
+equals `calc_hhp` and SonDI's RF coincides with both (correlation ≈ 1.0000).
 
 ## Time origin (`t0`)
 
-Field II reports absolute time from the excitation start. PyField returns each
+Field II reports absolute time from the excitation start. SonDI returns each
 result with `coords["t0"]`, referenced to the **beam axis**: the TX (and RX)
 focusing bulk `delays.max()` is subtracted so downstream beamforming needs no
 per-line correction.
 
-For a lens-focused aperture, PyField's time grid is referenced to the
+For a lens-focused aperture, SonDI's time grid is referenced to the
 first-arriving rim, but the focused elevation echo peaks one lens transit
 later; reception therefore adds `elevation_lens_sag / c` once per aperture
 (TX and RX). With this, a native elevation-focused linear array matches
@@ -66,7 +66,7 @@ the lens focal length — pass `elevation_focus_mm=` (the Field II `Rfocus`) to
 
 ## Amplitude scale
 
-PyField scales the pulse-echo RF by `ρ₀ / 2c₀²` (the physical scattering
+SonDI scales the pulse-echo RF by `ρ₀ / 2c₀²` (the physical scattering
 prefactor); Field II uses approximately `ρ₀ / 2`. For a unit-amplitude
 scatterer the raw RF amplitudes therefore differ by a factor `c₀²`
 (≈ 2.37 × 10⁶ at 1540 m/s). Normalised comparisons (envelope / peak, PSF,
@@ -74,7 +74,7 @@ correlation) are unaffected.
 
 ## Units
 
-Field II is SI everywhere (metres, seconds). PyField's user-facing API is
+Field II is SI everywhere (metres, seconds). SonDI's user-facing API is
 **mm** (`_mm` suffixes) with SI internals — the one deliberate departure.
 `FieldIITransducer` takes its patch geometry in metres, exactly as exported
 by `xdc_get`.

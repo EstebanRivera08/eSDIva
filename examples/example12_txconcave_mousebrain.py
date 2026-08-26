@@ -30,15 +30,15 @@ import pyvista as pv
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-from pyfield.emission import Emission
-from pyfield.plotting import (
+from sondi.emission import Emission
+from sondi.plotting import (
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,
     create_3Dvol_mesh,
 )
-from pyfield.transducers import ConcaveCircularTransducer
-from pyfield.utilities import BG_Atlas
+from sondi.transducers import ConcaveCircularTransducer
+from sondi.utilities import BG_Atlas
 
 WIN_W, WIN_H = 800, 600
 

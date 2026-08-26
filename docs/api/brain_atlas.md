@@ -8,7 +8,7 @@ BrainGlobe-backed atlas integration. Downloads atlas data on first use and
 registers anatomical meshes into the lab coordinate frame. See the
 [Brain Atlas user guide](../user-guide/brain-atlas.md).
 
-::: pyfield.utilities.BG_Atlas
+::: sondi.utilities.BG_Atlas
     options:
       members:
         - set_bgatlas

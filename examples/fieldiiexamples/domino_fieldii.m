@@ -1,8 +1,8 @@
 % domino_fieldii.m
 % ---------------------------------------------------------------------------
-% Build the PyField "Domino" probe in MATLAB Field II and save its
+% Build the SonDI "Domino" probe in MATLAB Field II and save its
 % mathematical-element geometry, so example 17 can import it and check the
-% imported aperture matches pyfield.transducers.Domino() patch-for-patch.
+% imported aperture matches sondi.transducers.Domino() patch-for-patch.
 %
 % Domino = 128-element elevation-focused linear array, 12.5 MHz:
 %   pitch 0.11 mm, element 0.108 x 1.5 mm, kerf 0.002 mm,
@@ -27,11 +27,11 @@ height  = 1.5e-3;            % element height (y, elevation) [m]
 pitch   = 0.11e-3;           % [m]
 kerf    = pitch - width;     % [m]
 Rfocus  = 8e-3;              % elevation lens focal length [m]
-no_sub_x = 1;                % lateral  subdivisions per element (PyField no_sub_x)
-no_sub_y = 10;               % elevation subdivisions per element (PyField no_sub_y)
+no_sub_x = 1;                % lateral  subdivisions per element (SonDI no_sub_x)
+no_sub_y = 10;               % elevation subdivisions per element (SonDI no_sub_y)
 
 % Elevation-focused linear array: flat element face at z = 0, cylindrical
-% lens curving along y — this is the Field II analogue of a PyField
+% lens curving along y — this is the Field II analogue of a SonDI
 % LinearArrayTransducer with elevation_focus_mm set.
 Th = xdc_focused_array(n_elements, width, height, kerf, Rfocus, ...
                        no_sub_x, no_sub_y, [0 0 30]/1000);

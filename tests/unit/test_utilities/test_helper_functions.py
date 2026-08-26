@@ -1,6 +1,6 @@
-"""Tests for pyfield.utilities.helper_functions."""
+"""Tests for sondi.utilities.helper_functions."""
 
-from pyfield.utilities.helper_functions import (
+from sondi.utilities.helper_functions import (
     create_spatial_grid_from_dict,
 )
 

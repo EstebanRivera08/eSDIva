@@ -4,7 +4,7 @@ On-axis peak pressure and spatial-peak temporal-average intensity (Ispta)
 versus depth for a focused linear array, with and without tissue attenuation
 — the quantities behind acoustic-output safety metrics (FDA/IEC).
 
-Field II parallel: `example_intensity.m`. PyField uses causal power-law
+Field II parallel: `example_intensity.m`. SonDI uses causal power-law
 attenuation with Kramers–Kronig dispersion instead of Field II's non-causal
 linear-frequency approximation.
 
@@ -27,7 +27,7 @@ uv run examples/example10_intensities_peak_pressure.py
 ## Key code
 
 ```python
-from pyfield.emission import Emission
+from sondi.emission import Emission
 
 sim = Emission(tx, fs=200e6, excitation=pulse, rho=1000.0,
                alpha0=0.5, freq_power=1.0)     # dB/(cm·MHz^y)
@@ -37,4 +37,4 @@ peak = np.abs(p[:, 0, 0, :]).max(axis=0)        # (Nz,) peak pressure
 ispta = (p[:, 0, 0, :] ** 2).sum(axis=0) / (2 * Z_acoustic * fs * T_prf)
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example10_intensities_peak_pressure.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example10_intensities_peak_pressure.py)

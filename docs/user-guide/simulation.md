@@ -4,7 +4,7 @@ icon: lucide/audio-lines
 
 # Simulation
 
-PyField splits simulation into two families, both driven by the **SDI** spatial
+SonDI splits simulation into two families, both driven by the **SDI** spatial
 impulse response engine:
 
 <div class="grid cards" markdown>

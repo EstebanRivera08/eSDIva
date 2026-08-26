@@ -25,7 +25,7 @@ uv run examples/example09_lineararray_imagePSF.py
 ## Key code
 
 ```python
-from pyfield.reception import Reception
+from sondi.reception import Reception
 
 sim = Reception(tx, rx, c=1540, fs=100e6, excitation=pulse)
 
@@ -41,4 +41,4 @@ for x in x_lines_mm:
 bmode = 20 * np.log10(np.maximum(np.stack(env_lines, 1) / peak, 1e-3))
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example09_lineararray_imagePSF.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example09_lineararray_imagePSF.py)

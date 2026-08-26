@@ -6,7 +6,7 @@ import numpy as np
 import numpy.typing as npt
 from numba import njit, prange
 
-from pyfield.utilities import to_dB
+from sondi.utilities import to_dB
 
 
 def DAS_focused_scanline(

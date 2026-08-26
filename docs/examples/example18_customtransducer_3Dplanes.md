@@ -26,9 +26,9 @@ uv run examples/example18_customtransducer_3Dplanes.py
 ## Key code
 
 ```python
-from pyfield.transducers import CustomTransducer, FlatCircularTransducer
-from pyfield.emission import Emission
-from pyfield.plotting import add_2D_image, add_transducer_mesh, create_2Dimage_mesh
+from sondi.transducers import CustomTransducer, FlatCircularTransducer
+from sondi.emission import Emission
+from sondi.plotting import add_2D_image, add_transducer_mesh, create_2Dimage_mesh
 
 disc = FlatCircularTransducer(diameter_mm=3.0, no_sub_diameter=6, frequency_Hz=1e6)
 tx = CustomTransducer(elements=[disc] * 64, positions_mm=spiral_positions_mm,
@@ -47,4 +47,4 @@ plotter = add_2D_image(mesh, cmap="jet", clim=[-40, 0])
 plotter = add_transducer_mesh(tx.get_mesh(), plotter=plotter, scalars="Delays")
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example18_customtransducer_3Dplanes.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example18_customtransducer_3Dplanes.py)

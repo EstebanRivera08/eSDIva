@@ -1,8 +1,8 @@
 blank_issues_enabled: false
 contact_links:
   - name: Documentation
-    url: https://estebanrivera08.github.io/PyField/
+    url: https://estebanrivera08.github.io/SonDI/
     about: User guide, API reference, and worked examples.
   - name: Questions & discussion
-    url: https://github.com/EstebanRivera08/PyField/discussions
+    url: https://github.com/EstebanRivera08/SonDI/discussions
     about: Usage questions and open-ended discussion (not bug reports).

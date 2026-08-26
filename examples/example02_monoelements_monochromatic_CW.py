@@ -2,7 +2,7 @@
 Example 2: Mono-element Circular Transducer Pressure Fields
 
 Computes and visualises the monochromatic pressure field for all circular
-transducer types available in PyField:
+transducer types available in SonDI:
 
   1. FlatCircularTransducer    — flat piston disc
   2. ConcaveCircularTransducer — spherically focused bowl (TUS / HIFU)
@@ -21,9 +21,9 @@ Run with:
 
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-from pyfield.emission import Emission
-from pyfield.plotting import plot2D_pressure_slices
-from pyfield.transducers import (
+from sondi.emission import Emission
+from sondi.plotting import plot2D_pressure_slices
+from sondi.transducers import (
     ConcaveCircularTransducer,
     ConvexCircularTransducer,
     FlatCircularTransducer,

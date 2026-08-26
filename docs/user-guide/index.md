@@ -7,7 +7,7 @@ hide:
 # User Guide
 
 Everything you need to simulate acoustic pressure fields and pulse-echo RF with
-PyField — from installation to transducer geometry, emission, and reception.
+SonDI — from installation to transducer geometry, emission, and reception.
 
 <div class="grid cards" markdown>
 
@@ -15,7 +15,7 @@ PyField — from installation to transducer geometry, emission, and reception.
 
     ---
 
-    Install PyField, run your first simulation, and learn the key concepts: patch discretisation, coordinate system, and unit conventions.
+    Install SonDI, run your first simulation, and learn the key concepts: patch discretisation, coordinate system, and unit conventions.
 
 -   :lucide-package: **[Installation](installation.md)**
 

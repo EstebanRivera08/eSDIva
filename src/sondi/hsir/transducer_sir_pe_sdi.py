@@ -6,7 +6,7 @@ second time-derivative is four Dirac deltas, so the *product* of the two delta t
 the raw two-way kernel `Δδ_pe = D²h_tx ⊛ D²h_rx` — 16 deltas per patch pair. The smooth
 two-way SIR is recovered by integrating four times, `h_tx ⊛ h_rx = I⁴ Δδ_pe`.
 
-PyField evaluates that pulse-echo signal two ways, each implemented here. They give the
+SonDI evaluates that pulse-echo signal two ways, each implemented here. They give the
 same RF; they differ only in where the four integrations and the convolution are done:
 
 Paired (TX×RX patch-pair enumeration, 16 deltas per pair — cost ∝ M_tx·M_rx):
@@ -30,7 +30,7 @@ Each kernel parallelizes over scatterers (`prange` over P); a single field point
 import numpy as np
 from numba import get_num_threads, njit, prange
 
-from pyfield.attenuation.attenuation import _causal_atten_factor
+from sondi.attenuation.attenuation import _causal_atten_factor
 
 from .helpers import (
     _compute_rectangle_SIR_params,

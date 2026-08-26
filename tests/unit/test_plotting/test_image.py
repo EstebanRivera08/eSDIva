@@ -7,7 +7,7 @@ import pytest
 
 matplotlib.use("Agg")
 
-from pyfield.plotting import plot2D_pressure_plane as _plot2D
+from sondi.plotting import plot2D_pressure_plane as _plot2D
 
 
 # Old test API: plot_pressure_2D(x, z, p, ax=None).

@@ -14,7 +14,7 @@ variation from centre to rim — to show how patches follow the local tangent
 plane and how `border_refine` controls how closely the mosaic follows the
 aperture boundary.
 
-[Source on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example16_subdivide_parametric_surface.py)
+[Source on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example16_subdivide_parametric_surface.py)
 
 ---
 
@@ -22,7 +22,7 @@ aperture boundary.
 
 ```python
 import numpy as np
-from pyfield.utilities.surface_subdivision import subdivide_parametric_surface
+from sondi.utilities.surface_subdivision import subdivide_parametric_surface
 
 # Ellipsoidal cap: z(x, y) = c * sqrt(1 - x²/a² - y²/b²)
 a, b, c = 30e-3, 20e-3, 15e-3   # semi-axes in metres

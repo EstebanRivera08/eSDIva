@@ -43,8 +43,8 @@ body:
   - type: input
     id: version
     attributes:
-      label: PyField version
-      description: "`python -c \"import pyfield; print(pyfield.__version__)\"`"
+      label: SonDI version
+      description: "`python -c \"import sondi; print(sondi.__version__)\"`"
     validations:
       required: true
   - type: input

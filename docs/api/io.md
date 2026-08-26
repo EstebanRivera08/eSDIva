@@ -10,7 +10,7 @@ self-describing, UFF/MATLAB-compatible HDF5 file.
 
 ## RFDataset
 
-::: pyfield.io.RFDataset
+::: sondi.io.RFDataset
     options:
       members:
         - write_event
@@ -21,4 +21,4 @@ self-describing, UFF/MATLAB-compatible HDF5 file.
 
 ## save_rf_hdf5
 
-::: pyfield.io.save_rf_hdf5
+::: sondi.io.save_rf_hdf5

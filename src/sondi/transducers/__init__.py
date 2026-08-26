@@ -1,4 +1,4 @@
-"""Transducer geometry classes for the PyField acoustic simulator.
+"""Transducer geometry classes for the SonDI acoustic simulator.
 
 Notes
 -----

@@ -3,7 +3,7 @@
 import numpy as np
 import pytest
 
-from pyfield.transducers import LinearArrayTransducer, MatrixArrayTransducer
+from sondi.transducers import LinearArrayTransducer, MatrixArrayTransducer
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ class TestSteeringErrors:
             linear_8elem.compute_delays(angle_steering_deg=(60.0, 60.0))
 
     def test_mono_element_returns_zeros_with_warning(self):
-        from pyfield.transducers import FlatCircularTransducer
+        from sondi.transducers import FlatCircularTransducer
 
         tx = FlatCircularTransducer(
             diameter_mm=10.0, no_sub_diameter=4, frequency_Hz=1e6

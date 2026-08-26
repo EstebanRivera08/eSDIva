@@ -1,6 +1,6 @@
 # Example 1: Transducer Gallery
 
-Demonstrates every transducer type available in `pyfield.transducers` — from
+Demonstrates every transducer type available in `sondi.transducers` — from
 flat linear arrays to custom multi-element helmets.
 
 ## What you will learn
@@ -39,7 +39,7 @@ uv run examples/example01_transducer_gallery.py
 ## Key code
 
 ```python
-from pyfield.transducers import LinearArrayTransducer
+from sondi.transducers import LinearArrayTransducer
 
 linear = LinearArrayTransducer(
     n_elements=64,
@@ -56,4 +56,4 @@ linear.compute_apodization(focus_mm=[0, 0, 50], FoverD=2.0)
 linear.show(scalars="Apodization")
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example01_transducer_gallery.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example01_transducer_gallery.py)

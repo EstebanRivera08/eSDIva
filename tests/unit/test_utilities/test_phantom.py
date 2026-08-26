@@ -1,9 +1,9 @@
-"""Tests for pyfield.utilities.phantom.make_phantom."""
+"""Tests for sondi.utilities.phantom.make_phantom."""
 
 import numpy as np
 import pytest
 
-from pyfield.utilities import make_phantom
+from sondi.utilities import make_phantom
 
 BOX = {"x_extent": [-10.0, 10.0], "y_extent": [-1.0, 1.0], "z_extent": [10.0, 40.0]}
 

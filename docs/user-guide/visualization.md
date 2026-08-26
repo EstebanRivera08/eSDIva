@@ -4,7 +4,7 @@ icon: lucide/square-activity
 
 # Visualization
 
-PyField provides two visualization backends suited for different workflows.
+SonDI provides two visualization backends suited for different workflows.
 
 <div class="grid cards" markdown>
 
@@ -45,7 +45,7 @@ PyField provides two visualization backends suited for different workflows.
 Both backends support logarithmic display:
 
 ```python
-from pyfield.plotting import plot2D_pressure_slices
+from sondi.plotting import plot2D_pressure_slices
 plot2D_pressure_slices(p, x=x, y=y, z=z, db_scale=True, vmin=-40)
 ```
 
@@ -57,7 +57,7 @@ Multiple PyVista helpers chain on the same plotter:
 
 ```python
 import pyvista as pv
-from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
+from sondi.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
 pl = pv.Plotter()
 mesh = create_3Dvol_mesh(coords["x"], coords["y"], coords["z"], p)

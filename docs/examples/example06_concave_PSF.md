@@ -26,8 +26,8 @@ uv run examples/example06_concave_PSF.py
 ## Key code
 
 ```python
-from pyfield.reception import Reception
-from pyfield.transducers import ConcaveCircularTransducer
+from sondi.reception import Reception
+from sondi.transducers import ConcaveCircularTransducer
 
 tx = ConcaveCircularTransducer(diameter_mm=16, focus_mm=80, frequency_Hz=3e6,
                                no_sub_diameter=16)
@@ -40,4 +40,4 @@ rf, coords = sim.pulse_echo_rf(scatterer_positions_mm, per_scatterer=True)
 # rf.shape = (N_scat, E_rx, Nt) — the PSF, one trace per lateral position
 ```
 
-[View full script on GitHub](https://github.com/EstebanRivera08/PyField/blob/main/examples/example06_concave_PSF.py)
+[View full script on GitHub](https://github.com/EstebanRivera08/SonDI/blob/main/examples/example06_concave_PSF.py)

@@ -22,9 +22,9 @@ import pyvista as pv
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-from pyfield.emission import Emission
-from pyfield.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
-from pyfield.transducers import Domino, Zeus_Matrix
+from sondi.emission import Emission
+from sondi.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
+from sondi.transducers import Domino, Zeus_Matrix
 
 RUN_LINEAR_ARRAY = True
 RUN_MATRIX_ARRAY = True

@@ -68,7 +68,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).parents[1]))
 from config import FIG_FOLDER
 
-from pyfield.transducers import MatrixArrayTransducer
+from sondi.transducers import MatrixArrayTransducer
 
 # Default scenario: vermon — the fastest acquisition, so the whole pipeline
 # (steps 1-3 + visualizers) regenerates the documentation figures in minutes.
@@ -252,7 +252,7 @@ def build_phantom(sc: dict):
     that the sidelobe skirt stays below the speckle (amplitude 10 once washed
     whole depth planes).
     """
-    from pyfield.utilities import make_phantom
+    from sondi.utilities import make_phantom
 
     vol = sc["volume"]
     vol_mm3 = np.prod([np.diff(vol[f"{ax}_extent"])[0] for ax in "xyz"])

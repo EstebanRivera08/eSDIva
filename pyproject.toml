@@ -1,7 +1,7 @@
 [project]
-name = "pyfield"
+name = "sondi"
 version = "0.0.1"
-description = "Python package for acoustic simulations using the SIR approach."
+description = "SonDI — the friendly acoustic field simulator. From sono- (sound) + SDI (Sparse Delta Integration): fast, exact ultrasound pressure fields for any transducer geometry."
 readme = "README.md"
 authors = [
     { name = "Deyver Esteban Rivera", email = "113285895+EstebanRivera08@users.noreply.github.com" }
@@ -33,7 +33,7 @@ dependencies = [
 exclude = []
 
 [project.scripts]
-pyfield = "pyfield:main"
+sondi = "sondi:main"
 
 [build-system]
 requires = ["hatchling"]
@@ -98,7 +98,7 @@ filterwarnings = [
 #  coverage
 # --------------------------------------------------------------------------- #
 [tool.coverage.run]
-source = ["pyfield"]
+source = ["sondi"]
 omit = ["*/examples/*"]
 
 [tool.coverage.report]

@@ -4,9 +4,9 @@ icon: lucide/brain
 
 # Brain Atlas Integration
 
-PyField integrates with the [BrainGlobe Atlas API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html) to map acoustic pressure fields onto anatomical brain structures.
+SonDI integrates with the [BrainGlobe Atlas API](https://brainglobe.info/documentation/brainglobe-atlasapi/index.html) to map acoustic pressure fields onto anatomical brain structures.
 
-The `BG_Atlas` class in `pyfield.utilities` wraps the BrainGlobe API and provides:
+The `BG_Atlas` class in `sondi.utilities` wraps the BrainGlobe API and provides:
 
 - Loading and querying rat and mouse brain atlases
 - Coordinate registration between the transducer frame and atlas space
@@ -17,12 +17,12 @@ The `BG_Atlas` class in `pyfield.utilities` wraps the BrainGlobe API and provide
 
 Load anatomy, register it into the transducer frame, then compose brain regions,
 the transducer, and a simulated pressure volume in a single PyVista scene using
-PyField's own helpers:
+SonDI's own helpers:
 
 ```python
 import pyvista as pv
-from pyfield.utilities import BG_Atlas
-from pyfield.plotting import add_regions_mesh, add_transducer_mesh, add_pressure_vol
+from sondi.utilities import BG_Atlas
+from sondi.plotting import add_regions_mesh, add_transducer_mesh, add_pressure_vol
 
 # 1. Load named structures (downloads the atlas on first use).
 atlas = BG_Atlas("allen_mouse_25um", region_names=["root", "CTX", "TH"])

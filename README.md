@@ -1,20 +1,27 @@
-[![PyPI version](https://img.shields.io/pypi/v/pyfield)](https://pypi.org/project/pyfield/)
-[![Python versions](https://img.shields.io/pypi/pyversions/pyfield)](https://pypi.org/project/pyfield/)
-[![DOI]()]()
-[![codecov](https://codecov.io/gh/EstebanRivera08/PyField/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/PyField)
-[![Docs](https://img.shields.io/badge/docs-online-blue)](https://estebanrivera08.github.io/PyField/)
+<h1 align="center">🌊 SonDI</h1>
+<p align="center"><b>The friendly acoustic field simulator.</b></p>
+<p align="center">
+From <i>sono-</i> (sound) + <b>SDI</b> (Sparse Delta Integration) — like a little <i>sonde</i>,
+your probe into ultrasound fields: <b>fast and exact</b>.
+</p>
 
-📖 **Documentation:** <https://estebanrivera08.github.io/PyField/>
+[![PyPI version](https://img.shields.io/pypi/v/sondi)](https://pypi.org/project/sondi/)
+[![Python versions](https://img.shields.io/pypi/pyversions/sondi)](https://pypi.org/project/sondi/)
+[![DOI]()]()
+[![codecov](https://codecov.io/gh/EstebanRivera08/SonDI/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/SonDI)
+[![Docs](https://img.shields.io/badge/docs-online-blue)](https://estebanrivera08.github.io/SonDI/)
+
+📖 **Documentation:** <https://estebanrivera08.github.io/SonDI/>
 
 > [!WARNING]
-> PyField is currently under development. The API is subject to change, and some features may be incomplete or unstable.
+> SonDI is currently under development. The API is subject to change, and some features may be incomplete or unstable.
 
-PyField is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
-PyField implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
+SonDI is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
+SonDI implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
 FST reproduces the classic Field II approach, while SDI is a new, algorithmically and mathematically improved method that computes the same SIRs — under identical assumptions — but substantially faster; an automatic mode picks the best method for each simulation.
 
 > [!NOTE]
-> PyField is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
+> SonDI is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
 > Utilities such as the integration with the GlobeBrain atlas may still evolve to improve robustness.
 
 ### Main Features
@@ -48,7 +55,7 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 ### 1. Set up a virtual environment
 
-We recommend installing PyField in a virtual environment to avoid dependency conflicts with other Python packages. Using [uv](https://docs.astral.sh/uv/guides/install-python/), you can create a new project folder with a virtual environment as follows:
+We recommend installing SonDI in a virtual environment to avoid dependency conflicts with other Python packages. Using [uv](https://docs.astral.sh/uv/guides/install-python/), you can create a new project folder with a virtual environment as follows:
 
 ```bash
 uv init new_project
@@ -60,35 +67,35 @@ If you already have a project folder, create a virtual environment with:
 uv venv
 ```
 
-### 2. Install PyField
+### 2. Install SonDI
 
 To install the latest development version from GitHub:
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/PyField.git
+uv add git+https://github.com/EstebanRivera08/SonDI.git
 ```
 
-PyField will soon be available on PyPI.
+SonDI will soon be available on PyPI.
 
 ### 3. Check installation
 
-Check that PyField is correctly installed by opening a Python interpreter and
+Check that SonDI is correctly installed by opening a Python interpreter and
 importing the package:
 
 ```python
-import pyfield
+import sondi
 ```
 
-If no error is raised, you have installed PyField correctly.
+If no error is raised, you have installed SonDI correctly.
 
 ---
 
 ## Quick Start
 
 ```python
-from pyfield.emission import Emission
-from pyfield.transducers import LinearArrayTransducer
-from pyfield.plotting import plot2D_pressure_slices
+from sondi.emission import Emission
+from sondi.transducers import LinearArrayTransducer
+from sondi.plotting import plot2D_pressure_slices
 
 # Define transducer (mm units; no_sub_x/no_sub_y are keyword-only)
 tx = LinearArrayTransducer(
@@ -131,9 +138,9 @@ uv run examples/example01_transducer_gallery.py
 
 ---
 
-## Citing PyField
+## Citing SonDI
 
-If you use PyField in your research, please cite it using the following reference:
+If you use SonDI in your research, please cite it using the following reference:
 
 <!-- citation text will be added here -->
 

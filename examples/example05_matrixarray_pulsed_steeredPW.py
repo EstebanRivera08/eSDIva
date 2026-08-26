@@ -19,10 +19,10 @@ Run with:
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
 
-from pyfield.emission import Emission
-from pyfield.plotting import add_transducer_mesh, plot3D_transient_slices
-from pyfield.transducers import MatrixArrayTransducer
-from pyfield.utilities import align_to_common_time
+from sondi.emission import Emission
+from sondi.plotting import add_transducer_mesh, plot3D_transient_slices
+from sondi.transducers import MatrixArrayTransducer
+from sondi.utilities import align_to_common_time
 
 # ============================================================================
 # CONFIGURATION

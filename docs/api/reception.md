@@ -17,7 +17,7 @@ evaluated — all methods give the same RF, they trade speed only:
   conventional `ReceptionConventional` backend; the string names its SIR-sampling kernel).
 - `"paired"` — exact but slow pedagogic reference (warns on selection).
 
-::: pyfield.reception.Reception
+::: sondi.reception.Reception
     options:
       members:
         - pulse_echo_rf
@@ -33,7 +33,7 @@ The conventional Tupholme-Stepanishen sampled-convolution backend that `Receptio
 delegates to for `method="fst"/"sdi"/"auto"`. Same API; normally reached through
 `Reception`, documented here for reference.
 
-::: pyfield.reception.ReceptionConventional
+::: sondi.reception.ReceptionConventional
     options:
       members:
         - pulse_echo_rf

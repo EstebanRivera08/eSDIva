@@ -1,7 +1,7 @@
 """
 Example 15: STL Mesh with Acoustic Simulation
 
-Demonstrates how to combine an STL model (experimental setup) with a PyField
+Demonstrates how to combine an STL model (experimental setup) with a SonDI
 acoustic simulation to visualise the complete experimental configuration in 3-D.
 
 Steps
@@ -24,15 +24,15 @@ import pyvista as pv
 # ============================================================================
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 
-from pyfield.emission import Emission
-from pyfield.plotting import (
+from sondi.emission import Emission
+from sondi.plotting import (
     add_pressure_vol,
     add_stl_mesh,
     add_transducer_mesh,
     create_3Dvol_mesh,
     load_mesh_from_stl,
 )
-from pyfield.transducers import ConcaveCircularTransducer
+from sondi.transducers import ConcaveCircularTransducer
 
 WIN_W, WIN_H = 500, 600
 
@@ -50,7 +50,7 @@ else:
     pv.set_plot_theme("default")
 
 print("=" * 70)
-print("PyField + STL Mesh Visualisation Example")
+print("SonDI + STL Mesh Visualisation Example")
 print("=" * 70)
 
 if SAVE_FIG:

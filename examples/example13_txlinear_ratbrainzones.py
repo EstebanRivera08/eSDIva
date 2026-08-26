@@ -24,10 +24,10 @@ Run with:
 import numpy as np
 import pyvista as pv
 
-import pyfield.transducers as Transducers
-from pyfield.emission import Emission
-from pyfield.utilities import BG_Atlas
-from pyfield.plotting import (
+import sondi.transducers as Transducers
+from sondi.emission import Emission
+from sondi.utilities import BG_Atlas
+from sondi.plotting import (
     add_pressure_vol,
     add_regions_mesh,
     add_transducer_mesh,

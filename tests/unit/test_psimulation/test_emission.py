@@ -1,7 +1,5 @@
 """Tests for Emission class — Batch 3 test gate."""
 
-import warnings
-
 import numpy as np
 import pytest
 
@@ -17,17 +15,9 @@ def _make_excitation(fs=200e6, fc=5e6, n_cycles=2):
 
 
 def _make_emission(tx, **kwargs):
-    from pyfield.emission import Emission
+    from sondi.emission import Emission
 
     return Emission(tx, **kwargs)
-
-
-def _make_pyfield(tx, **kwargs):
-    from pyfield.emission import PyField
-
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore", DeprecationWarning)
-        return PyField(tx, **kwargs)
 
 
 # ---------------------------------------------------------------------------
@@ -79,16 +69,6 @@ class TestEmissionMonochromatic:
         p, coords = sim(pts)
         assert p.shape == (2,)
 
-    def test_matches_pyfield(self, small_linear_transducer, small_field_grid):
-        """Emission(monochromatic=True) output matches old PyField behavior."""
-        sim_new = _make_emission(small_linear_transducer, monochromatic=True)
-        sim_old = _make_pyfield(small_linear_transducer)
-
-        p_new, _ = sim_new(small_field_grid)
-        p_old, _ = sim_old(small_field_grid)
-
-        np.testing.assert_allclose(p_new, p_old, rtol=1e-5)
-
 
 # ---------------------------------------------------------------------------
 # Emission.__call__ — pulsed path (exc=None)
@@ -125,19 +105,6 @@ class TestEmissionGlobalExcitation:
         assert p.ndim == 4
         assert "t0" in coords
         assert "dt" in coords
-
-    def test_matches_pyfield_with_excitation(
-        self, small_linear_transducer, small_field_grid
-    ):
-        """Emission(excitation=pulse) matches PyField(excitation=pulse) output."""
-        exc = _make_excitation()
-        sim_new = _make_emission(small_linear_transducer, excitation=exc)
-        sim_old = _make_pyfield(small_linear_transducer, monochromatic=False)
-
-        p_new, _ = sim_new(small_field_grid)
-        p_old, _ = sim_old(small_field_grid, excitation=exc)
-
-        np.testing.assert_allclose(p_new, p_old, rtol=1e-5)
 
     def test_alpha0_none_same_as_no_attenuation(self, small_linear_transducer):
         exc = _make_excitation()
@@ -282,43 +249,6 @@ class TestTransferFunction:
         assert sim.transfer_function is None
         with pytest.raises(TypeError):
             sim.set("transfer_function", 42)
-
-
-# ---------------------------------------------------------------------------
-# PyField backward compatibility
-# ---------------------------------------------------------------------------
-
-
-class TestPyFieldBackwardCompatibility:
-    def test_deprecation_warning(self, small_linear_transducer):
-        from pyfield.emission import PyField
-
-        with pytest.warns(DeprecationWarning, match="deprecated"):
-            PyField(small_linear_transducer)
-
-    def test_monochromatic_default_true(self, small_linear_transducer):
-        sim = _make_pyfield(small_linear_transducer)
-        assert sim.monochromatic is True
-
-    def test_output_matches_emission_mono(
-        self, small_linear_transducer, small_field_grid
-    ):
-        sim_pf = _make_pyfield(small_linear_transducer)
-        sim_em = _make_emission(small_linear_transducer, monochromatic=True)
-
-        p_pf, _ = sim_pf(small_field_grid)
-        p_em, _ = sim_em(small_field_grid)
-
-        np.testing.assert_allclose(p_pf, p_em, rtol=1e-5)
-
-    def test_pyfield_transient_with_excitation(
-        self, small_linear_transducer, small_field_grid
-    ):
-        exc = _make_excitation()
-        sim_pf = _make_pyfield(small_linear_transducer, monochromatic=False)
-        p, coords = sim_pf(small_field_grid, excitation=exc)
-        assert p.ndim == 4
-        assert "t0" in coords
 
 
 # ---------------------------------------------------------------------------

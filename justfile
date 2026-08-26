@@ -35,7 +35,7 @@ pre-commit-verbose:
 
 # Run tests with coverage report.
 coverage:
-    uv run pytest tests/ --cov=pyfield --cov-report=term-missing --cov-report=html
+    uv run pytest tests/ --cov=sondi --cov-report=term-missing --cov-report=html
 
 # Aliases
 alias d := docs

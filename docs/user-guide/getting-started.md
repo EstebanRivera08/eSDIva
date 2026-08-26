@@ -4,7 +4,7 @@ icon: lucide/rocket
 
 # Getting Started
 
-This guide walks you through installing PyField and running your first simulation.
+This guide walks you through installing SonDI and running your first simulation.
 
 ## Installation
 
@@ -16,25 +16,25 @@ This guide walks you through installing PyField and running your first simulatio
 ### Install from GitHub
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/PyField.git
+uv add git+https://github.com/EstebanRivera08/SonDI.git
 ```
 
 ### Verify installation
 
 ```python
-import pyfield
-print(pyfield.__version__)
+import sondi
+print(sondi.__version__)
 ```
 
 ## Your first simulation
 
 ### 1. Create a transducer
 
-PyField models transducers as collections of rectangular patches. Start with a
+SonDI models transducers as collections of rectangular patches. Start with a
 simple linear array:
 
 ```python
-from pyfield.transducers import LinearArrayTransducer
+from sondi.transducers import LinearArrayTransducer
 
 tx = LinearArrayTransducer(
     n_elements=64,
@@ -74,7 +74,7 @@ field_points = {
 ### 4. Run the simulation
 
 ```python
-from pyfield.emission import Emission
+from sondi.emission import Emission
 
 sim = Emission(tx, monochromatic=True)   # continuous-wave amplitude at fc
 p, coords = sim(field_points, method="auto")
@@ -83,7 +83,7 @@ p, coords = sim(field_points, method="auto")
 ### 5. Visualize results
 
 ```python
-from pyfield.plotting import plot2D_pressure_slices
+from sondi.plotting import plot2D_pressure_slices
 
 plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
