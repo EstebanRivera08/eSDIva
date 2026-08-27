@@ -100,12 +100,10 @@ If no error is raised, you have installed eSDIva correctly.
 ## Quick Start
 
 ```python
-from esdiva.emission import Emission
-from esdiva.transducers import LinearArrayTransducer
-from esdiva.plotting import plot2D_pressure_slices
+import esdiva as diva
 
 # Define transducer (mm units; no_sub_x/no_sub_y are keyword-only)
-tx = LinearArrayTransducer(
+tx = diva.transducers.LinearArrayTransducer(
     n_elements=64,
     element_width_mm=0.25,
     element_height_mm=12.0,
@@ -128,11 +126,11 @@ field_points = {
 }
 
 # Run a monochromatic (CW) simulation → pressure amplitude at fc
-sim = Emission(tx, monochromatic=True)
+sim = diva.Emission(tx, monochromatic=True)
 p, coords = sim(field_points, method="auto")
 
 # Visualize
-plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
+diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
 
 From the project folder you can also run the bundled examples directly:
@@ -159,8 +157,7 @@ If you use eSDIva in your research, please cite it using the following reference
 
 ## References
 
-These works underpin the theory and methods implemented in eSDIva (SIR/SDI formulation,
-pulse‑echo modelling, power‑law attenuation, and related simulators).
+These works underpin the theory and helped as inspiration for the methods implemented in eSDIva (far-field trapezoid SIR for rectangular apertures, pulse‑echo modelling, power‑law attenuation, and related simulators).
 
 1. B. T. Cox, S. Kara, S. R. Arridge, and P. C. Beard, "k‑space propagation models for acoustically heterogeneous media: Application to biomedical photoacoustics," *The Journal of the Acoustical Society of America*, vol. 121, no. 6, pp. 3453–3464, Jun. 2007. [Online]. Available: <https://pubs.aip.org/jasa/article/121/6/3453/537252/>
 2. G. Pinton, J. Dahl, S. Rosenzweig, and G. Trahey, "A heterogeneous nonlinear attenuating full‑wave model of ultrasound," *IEEE Trans. Ultrason., Ferroelect., Freq. Contr.*, vol. 56, no. 3, pp. 474–488, Mar. 2009. [Online]. Available: <http://ieeexplore.ieee.org/document/4816057/>

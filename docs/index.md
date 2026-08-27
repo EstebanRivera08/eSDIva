@@ -43,12 +43,10 @@ A friendly, fast, and exact acoustic field simulator — your probe into ultraso
 ## Quickstart
 
 ```python
-from esdiva.transducers import LinearArrayTransducer
-from esdiva.emission import Emission
-from esdiva.plotting import plot2D_pressure_slices
+import esdiva as diva
 
 # 64-element linear array focused at 30 mm depth
-tx = LinearArrayTransducer(
+tx = diva.transducers.LinearArrayTransducer(
     n_elements=64,
     element_width_mm=0.25,
     element_height_mm=12.0,
@@ -71,9 +69,9 @@ field_points = {
 }
 
 # Run monochromatic simulation and visualize
-sim = Emission(tx, monochromatic=True)
+sim = diva.Emission(tx, monochromatic=True)
 p, coords = sim(field_points, method="auto")
-plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
+diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
 
 ---

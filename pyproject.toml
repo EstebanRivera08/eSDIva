@@ -29,6 +29,12 @@ dependencies = [
     "scipy>=1.15.2",
 ]
 
+[project.urls]
+Homepage = "https://estebanrivera08.github.io/eSDIva/"
+Documentation = "https://estebanrivera08.github.io/eSDIva/"
+Repository = "https://github.com/EstebanRivera08/eSDIva"
+Issues = "https://github.com/EstebanRivera08/eSDIva/issues"
+
 [tool.ruff]
 exclude = []
 
@@ -36,8 +42,16 @@ exclude = []
 esdiva = "esdiva:main"
 
 [build-system]
-requires = ["hatchling"]
+# Pin < 1.28: hatchling 1.28+ emits Metadata 2.5, which twine 6.2 rejects on
+# upload (its metadata-version allowlist stops at 2.4). 2.4 already carries the
+# SPDX license-expression we need.
+requires = ["hatchling<1.28"]
 build-backend = "hatchling.build"
+
+# Keep the sdist lean: ship source, license, and readme — not the docs gifs,
+# example figures, or graphify artefacts (those bloated it to 63 MB).
+[tool.hatch.build.targets.sdist]
+only-include = ["src", "README.md", "LICENSE", "CITATION.cff", "pyproject.toml"]
 
 # torch not currently used — uncomment this index + the `torch` dep + source below to re-enable.
 # [[tool.uv.index]]
@@ -67,6 +81,8 @@ dev = [
     "numpydoc>=1.9.0",
     "pandas>=2.2.3",
     "openpyxl>=3.1.5",
+    "twine>=6.1",
+    "packaging>=24.2",
 ]
 
 # [tool.uv.sources]
