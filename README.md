@@ -148,10 +148,16 @@ uv run examples/example01_transducer_gallery.py
 
 If you use eSDIva in your research, please cite it using the following reference:
 
-<!-- citation text will be added here -->
-
 ```bibtex
-% BibTeX entry will be added here
+@misc{rivera2026sparsedeltaintegrationmethod,
+      title={Sparse Delta Integration method for the calculation of spatiotemporal pressure fields of arbitrary ultrasound transducer geometries}, 
+      author={Deyver E. Rivera and Charlie Demene and Mickael Tanter},
+      year={2026},
+      eprint={2608.26891},
+      archivePrefix={arXiv},
+      primaryClass={physics.med-ph},
+      url={https://arxiv.org/abs/2608.26891}, 
+}
 ```
 
 
