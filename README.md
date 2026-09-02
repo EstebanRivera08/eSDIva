@@ -20,7 +20,7 @@ eSDIva implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta In
 FST reproduces the classic Field II approach, while SDI is a new, algorithmically and mathematically improved method that computes the same SIRs — under identical assumptions — but substantially faster; an automatic mode picks the best method for each simulation.
 
 > [!NOTE]
-> eSDIva is designed as complementary material to the work presented in [reference]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
+> eSDIva is designed as complementary material to the work presented in [https://arxiv.org/abs/2608.26891]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
 > Utilities such as the integration with the BrainGlobe atlas may still evolve to improve robustness.
 
 ### Main Features
