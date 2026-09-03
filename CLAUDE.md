@@ -62,6 +62,21 @@ by creating `docs/<section>/newpage.md` and adding it to `nav` in `zensical.toml
 Page frontmatter sets the nav icon (`icon: lucide/<name>`). Theme/palette configured
 under `[project.theme]`.
 
+## User-Facing Agent Skills (`skills/`)
+
+`skills/` holds portable Agent Skills for **users** of the package (distinct from
+`.claude/skills/`, which are maintainer skills for work inside the repo). Plain
+`SKILL.md` + `name`/`description` front matter, so Claude Code, Codex (`.agents/skills/`)
+and OpenCode all read them unchanged; the repo root doubles as a Claude Code plugin
+(`.claude-plugin/`). Two skills: `esdiva-simulate` (SKILL.md + `references/`
+transducers, emission, reception, visualization, physics + four `# %%`-celled
+templates) and `esdiva-contribute` (issue + small-PR workflow).
+`tests/integration/test_skill_templates.py` executes every template, so a public API
+change fails CI instead of a user's first session. Keep the references in sync when
+a public API, convention or default changes — they are documentation users read
+without the code. Install matrix: `skills/README.md`. Root `AGENTS.md` points
+non-Claude agents at both this file and `skills/`.
+
 ## Architecture
 
 ### Module Structure (subject to change as project evolves)

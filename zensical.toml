@@ -18,6 +18,7 @@ nav = [
     { "Overview" = "user-guide/index.md" },
     { "Getting Started" = "user-guide/getting-started.md" },
     { "Installation" = "user-guide/installation.md" },
+    { "AI Assistant" = "user-guide/ai-assistant.md" },
     { "Transducers" = [
       { "Overview" = "user-guide/transducers.md" },
       { "Mono-elements" = "user-guide/mono-elements.md" },

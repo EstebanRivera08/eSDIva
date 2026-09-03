@@ -1,0 +1,13 @@
+{
+  "name": "esdiva",
+  "description": "Agent skills for eSDIva: transducer geometry, emission fields, pulse-echo RF + beamforming, the underlying SIR physics, and a careful contribution workflow.",
+  "version": "0.2.0",
+  "author": {
+    "name": "Deyver Esteban Rivera",
+    "url": "https://github.com/EstebanRivera08"
+  },
+  "homepage": "https://estebanrivera08.github.io/eSDIva/",
+  "repository": "https://github.com/EstebanRivera08/eSDIva",
+  "license": "BSD-3-Clause",
+  "keywords": ["ultrasound", "acoustics", "simulation", "beamforming", "physics"]
+}

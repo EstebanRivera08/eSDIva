@@ -1,6 +1,6 @@
 [project]
 name = "esdiva"
-version = "0.2.0"
+version = "0.2.1"
 description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. A friendly, fast, exact ultrasound pressure-field simulator for any transducer geometry."
 readme = "README.md"
 authors = [

@@ -41,6 +41,8 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 - **Brain Atlas Integration** — Maps pressure simulations onto standard brain atlases (via BrainGlobe) for neuro‑ultrasound research.
 
+- **AI assistant skills** — Portable Agent Skills (`skills/`) that teach a coding assistant how to build transducers, run emission and pulse-echo simulations, feed the RF to your own beamformer, and contribute back. Work as-is in Claude Code (`/plugin marketplace add EstebanRivera08/eSDIva`), OpenAI Codex and OpenCode (copy into `~/.agents/skills/`), or any assistant that reads Markdown. See the [AI assistant guide](https://estebanrivera08.github.io/eSDIva/user-guide/ai-assistant/).
+
 - **Visualization** — Rich plotting utilities using Matplotlib and PyVista for visualizing transducers, pressure fields, pulse‑echo setups, and brain atlases.
 
 ## Gallery

@@ -1,0 +1,18 @@
+{
+  "name": "esdiva",
+  "owner": {
+    "name": "Deyver Esteban Rivera",
+    "url": "https://github.com/EstebanRivera08"
+  },
+  "metadata": {
+    "description": "Agent skills for the eSDIva ultrasound field simulator.",
+    "version": "1.0.0"
+  },
+  "plugins": [
+    {
+      "name": "esdiva",
+      "source": "./",
+      "description": "Build eSDIva transducers, emission and pulse-echo RF simulations, understand the SIR physics, and contribute issues or small patches."
+    }
+  ]
+}
