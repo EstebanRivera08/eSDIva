@@ -250,25 +250,29 @@ conventional path delegates to `ReceptionConventional` (`farfield_rect_patch.com
 
 ## 9.2 Pulse-centre lag — a beamforming correction, NOT part of the RF
 
-The reception RF is the raw echo referenced to the **geometric** round-trip time
-`t0` (nearest-patch arrival). But the recorded echo is the geometric SIR convolved
-with the band-limited two-way pulse `exc ⊛ ir_tx ⊛ ir_rx`, whose envelope peaks
-about **half a pulse length after** the geometric arrival. So a delay-and-sum that
-reads the geometric time `t_tx + t_rx − t0` lands the point-spread function ~0.5–1
-mm too deep (≈1 µs for a 2-cycle 5 MHz pulse). Every beamformer must instead read
-the sample at `t_geom + coords["pulse_center_lag_s"]`.
+The recorded echo is the geometric SIR convolved with the band-limited two-way
+pulse `exc ⊛ ir_tx ⊛ ir_rx`, whose envelope peaks about **half a pulse length
+after** the geometric arrival — 0.59 µs for a 2-cycle 5 MHz pulse model, i.e. 0.49
+mm of axial bias if ignored. eSDIva removes that lag from the time reference rather
+than leaving it to the beamformer: `ReceptionBase._finalize` subtracts
+`_pulse_center_lag_s()` from `coords["t0"]`.
 
-This lag is **stored in `coords["pulse_center_lag_s"]`** by the reception
-simulators (`ReceptionBase._pulse_center_lag_s`, from the drive + element impulse
-responses), NOT applied to the RF samples. Rationale: the RF is the physical echo;
-baking the lag into it would (a) misrepresent the raw signal and (b) double-count
-in the built-in beamformers, which already add it. The DAS beamformers
-(`das_volume`, `das_rca_volume`) default `t_offset_s=None` →
-auto-read the lag from `coords`; pass a float to override, `0.0` to disable.
+So **`coords["t0"]` is the beamforming reference, not the instant of the first RF
+sample**: it is defined so a scatterer's echo peaks at its geometric round-trip
+time. Every beamformer — built-in or custom — reads
 
-**When writing a custom beamformer** (e.g. a torch/differentiable one), you MUST
-add this term yourself: `idx = (t_tx + t_rx − t0 + coords["pulse_center_lag_s"])·fs`.
-Forgetting it biases every PSF axially by a constant ~half-pulse depth. (Distinct
+    idx = (t_tx + t_rx − t0)·fs
+
+with no lag term. `coords["pulse_center_lag_s"]` is still carried, as provenance
+only; adding it again double-counts. The DAS beamformers' `t_offset_s` defaults to
+`0.0` and exists for foreign RF whose axis is not referenced this way (raw Field II
+`calc_scat`) or to inject a system delay.
+
+This is the convention the rest of the field hands its beamformers, reached by
+different routes: USTB shifts the transmit reference by `-lag*dt` and sets
+`initial_time = 0`; MUST/PyMUST get it free from a zero-phase pulse spectrum, so
+`dasmtx` needs only `idxt = (tau − t0)·fs`; Field II leaves `tstart` raw and the
+user removes the lag. (Distinct
 from the per-event TX time reference, which must be recovered from the event's own
 delays — `t_ref = mean_e(τ_e ∓ |r_e − r_vs|/c)` — or the events desynchronise and
 the compounded PSF splits into one ray per transmit.)

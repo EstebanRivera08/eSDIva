@@ -17,17 +17,30 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Medical Science Apps.",
 ]
 dependencies = [
-    "brainglobe-atlasapi>=2.2.1",
-    "brainglobe-space>=1.0.3",
     "h5py>=3.13.0",
-    "imageio>=2.37.3",
-    "imageio-ffmpeg>=0.6.0",
     "matplotlib>=3.10.1",
     "numba>=0.61",
     "numpy>= 2.1.2",
-    "pyvista[jupyter]>=0.45.0",
+    "pyvista>=0.45.0",
     "scipy>=1.15.2",
 ]
+
+# Opt-in extras: a plain `pip install esdiva` gets the simulator core only.
+# Each extra backs one feature that is not needed to simulate a field:
+#   atlas   — BrainGlobe stack (pandas, pyarrow, tifffile) for `utilities.BG_Atlas`
+#   video   — imageio/ffmpeg backends PyVista needs for `save_pyvista_movie`
+#   jupyter — PyVista's trame/ipywidgets stack for in-notebook 3-D rendering
+[project.optional-dependencies]
+atlas = [
+    "brainglobe-atlasapi>=2.2.1",
+    "brainglobe-space>=1.0.3",
+]
+video = [
+    "imageio>=2.37.3",
+    "imageio-ffmpeg>=0.6.0",
+]
+jupyter = ["pyvista[jupyter]>=0.45.0"]
+all = ["esdiva[atlas,jupyter,video]"]
 
 [project.urls]
 Homepage = "https://estebanrivera08.github.io/eSDIva/"
@@ -61,6 +74,8 @@ only-include = ["src", "README.md", "LICENSE", "CITATION.cff", "pyproject.toml"]
 
 [dependency-groups]
 dev = [
+    # Every optional extra, so a repo clone (`uv sync`) behaves like `esdiva[all]`.
+    "esdiva[all]",
     "zensical>=0.0.28",
     "ipykernel>=6.29.5",
     "ipympl>=0.9.7",

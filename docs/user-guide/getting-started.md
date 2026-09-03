@@ -13,10 +13,19 @@ This guide walks you through installing eSDIva and running your first simulation
 - Python >= 3.11
 - [uv](https://docs.astral.sh/uv/) (recommended package manager)
 
+### Install from PyPI
+
+```bash
+uv add "esdiva[all]"          # or:  pip install "esdiva[all]"
+```
+
+`[all]` pulls every optional feature; see [Installation](installation.md) for the
+slimmer variants.
+
 ### Install from GitHub
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/eSDIva.git
+uv add "esdiva[all] @ git+https://github.com/EstebanRivera08/eSDIva.git"
 ```
 
 ### Verify installation

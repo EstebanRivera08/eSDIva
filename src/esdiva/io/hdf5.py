@@ -43,8 +43,7 @@ def save_rf_hdf5(
         Timing from the reception simulator / ``RFDataset.load_all``: ``"dt"``
         (sample period, s), ``"t0"`` (first-sample time, s), optionally
         ``"t0_per_event"`` (s) and ``"pulse_center_lag_s"`` (the two-way pulse
-        lag a beamformer adds — stored so downstream tools reproduce eSDIva's
-        depth referencing).
+        lag, already removed from ``t0``; stored for provenance).
     probe_geometry_mm : (Erx, 3) numpy.ndarray, optional
         Receive-element centres in mm (``rx.element_centers * 1e3``), stored so
         the file is beamformable on its own. Omitted if ``None``.
@@ -87,6 +86,9 @@ def save_rf_hdf5(
                 data=np.asarray(probe_geometry_mm, dtype=np.float64),
             )
         # Scalars a beamformer needs, named as in USTB's uff.channel_data.
+        # ``initial_time`` matches USTB's meaning: the time axis is referenced so
+        # that an echo peaks at its geometric round-trip time (the two-way pulse
+        # lag is already out), so a USTB beamformer needs no extra correction.
         f.attrs["sampling_frequency"] = 1.0 / dt
         f.attrs["dt"] = dt
         f.attrs["initial_time"] = float(t0_per_event[0])

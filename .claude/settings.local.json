@@ -3,7 +3,6 @@
     "allow": [
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "Bash(move \"src\\\\pyfield\\\\h_sir\\\\_init_.py\" \"src\\\\pyfield\\\\h_sir\\\\__init__.py\")",
       "Bash(uv sync:*)",
       "Bash(uv run python:*)",
       "Bash(python:*)",
@@ -21,7 +20,6 @@
       "WebFetch(domain:pmc.ncbi.nlm.nih.gov)",
       "WebFetch(domain:www.mdpi.com)",
       "Bash(ls -la \"C:\\\\Users\\\\INSERM\\\\Documents\\\\Esteban\\\\Agents\\\\outputs\"\" && ls -la \"C:UsersINSERMDocumentsEstebanAgentsoutputs.plans\"\")",
-      "Bash(ls -la \"C:\\\\Users\\\\INSERM\\\\Documents\\\\Esteban\\\\PyField\\\\src\\\\pyfield\\\\plotting\"\" 2>/dev/null && ls -la \"C:UsersINSERMDocumentsEstebanPyFieldsrcpyfieldutilities\"\")",
       "Bash(find:*)",
       "Bash(python3:*)",
       "Bash(uv run pytest:*)",

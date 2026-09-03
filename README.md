@@ -76,13 +76,45 @@ uv venv
 
 ### 2. Install eSDIva
 
-To install the latest development version from GitHub:
+From PyPI, with everything switched on:
 
 ```bash
-uv add git+https://github.com/EstebanRivera08/eSDIva.git
+uv add "esdiva[all]"          # or:  pip install "esdiva[all]"
 ```
 
-eSDIva will soon be available on PyPI.
+To try the built-in demo without installing into a project, use
+[pipx](https://pipx.pypa.io/) — it puts the `esdiva` command on your PATH in its
+own isolated environment (for `import esdiva` in your own scripts, use `uv add`
+or `pip install` above instead):
+
+```bash
+pipx install "esdiva[all]"
+esdiva                        # simulates and renders a focused 3-D field
+```
+
+For the latest development version from GitHub:
+
+```bash
+uv add "esdiva[all] @ git+https://github.com/EstebanRivera08/eSDIva.git"
+```
+
+#### Slimming the install
+
+`[all]` is the recommended install and pulls every feature. If you don't need
+some of them — on a headless cluster, in CI, or inside a container — install
+plain `esdiva` and add back only the extras you use:
+
+| Install | What you get |
+| --- | --- |
+| `esdiva` | The simulator core: fields, transducers, reception, beamforming, 2-D and 3-D plotting. Enough for everything in the Quick Start. |
+| `esdiva[atlas]` | `utilities.BG_Atlas`, which maps computed fields onto brain anatomy through [BrainGlobe](https://brainglobe.info/). Adds pandas, pyarrow and tifffile. |
+| `esdiva[video]` | Saving animations as `.mp4`/`.avi`/`.gif` from the plotting utilities. Adds imageio and a bundled ffmpeg. Without it, static plots and screenshots still work. |
+| `esdiva[jupyter]` | Interactive 3-D PyVista scenes rendered *inside* a notebook. Adds the trame and ipywidgets stack. Without it, 3-D still opens in a desktop window. |
+| `esdiva[all]` | All of the above. |
+
+Extras combine: `pip install "esdiva[atlas,video]"`. Using a feature whose extra
+is missing raises an error naming the extra to install, so nothing fails
+silently.
 
 ### 3. Check installation
 

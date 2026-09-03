@@ -666,3 +666,57 @@ class TestSequenceCheckpoint:
         )
         np.testing.assert_array_equal(rf_ck, rf_ram)
         assert c_ck["t0"] == c_ram["t0"] and c_ck["dt"] == c_ram["dt"]
+
+
+class TestTimeReference:
+    """`coords["t0"]` is the beamforming reference, not the first-sample instant.
+
+    The contract every ultrasound toolbox hands its beamformer: an echo peaks at
+    the geometric round-trip time `(|p − r_tx| + |p − r_rx|)/c`, so a
+    delay-and-sum reads the sample at `(t_tx + t_rx − t0)/dt` with no correction.
+    The band-limited two-way pulse peaks half its length after the geometric
+    arrival, so `t0` carries that lag removed.
+    """
+
+    @staticmethod
+    def _burst(fc, fs, n_cycles=2.0):
+        """Two-cycle Hann-windowed burst, symmetric about its centre sample."""
+        t = np.arange(0, n_cycles / fc, 1.0 / fs)
+        return np.cos(2 * np.pi * fc * (t - t[-1] / 2)) * np.hanning(t.size)
+
+    def test_echo_peaks_at_geometric_round_trip(self, simple_rx):
+        """A point scatterer's envelope peak lands on its geometric arrival.
+
+        Without the pulse-centre lag removed from ``t0`` the peak would sit
+        ``lag`` late — a `c·lag/2` axial bias (~0.5 mm for this pulse model).
+        """
+        from scipy.signal import hilbert
+
+        fc, fs, c = 5e6, 100e6, 1540.0
+        tx, rx = simple_rx, simple_rx  # flat apertures: no elevation lens sag
+        tx.impulse_response = self._burst(fc, fs)
+        rx.impulse_response = self._burst(fc, fs)
+        sim = Reception(
+            tx, rx, fs=fs, c=c, excitation=self._burst(fc, fs), verbose=False
+        )
+
+        point_mm = np.array([[0.0, 0.0, 25.0]])
+        rf, coords = sim.pulse_echo_rf(point_mm, np.array([1.0]))
+
+        env = np.abs(hilbert(rf, axis=-1))
+        ch = int(np.argmax(env.max(axis=-1)))
+        t_peak = coords["t0"] + int(np.argmax(env[ch])) * coords["dt"]
+
+        p = point_mm[0] * 1e-3
+        t_geom = (
+            np.linalg.norm(p - tx.element_centers.mean(axis=0))
+            + np.linalg.norm(p - rx.element_centers[ch])
+        ) / c
+
+        # Tolerance: a tenth of the two-way pulse lag. The residual is the
+        # finite-element aperture-averaging delay (~50 ns here), not the lag.
+        lag = coords["pulse_center_lag_s"]
+        assert abs(t_peak - t_geom) < 0.1 * lag, (
+            f"peak off geometric arrival by {(t_peak - t_geom) * 1e9:.0f} ns "
+            f"(pulse lag is {lag * 1e9:.0f} ns — is it still in t0?)"
+        )

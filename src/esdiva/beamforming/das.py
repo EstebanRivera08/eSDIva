@@ -160,7 +160,7 @@ def das_rca_volume(
     c: float = 1540.0,
     fnum: float = 1.0,
     rx_apodization: str = "hann",
-    t_offset_s: float | None = None,
+    t_offset_s: float = 0.0,
 ) -> tuple[npt.NDArray[np.float32], dict]:
     """3-D delay-and-sum for a row-column (RCA) plane-wave sequence.
 
@@ -219,14 +219,12 @@ def das_rca_volume(
         rows) are summed.
     rx_apodization : {'hann', 'rect'}, default 'hann'
         Taper of the dynamic receive aperture.
-    t_offset_s : float or None, default None
-        Extra delay added to every sample lookup, to remove the axial bias of a
-        band-limited pulse: the delay-and-sum reads the geometric round-trip
-        time, but the two-way echo envelope peaks about half a pulse length
-        later. When ``None`` (default) this lag is taken from
-        ``coords["pulse_center_lag_s"]`` (the reception simulator stores it), so
-        the correction is applied automatically; pass a float to override it (or
-        ``0.0`` to disable it).
+    t_offset_s : float, default 0.0
+        Extra delay added to every sample lookup, in seconds. Zero is correct for
+        eSDIva RF: ``coords["t0"]`` is already referenced so that an echo peaks at
+        its geometric round-trip time. Use it for RF from elsewhere whose time
+        axis is not (e.g. raw Field II ``calc_scat`` output, where the two-way
+        pulse lag is still in the signal), or to inject a system delay.
 
     Returns
     -------
@@ -243,10 +241,6 @@ def das_rca_volume(
     """
     if rx_apodization not in ("hann", "rect"):
         raise ValueError("rx_apodization must be 'hann' or 'rect'.")
-    # The band-limited two-way pulse peaks about half its length after the
-    # geometric arrival; unless overridden, apply the lag the reception stored.
-    if t_offset_s is None:
-        t_offset_s = float(coords.get("pulse_center_lag_s", 0.0))
     rf = np.ascontiguousarray(rf, dtype=np.float32)
     angles = np.deg2rad(np.asarray(angles_deg, dtype=np.float64))
     if rf.shape[0] != angles.size:
@@ -404,7 +398,7 @@ def das_volume(
     c: float = 1540.0,
     fnum: float = 1.0,
     rx_apodization: str = "hann",
-    t_offset_s: float | None = None,
+    t_offset_s: float = 0.0,
     coherence_weight: bool = False,
 ) -> tuple[npt.NDArray[np.float32], dict]:
     """3-D delay-and-sum for any transmission basis (TX aperture = RX aperture).
@@ -472,15 +466,12 @@ def das_volume(
         voxel are summed.
     rx_apodization : {'hann', 'rect'}, default 'hann'
         Taper of the dynamic receive aperture.
-    t_offset_s : float or None, default None
-        Extra delay added to every sample lookup, to remove the axial bias of a
-        band-limited pulse: the delay-and-sum reads the geometric round-trip
-        time, but the two-way echo envelope peaks about half a pulse length
-        later. When ``None`` (default) this lag is taken from
-        ``coords["pulse_center_lag_s"]`` — the reception simulator computes it
-        from the drive and element impulse responses and stores it there — so
-        the correction is applied automatically; pass a float to override it (or
-        ``0.0`` to disable it).
+    t_offset_s : float, default 0.0
+        Extra delay added to every sample lookup, in seconds. Zero is correct for
+        eSDIva RF: ``coords["t0"]`` is already referenced so that an echo peaks at
+        its geometric round-trip time. Use it for RF from elsewhere whose time
+        axis is not (e.g. raw Field II ``calc_scat`` output, where the two-way
+        pulse lag is still in the signal), or to inject a system delay.
     coherence_weight : bool, default False
         Multiply each voxel by its aperture coherence factor
         ``CF = |Σ s|² / (N·Σ s²)``: 1 for a true in-phase reflector, near 0
@@ -502,10 +493,6 @@ def das_volume(
     """
     if rx_apodization not in ("hann", "rect"):
         raise ValueError("rx_apodization must be 'hann' or 'rect'.")
-    # The band-limited two-way pulse peaks about half its length after the
-    # geometric arrival; unless overridden, apply the lag the reception stored.
-    if t_offset_s is None:
-        t_offset_s = float(coords.get("pulse_center_lag_s", 0.0))
     rf = np.ascontiguousarray(rf, dtype=np.float32)
     n_ev = len(tx_events)
     if rf.shape[0] != n_ev:

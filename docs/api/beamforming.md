@@ -4,9 +4,11 @@ icon: lucide/git-merge
 
 # Beamforming
 
-Delay-and-sum RF post-processing. All DAS beamformers auto-apply
-`coords["pulse_center_lag_s"]` and recover each event's transmit time reference —
-see the [Reception user guide](../user-guide/reception.md#beamforming-note).
+Delay-and-sum RF post-processing. `coords["t0"]` from a reception simulation is
+already the beamforming reference — an echo peaks at its geometric round-trip time
+— so no pulse-lag correction is needed here; `das_volume` additionally recovers
+each event's transmit time reference. See the
+[Reception user guide](../user-guide/reception.md#beamforming-note).
 
 ## das_volume
 

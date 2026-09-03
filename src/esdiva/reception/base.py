@@ -292,22 +292,33 @@ class ReceptionBase(SimulationBase):
         )
 
     def _finalize(self, rf, pe_t0, dt, focused_sum, downsampling):
-        """Beam-axis ``t0``, coords dict, and optional anti-aliased decimation.
+        """Beamforming ``t0``, coords dict, and optional anti-aliased decimation.
 
-        The pulse-echo origin ``pe_t0`` is shifted to the beam axis by subtracting the TX
-        focusing bulk ``tx.delays.max()`` (the last-firing element's delay) so downstream
-        beamforming needs no per-line correction; we also bakes the RX focus if any,
-        so the RX bulk is subtracted too.
+        ``coords["t0"]`` is the **beamforming time reference**, not the literal
+        instant of the first RF sample: it is set so that a scatterer's echo peaks at
+        its geometric round-trip time ``(|p − r_tx| + |p − r_rx|)/c``. A delay-and-sum
+        can then read the sample at ``(t_tx + t_rx − t0)/dt`` with no further
+        correction — the convention Field II users reach through USTB, and the one
+        MUST/PyMUST get for free from a zero-phase pulse. Three shifts build it:
 
-        For an elevation-focused (cylindrical-lens) aperture the time grid is referenced to
-        the first-arriving rim, but the focused elevation echo peaks one lens transit later;
-        each aperture's lens sag ``R − √(R² − (h/2)²)`` is added back as a propagation time
-        (TX once, RX once) so the RF origin matches a lens-focused reference. Flat apertures
-        have zero sag, so this is a no-op for them.
+        - **TX/RX focusing bulk.** ``pe_t0`` counts from the first-firing element, so
+          the transmit bulk ``tx.delays.max()`` (the last-firing element's delay) is
+          subtracted to put the origin on the beam axis; the RX bulk likewise.
+        - **Elevation lens transit.** A cylindrical-lens aperture's time grid is
+          referenced to the first-arriving rim, but the focused echo peaks one lens
+          transit later, so each aperture's sag ``R − √(R² − (h/2)²)`` is added as a
+          propagation time (TX once, RX once). Flat apertures have zero sag.
+        - **Two-way pulse centre.** The band-limited echo peaks half a pulse after the
+          geometric arrival (see `_pulse_center_lag_s`); subtracting that lag here is
+          what makes the naive delay-and-sum land on the peak. The value stays in
+          ``coords["pulse_center_lag_s"]`` as provenance — it is already applied, so a
+          beamformer must NOT add it again.
         """
         t0 = pe_t0 - float(np.max(self.tx.delays)) - float(np.max(self.rx.delays))
         t0 += (self.tx.elevation_lens_sag + self.rx.elevation_lens_sag) / self.c
-        coords = {"t0": t0, "dt": dt, "pulse_center_lag_s": self._pulse_center_lag_s()}
+        lag = self._pulse_center_lag_s()
+        t0 -= lag
+        coords = {"t0": t0, "dt": dt, "pulse_center_lag_s": lag}
         if downsampling is not None and int(downsampling) > 1:
             step = int(downsampling)
             rf = _anti_alias_decimate(rf, step)  # anti-aliased along last (time) axis
@@ -315,18 +326,18 @@ class ReceptionBase(SimulationBase):
         return rf, coords
 
     def _pulse_center_lag_s(self) -> float:
-        """Envelope-centre lag of the two-way pulse (seconds), for the beamformer.
+        """Envelope-centre lag of the two-way pulse (seconds), removed from ``t0``.
 
         The received waveform is the electric drive convolved with the transmit
         and receive element impulse responses, ``e ⊛ h_tx ⊛ h_rx``. Three bursts
         of lengths ``L_e``, ``L_tx``, ``L_rx`` convolve to ``N = L_e + L_tx +
         L_rx − 2`` samples; each factor has a symmetric envelope, so the two-way
         envelope peaks at the centre of that support, ``(N − 1)/2`` samples after
-        the geometric arrival. The delay-and-sum reads samples at the geometric
-        round-trip time, so it lands this lag BEFORE the echo peak; the beamformer
-        adds it back (``t_offset_s``) to remove the resulting axial bias. It
-        depends only on the pulse model and ``fs`` — never on the phantom — so it
-        is carried in ``coords`` and applied automatically at beamforming.
+        the geometric arrival. A delay-and-sum reads samples at the geometric
+        round-trip time, so it would land this lag BEFORE the echo peak — an axial
+        bias of ``c·lag/2`` (0.5 mm for a 5 MHz two-cycle pulse model). `_finalize`
+        subtracts it from ``coords["t0"]`` so the naive lookup is already correct.
+        It depends only on the pulse model and ``fs`` — never on the phantom.
         """
 
         def length(sig):

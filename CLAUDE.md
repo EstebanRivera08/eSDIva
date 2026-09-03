@@ -196,16 +196,15 @@ env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
 3. Phantom: ≥5–10 scatterers per resolution cell (cell ~λ³), anechoic targets
    ≥3 PSF radii, wires dim (+10 dB) and far from contrast targets.
 4. Preview (`sim.show`) + one-event speckle check BEFORE the long run.
-5. Beamform: all DAS beamformers (`das_volume`/`das_rca_volume`)
-   auto-apply `pulse_center_lag_s` (default `t_offset_s=None` → read from
-   `coords`) and recover each event's delay reference; rect RX apodization
-   (element directivity already tapers); RCA bars → `das_rca_volume`. **Custom
-   beamformers must add this lag themselves** — the reception RF is the raw echo
-   at the *geometric* round-trip time; the band-limited two-way envelope peaks
-   ~half a pulse later, so every beamformer reads the sample at
-   `t_geom + coords["pulse_center_lag_s"]`. It is NOT baked into the RF (that
-   would double-count in the built-in beamformers); it lives in `coords` and is
-   applied at beamform time.
+5. Beamform: `coords["t0"]` is the **beamforming reference**, not the instant of
+   the first sample — it is set so an echo peaks at its geometric round-trip time
+   (the two-way pulse lag is already subtracted), matching what USTB calls
+   `initial_time` and what MUST's `dasmtx` assumes. So **any** beamformer, built-in
+   or custom, reads the sample at `(t_tx + t_rx − t0)·fs` with no lag term;
+   `t_offset_s` defaults to `0.0` and exists for foreign RF (raw Field II
+   `calc_scat`, which still carries the lag) or a system delay. `das_volume`
+   additionally recovers each event's delay reference. Rect RX apodization
+   (element directivity already tapers); RCA bars → `das_rca_volume`.
 6. Metrics: TGC from speckle-only, PSF-scaled ROIs/margins (λz/D units, not mm),
    plain DAS numbers (CF only as ceiling), ~30 dB display window.
 

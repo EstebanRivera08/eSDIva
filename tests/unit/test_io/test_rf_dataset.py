@@ -137,3 +137,43 @@ class TestCrashSafety:
         fpath.write_bytes(bytes(raw))
         with pytest.raises(ValueError, match="checksum"):
             dataset.read_event(0, verify=True)
+
+
+class TestTimeReferenceMigration:
+    """Version-1 stores kept a geometric `t0` with the pulse lag left over.
+
+    `t0` now means the beamforming reference (lag already removed), so a store
+    written under the old convention must be shifted when it is read back —
+    otherwise an old acquisition beamforms `c·lag/2` deep.
+    """
+
+    def test_v1_store_shifts_t0_by_the_stored_lag(self, tmp_path):
+        lag = 3e-7
+        ds = RFDataset(tmp_path / "old", config=_config())
+        ds.write_event(
+            0,
+            np.zeros((4, 50), dtype=np.float32),
+            t0=1e-5,
+            dt=1e-8,
+            pulse_center_lag_s=lag,
+        )
+        # Rewrite the contents file as the old format would have left it.
+        contents = tmp_path / "old" / "contents.json"
+        contents.write_text(
+            contents.read_text().replace('"version": 2', '"version": 1')
+        )
+
+        _, coords = RFDataset(tmp_path / "old").load_all()
+        assert coords["t0"] == pytest.approx(1e-5 - lag)
+        assert coords["pulse_center_lag_s"] == pytest.approx(lag)
+
+    def test_current_store_keeps_t0(self, dataset):
+        dataset.write_event(
+            0,
+            np.zeros((4, 50), dtype=np.float32),
+            t0=1e-5,
+            dt=1e-8,
+            pulse_center_lag_s=3e-7,
+        )
+        _, coords = dataset.load_all()
+        assert coords["t0"] == pytest.approx(1e-5)

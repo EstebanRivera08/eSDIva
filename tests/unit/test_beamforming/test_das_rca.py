@@ -188,10 +188,6 @@ def test_point_localized_end_to_end():
         grid_mm=grid,
         c=C,
         fnum=0.7,
-        # Remove the axial bias of the band-limited pulse: the two-way
-        # waveform peaks ~half the excitation length after the geometric
-        # arrival (symmetric Hann-windowed burst).
-        t_offset_s=(t.size - 1) / 2 / fs,
     )
     env = np.abs(hilbert(vol, axis=2))
     peak = _peak_mm(env, axes)

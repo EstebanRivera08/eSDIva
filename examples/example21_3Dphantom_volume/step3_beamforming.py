@@ -96,14 +96,13 @@ t0_ev = np.asarray(coords["t0_per_event"], dtype=np.float64)
 t_bf = time.perf_counter()
 iq = None
 for e, event in enumerate(events):
-    # das_volume takes the pulse-centre lag from coords["pulse_center_lag_s"]
-    # (stored by the acquisition) and applies it as t_offset_s automatically.
+    # coords["t0_per_event"] is already the beamforming reference (the two-way
+    # pulse lag is out), so das_volume needs no t_offset_s.
     vol_e, axes = das_volume(
         rf[e : e + 1],
         {
             "dt": coords["dt"],
             "t0_per_event": t0_ev[e : e + 1],
-            "pulse_center_lag_s": coords["pulse_center_lag_s"],
         },
         [event],
         probe,

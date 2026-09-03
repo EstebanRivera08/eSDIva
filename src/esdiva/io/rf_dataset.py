@@ -129,7 +129,7 @@ class RFDataset:
                     f"new dataset (or point to an existing one)."
                 )
             self._contents = {
-                "version": 1,
+                "version": 2,
                 "created": datetime.now(timezone.utc).isoformat(timespec="seconds"),
                 "fingerprint": config_fingerprint(config),
                 "meta": meta or {},
@@ -196,7 +196,8 @@ class RFDataset:
         rf : (Erx, Nt) numpy.ndarray
             Per-receive-channel RF of this event.
         t0 : float
-            Beam-axis time origin of the first sample (s).
+            Beam-axis time reference of this event (s), as returned by the
+            reception simulator: echoes peak at their geometric round-trip time.
         dt : float
             Sample period (s).
         **info
@@ -279,7 +280,7 @@ class RFDataset:
         coords : dict
             ``"t0"``/``"dt"`` of the first event plus ``"t0_per_event"`` and,
             when recorded at write time, the ``"pulse_center_lag_s"`` two-way
-            pulse lag the beamformer applies as its ``t_offset_s``.
+            pulse lag (already removed from ``t0``; carried for provenance).
 
         Raises
         ------
@@ -317,15 +318,20 @@ class RFDataset:
                 )
             rf_all = rf_all.reshape(-1, chunks, n_rx, nt).sum(axis=1)
             t0s = t0g[:, 0]
+        # The pulse-centre lag depends only on the pulse model and fs (not the
+        # phantom), so it is identical for every event; recover it from the
+        # first event's metadata.
+        lag = self._contents["events"][str(idxs[0])].get("pulse_center_lag_s")
+        if lag is not None and int(self._contents.get("version", 1)) < 2:
+            # Version-1 stores kept a geometric t0 and left the pulse-centre lag
+            # for the beamformer. Subtract it here so an old acquisition loads
+            # with the current convention: t0 referenced to the echo peak.
+            t0s = t0s - float(lag)
         coords = {
             "t0": t0s[0],
             "dt": events[0][2],
             "t0_per_event": t0s,
         }
-        # The pulse-centre lag depends only on the pulse model and fs (not the
-        # phantom), so it is identical for every event; recover it from the
-        # first event's metadata and pass it on for the beamformer's t_offset.
-        lag = self._contents["events"][str(idxs[0])].get("pulse_center_lag_s")
         if lag is not None:
             coords["pulse_center_lag_s"] = float(lag)
         return rf_all, coords

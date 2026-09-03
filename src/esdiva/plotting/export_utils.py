@@ -169,6 +169,12 @@ def save_pyvista_movie(
         plotter.close()
         print(f"\nVideo saved to: {path.resolve()}")
         return path
+    except ImportError as exc:
+        # PyVista writes frames through imageio, an optional extra here.
+        print(
+            f'Movie export needs the video backends: pip install "esdiva[video]"  ({exc})'
+        )
+        return None
     except Exception as exc:
         print(f"Movie export failed: {exc}")
         return None

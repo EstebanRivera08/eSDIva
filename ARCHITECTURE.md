@@ -482,8 +482,11 @@ yourself; resume cannot detect it.
 ### 4. Beamforming
 
 - **Pulse-centre lag:** a band-limited pulse peaks ~half its length after the
-  geometric arrival; `coords["pulse_center_lag_s"]` carries the computed lag and
-  `das_volume` applies it automatically — a missing lag shifts the whole image deep.
+  geometric arrival (0.49 mm axially for a 2-cycle 5 MHz model). It is subtracted
+  from `coords["t0"]` at simulation time, so `t0` is the *beamforming reference* —
+  an echo peaks at its geometric round-trip time and every beamformer reads
+  `(t_tx + t_rx − t0)·fs` with no correction. `coords["pulse_center_lag_s"]` is
+  provenance only; re-applying it shifts the whole image deep.
 - **Delay-reference conventions:** earliest-vs-latest element referencing moves the
   TX time origin by `(d_max−d_min)/c` (≈1 mm misplacement); `das_volume` recovers
   the origin from each event's own delay vector, so any convention beamforms

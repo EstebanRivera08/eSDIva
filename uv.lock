@@ -535,21 +535,38 @@ name = "esdiva"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [
-    { name = "brainglobe-atlasapi" },
-    { name = "brainglobe-space" },
     { name = "h5py" },
-    { name = "imageio" },
-    { name = "imageio-ffmpeg" },
     { name = "matplotlib" },
     { name = "numba" },
     { name = "numpy" },
-    { name = "pyvista", extra = ["jupyter"] },
+    { name = "pyvista" },
     { name = "scipy" },
+]
+
+[package.optional-dependencies]
+all = [
+    { name = "brainglobe-atlasapi" },
+    { name = "brainglobe-space" },
+    { name = "imageio" },
+    { name = "imageio-ffmpeg" },
+    { name = "pyvista", extra = ["jupyter"] },
+]
+atlas = [
+    { name = "brainglobe-atlasapi" },
+    { name = "brainglobe-space" },
+]
+jupyter = [
+    { name = "pyvista", extra = ["jupyter"] },
+]
+video = [
+    { name = "imageio" },
+    { name = "imageio-ffmpeg" },
 ]
 
 [package.dev-dependencies]
 dev = [
     { name = "codespell" },
+    { name = "esdiva", extra = ["all"] },
     { name = "ipykernel" },
     { name = "ipympl" },
     { name = "ipython" },
@@ -574,21 +591,25 @@ dev = [
 
 [package.metadata]
 requires-dist = [
-    { name = "brainglobe-atlasapi", specifier = ">=2.2.1" },
-    { name = "brainglobe-space", specifier = ">=1.0.3" },
+    { name = "brainglobe-atlasapi", marker = "extra == 'atlas'", specifier = ">=2.2.1" },
+    { name = "brainglobe-space", marker = "extra == 'atlas'", specifier = ">=1.0.3" },
+    { name = "esdiva", extras = ["atlas", "jupyter", "video"], marker = "extra == 'all'" },
     { name = "h5py", specifier = ">=3.13.0" },
-    { name = "imageio", specifier = ">=2.37.3" },
-    { name = "imageio-ffmpeg", specifier = ">=0.6.0" },
+    { name = "imageio", marker = "extra == 'video'", specifier = ">=2.37.3" },
+    { name = "imageio-ffmpeg", marker = "extra == 'video'", specifier = ">=0.6.0" },
     { name = "matplotlib", specifier = ">=3.10.1" },
     { name = "numba", specifier = ">=0.61" },
     { name = "numpy", specifier = ">=2.1.2" },
-    { name = "pyvista", extras = ["jupyter"], specifier = ">=0.45.0" },
+    { name = "pyvista", specifier = ">=0.45.0" },
+    { name = "pyvista", extras = ["jupyter"], marker = "extra == 'jupyter'", specifier = ">=0.45.0" },
     { name = "scipy", specifier = ">=1.15.2" },
 ]
+provides-extras = ["atlas", "video", "jupyter", "all"]
 
 [package.metadata.requires-dev]
 dev = [
     { name = "codespell", specifier = ">=2.3.0" },
+    { name = "esdiva", extras = ["all"] },
     { name = "ipykernel", specifier = ">=6.29.5" },
     { name = "ipympl", specifier = ">=0.9.7" },
     { name = "ipython", specifier = ">=9.1.0" },
@@ -856,7 +877,7 @@ name = "importlib-metadata"
 version = "9.0.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "zipp", marker = "python_full_version < '3.12'" },
+    { name = "zipp" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/a9/01/15bb152d77b21318514a96f43af312635eb2500c96b55398d020c93d86ea/importlib_metadata-9.0.0.tar.gz", hash = "sha256:a4f57ab599e6a2e3016d7595cfd72eb4661a5106e787a95bcc90c7105b831efc", size = 56405, upload-time = "2026-03-20T06:42:56.999Z" }
 wheels = [

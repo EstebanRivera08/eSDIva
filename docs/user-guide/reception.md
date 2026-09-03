@@ -97,8 +97,22 @@ scatterer cloud in 3-D — run it before a long simulation.
 
 ## Beamforming note
 
-The RF is referenced to the **geometric** round-trip time. The built-in DAS
-beamformers (`das_volume`, `das_rca_volume`) auto-apply `coords["pulse_center_lag_s"]`
-(the half-pulse envelope delay); a custom beamformer must add it itself.
+`coords["t0"]` is the **beamforming time reference**, not the instant of the first
+RF sample: it is set so a scatterer's echo peaks at its geometric round-trip time
+`(|p − r_tx| + |p − r_rx|)/c`. Any beamformer — `das_volume`, `das_rca_volume`, or
+your own — therefore reads the sample at `(t_tx + t_rx − t0)·fs` with no further
+correction.
+
+This is the same contract USTB puts in `initial_time` and MUST's `dasmtx` assumes,
+so RF exported with [`save_rf_hdf5`][esdiva.io.save_rf_hdf5] drops into those
+workflows unchanged. Getting there costs one shift: the band-limited two-way pulse
+peaks about half its length after the geometric arrival, and that lag is subtracted
+from `t0` at simulation time. It stays in `coords["pulse_center_lag_s"]` as
+provenance — **already applied**, so adding it again biases the image deep by
+`c·lag/2` (≈0.5 mm for a 2-cycle 5 MHz pulse model).
+
+`t_offset_s` on the DAS beamformers defaults to `0.0`; use it only for RF from
+elsewhere whose time axis is not referenced this way (raw Field II `calc_scat`
+output still carries the lag) or to inject a system delay.
 
 Full signatures: [API → Reception](../api/reception.md) · [API → Beamforming](../api/beamforming.md).

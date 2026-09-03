@@ -25,10 +25,19 @@ A friendly, fast, and exact acoustic field simulator — your probe into ultraso
 
 ## Install
 
+=== "From PyPI"
+
+    ```bash
+    uv add "esdiva[all]"          # or:  pip install "esdiva[all]"
+    ```
+
+    `[all]` switches on every optional feature. See
+    [Installation](user-guide/installation.md) to install a slimmer subset.
+
 === "From GitHub"
 
     ```bash
-    uv add git+https://github.com/EstebanRivera08/eSDIva.git
+    uv add "esdiva[all] @ git+https://github.com/EstebanRivera08/eSDIva.git"
     ```
 
 === "Development"

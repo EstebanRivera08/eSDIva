@@ -50,8 +50,11 @@ def _pulse():
 def _synth_rf(el_m, t_tx_point, point_mm):
     """One event's RF: the echo of a unit point at ``point_mm`` STARTS on
     channel r at ``t_tx_point + |p − r_r|/c`` (causal pulse, like a real
-    excitation), so its centre lags the geometric arrival by ``lag`` — the
-    axial bias `das_volume`'s ``t_offset_s`` must remove."""
+    excitation), so its centre lags the geometric arrival by ``lag``.
+
+    ``coords["t0"]`` is set to ``-lag``, reproducing what the reception
+    simulator returns: a time reference against which the echo peaks at the
+    geometric round-trip time, so `das_volume` needs no ``t_offset_s``."""
     p = point_mm * 1e-3
     t_back = np.linalg.norm(el_m - p, axis=1) / C  # (Erx,)
     pulse = _pulse()
@@ -67,7 +70,7 @@ def _synth_rf(el_m, t_tx_point, point_mm):
             left=0.0,
             right=0.0,
         )
-    return rf[None], {"t0": 0.0, "dt": 1.0 / FS}, lag
+    return rf[None], {"t0": -lag, "dt": 1.0 / FS}
 
 
 def _peak_mm(vol, axes):
@@ -126,7 +129,7 @@ def test_point_reconstructs_at_true_position(basis):
             "virtual_source_mm": el[0] * 1e3,
         }
 
-    rf, coords, lag = _synth_rf(el, t_tx, POINT_MM)
+    rf, coords = _synth_rf(el, t_tx, POINT_MM)
     vol, axes = das_volume(
         rf,
         coords,
@@ -136,7 +139,6 @@ def test_point_reconstructs_at_true_position(basis):
         c=C,
         fnum=0.5,
         rx_apodization="rect",
-        t_offset_s=lag,
     )
     err = np.abs(_peak_mm(vol, axes) - POINT_MM)
     tol = np.array([GRID["dx"], GRID["dy"], GRID["dz"]]) + 1e-9  # one voxel
