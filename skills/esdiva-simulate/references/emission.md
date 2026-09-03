@@ -9,6 +9,61 @@ sim = Emission(tx, c=1540.0, rho=1.0, fs=100e6, alpha0=None, verbose=True)
 p, coords = sim(field_points_mm, method="auto")
 ```
 
+## What an emission field is — and is not
+
+Every `Emission` result is a **linear** wave in a **homogeneous, lossless-or-power-law
+fluid**: one sound speed `c`, one density `ρ₀`, no medium map, no boundaries except the
+rigid baffle in the aperture plane. Straight rays at that single `c` set every delay. So
+the following are outside the method, not missing features:
+
+- **Skull, bone, layered tissue, fat/muscle interfaces, any `c(r)` or `ρ(r)` map** —
+  hence no refraction, no reflection, no transmission loss, no aberration or
+  skull-induced defocusing. A "transcranial" beam cannot be simulated here; the beam
+  eSDIva gives you is the free-field one that would exist without the skull.
+- **Nonlinear propagation** — no harmonics, no shock, no saturation, at any drive
+  amplitude. The chain is one convolution.
+- **Cavitation, heating, radiation force, streaming** — not wave-field quantities.
+  `I_SPTA` and a peak-negative pressure *can* be formed from the linear field, but they
+  are free-field, non-derated, non-saturating numbers: they overestimate what a real
+  path delivers. Do not present them as a safety index (MI/TI) for a real exposure.
+- **Standing waves, reverberation, a reflecting wall or interface** — the field
+  radiates outward into an unbounded medium and never comes back.
+
+Modelling caveats that shape accuracy rather than forbid a study:
+
+- **Rigid (hard) baffle** *(not yet configurable)*. The aperture plane is rigid — the `1/2πR` in the SIR is
+  exactly that assumption. Real probes sit in a soft/inactive housing, so eSDIva is
+  optimistic at large angles off the normal, and radiation behind the array is absent.
+  A soft-baffle / obliquity option (Field II's `xdc_baffle`) is a planned addition, not a
+  limit of the method.
+- **Far-field trapezoid per patch.** A patch's SIR is the trapezoid seen from far
+  *relative to that patch* (direction cosines and one centre distance). The remedy is
+  subdivision: shrink patches until the field stops moving. Accuracy is therefore worst
+  right on the aperture face — another reason `z_extent` should start away from 0.
+- **Sub-sample patches are widened to one sample** *(not yet exact)*. A patch whose SIR is narrower than
+  `1/fs` is stretched to one bin (area conserved). Under-sampling shows up as amplitude
+  error, not as an obvious artefact — this is why `fs` must be 20–50× `fc`.
+- **An elevation lens is pure geometry** *(a lens material layer is not yet modelled)*. A "lens" is a curved aperture surface, not a
+  refracting material layer: no lens sound speed, no lens attenuation, no reverberation
+  inside it.
+- **The transducer is an ideal velocity source.** No electrical impedance, no element
+  crosstalk, no mechanical resonance beyond whatever you supply as
+  `tx.impulse_response` — and that response is one array for the whole aperture
+  (per-element impulse responses are *not yet* supported; per-element *excitation*
+  already is, via an `(L, E)` array).
+- **Attenuation is one global power law** (`alpha0`, `freq_power`) applied over the whole
+  path — a per-region attenuation map is *not yet* available — and it is ignored when
+  `excitation=None`.
+- **Pressures are uncalibrated unless you calibrate them.** With the default `rho=1.0`
+  (Field II convention) and an arbitrary excitation, the field is linear-scale and
+  correct in *relative* terms; real pascals need a real `ρ₀` and a drive in m/s.
+
+If a request needs a heterogeneous medium or a nonlinear term, say so before writing
+code, then offer the free-field question eSDIva does answer (beam width, focal gain,
+depth of field, aperture design) and point to a full-wave solver (k-Wave, Stride, an
+FDTD/pseudospectral code) for the rest. Full table with the reason for each exclusion:
+`references/physics.md` § "What eSDIva cannot compute".
+
 ## The four modes
 
 | Constructor | Physics computed | Shape | Field II equivalent |

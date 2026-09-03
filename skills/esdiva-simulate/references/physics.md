@@ -4,6 +4,71 @@ Written for the ultrasound researcher who wants to know what the numbers mean an
 where they can go wrong. Nothing here is eSDIva-specific dogma — it is the
 Tupholme–Stepanishen framework the package implements.
 
+## What eSDIva cannot compute — read this before designing a study
+
+The whole framework rests on one integral: a **linear** wave propagating in a
+**homogeneous, non-scattering fluid** with a single sound speed `c` and a single
+density `ρ₀`. Every geometric quantity — the delay to a field point, the SIR
+breakpoints, the round-trip time of an echo — is computed as a straight ray at that
+one speed. There is no medium map anywhere in the package, so a request that needs
+the wave to *change* as it travels cannot be answered, however the script is
+written. Refusals below are structural, not missing features — and they are the **same limits
+Field II has**, because both implement the same Jensen/Tupholme–Stepanishen model. That
+is usually the clearest thing to tell a user: if Field II cannot do it, neither can
+eSDIva, for the same reason.
+
+| Not possible | Why the method forbids it |
+|---|---|
+| Transcranial / through-bone propagation, aberration correction, skull-induced defocusing | Requires a heterogeneous `c(r)`, `ρ(r)` and shear-wave conversion in bone. eSDIva has one scalar `c`, one `ρ₀`, and a fluid-only formulation — no elastic solid, no mode conversion. |
+| Refraction, reflection or transmission at a tissue interface (fat/muscle, tissue/bone, lens layers) | An interface is an impedance discontinuity. The SIR integral assumes free-field propagation from the aperture with no boundaries other than the rigid baffle in the aperture plane. |
+| Layered or spatially varying media, sound-speed maps, temperature-dependent `c` | `c` is a single constructor scalar used for every delay. |
+| Multiple scattering, reverberation, shadowing behind a strong target, clutter from the body wall | Scatterers are independent Born (weak, single-scattering) point targets. Each contributes `amplitude × h_tx ⊛ h_rx` and never sees another scatterer's field. |
+| Nonlinear propagation, harmonic imaging, shock formation, mechanical/thermal index for HIFU dosimetry | The whole chain is a linear convolution. There is no second-order term, so no harmonic is generated at any drive level. |
+| Absolute pressures in Pa without calibration | The default `rho=1.0` (Field II convention) and an arbitrary excitation amplitude make the output linear-scale but not calibrated. Amplitudes are meaningful in *relative* terms unless the user supplies real `ρ₀` and a calibrated drive. |
+| Elastography, shear-wave propagation | The medium is an inviscid fluid — no shear branch, no viscoelasticity. (Flow and Doppler are *not* in this row: scatterers are static within one call, but advancing them between calls, as Field II users do, gives motion and decorrelation.) |
+| Streaming, cavitation, radiation force, heating | Not wave-field quantities — they need a nonlinear or thermal solver. |
+| Region-dependent attenuation, an attenuation map | `alpha0`/`freq_power` are global scalars applied along the whole propagation distance. |
+
+### "Never" versus "not yet"
+
+Everything in the table above is a property of the *model*, so it will not arrive in a
+future release — closing any of those rows means a different solver (k-Wave, Stride, an
+FDTD/pseudospectral code), not a new eSDIva version. Field II sits in exactly the same
+place.
+
+A few things a user may ask for are instead **current-version gaps**. Say "not yet",
+not "impossible", and give the workaround where one exists:
+
+| Not yet | Where it stands today |
+|---|---|
+| Soft-baffle / obliquity weighting (Field II's `xdc_baffle`) | The rigid baffle is assumed and unavoidable. It flatters response at large angles off the normal; nothing else changes. |
+| Per-element impulse responses, a separate receive-electronics transfer function | One `impulse_response` per transducer. Per-element *excitation* already exists on emission (`(L, E)`). |
+| Frequency-dependent scatterer amplitude (Rayleigh `f⁴`, scatterer size) | Amplitudes are frequency-flat scalars. Approximate by simulating scatterer classes separately and filtering each result. |
+| Moving scatterers inside one `sequence_rf` call | Advance the positions yourself between `pulse_echo_rf` calls (`v/PRF` per emission) and stack — this is how flow is done in Field II. Only the checkpointing convenience is missing. |
+| Attenuation that varies by region | `alpha0` is one global power law. |
+| A lens as a material layer (lens sound speed, lens loss) | A lens is a curved aperture surface: the focusing geometry is right, the layer physics is absent. |
+| Exact sub-sample patch response | A patch whose SIR is narrower than `1/fs` is widened to one sample bin (area conserved). Raise `fs` rather than working around it. |
+
+Noise, TGC, ADC quantisation and element crosstalk are **deliberately** absent, not
+pending: the RF is a clean, unamplified signal so the user controls the SNR. Add noise
+yourself before quoting any CNR or contrast number.
+
+**What the brain-atlas feature actually does.** eSDIva can register a computed field
+onto an anatomical atlas and report, per structure, what fraction of the beam lands
+there. The field is still computed in **homogeneous water/tissue**: the skull is not
+in the acoustic model, the beam is not defocused or attenuated by bone, and the
+overlay is a *targeting* and *coverage* aid, not a transcranial simulation. Saying
+otherwise misleads someone planning a real neuromodulation experiment.
+
+**What to say instead.** Name the physical reason (one sentence: "that needs a
+heterogeneous medium; eSDIva propagates through a single sound speed"), then offer
+the nearest question eSDIva *can* answer — free-field beam shape, focal geometry,
+aperture design, PSF, the imaging sequence itself — and point the user at a
+full-wave solver (k-Wave, Stride, Kranion, an FDTD/pseudospectral code) for the part
+that needs a medium map. Never patch around it by faking a skull as a set of
+scatterers or by lowering `c`: single-scattering point targets in a homogeneous
+medium do not reproduce refraction, and neither does a global speed change.
+
 ## The spatial impulse response
 
 For a baffled aperture `S` radiating into a homogeneous lossless fluid, the velocity
@@ -30,10 +95,12 @@ Two consequences you feel immediately:
 
 ## Patches: exact pieces, approximate assembly
 
-eSDIva evaluates `h` exactly for a flat **rectangular patch**, then sums over
-patches. The exactness is per patch; the approximation is the assumption that the
-aperture is well represented by that tiling and that the drive is uniform across a
-patch. So:
+eSDIva evaluates `h` in closed form for a flat **rectangular patch** — a trapezoid in
+time, valid in that patch's own far field (the patch is seen through one centre
+distance and two direction cosines) — then sums over patches. Two approximations
+therefore sit under every field: the aperture is represented by that tiling with a
+uniform drive per patch, and each patch is far enough from the field point for its
+trapezoid to hold. Both are controlled by the same knob — subdivision. So:
 
 - More subdivision → smaller patches → the SIR converges. The convergence check
   (double `no_sub_x`/`no_sub_y`, confirm the field barely moves) is the only honest

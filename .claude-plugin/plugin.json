@@ -1,7 +1,7 @@
 {
   "name": "esdiva",
   "description": "Agent skills for eSDIva: transducer geometry, emission fields, pulse-echo RF + beamforming, the underlying SIR physics, and a careful contribution workflow.",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "author": {
     "name": "Deyver Esteban Rivera",
     "url": "https://github.com/EstebanRivera08"

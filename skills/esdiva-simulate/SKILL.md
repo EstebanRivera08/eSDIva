@@ -7,8 +7,8 @@ description: Help someone use the eSDIva ultrasound field simulator — build a 
 
 eSDIva computes acoustic fields with the Tupholme–Stepanishen **spatial impulse
 response** (SIR) method: an aperture is discretised into rectangular patches, each
-patch's SIR is evaluated exactly, and pressure follows by convolution with the
-excitation. Its users are ultrasound researchers and students, not programmers:
+patch's SIR is evaluated in closed form (a trapezoid, valid in that patch's far
+field), and pressure follows by convolution with the excitation. Its users are ultrasound researchers and students, not programmers:
 explain the acoustics, keep the Python out of the way, get a first result on screen
 quickly.
 
@@ -38,6 +38,47 @@ changes the plotting arguments (see `references/visualization.md`). Templates ar
 cells, so emit whichever the user wants from the same content. Never keep two
 divergent copies of one template.
 
+## First: is the question answerable at all?
+
+eSDIva propagates a **linear** wave through a **homogeneous** fluid — one sound
+speed, one density, no medium map — and echoes come from independent **weak
+(single-scattering) point targets**. Anything that needs the medium to vary or the
+wave to interact with itself is outside the method, not merely unimplemented:
+transcranial / through-skull propagation, refraction or reflection at tissue
+interfaces, sound-speed maps, multiple scattering and reverberation, shadowing,
+specular reflectors, nonlinear or harmonic imaging, cavitation, HIFU heating and
+dosimetry, shear waves and elastography. These are exactly **Field II's** limits too —
+same Jensen / Tupholme–Stepanishen model — which is usually the fastest way to make
+them concrete for a user.
+
+Distinguish **never** from **not yet**. The list above is the model itself and will not
+change in a release; a handful of neighbouring things (soft-baffle/obliquity weighting,
+per-element impulse responses, frequency-dependent scatterer amplitudes, moving
+scatterers inside one `sequence_rf` call, a per-region attenuation map) are current
+gaps with workarounds — `references/physics.md` § '"Never" versus "not yet"' has the
+table. Saying "impossible" where the honest answer is "not yet, do it this way" is as
+misleading as the reverse.
+
+Two things that sound excluded but are not: **flow and Doppler** (advance the
+scatterers between emissions yourself, as Field II users do) and **near-field
+aberration** (a phase screen written into per-element delays/apodization). Offer
+those rather than refusing.
+
+If the request needs one of these, **say so before writing any code**: name the
+physical reason in a sentence, offer the nearest question eSDIva *can* answer
+(free-field beam shape, focal geometry, aperture design, PSF, imaging sequence), and
+point them to a full-wave solver (k-Wave, Stride, an FDTD/pseudospectral code) for
+the heterogeneous part. Do not fake it — a skull modelled as scatterers or a lowered
+global `c` does not produce refraction or aberration, it produces a wrong answer that
+looks plausible.
+
+Note on the brain atlas: eSDIva can overlay a computed field on an anatomical atlas
+and report per-structure coverage, but the field is still computed in homogeneous
+tissue with **no skull in the acoustic model**. It is targeting geometry, not a
+transcranial simulation — call it that, especially to someone planning a real
+neuromodulation experiment. Full table of exclusions and the reason for each:
+`references/physics.md` § "What eSDIva cannot compute".
+
 ## Route the request
 
 Open the file named below — paths are relative to this skill's own folder, wherever
@@ -51,6 +92,7 @@ it is installed. Read one reference, not all of them.
 | What the RF output means, feeding it to a *custom* or third-party beamformer, exporting to USTB/MATLAB | `references/reception.md` § "What the RF output actually is" |
 | A figure that actually appears — notebook vs desktop vs headless, PyVista backends, saving movies | `references/visualization.md` |
 | "Why does the field look like this", method choice, sampling, `t0`, Field II equivalence | `references/physics.md` |
+| Whether a study is physically in scope at all — skull, layers, harmonics, flow, HIFU dose | `references/physics.md` § "What eSDIva cannot compute" |
 
 Templates: `emission_cw.py` (beam profile), `emission_transient.py` (wavefront),
 `reception_psf.py` (point spread function + timing check),

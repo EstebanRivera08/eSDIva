@@ -21,6 +21,62 @@ sim = Reception(tx, rx, c=1540.0, rho=1.0, fs=100e6,
 `rx = tx.copy()` — sharing one object lets the transmit delays/apodization corrupt
 the receive channels, and `sequence_rf` refuses it.
 
+## What this RF is a model of — and what it cannot contain
+
+The scattering model is Jensen's (JASA 89(1), 1991), the one Field II implements:
+**weak (first-order Born) scattering from independent point targets in a homogeneous
+medium**. Each scatterer contributes `amplitude × (h_tx ⊛ h_rx)` and nothing else.
+Everything below is therefore absent from the RF by construction — it will never
+appear, no matter how the phantom is built:
+
+- **Multiple scattering, reverberation, body-wall clutter, comet tails** — a scatterer
+  never sees another scatterer's field.
+- **Shadowing and enhancement.** A dense or strongly reflecting region does not weaken
+  the echoes behind it; the acoustic shadow under a stone or a rib is not there.
+- **Specular reflectors.** Amplitudes are frequency-independent, angle-independent
+  scalars, so there is no impedance-controlled reflection coefficient and no
+  mirror-like surface. A bone surface, a needle, a vessel wall or a catheter modelled
+  as a sheet of points gives a bright layer, not real specular behaviour (no
+  angle-dependent dropout, no reverberation between two interfaces).
+- **Frequency-dependent scattering** *(not yet)*. No Rayleigh `f⁴` law, no scatterer-size
+  effects — approximate it by simulating scatterer classes separately and filtering each;
+  the spectrum of an echo is the pulse spectrum shaped only by diffraction and
+  attenuation.
+- **Refraction and true 3-D aberration.** One global `c` sets both the simulation and
+  the geometry, so there is no skull, no fat layer, no sound-speed map. Two related
+  studies *are* supported and worth offering instead: a global speed **mismatch**
+  (beamform with `c' ≠ c_sim` — a uniform error, not aberration), and a **near-field
+  phase screen** (per-element delay/amplitude errors written into an event's `delays`
+  and `apodization`, and channel shifts applied to the returned RX data). A phase
+  screen at the aperture is the standard first-order aberration model; what is missing
+  is refraction distributed along the propagation path.
+- **Motion is not automatic** *(first-class support not yet)*. One `sequence_rf` call freezes the scatterers: every
+  event sees the identical medium, so a sequence gives no Doppler or decorrelation by
+  itself. Flow *is* simulatable the way it is in Field II — loop the emissions
+  yourself, advancing the scatterer positions by `v·(1/PRF)` between calls to
+  `pulse_echo_rf`, and stack the results. You lose `sequence_rf`'s checkpointing, and
+  the medium is still linear and non-viscous, so this buys Doppler and speckle
+  decorrelation, not elastography or shear waves.
+- **Nonlinearity.** No harmonic imaging, no pulse-inversion contrast, no microbubbles.
+- **Electronics — absent by design, not pending.** No thermal or electronic noise, no
+  TGC, no ADC quantisation, no element crosstalk, and one impulse response per
+  transducer (per-element responses and a separate receive-electronics transfer
+  function are *not yet* supported). The
+  RF is a noiseless, unamplified, infinite-dynamic-range signal — add noise yourself if
+  the study needs a realistic SNR or a CNR that means something.
+- **Absolute echo calibration.** Amplitudes are relative; there is no backscatter
+  coefficient in physical units.
+
+Two consequences worth stating to a user out loud, because they change how a result
+should be read: a simulated B-mode has **no clutter floor** other than the beam's own
+sidelobes and the speckle you created, so contrast numbers are optimistic against a
+real scanner; and an anechoic lesion is *perfectly* anechoic, so its measured CNR is
+bounded by your scatterer statistics, not by physics.
+
+Attenuation, when enabled, is one global power law over the whole path — a per-region
+map is *not yet* available. Full table of exclusions with the reason for each:
+`references/physics.md` § "What eSDIva cannot compute".
+
 ## The calls
 
 | Call | Returns | Use for |

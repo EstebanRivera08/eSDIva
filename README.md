@@ -53,7 +53,7 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 <td width="50%"><img src="docs/examples/assets/ex05_matrix_pw_3d.gif" width="100%" alt="Steered plane-wave transient"><br><sub><b>Steered plane wave</b> — 3-D transient</sub></td>
 </tr>
 <tr>
-<td width="50%"><img src="docs/examples/assets/ex13_rat_brain_zones.png" width="100%" alt="Transcranial targeting"><br><sub><b>Transcranial targeting</b> — rat-brain atlas</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex13_rat_brain_zones.png" width="100%" alt="Atlas-registered targeting"><br><sub><b>Atlas-registered targeting</b> — rat brain, free-field beam (no skull in the acoustic model)</sub></td>
 <td width="50%"><img src="docs/examples/assets/ex21_zeus10_volume_3d.png" width="100%" alt="3-D B-mode volume"><br><sub><b>3-D B-mode volume</b> — Zeus matrix, fast RF + DAS</sub></td>
 </tr>
 </table>
