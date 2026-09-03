@@ -63,7 +63,9 @@ __all__ = [
 try:
     __version__ = version("esdiva")
 except PackageNotFoundError:
-    __version__ = "0.1.0"
+    # Running from a source tree with no install: there is no release number to
+    # report, so say so rather than name a version that may not be this code.
+    __version__ = "0+unknown"
 
 
 def main() -> None:
