@@ -92,7 +92,7 @@ def main() -> None:
        |____/  |____/  |___|   \_/            v{__version__}
 
   Efficient Sparse Delta Integration for Vectorized Acoustics.
-  A friendly, fast, exact ultrasound field simulator.
+  Fast, exact ultrasound pressure-field simulation for any transducer geometry.
 """
     print(banner)
 

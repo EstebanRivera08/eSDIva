@@ -1,7 +1,7 @@
 [project]
 name = "esdiva"
 version = "0.2.1"
-description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. A friendly, fast, exact ultrasound pressure-field simulator for any transducer geometry."
+description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. Fast, exact ultrasound pressure-field simulation for arbitrary transducer geometries."
 readme = "README.md"
 authors = [
     { name = "Deyver Esteban Rivera", email = "113285895+EstebanRivera08@users.noreply.github.com" }
@@ -11,6 +11,8 @@ license = "BSD-3-Clause"
 license-files = ["LICENSE"]
 classifiers = [
     "Programming Language :: Python",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering",
     "Topic :: Scientific/Engineering :: Physics",

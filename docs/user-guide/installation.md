@@ -23,17 +23,11 @@ pip install "esdiva[all]"
 
 `[all]` is the recommended install: it switches on every optional feature.
 
-To try the built-in demo without adding eSDIva to a project, use
-[pipx](https://pipx.pypa.io/), which puts the `esdiva` command on your PATH in
-its own isolated environment:
+If you installed with `uv`, you can also run the bundled demo for fun:
 
 ```bash
-pipx install "esdiva[all]"
-esdiva
+uv run esdiva
 ```
-
-For `import esdiva` in your own scripts, use `uv add` or `pip install` instead —
-a pipx install is not visible to other environments.
 
 ## Install from GitHub
 

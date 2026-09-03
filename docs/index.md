@@ -10,10 +10,11 @@ hide:
 
 **Efficient Sparse Delta Integration for Vectorized Acoustics.**
 
-A friendly, fast, and exact acoustic field simulator — your probe into ultrasound fields. Built on the Tupholme–Stepanishen Spatial Impulse Response formulation and accelerated by the SDI method.
+Ultrasound pressure-field simulation for arbitrary transducer geometries — fast and exact. Built on the Tupholme–Stepanishen Spatial Impulse Response formulation and accelerated by the SDI method.
 
 [![PyPI](https://img.shields.io/pypi/v/esdiva?color=9575cd&logo=pypi&logoColor=white&label=PyPI)](https://pypi.org/project/esdiva/)
-[![Python](https://img.shields.io/pypi/pyversions/esdiva?color=00897b&logo=python&logoColor=white)](https://pypi.org/project/esdiva/)
+[![Python](https://img.shields.io/badge/python-3.11%20%7C%203.12-00897b?logo=python&logoColor=white)](https://pypi.org/project/esdiva/)
+[![DOI](https://img.shields.io/badge/DOI-10.48550%2FarXiv.2608.26891-b31b1b)](https://doi.org/10.48550/arXiv.2608.26891)
 [![License](https://img.shields.io/github/license/EstebanRivera08/eSDIva?color=9575cd)](https://github.com/EstebanRivera08/eSDIva/blob/main/LICENSE)
 
 [Get Started :lucide-arrow-right:](user-guide/getting-started.md){ .md-button .md-button--primary }

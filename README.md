@@ -1,12 +1,12 @@
 <h1 align="center">🌊 eSDIva</h1>
 <p align="center"><b>Efficient Sparse Delta Integration for Vectorized Acoustics.</b></p>
 <p align="center">
-A friendly acoustic field simulator — your probe into ultrasound fields: <b>fast and exact</b>.
+Ultrasound pressure-field simulation for arbitrary transducer geometries — <b>fast and exact</b>.
 </p>
 
 [![PyPI version](https://img.shields.io/pypi/v/esdiva)](https://pypi.org/project/esdiva/)
-[![Python versions](https://img.shields.io/pypi/pyversions/esdiva)](https://pypi.org/project/esdiva/)
-[![DOI]()]()
+[![Python versions](https://img.shields.io/badge/python-3.11%20%7C%203.12-blue)](https://pypi.org/project/esdiva/)
+[![DOI](https://img.shields.io/badge/DOI-10.48550%2FarXiv.2608.26891-b31b1b)](https://doi.org/10.48550/arXiv.2608.26891)
 [![codecov](https://codecov.io/gh/EstebanRivera08/eSDIva/graph/badge.svg)](https://codecov.io/gh/EstebanRivera08/eSDIva)
 [![Docs](https://img.shields.io/badge/docs-online-blue)](https://estebanrivera08.github.io/eSDIva/)
 
@@ -84,14 +84,10 @@ From PyPI, with everything switched on:
 uv add "esdiva[all]"          # or:  pip install "esdiva[all]"
 ```
 
-To try the built-in demo without installing into a project, use
-[pipx](https://pipx.pypa.io/) — it puts the `esdiva` command on your PATH in its
-own isolated environment (for `import esdiva` in your own scripts, use `uv add`
-or `pip install` above instead):
+If you installed with `uv`, you can also run the bundled demo for fun:
 
 ```bash
-pipx install "esdiva[all]"
-esdiva                        # simulates and renders a focused 3-D field
+uv run esdiva                 # simulates and renders a focused 3-D field
 ```
 
 For the latest development version from GitHub:

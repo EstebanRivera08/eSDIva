@@ -1,7 +1,7 @@
 [project]
 
 site_name = "eSDIva"
-site_description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. A friendly, fast, exact ultrasound pressure-field simulator for any transducer geometry."
+site_description = "eSDIva — Efficient Sparse Delta Integration for Vectorized Acoustics. Fast, exact ultrasound pressure-field simulation for arbitrary transducer geometries."
 site_author = "Esteban Rivera"
 site_url = "https://estebanrivera08.github.io/eSDIva/"
 repo_url = "https://github.com/EstebanRivera08/eSDIva"

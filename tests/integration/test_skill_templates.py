@@ -15,9 +15,7 @@ from pathlib import Path
 
 import pytest
 
-TEMPLATES = (
-    Path(__file__).parents[2] / "skills/esdiva-simulate/templates"
-)
+TEMPLATES = Path(__file__).parents[2] / "skills/esdiva-simulate/templates"
 
 
 @pytest.mark.parametrize("script", sorted(p.name for p in TEMPLATES.glob("*.py")))
