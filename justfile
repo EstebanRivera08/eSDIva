@@ -37,6 +37,15 @@ pre-commit-verbose:
 coverage:
     uv run pytest tests/ --cov=esdiva --cov-report=term-missing --cov-report=html
 
+# Build the wheel + sdist into dist/ (clears stale artifacts first).
+build:
+    Remove-Item -Recurse -Force -ErrorAction SilentlyContinue dist/
+    uv build
+
+# Upload dist/ to PyPI. Irreversible: PyPI never accepts a version twice.
+publish:
+    uv run twine upload dist/*
+
 # Aliases
 alias d := docs
 alias cd := clean-docs
