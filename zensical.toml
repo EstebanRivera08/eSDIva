@@ -35,7 +35,12 @@ nav = [
         { "Transient + Excitation" = "user-guide/transient-excitation.md" },
         { "Attenuation" = "user-guide/attenuation.md" },
       ]},
-      { "Reception (RF)" = "user-guide/reception.md" },
+      { "Reception (RF)" = [
+        { "Overview" = "user-guide/reception.md" },
+        { "PSF Simulation" = "user-guide/psf-simulation.md" },
+        { "Phantom Simulation" = "user-guide/phantom-simulation.md" },
+        { "Flow Simulation" = "user-guide/flow-simulation.md" },
+      ]},
     ]},
     { "Visualization" = [
       { "Overview" = "user-guide/visualization.md" },
@@ -83,6 +88,7 @@ nav = [
     { "19. Dual-Probe Pulse-Echo" = "examples/example19_dualprobe_reception_show.md" },
     { "20. Speckle Phantom B-mode" = "examples/example20_phantom_simulation.md" },
     { "21. Volumetric Case Study" = "examples/example21_rca_volume.md" },
+    { "22. Ultrafast Compound Doppler" = "examples/example22_flow_doppler.md" },
   ]},
   { "Contributing" = "contributing.md" },
 ]

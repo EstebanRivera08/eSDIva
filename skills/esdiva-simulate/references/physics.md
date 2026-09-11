@@ -44,7 +44,6 @@ not "impossible", and give the workaround where one exists:
 | Soft-baffle / obliquity weighting (Field II's `xdc_baffle`) | The rigid baffle is assumed and unavoidable. It flatters response at large angles off the normal; nothing else changes. |
 | Per-element impulse responses, a separate receive-electronics transfer function | One `impulse_response` per transducer. Per-element *excitation* already exists on emission (`(L, E)`). |
 | Frequency-dependent scatterer amplitude (Rayleigh `f⁴`, scatterer size) | Amplitudes are frequency-flat scalars. Approximate by simulating scatterer classes separately and filtering each result. |
-| Moving scatterers inside one `sequence_rf` call | Advance the positions yourself between `pulse_echo_rf` calls (`v/PRF` per emission) and stack — this is how flow is done in Field II. Only the checkpointing convenience is missing. |
 | Attenuation that varies by region | `alpha0` is one global power law. |
 | A lens as a material layer (lens sound speed, lens loss) | A lens is a curved aperture surface: the focusing geometry is right, the layer physics is absent. |
 | Exact sub-sample patch response | A patch whose SIR is narrower than `1/fs` is widened to one sample bin (area conserved). Raise `fs` rather than working around it. |

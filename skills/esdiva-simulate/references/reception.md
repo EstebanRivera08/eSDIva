@@ -50,13 +50,14 @@ appear, no matter how the phantom is built:
   and `apodization`, and channel shifts applied to the returned RX data). A phase
   screen at the aperture is the standard first-order aberration model; what is missing
   is refraction distributed along the propagation path.
-- **Motion is not automatic** *(first-class support not yet)*. One `sequence_rf` call freezes the scatterers: every
-  event sees the identical medium, so a sequence gives no Doppler or decorrelation by
-  itself. Flow *is* simulatable the way it is in Field II — loop the emissions
-  yourself, advancing the scatterer positions by `v·(1/PRF)` between calls to
-  `pulse_echo_rf`, and stack the results. You lose `sequence_rf`'s checkpointing, and
-  the medium is still linear and non-viscous, so this buys Doppler and speckle
-  decorrelation, not elastography or shear waves.
+- **Motion is resolved between emissions, not within one.** `sequence_rf` accepts a
+  moving cloud — `(N_events, N_scat, 3)`, one cloud per emission — so flow, Doppler
+  and speckle decorrelation are first-class (see "Moving scatterers" below). What it
+  cannot show is an intra-pulse Doppler frequency shift: the scatterers are frozen
+  while each echo is formed, and the RF carries only the phase shift *between*
+  emissions. That is what every Doppler estimator reads, and it is the same modelling
+  boundary Field II works within. The medium is still linear and non-viscous, so this
+  buys Doppler and decorrelation, not elastography or shear waves.
 - **Nonlinearity.** No harmonic imaging, no pulse-inversion contrast, no microbubbles.
 - **Electronics — absent by design, not pending.** No thermal or electronic noise, no
   TGC, no ADC quantisation, no element crosstalk, and one impulse response per
@@ -159,6 +160,16 @@ at roughly 10–15 min each.
 `pulse_echo_rf` and `synthetic_aperture_rf` accept the same two arguments and route
 through `sequence_rf`.
 
+**Recommend `sequence_rf` for any phantom study, static or moving.** The same result
+is reachable by hand — loop `pulse_echo_rf` per transmit (and per cloud, if the
+medium moves) and stack — and the physics is identical, so offer that when a user
+wants to see the steps. But steer real runs to `sequence_rf`: it is the only path
+with on-disk checkpointing (a killed 6-hour job resumes instead of returning
+nothing), the config fingerprint that refuses to mix incompatible data,
+`checkpoint_chunks=` for bounding loss inside one event, and `t0_per_event`
+collected for the beamformer. Reserve `pulse_echo_rf` for a single acquisition or a
+PSF map.
+
 ```python
 from esdiva.io import RFDataset
 ds = RFDataset("rf_store"); ds.summary()
@@ -167,8 +178,117 @@ ds.to_hdf5("channels.h5")      # UFF-compatible fields for MATLAB / USTB
 ```
 
 `coords["dt"]` is shared; `coords["t0_per_event"]` gives each event its own
-beam-axis time origin (the grid depends on that event's delays). Beamform each event
-with **its own** `t0`.
+beam-axis time origin (the grid depends on that event's delays, and on where its
+scatterers are). Beamform each event with **its own** `t0`.
+
+## Moving scatterers (flow, Doppler, decorrelation)
+
+Give `sequence_rf` a `(N_events, N_scat, 3)` stack instead of `(N_scat, 3)` and every
+emission sees its own cloud. eSDIva has no slow-time clock, so the trajectory is the
+user's to write — for constant flow that is one line:
+
+```python
+t = np.arange(n_events) / prf                        # slow-time, s
+pos = pos0[None] + v_mm_s[None] * t[:, None, None]   # (N_events, N_scat, 3)
+rf, coords = sim.sequence_rf(pos, amp, events, out_path="rf_store")
+```
+
+Any pulsatile, cardiac or decorrelating trajectory is the same call. `amplitudes` may
+also be per event, `(N_events, N_scat)`: the scatterer count is fixed for the
+sequence, so a zero amplitude is how a scatterer that has left the region of interest
+— or a destroyed contrast bubble — is retired. Checkpointing works unchanged, and the
+fingerprint covers the positions by value, so two different flows cannot be mixed in
+one store. `synthetic_aperture_rf` takes the same stack (one cloud per transmit
+group) to model motion during a slow FMC acquisition.
+
+Two things to get right, and to tell the user about:
+
+- **Aliasing.** The unambiguous axial velocity is `v_nyquist = c·PRF/(4·fc)`. Beyond
+  it the inter-emission phase wraps and the estimate folds.
+- **Beam-to-flow angle.** Only the axial component is visible: flow perpendicular to
+  the beam produces no Doppler shift at all. A vessel must be tilted.
+
+The scatterers are frozen during each emission, so this models the phase shift
+*between* emissions — what every Doppler estimator reads — not an intra-pulse
+frequency shift. eSDIva ships no Doppler estimator or clutter filter; `example22`
+shows both written in a few lines of numpy.
+
+### Doppler: what was measured, and what was ruled out
+
+These come from `example22`, each with the control that established it. Quote
+them as measurements, not as intuition — and do not re-derive the refuted ones.
+
+**Established.**
+
+- **Measure the centre frequency on the BEAMFORMED signal, not the channel RF.**
+  Delay-and-sum low-passes the data (interpolation between RF samples plus
+  coherent summation across the aperture), so the beamformed echo centres
+  *below* the channel echo: 4.27 against 4.46 MHz on a 5 MHz probe. Since
+  `v ∝ 1/f`, feeding the channel figure to the estimator biases every velocity
+  low by 4.5 %, uniformly, at every radius and every speed. *Test:* a plug-flow
+  control went 0.955 → 0.998 of its known velocity, and the beamformed spectrum
+  (4.268 MHz) independently matched the frequency the velocity error demanded
+  (4.261 MHz) to 0.1 %. This is why Loupas's estimator takes its frequency from
+  the same IQ it processes.
+- **Never use the probe's nominal frequency.** The worked example measures
+  2.45 MHz on a 3 MHz probe — a −18 % velocity bias before anything else goes
+  wrong. The ratio held at 0.85, 0.84 and 0.82 of nominal across 5, 12.5 and
+  3 MHz rebuilds of it, and was still measured every time rather than assumed.
+- **Scale the centroid's integration BAND to the probe, never absolute numbers.**
+  A band left over from another probe truncates the echo spectrum and rescales
+  every velocity. Measured: `(2, 10) MHz` carried over from a 5 MHz probe cut the
+  top off a 12.5 MHz echo and reported 8.2 MHz instead of 10.5 — a 28 % velocity
+  error, on top of a pipeline that was otherwise correct.
+- **A vessel-core ratio above 1.0 is physically impossible — use it as a free
+  check.** A resolution-cell average of a profile that is *peaked* at the core
+  cannot exceed the truth there; averaging a maximum with its neighbours can only
+  pull it down. A core reading of 1.19× is what exposed the band bug above. Any
+  velocity calibration can be sanity-checked this way without a control run.
+- **A plug-flow control separates a scale error from a gradient error.** Same
+  phantom, geometry, sequence and processing, one velocity for all blood. A flat
+  ratio across radius = uniform scale error; the Poiseuille case's 0.80 → 1.47
+  pattern is the gradient sitting on top of it. This is the single most useful
+  control for any velocity-estimation bug.
+- **Elevation is the axis that decides whether a velocity is trustworthy, and it
+  is a DESIGN parameter, not just a modelling one.** An unfocused aperture
+  averages in out-of-plane blood, which is slower. Measured across a redesign:
+  a flat 4 mm aperture at 22 mm (elevation slice ~1.7 mm, 0.56 of the lumen) read
+  0.80× at the vessel core and 1.47× at the wall; an elevation LENS focused on the
+  vessel, slice 0.36 mm against a 2.0 mm lumen (0.18), read 0.93× / 1.27×. The
+  redesign moved frequency, depth and lens together, so it demonstrates rather
+  than isolates — but the design lesson stands: size the elevation slice against
+  the target before blaming the estimator.
+- **`λ·z/H` is NOT established as the elevation width's depth law** — it was
+  claimed here and then refuted. It matches numerically at one depth, which is
+  the trap. *Test:* a vessel tilted 60° spans 18–26 mm within a single
+  acquisition, so only depth varies; the measured core ratio over 19–25 mm is
+  flat (+0.016, band scatter ±0.017) where `λ·z/H` predicts +0.048 to +0.096.
+  Report a fitted elevation width as measured for that geometry. (Untested
+  hypothesis for the discrepancy: an unfocused aperture's far field starts near
+  `H²/λ` — 52 mm for 4 mm at 5 MHz — so the cone does not apply at these depths.)
+- **Model the elevation average over the BLOOD CHORD only** (`|y| < √(R²−r²)`):
+  outside the lumen there is no blood and so no flow signal to average in.
+  Ignoring that inflates the residual 1.6× (0.76 → 1.19 cm/s) and biases the
+  fitted width low (0.69 → 0.50 mm).
+- **Noise must be added before any sensitivity claim.** Noiseless RF gives a
+  longer ensemble nothing to average down: velocity scatter fell only
+  2.58 → 2.50 cm/s and every sequence detected 100 % of the lumen. Add it with
+  `esdiva.utilities.add_noise`, one `reference` shared by every sequence being
+  compared.
+- **For an image plane cutting a vessel along a diameter, the true mean velocity
+  is `(2/3)·v_peak·cosθ`**, not the `(1/2)·v_peak` of a circular cross-section
+  average — the voxels sample the radius uniformly. Getting this wrong reports a
+  bias that is not there.
+
+**Refuted — do not re-open without new evidence.** Each was tried as the cause of
+a uniform 4.5 % deficit and failed: wall-filter order (0 → 2 moves the mean only
+6.44 → 6.73 cm/s), a depth-restricted centre frequency (moves the *wrong* way),
+receive-aperture angle alone (17° → 7° recovers 2.4 %), and transit-time
+decorrelation (flat across a 4× change in displacement per lag; worth +0.3 %).
+
+**A trap in the decimation test:** decimating slow time to probe decorrelation
+also halves the Nyquist velocity. Run it on a control slow enough to stay
+unambiguous, or the estimate folds and the result is meaningless.
 
 ## What the RF output actually is (writing your own beamformer)
 
@@ -306,6 +426,22 @@ numbers and treat CF as a ceiling.
    across, wires dim (≈ +10 dB) and far from contrast targets.
 4. Preview with `sim.show(...)`, then run **one** event and inspect the speckle
    before launching the full sequence.
-5. Beamform with `t_offset_s=0.0` and each event's own `t0`.
-6. Metrics: TGC estimated from speckle only, ROIs and margins scaled in PSF units
+5. **Estimate the run time on the machine that will run it**, before committing:
+
+   ```python
+   from esdiva.utilities import estimate_sequence_runtime
+   est = estimate_sequence_runtime(sim, positions_mm, n_emissions=n_angles * n_frames)
+   ```
+
+   It times short probes on subsets of the real phantom with the real probe and
+   excitation, then projects. Cost is dominated by **scatterers × emissions**
+   (patch count matters far less), and the constant is a property of the machine
+   — cores, memory bandwidth, BLAS threading — so it varies by more than an order
+   of magnitude between a laptop and a compute node. Never quote a timing
+   measured elsewhere as the expected cost of someone's run; say which machine it
+   came from. Probe with the largest fraction you can afford: cost per scatterer
+   grows with cloud size before levelling off, so small subsets under-predict.
+   Anything projected beyond a few hours wants `out_path=`.
+6. Beamform with `t_offset_s=0.0` and each event's own `t0`.
+7. Metrics: TGC estimated from speckle only, ROIs and margins scaled in PSF units
    (λz/D, not mm), plain DAS numbers, ~30 dB display window.

@@ -170,7 +170,13 @@ selection**). Field II shares the convention
 (`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
 parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
-`sequence_rf` (PW/DW event sweep; `out_path=` checkpoints each event to an
+`sequence_rf` (PW/DW event sweep; also takes MOVING scatterers — positions
+`(N_events, N_scat, 3)` and/or amplitudes `(N_events, N_scat)`, one cloud per
+emission, the flow/Doppler path, `ndim` disambiguating so static calls are
+unchanged; the user supplies the trajectory since there is no slow-time clock,
+`pos0[None] + v_mm_s[None]*(np.arange(n_ev)/prf)[:,None,None]`; scatterers are
+frozen *within* an emission, so the RF carries the inter-emission phase a Doppler
+estimator reads, not an intra-pulse shift; `out_path=` checkpoints each event to an
 `RFDataset` folder — crash-safe, resumable, refuses a changed config;
 `checkpoint_chunks=N` splits each event into N scatterer chunks checkpointed
 separately — zero-amplitude grid-sentinel points pin one time grid per event so
@@ -222,6 +228,12 @@ env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
    (element directivity already tapers); RCA bars → `das_rca_volume`.
 6. Metrics: TGC from speckle-only, PSF-scaled ROIs/margins (λz/D units, not mm),
    plain DAS numbers (CF only as ceiling), ~30 dB display window.
+7. **Doppler/flow**: measure the echo centre frequency on the *beamformed*
+   signal (DAS low-passes it — channel RF reads 4.5 % high and biases every
+   velocity); use a plug-flow control to separate a scale error from
+   resolution-cell smoothing; expect elevation (`λz/H`, unfocused) to dominate
+   profile flattening; add noise before any sensitivity claim. Measurements and
+   the refuted hypotheses: `ARCHITECTURE.md` § Imaging Recipe 6.
 
 **Visualize**: `plot2D_pressure_slices(p, coords=coords, db_scale=True)` (mono 3D or
 transient 4D); `plot2D_transient_slices(...)` for transient planes.
@@ -255,6 +267,7 @@ Quick checklist — full rationale, locations, and history in
    Get-ChildItem -Path "src\esdiva\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
    ```
 7. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
+8. **Elevation-lens sag is SIGNED and reception SUBTRACTS it** — `_finalize` does `t0 -= (tx+rx).elevation_lens_sag/c`. Positive sag = concave (centre recessed, paths longer); negative = convex. Flipping the sign blurs *nothing* — it moves the whole image `2·sag` in depth (0.34 mm on a 4 mm aperture at R=12 mm) with a sharp PSF and healthy metrics, so it reads as a calibration error. It shipped wrong until 2026-09-11 and 207 tests passed with it. Guarded by `tests/unit/test_psimulation/test_lens_time_origin.py`. Also: `elevation_focus_mm` is a RADIUS — the focus is one sagitta shallower, at `elevation_focus_depth_mm`. Emission needs no such term and has none.
 
 ## graphify
 

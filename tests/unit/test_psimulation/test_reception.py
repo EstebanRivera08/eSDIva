@@ -273,6 +273,96 @@ class TestReceptionSequence:
         assert_allclose(t0s[1], t0s[0] - 1e-7, atol=1e-12)
 
 
+class TestMovingScatterers:
+    """sequence_rf with a cloud that moves between emissions (flow/Doppler)."""
+
+    @staticmethod
+    def _events(n_el):
+        return [
+            {"delays": np.zeros(n_el, dtype=np.float32)},
+            {"delays": np.full(n_el, 1e-7, dtype=np.float32)},
+        ]
+
+    def test_matches_pulse_echo_loop(self, simple_tx, simple_rx):
+        """Each event must equal a single shot fired at that event's cloud.
+
+        The physics of a moving medium is nothing more than re-simulating the
+        displaced scatterers, so a hand-rolled loop is the reference.
+        """
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx.n_elements)
+        pos0 = np.array([[0.0, 0.0, 20.0], [1.0, 0.0, 22.0]], dtype=np.float32)
+        amp = np.array([1.0, 0.8], dtype=np.float32)
+        # 0.1 mm axial step between emissions = v/PRF for the flow being modelled.
+        pos = np.stack([pos0, pos0 + np.array([0.0, 0.0, 0.1], np.float32)])
+
+        rf, coords = sim.sequence_rf(pos, amp, events)
+
+        for i, ev in enumerate(events):
+            simple_tx.delays = ev["delays"]
+            sim._refresh_sub_elem_attributes()
+            rf_i, coords_i = sim.pulse_echo_rf(pos[i], amp)
+            assert_allclose(coords_i["t0"], coords["t0_per_event"][i], atol=1e-15)
+            assert_allclose(
+                rf[i, :, : rf_i.shape[1]],
+                rf_i,
+                rtol=1e-5,
+                atol=1e-6 * np.abs(rf_i).max(),
+                err_msg=f"event {i} must match a single shot at its own cloud.",
+            )
+
+    def test_static_cloud_unaffected(self, simple_tx, simple_rx, on_axis_scatterer):
+        """A cloud repeated per event == passing it once (guards the refactor)."""
+        pos, amp = on_axis_scatterer
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx.n_elements)
+
+        rf_static, _ = sim.sequence_rf(pos, amp, events)
+        rf_repeat, _ = sim.sequence_rf(np.stack([pos, pos]), amp, events)
+
+        np.testing.assert_array_equal(rf_repeat, rf_static)
+
+    def test_per_event_amplitudes(self, simple_tx, simple_rx):
+        """Zeroing an event's amplitudes silences that event only.
+
+        This is how a scatterer that has left the region of interest — or a
+        destroyed contrast bubble — is retired mid-sequence.
+        """
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx.n_elements)
+        pos = np.array([[0.0, 0.0, 20.0], [1.0, 0.0, 22.0]], dtype=np.float32)
+        amp = np.array([1.0, 0.8], dtype=np.float32)
+
+        rf_ref, _ = sim.sequence_rf(pos, amp, events)
+        rf, _ = sim.sequence_rf(pos, np.stack([amp, np.zeros_like(amp)]), events)
+
+        assert np.abs(rf[1]).max() == 0.0  # second emission sees nothing
+        assert_allclose(rf[0], rf_ref[0], rtol=1e-5, atol=1e-6 * np.abs(rf_ref).max())
+
+    def test_shape_mismatch_raises(self, simple_tx, simple_rx):
+        """Per-event arrays must carry exactly one entry per TX event."""
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx.n_elements)
+        pos = np.array([[0.0, 0.0, 20.0]], dtype=np.float32)
+        amp = np.array([1.0], dtype=np.float32)
+
+        with pytest.raises(ValueError, match="3 events.*2 TX events"):
+            sim.sequence_rf(np.stack([pos] * 3), amp, events)
+        with pytest.raises(ValueError, match="per-event amplitudes have 3 events"):
+            sim.sequence_rf(np.stack([pos] * 2), np.stack([amp] * 3), events)
+        with pytest.raises(ValueError, match="hold 2 scatterers"):
+            sim.sequence_rf(
+                np.stack([pos] * 2), np.zeros((2, 2), dtype=np.float32), events
+            )
+
+    def test_single_shot_rejects_moving_cloud(self, simple_tx, simple_rx):
+        """One acquisition sees one cloud — a 3-D stack must not pass silently."""
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        pos = np.zeros((2, 3, 3), dtype=np.float32)
+        with pytest.raises(ValueError, match="MOVING cloud"):
+            sim.pulse_echo_rf(pos)
+
+
 class TestReceptionFormulations:
     """method selector: auto router + conventional/spectral/paired equivalence."""
 
@@ -602,6 +692,55 @@ class TestSequenceCheckpoint:
         )
         assert len(calls) == 1
         np.testing.assert_array_equal(rf_resumed, rf_full)
+
+    def test_moving_chunked_is_chunk_count_invariant(
+        self, simple_tx, simple_rx, tmp_path
+    ):
+        """A moving cloud must be chunked as safely as a static one.
+
+        The grid sentinels that pin one time grid per event are derived from the
+        cloud's near/far extremes, which MOVE with the flow — so they have to be
+        recomputed per event. If they were not, the chunks of one emission would
+        land on different time grids and their partial RFs could not be summed.
+        """
+        pos, amp = self._cloud()
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+        pos_mov = np.stack([pos, pos + np.array([0.05, 0.0, 0.2], np.float32)])
+
+        rf2, c2 = sim.sequence_rf(
+            pos_mov, amp, events, out_path=tmp_path / "c2", checkpoint_chunks=2
+        )
+        rf3, c3 = sim.sequence_rf(
+            pos_mov, amp, events, out_path=tmp_path / "c3", checkpoint_chunks=3
+        )
+
+        np.testing.assert_array_equal(c2["t0_per_event"], c3["t0_per_event"])
+        assert_allclose(rf2, rf3, rtol=1e-4, atol=1e-5 * np.abs(rf2).max())
+
+    def test_moving_resume_and_refuse(self, simple_tx, simple_rx, tmp_path):
+        """A moving run resumes per event, and a moved cloud is a config change."""
+        pos, amp = self._cloud()
+        sim = Reception(simple_tx, simple_rx, verbose=False)
+        events = self._events(simple_tx)
+        pos_mov = np.stack([pos, pos + np.array([0.0, 0.0, 0.2], np.float32)])
+        out = tmp_path / "ds"
+
+        rf_full, _ = sim.sequence_rf(pos_mov, amp, events, out_path=out)
+
+        calls = []
+        orig = sim.pulse_echo_rf
+        sim.pulse_echo_rf = lambda *a, **k: (calls.append(1), orig(*a, **k))[1]
+        (out / "rf_event_0001.npz").unlink()
+        rf_resumed, _ = sim.sequence_rf(pos_mov, amp, events, out_path=out)
+        sim.pulse_echo_rf = orig
+        assert len(calls) == 1
+        np.testing.assert_array_equal(rf_resumed, rf_full)
+
+        # Positions are fingerprinted by value, so a different trajectory in the
+        # same folder must refuse rather than mix two flows.
+        with pytest.raises(ValueError, match="DIFFERENT"):
+            sim.sequence_rf(pos_mov * 1.01, amp, events, out_path=out)
 
     def test_chunks_require_out_path(self, simple_tx, simple_rx):
         pos, amp = self._cloud()

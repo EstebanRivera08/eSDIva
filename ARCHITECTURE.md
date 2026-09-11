@@ -403,6 +403,13 @@ the `O(M²)` kernel, not the FFT.)
 
 ### sequence_rf
 
+**The recommended entry point for phantom studies, static or moving.** The same RF
+is reachable by looping `pulse_echo_rf` by hand (identical physics), but only
+`sequence_rf` carries the operational guarantees: on-disk checkpointing that lets a
+killed run resume, the config fingerprint that refuses to mix incompatible data,
+`checkpoint_chunks=` for bounding loss inside one event, and `t0_per_event` gathered
+for the beamformer. Use `pulse_echo_rf` for a single acquisition or a PSF map.
+
 Loop over TX events (different delays/apodization per event), call `pulse_echo_rf`
 each time. Returns `(N_events, Erx, Nt)`. TX state restored after all events.
 Warns + suggests `downsampling=` if the output would be large.
@@ -413,6 +420,19 @@ grid-sentinel points pin one time grid per event so the chunk RFs sum exactly.
 `pulse_echo_rf` accepts the same `out_path=`/`checkpoint_chunks=` (wraps its
 current TX focus into a one-event sequence so the fingerprint covers it).
 
+**Moving scatterers.** `scatterer_positions_mm` also accepts `(N_events, N_scat, 3)`
+— one cloud per emission — and `amplitudes` `(N_events, N_scat)`; `ndim`
+disambiguates, so the static call is unchanged. This is the flow/Doppler/speckle-
+decorrelation path: the user supplies the trajectory (eSDIva has no slow-time clock),
+e.g. `pos0[None] + v_mm_s[None] * (np.arange(n_ev)/prf)[:, None, None]`. The
+scatterer count is fixed across the sequence, so a zero amplitude retires a scatterer
+that has left the region of interest. The checkpoint fingerprint hashes positions by
+value, so two flows cannot be mixed in one store, and the grid sentinels are
+recomputed per event (a moved cloud moves the near/far extremes that pin the time
+grid). Scatterers are frozen *within* one emission: the RF carries the inter-emission
+phase shift a Doppler estimator reads, not an intra-pulse frequency shift — the same
+modelling boundary as Field II's flow approach. See `example22`.
+
 ### synthetic_aperture_rf (Full Matrix Capture / synthetic aperture)
 
 Each TX element/group fires flat (zero delay, unit apod — overrides TX state), all
@@ -420,7 +440,9 @@ RX receive. Returns `(Ntx_grp, Erx, Nt)`, anti-aliased-decimated (`decimation=10
 default). `tx_groups` = `"element"` (FMC) / `int N` (sub-aperture) / custom groups.
 Delegates to `sequence_rf` (one event per group), so it shares its checkpointing:
 `out_path=` is an `RFDataset` folder (one compressed file per group, resumable;
-no longer a raw `.npy` memmap) and `checkpoint_chunks=` works per group. In-RAM
+no longer a raw `.npy` memmap) and `checkpoint_chunks=` works per group. It also
+shares the moving-scatterer path: `(N_groups, N_scat, 3)` gives each transmit group
+its own cloud, the motion artefact of a slow full-matrix capture. In-RAM
 runs estimate the output size first and show a 10 s abortable countdown.
 
 ### scan_focusline
@@ -508,7 +530,66 @@ yourself; resume cannot detect it.
 - Display: after TGC speckle fills ~30 dB; a 40+ dB window makes normal sidelobes
   look like artefacts.
 
-### 6. Symptom → cause quick table
+### 6. Flow & Doppler (measured in example22, with the control that showed it)
+
+- **Measure the echo centre frequency on the BEAMFORMED signal, not the channel
+  RF.** DAS low-passes the data (sample interpolation + coherent aperture
+  summation), so the beamformed echo centres below the channel echo — 4.27 vs
+  4.46 MHz on a 5 MHz probe. `v ∝ 1/f`, so the channel figure biases every
+  velocity low by 4.5 %, flat in radius and independent of speed. *Discriminating
+  test:* a plug-flow control went 0.955 → 0.998 of truth, and two independent
+  measurements agreed to 0.1 % — beamformed spectrum 4.268 MHz, frequency
+  demanded by the velocity error 4.261 MHz. The nominal 5 MHz would be −14 %.
+- **Scale the centre-frequency integration BAND to the probe.** An absolute band
+  carried over from another probe truncates the echo: `(2, 10) MHz` from a 5 MHz
+  probe reported 8.2 MHz for a 12.5 MHz echo whose true centroid is 10.5, scaling
+  every velocity by 28 %. Free check that caught it: **a vessel-core ratio above
+  1.0 is physically impossible** — a resolution-cell average of a core-peaked
+  profile cannot exceed the truth at the core.
+- **Elevation is a DESIGN parameter.** Flat 4 mm aperture at 22 mm (slice/lumen
+  0.56) → core 0.80×, wall 1.47×; elevation lens focused on the vessel
+  (slice/lumen 0.18) → 0.93× / 1.27×. Demonstration, not isolation — the redesign
+  moved frequency, depth and lens together.
+- **Plug-flow control = the tool for separating scale from gradient.** Identical
+  phantom/geometry/sequence/processing, one velocity for all blood. Flat ratio
+  vs radius ⇒ uniform scale error; a varying ratio (0.80 at the axis → 1.47 at
+  the wall) ⇒ resolution-cell averaging.
+- **Profile flattening is dominated by ELEVATION, not the in-plane cell.** An
+  unfocused elevation aperture averages out-of-plane blood, which is slower;
+  measured, that is a 20 % core deficit against ~1.5 % from the in-plane cell.
+  Model it as an elevation average **restricted to the blood chord**
+  (`|y| < √(R²−r²)`) — outside the lumen there is no flow signal to average in,
+  and omitting the restriction inflates the residual 1.6× (0.76 → 1.19 cm/s) and
+  biases the fitted width low (0.69 → 0.50 mm).
+- **The elevation WIDTH is measured, not predicted — `λ·z/H` was refuted as its
+  depth law.** It matches numerically at one depth (1.7 mm at z = 22, H = 4 mm),
+  which is how it got claimed as parameter-free. Discriminating test: a vessel
+  tilted 60° spans 18–26 mm inside ONE acquisition, so only depth changes. Over
+  19–25 mm the measured core ratio is flat (+0.016, scatter ±0.017) while
+  `λ·z/H` predicts +0.048 (chord-restricted) or +0.096 (not). Untested
+  hypothesis for why: the elevation far field starts near `H²/λ` ≈ 52 mm, so at
+  18–26 mm the aperture is still in its near field. Settling it needs two
+  well-separated depths or an elevation-focused probe.
+- **Add noise before claiming sensitivity.** Noiseless RF gives a long ensemble
+  nothing to average down (scatter fell only 2.58 → 2.50 cm/s, 100 % lumen
+  detection everywhere). `add_noise` with ONE shared `reference` across the
+  sequences compared — noise belongs to the receiver, not the transmit scheme.
+- **Truth for a diametral image plane is `(2/3)·v_peak·cosθ`**, not
+  `(1/2)·v_peak`: the voxels sample the radius uniformly, they do not average
+  the circular cross-section.
+- **Refuted as causes of a uniform velocity deficit** (do not re-open without new
+  evidence): wall-filter order (0 → 2 moves the mean 6.44 → 6.73 cm/s),
+  depth-restricted centroid (moves the wrong way), receive-aperture angle alone
+  (17° → 7° recovers 2.4 %), transit-time decorrelation (flat over a 4× change
+  in displacement per lag, +0.3 %).
+- **Trap:** decimating slow time to test decorrelation also halves the Nyquist
+  velocity — use a control slow enough to stay unambiguous, or the estimate folds
+  and the test says nothing.
+- **Bookkeeping trap:** each sequence advances the scatterers at *its own*
+  emission rate (a compounded frame fires N angles back to back). Get it wrong
+  and one sequence's velocities are scaled by N, which reads as a physics result.
+
+### 7. Symptom → cause quick table
 
 | Symptom | First suspect |
 |---|---|
@@ -519,6 +600,8 @@ yourself; resume cannot detect it.
 | Point misplaced ~1 mm | delay-reference convention (§4) |
 | Whole image deep-shifted | pulse-centre lag not applied (§4) |
 | Metrics collapse on new probe only | fixed-mm ROIs on a different PSF (§5) |
+| Velocities low by a few %, flat vs radius | centre frequency taken from channel RF, not beamformed (§6) |
+| Doppler profile flattened at the vessel axis | out-of-plane averaging by an unfocused elevation aperture — real, not a bug (§6) |
 
 ---
 
@@ -593,6 +676,34 @@ CORRECT (current): h_pad_buf = zeros((batch_P, nfft), float32) ONCE
 ---
 
 ## Risky Implementations (Validate Physics/Math)
+
+### 0. Elevation-Lens Sag — Signed, and SUBTRACTED from `t0`
+
+`ReceptionBase._finalize` applies `t0 -= (tx.elevation_lens_sag + rx.elevation_lens_sag)/c`.
+
+**Why subtract.** A beamformer measures depth from the `z = 0` element-centre plane, but
+the radiating surface is displaced from it: a concave lens recesses its centre by one
+sagitta, so every path is LONGER and the echo arrives LATE; a convex lens protrudes, so
+paths are SHORTER. `elevation_lens_sag` carries the sign, so one formula covers concave,
+convex and flat (`sag = 0`, a no-op).
+
+**Why it is dangerous.** A sign error here distorts nothing — sharp PSF, correct speckle,
+healthy contrast — it only displaces the image bodily by `2·sag`, which reads as a
+calibration error. It shipped inverted until 2026-09-11 and the full suite passed.
+Measured (4 mm aperture, R = 12 mm, sag 168 µm, target at 12 mm): `+=` → 12.335 mm,
+term removed → 12.165 mm, `-=` → 11.995 mm (±0.01 grid floor). Depth-independent,
+unchanged from `no_sub_y` 2 → 10. Guard:
+`tests/unit/test_psimulation/test_lens_time_origin.py`, which also asserts its own
+tolerance is tighter than `2·sag`.
+
+**`elevation_focus_mm` is a RADIUS OF CURVATURE, not a focal depth.** The rim is the
+`z = 0` datum, so the arc's centre of curvature — the true line focus, every patch
+exactly `|R|` away (spread < 1 nm) — sits one sagitta shallower. Use the
+`elevation_focus_depth_mm` property; `inf` for flat, negative (virtual) for convex.
+
+**Emission has no sag term and needs none** — its `t0` is a physical origin, not a
+beamforming reference, so the curved geometry already accounts for itself. Verified: a
+lens shifts the measured field onset +88.0 ns against +88.5 ns predicted.
 
 ### 1. SDI Tail Artifact — float32 Cumsum Cancellation
 

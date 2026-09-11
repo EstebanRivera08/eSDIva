@@ -270,7 +270,7 @@ only; adding it again double-counts. The DAS beamformers' `t_offset_s` defaults 
 
 This is the convention the rest of the field hands its beamformers, reached by
 different routes: USTB shifts the transmit reference by `-lag*dt` and sets
-`initial_time = 0`; MUST/PyMUST get it free from a zero-phase pulse spectrum, so
+`initial_time = 0`; MUST gets it free from a zero-phase pulse spectrum, so
 `dasmtx` needs only `idxt = (tau − t0)·fs`; Field II leaves `tstart` raw and the
 user removes the lag. (Distinct
 from the per-event TX time reference, which must be recovered from the event's own

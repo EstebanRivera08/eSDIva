@@ -1,7 +1,6 @@
 # Python-generated files
 __pycache__/
 *.py[oc]
-*.mp4
 build/
 dist/
 wheels/
@@ -10,6 +9,8 @@ out/
 log/
 site/
 *.mp4
+# ...except the clips embedded in the docs site.
+!docs/examples/assets/*.mp4
 *.pth
 # *.npz
 *.egg-info

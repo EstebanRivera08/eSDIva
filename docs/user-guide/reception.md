@@ -54,7 +54,7 @@ flowchart LR
 | Method | Purpose | Returns |
 |--------|---------|---------|
 | `pulse_echo_rf` | Single transmit; core call. `per_scatterer=True` → PSF | `(Erx, Nt)` / `(P, Erx, Nt)` |
-| `sequence_rf` | PW/DW event sweep; `out_path=` checkpoints each event | `(Nevt, Erx, Nt)` |
+| `sequence_rf` | PW/DW event sweep; `out_path=` checkpoints each event; moving scatterers | `(Nevt, Erx, Nt)` |
 | `synthetic_aperture_rf` | FMC — per-element transmit basis | `(Etx, Erx, Nt)` |
 | `scan_focusline` | One focused B-mode line, RX summed in-kernel | `(Nt,)` |
 
@@ -62,12 +62,29 @@ The `method=` flag (`spectral` / `fst` / `sdi` / `auto` / `paired`) only trades
 speed — all produce the same RF. `paired` is a slow pedagogic reference and warns
 on selection.
 
-## Scatterers, PSF, and phantoms
+## Studies at a glance
 
-- **PSF** — pass field points and `per_scatterer=True` to get each target's
-  point-spread response. A grid dict gives a regular lattice of unit targets.
-- **Phantoms** — `esdiva.utilities.make_phantom(extents_mm, n, echogenicity_map)`
-  returns random positions with `N(0,1)·map(r)` amplitudes → realistic speckle.
+What you are simulating decides which call you make and which rules matter.
+
+| Study | Call | Page |
+|-------|------|------|
+| **PSF** — one target's response, resolution and sidelobes | `pulse_echo_rf(pts, per_scatterer=True)` | [PSF Simulation](psf-simulation.md) |
+| **Phantom** — speckle, contrast, B-mode imaging | `sequence_rf(pos, amp, events, out_path=…)` | [Phantom Simulation](phantom-simulation.md) |
+| **Flow** — Doppler, decorrelation, moving media | `sequence_rf(pos_per_event, amp, events)` | [Flow Simulation](flow-simulation.md) |
+
+!!! tip "`sequence_rf` is the recommended entry point for any phantom study"
+    Static or moving, one event or a thousand. The same RF is reachable by
+    looping `pulse_echo_rf` by hand — identical physics — but only `sequence_rf`
+    carries the on-disk checkpointing that lets a killed run resume, the config
+    fingerprint that refuses to mix incompatible data, `checkpoint_chunks=` for
+    bounding loss inside one event, and `t0_per_event` gathered for the
+    beamformer. Reserve `pulse_echo_rf` for a single acquisition or a PSF map.
+
+## Scatterers in, RF out
+
+Positions are `(N_scat, 3)` in mm with `(N_scat,)` amplitudes; a grid dict (the
+same `x_extent`/`dx` form emission uses) instead gives a regular lattice of unit
+point targets. For tissue, draw them randomly:
 
 ```python
 from esdiva.utilities import make_phantom
@@ -76,9 +93,13 @@ pos, amp = make_phantom(extents_mm, n=20000, echogenicity_map=my_map)
 rf, coords = sim.pulse_echo_rf(pos, amp)
 ```
 
+A third shape unlocks motion: `(N_events, N_scat, 3)` gives every emission its
+own cloud, which is what makes flow and Doppler possible — see
+[Flow Simulation](flow-simulation.md).
+
 !!! warning "Lattice ≠ phantom"
-    A periodic grid of scatterers gives *coherent* echoes (PSF maps), not speckle.
-    Use `make_phantom` for speckle statistics.
+    A periodic grid of scatterers gives *coherent* echoes (PSF maps), not
+    speckle. Use `make_phantom` for speckle statistics.
 
 ## Preview the setup
 

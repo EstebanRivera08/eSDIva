@@ -53,14 +53,13 @@ them concrete for a user.
 
 Distinguish **never** from **not yet**. The list above is the model itself and will not
 change in a release; a handful of neighbouring things (soft-baffle/obliquity weighting,
-per-element impulse responses, frequency-dependent scatterer amplitudes, moving
-scatterers inside one `sequence_rf` call, a per-region attenuation map) are current
-gaps with workarounds — `references/physics.md` § '"Never" versus "not yet"' has the
-table. Saying "impossible" where the honest answer is "not yet, do it this way" is as
-misleading as the reverse.
+per-element impulse responses, frequency-dependent scatterer amplitudes, a per-region
+attenuation map) are current gaps with workarounds — `references/physics.md` § '"Never"
+versus "not yet"' has the table. Saying "impossible" where the honest answer is "not
+yet, do it this way" is as misleading as the reverse.
 
-Two things that sound excluded but are not: **flow and Doppler** (advance the
-scatterers between emissions yourself, as Field II users do) and **near-field
+Two things that sound excluded but are not: **flow and Doppler** (`sequence_rf` takes
+a moving cloud, `(N_events, N_scat, 3)` — one per emission) and **near-field
 aberration** (a phase screen written into per-element delays/apodization). Offer
 those rather than refusing.
 

@@ -98,14 +98,25 @@ class TransducerBase(ABC):
 
     @property
     def elevation_lens_sag(self) -> float:
-        """Depth (m) a cylindrical elevation lens dishes the surface back at its centre.
+        """SIGNED offset (m) of a cylindrical elevation lens surface at its centre.
 
-        Zero for flat/unfocused apertures. For a lens of radius ``R`` and element
-        height ``h`` the surface centre sits ``R − √(R² − (h/2)²)`` behind the rim.
-        The pulse-echo time origin is referenced to the first-arriving edge (the
-        rim), but a focused elevation aperture's echo peaks one lens transit later,
-        so reception adds this sag — as a propagation time, once per aperture — to
-        align the RF origin with a lens-focused reference.
+        Zero for flat/unfocused apertures. For a lens of radius ``|R|`` and element
+        height ``h`` the magnitude is the sagitta ``|R| − √(R² − (h/2)²)``, and
+        the SIGN says which way the surface curves relative to the rim, which is
+        held at ``z = 0``:
+
+        - **positive** — concave (converging), centre recessed to ``z = −sag``.
+          Every path to a target is one sagitta LONGER than the ``z = 0`` plane
+          implies.
+        - **negative** — convex (diverging), centre protruding to ``z = +|sag|``.
+          Every path is that much SHORTER.
+
+        Reception subtracts this signed value (divided by ``c``, once per aperture)
+        from the beamforming time reference, so an echo still lands at its true
+        geometric depth for a concave lens, a convex lens, or a flat aperture
+        alike. Getting the sign wrong does not distort the image — it displaces it
+        bodily in depth by twice the sagitta, which is easy to mistake for a
+        calibration error.
 
         Settable: assign a value in metres to override the geometric default —
         needed for imported geometries (e.g. a Field II ``xdc_focused_array``
@@ -117,7 +128,7 @@ class TransducerBase(ABC):
         Returns
         -------
         float
-            Lens sag in metres (0.0 for flat/unfocused apertures).
+            Signed lens sag in metres (0.0 for flat/unfocused apertures).
         """
         if self._elevation_lens_sag is not None:
             return self._elevation_lens_sag
@@ -130,15 +141,16 @@ class TransducerBase(ABC):
         Parameters
         ----------
         value : float or None
-            Lens sag in metres (must be >= 0), or ``None`` to restore the
-            subclass geometric default.
+            Signed lens sag in metres — positive for a concave (converging)
+            surface, negative for a convex (diverging) one — or ``None`` to
+            restore the subclass geometric default.
         """
         if value is None:
             self._elevation_lens_sag = None
             return
         v = float(value)
-        if v < 0:
-            raise ValueError(f"elevation_lens_sag must be >= 0 m, got {v}.")
+        if not np.isfinite(v):
+            raise ValueError(f"elevation_lens_sag must be finite, got {v}.")
         self._elevation_lens_sag = v
 
     def _default_elevation_lens_sag(self) -> float:
