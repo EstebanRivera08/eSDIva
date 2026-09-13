@@ -134,8 +134,13 @@ class TestEmissionPerElementExcitation:
 
         pts = np.array([[0.0, 0.0, 20.0]], dtype=np.float32)
 
-        sim_global = _make_emission(small_linear_transducer, excitation=exc_global)
-        sim_pe = _make_emission(small_linear_transducer, excitation=exc_per_elem)
+        # Same SIR source on both sides: this checks the per-element sum, not the method.
+        sim_global = _make_emission(
+            small_linear_transducer, excitation=exc_global, method="temporal"
+        )
+        sim_pe = _make_emission(
+            small_linear_transducer, excitation=exc_per_elem, method="temporal"
+        )
 
         p_global, _ = sim_global(pts)
         p_pe, _ = sim_pe(pts)
@@ -252,31 +257,139 @@ class TestTransferFunction:
 
 
 # ---------------------------------------------------------------------------
+# spectral (closed-form H) ≡ temporal (sampled h → FFT), every mode
+# ---------------------------------------------------------------------------
+
+
+class TestSpectralTemporalParity:
+    _PTS = np.array([[0, 0, 8], [2, 0, 15], [-3, 1, 22], [6, 0, 12]], np.float32)
+
+    @pytest.mark.parametrize(
+        "kw",
+        [
+            dict(monochromatic=True),
+            dict(monochromatic=True, alpha0=0.5, fast_attenuation=False),
+            dict(excitation="global", alpha0=0.7, freq_power=1.2),
+            dict(excitation="per_element", alpha0=0.5, fast_attenuation=False),
+        ],
+        ids=["mono", "mono-att-el", "global-att", "per-element-att"],
+    )
+    @pytest.mark.parametrize("baffle", ["rigid", "soft"])
+    def test_same_field(self, small_linear_transducer, kw, baffle):
+        tx = small_linear_transducer
+        tx.baffle = baffle
+        kw = dict(kw)
+        pulse = _make_excitation(fs=100e6)
+        if kw.get("excitation") == "global":
+            kw["excitation"] = pulse
+        elif kw.get("excitation") == "per_element":
+            kw["excitation"] = pulse[:, None] * np.arange(1, tx.n_elements + 1)
+        p_s, _ = _make_emission(tx, method="spectral", fs=100e6, **kw)(self._PTS)
+        p_t, _ = _make_emission(tx, method="fst", fs=100e6, **kw)(self._PTS)
+        tx.baffle = "rigid"
+        n = min(len(p_s), len(p_t))
+        np.testing.assert_allclose(p_s[:n], p_t[:n], atol=2e-2 * np.abs(p_t).max())
+
+    def test_soft_baffle_lowers_off_axis_field(self, small_linear_transducer):
+        tx = small_linear_transducer
+        pt = np.array([[12.0, 0, 8.0]], np.float32)  # cosθ ≈ 0.55
+        rigid, _ = _make_emission(tx, monochromatic=True)(pt)
+        tx.baffle = "soft"
+        soft, _ = _make_emission(tx, monochromatic=True)(pt)
+        tx.baffle = "rigid"
+        assert 0.45 < soft[0] / rigid[0] < 0.65
+
+    def test_transfer_function_applies_in_monochromatic(self, small_linear_transducer):
+        pts = self._PTS
+        p1, _ = _make_emission(small_linear_transducer, monochromatic=True)(pts)
+        p2, _ = _make_emission(
+            small_linear_transducer,
+            monochromatic=True,
+            transfer_function=lambda f: 2.0 * np.ones_like(f),
+        )(pts)
+        np.testing.assert_allclose(p2, 2.0 * p1, rtol=1e-6)
+
+    @pytest.mark.parametrize(
+        "kw, expected",
+        [
+            (dict(monochromatic=True), "spectral"),
+            (dict(), "temporal"),
+            (dict(excitation="global", alpha0=0.5), "temporal"),
+            (dict(excitation="global", alpha0=0.5, fast_attenuation=False), "spectral"),
+            (dict(excitation="per_element"), "spectral"),
+        ],
+    )
+    def test_default_picks_faster_method(self, small_linear_transducer, kw, expected):
+        """method=None: spectral for monochromatic / per-element, else temporal."""
+        tx = small_linear_transducer
+        kw = dict(kw)
+        pulse = _make_excitation()
+        if kw.get("excitation") == "global":
+            kw["excitation"] = pulse
+        elif kw.get("excitation") == "per_element":
+            kw["excitation"] = np.tile(pulse[:, None], (1, tx.n_elements))
+        sim = _make_emission(tx, **kw)
+        sim(self._PTS)
+        assert sim._last_method == expected
+
+    @pytest.mark.parametrize("method", ["spectral", "temporal"])
+    def test_far_field_is_signed_rayleigh(self, method):
+        """On axis, far from a small piston: p(t) = ρ·A/(2πz)·v'(t − z/c) — Rayleigh,
+        signed, in pascals (no dependence on fs)."""
+        from esdiva.transducers import LinearArrayTransducer
+
+        fs = 100e6
+        tx = LinearArrayTransducer(
+            n_elements=1, element_width_mm=0.3, element_height_mm=0.3, kerf_mm=0.0,
+            no_sub_x=1, no_sub_y=1, frequency_Hz=5e6,
+        )  # fmt: skip
+        v = _make_excitation(fs=fs)
+        v = v * np.hanning(v.size).astype(np.float32)
+        z = np.array([30.0, 60.0])
+        pts = np.column_stack([np.zeros(2), np.zeros(2), z]).astype(np.float32)
+        p, co = _make_emission(tx, fs=fs, excitation=v, method=method)(pts)
+        t = co["t0"] + np.arange(p.shape[0]) / fs
+        w, tw = 2 * np.pi * 5e6, (v.size - 1) / fs  # v = sin(ωt)·hann(t/tw), exactly
+
+        def dv(s):  # analytic v'(s), zero outside the pulse
+            win, dwin = (
+                0.5 - 0.5 * np.cos(2 * np.pi * s / tw),
+                np.pi / tw * np.sin(2 * np.pi * s / tw),
+            )
+            return np.where((s >= 0) & (s <= tw), w * np.cos(w * s) * win
+                            + np.sin(w * s) * dwin, 0.0)  # fmt: skip
+
+        for i, zi in enumerate(z * 1e-3):
+            ref = dv(t - zi / 1540.0) * (0.3e-3) ** 2 / (2 * np.pi * zi)  # ρ = 1
+            assert np.corrcoef(p[:, i], ref)[0, 1] > 0.99  # positive: same polarity
+            assert abs(np.abs(p[:, i]).max() / np.abs(ref).max() - 1) < 0.03  # pascals
+        # Spherical spreading: doubling the range halves the peak.
+        assert abs(np.abs(p[:, 1]).max() / np.abs(p[:, 0]).max() - 0.5) < 0.02
+
+    def test_unknown_method_raises(self, small_linear_transducer):
+        with pytest.raises(ValueError, match="Unknown method"):
+            _make_emission(small_linear_transducer, method="bogus")
+
+
+# ---------------------------------------------------------------------------
 # Impulse response wiring
 # ---------------------------------------------------------------------------
 
 
 class TestImpulseResponse:
-    def test_ir_none_same_as_ir_delta(self, small_linear_transducer):
-        """ir=None must produce same output as ir=delta function."""
+    @pytest.mark.parametrize("ir_kind", ["delta", "burst"])
+    def test_ir_equals_preconvolved_pulse(self, small_linear_transducer, ir_kind):
+        """exc + tx.impulse_response must equal driving the full pulse exc ⊛ ir."""
         exc = _make_excitation()
+        ir = np.zeros(32, np.float32)
+        ir[0] = 1.0
+        if ir_kind == "burst":
+            ir = exc * np.hanning(exc.size).astype(np.float32)
         pts = np.array([[0.0, 0.0, 20.0]], dtype=np.float32)
-
-        delta = np.zeros(32, dtype=np.float32)
-        delta[0] = 1.0
-
-        sim_no_ir = _make_emission(small_linear_transducer, excitation=exc)
-
-        # Set delta IR
         tx = small_linear_transducer
-        tx.impulse_response = delta
-        sim_delta_ir = _make_emission(tx, excitation=exc)
-        # Clear for other tests
+        tx.impulse_response = ir
+        p_ir, _ = _make_emission(tx, excitation=exc)(pts)
         tx.impulse_response = None
-
-        p_no, _ = sim_no_ir(pts)
-        p_delta, _ = sim_delta_ir(pts)
-
-        # With delta IR, output should be same (identity convolution) or very close.
-        # Truncation to excitation length may introduce minor differences.
-        assert p_no.shape == p_delta.shape
+        full = np.convolve(exc, ir).astype(np.float32)
+        p_full, _ = _make_emission(tx, excitation=full)(pts)
+        np.testing.assert_allclose(p_ir, p_full, atol=1e-6 * np.abs(p_full).max())

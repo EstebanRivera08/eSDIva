@@ -155,18 +155,18 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\simulation_base.py": {
-    "mtime": 1787906185.6885548,
-    "ast_hash": "f97c2c668869e99832f6d6f8eb079004",
+    "mtime": 1789306462.2399921,
+    "ast_hash": "41dac5ef16ab8af937364863e96e6b3c",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\__init__.py": {
-    "mtime": 1787906185.6396239,
-    "ast_hash": "50331317331546c751dd60bf140705ce",
+    "mtime": 1788448382.6290138,
+    "ast_hash": "688e4566f2fcb23112a7c15bb6afc0dc",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\attenuation\\attenuation.py": {
-    "mtime": 1787906185.6437514,
-    "ast_hash": "c1977f810a190db46c078d36a5cd7ee5",
+    "mtime": 1789298909.6636202,
+    "ast_hash": "79e33a2b9110539b1f81a4148137b511",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\attenuation\\__init__.py": {
@@ -185,13 +185,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\emission.py": {
-    "mtime": 1787906185.6437514,
-    "ast_hash": "e44a2ad1d4cf70b15bf2b462140038c6",
-    "semantic_hash": ""
-  },
-  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\sir_to_pressure.py": {
-    "mtime": 1787906185.6437514,
-    "ast_hash": "daf7861139b603e2344b49d6ac9964f6",
+    "mtime": 1789316706.7874317,
+    "ast_hash": "f8bdf5532d2721e309efaf44bd2afb9e",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\__init__.py": {
@@ -199,24 +194,14 @@
     "ast_hash": "c34525d6fd38950c5d6f1976c840cda0",
     "semantic_hash": ""
   },
-  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\farfield_rect_patch.py": {
-    "mtime": 1787906185.6437514,
-    "ast_hash": "6cf991608c67e8e468c1fcf4579c531e",
-    "semantic_hash": ""
-  },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\helpers.py": {
-    "mtime": 1787906185.6437514,
-    "ast_hash": "d2b36fc5977f417f2c2706b68bb489ea",
-    "semantic_hash": ""
-  },
-  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\transducer_sir_pe_sdi.py": {
-    "mtime": 1787906185.6594641,
-    "ast_hash": "e98e791f5564e39b8ded9123b1c1001a",
+    "mtime": 1789300366.610116,
+    "ast_hash": "18506b974074073f3560b267914b9829",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\__init__.py": {
-    "mtime": 1787906185.6437514,
-    "ast_hash": "af2b97aa3fe0be9890b7bcb432ff7215",
+    "mtime": 1789300351.9077537,
+    "ast_hash": "ef17cf08f9eacc8b50a45e5271e33c64",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\io\\hdf5.py": {
@@ -250,8 +235,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\plotting\\plotting3D.py": {
-    "mtime": 1787906185.6594641,
-    "ast_hash": "6e424c241c71fd573ff4ec6d2386072c",
+    "mtime": 1789313135.8085012,
+    "ast_hash": "7e031841619a86ea505bca234da7a9b9",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\plotting\\plotting_pyvista.py": {
@@ -275,28 +260,28 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\base.py": {
-    "mtime": 1788356870.9535158,
-    "ast_hash": "f76cf2b059b34935cce0fec29a7f79c7",
+    "mtime": 1789305544.3505247,
+    "ast_hash": "6d49d7e1644c9859233e2f348291f79a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\conventional.py": {
-    "mtime": 1787906185.6753871,
-    "ast_hash": "9b1fa2d9c0d64d37643e2d448377e130",
+    "mtime": 1789305410.387987,
+    "ast_hash": "681f890aba256fd28209141aa35acb35",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\reception.py": {
-    "mtime": 1787906185.6753871,
-    "ast_hash": "b4170b593bcd7058dbce59c9edee3c30",
+    "mtime": 1789306453.5102398,
+    "ast_hash": "cefed76ea6e587f559546a1919d341b4",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\__init__.py": {
-    "mtime": 1787906185.6753871,
-    "ast_hash": "ed1896ee01deccec7bfb6085dbfb32b9",
+    "mtime": 1789299492.7275052,
+    "ast_hash": "d734cfccdcdbb0f1f07b1461999e5d6b",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\transducers\\base.py": {
-    "mtime": 1787906185.6913104,
-    "ast_hash": "120ecd5d95f5905922d00f8d6e225dd6",
+    "mtime": 1789306455.1319203,
+    "ast_hash": "f5f4ae0df6656fe58cb8d2830a0d8c0a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\transducers\\circular.py": {
@@ -320,8 +305,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\transducers\\linear.py": {
-    "mtime": 1787906185.6950545,
-    "ast_hash": "7ee60fa6bab0ebefa15ebd4a1d31ce05",
+    "mtime": 1789119390.9516745,
+    "ast_hash": "676aa780ce87b32359f9ecd8b4b3b0d1",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\transducers\\matrix.py": {
@@ -350,8 +335,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\utilities\\helper_functions.py": {
-    "mtime": 1787906185.707179,
-    "ast_hash": "9cb7df141d69d9ef23f0b59928102a3d",
+    "mtime": 1789303293.190091,
+    "ast_hash": "fd3b1f3db486fdb62d01c09b34607543",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\utilities\\matlab.py": {
@@ -365,13 +350,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\utilities\\surface_subdivision.py": {
-    "mtime": 1787906185.707179,
-    "ast_hash": "f9739699807cb96a8f00d2a913d864a4",
+    "mtime": 1789299375.1694455,
+    "ast_hash": "0e88e508d09e29f6d769cf302c13ea1d",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\utilities\\__init__.py": {
-    "mtime": 1788354264.5493827,
-    "ast_hash": "efaca46f29447ab83a604ffb15e1be96",
+    "mtime": 1789075534.5310354,
+    "ast_hash": "6acda0a10eb6bf374b67b5f7d6ae376b",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\conftest.py": {
@@ -424,11 +409,6 @@
     "ast_hash": "d41d8cd98f00b204e9800998ecf8427e",
     "semantic_hash": ""
   },
-  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_h_sir\\test_pe_sdi.py": {
-    "mtime": 1787906185.7229664,
-    "ast_hash": "98a777032dc263c507f755ebd47b508c",
-    "semantic_hash": ""
-  },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_h_sir\\test_sir_derivatives.py": {
     "mtime": 1787906185.7229664,
     "ast_hash": "5a89d7e88a48bd148460d7295b9fbbc6",
@@ -460,23 +440,18 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_attenuation.py": {
-    "mtime": 1787906185.740092,
-    "ast_hash": "90314b140789ac4bf69951a20b17b996",
+    "mtime": 1789298574.4256146,
+    "ast_hash": "524b8598f3798997d3d9273237905629",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_emission.py": {
-    "mtime": 1787906185.740092,
-    "ast_hash": "944d98fcd739bb012b9b2340f72be87b",
+    "mtime": 1789314230.416357,
+    "ast_hash": "3ecf949e1253db6348d0be1f236a8df3",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_reception.py": {
-    "mtime": 1788357134.9440596,
-    "ast_hash": "89d9824ad06ebb00fee975c7dac084e7",
-    "semantic_hash": ""
-  },
-  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_sir_to_pressure.py": {
-    "mtime": 1787906185.7551906,
-    "ast_hash": "1bf00ff5e78547d08bbc711b3e3e250b",
+    "mtime": 1789305749.0871973,
+    "ast_hash": "3abdc7e11327c042980de38632436488",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\__init__.py": {
@@ -495,8 +470,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_transducers\\test_lens_conventions.py": {
-    "mtime": 1787906185.7551906,
-    "ast_hash": "dfa064a79d4e57808d5401318c78383b",
+    "mtime": 1789119282.767737,
+    "ast_hash": "4211ca01bb8ea00e48c9fbf0b7a7364e",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_transducers\\test_linear.py": {
@@ -545,13 +520,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\ARCHITECTURE.md": {
-    "mtime": 1788357116.5206485,
-    "ast_hash": "e56467079db2a23fe028d244b73a0a30",
+    "mtime": 1789314697.856577,
+    "ast_hash": "dbdfad30e87318f88e35a8f88557030f",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\CLAUDE.md": {
-    "mtime": 1788357116.515597,
-    "ast_hash": "a5ce25f7c0d29ab367d7af695c7d3eca",
+    "mtime": 1789314899.031595,
+    "ast_hash": "2d4d5002c701f18803d6951ba9ad47ec",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\codecov.yml": {
@@ -560,8 +535,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\README.md": {
-    "mtime": 1788354298.8366752,
-    "ast_hash": "e463b3e57c57e001de9d58503f28ae97",
+    "mtime": 1789314486.3643184,
+    "ast_hash": "ac45a628a11a2a0196f2c9c0718c112a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\CLAUDE.md": {
@@ -570,8 +545,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\rules\\attenuation.md": {
-    "mtime": 1787906183.8115518,
-    "ast_hash": "67e5727a0843b6ec0d197c6a3e99b3d1",
+    "mtime": 1789314736.6178877,
+    "ast_hash": "b9c806c18d828ab0a017c7d20230de16",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\rules\\coding-guidelines.md": {
@@ -580,13 +555,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\rules\\physics-context.md": {
-    "mtime": 1788357116.5186334,
-    "ast_hash": "9f3face334701194a1f07ae76452246e",
+    "mtime": 1789314727.9330068,
+    "ast_hash": "5ada3077b4795c947c3526c5b8683e0d",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\rules\\transducers.md": {
-    "mtime": 1787906183.8115518,
-    "ast_hash": "3ece6aea01cd8a06a09c934045f88b40",
+    "mtime": 1789119328.472408,
+    "ast_hash": "046abc4e514070fbb26f7e3f6f0c6c26",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\skills\\graphify\\SKILL.md": {
@@ -595,8 +570,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.claude\\skills\\release\\SKILL.md": {
-    "mtime": 1787906183.8115518,
-    "ast_hash": "9ceb0ee521d965bc3ca6b5ee12d78030",
+    "mtime": 1788419893.6207757,
+    "ast_hash": "743c88280fff34bdfaa68771c3561933",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.github\\PULL_REQUEST_TEMPLATE.md": {
@@ -645,8 +620,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\index.md": {
-    "mtime": 1788354665.3985417,
-    "ast_hash": "5a92abe2eab79bf7292242c362122f02",
+    "mtime": 1789314486.3586547,
+    "ast_hash": "163b1172f8a9fd12e640e349690ba699",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\api\\beamforming.md": {
@@ -680,8 +655,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\api\\reception.md": {
-    "mtime": 1787906183.8432047,
-    "ast_hash": "1484abae8781f6f412054217fa294cf8",
+    "mtime": 1789314526.641626,
+    "ast_hash": "bd5309ba238bfa7dc7ddca538d32c05e",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\api\\transducers.md": {
@@ -795,8 +770,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\index.md": {
-    "mtime": 1787906185.0214393,
-    "ast_hash": "5da332d3cd3a693dd755dcdf19c1bdc8",
+    "mtime": 1789073149.735304,
+    "ast_hash": "64d4b5e5742d0c33dae64450f0b67d85",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\2d-planes.md": {
@@ -815,8 +790,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\attenuation.md": {
-    "mtime": 1787906185.0372152,
-    "ast_hash": "25c2ec67270a9a842548789a830c4e17",
+    "mtime": 1789314458.393517,
+    "ast_hash": "47d2aea5a598fd1a3033d47441aeb3ef",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\brain-atlas.md": {
@@ -825,8 +800,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\emission.md": {
-    "mtime": 1787906185.0372152,
-    "ast_hash": "dcc37210d67a5ac0fa799287deff4f46",
+    "mtime": 1789314449.8102238,
+    "ast_hash": "cb996d741a5154508e35fd935c104618",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\fieldii-correspondence.md": {
@@ -840,8 +815,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\getting-started.md": {
-    "mtime": 1788354665.3995626,
-    "ast_hash": "4cbdb961136e074b052e5c6f5d1272ec",
+    "mtime": 1789314486.3541553,
+    "ast_hash": "f93e0d22cb61515b6e62022f2a642497",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\index.md": {
@@ -850,8 +825,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\installation.md": {
-    "mtime": 1788354677.9010763,
-    "ast_hash": "15c07cb2815602c7243d3105d9103bf3",
+    "mtime": 1788448382.675558,
+    "ast_hash": "29f66dead35b9f1cd75df9193b5b5f0c",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\mono-elements.md": {
@@ -860,13 +835,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\monochromatic.md": {
-    "mtime": 1787906185.0705097,
-    "ast_hash": "dfced907a1a5ebd99942c1a4e6f3a033",
+    "mtime": 1789314495.6257944,
+    "ast_hash": "aa1590eb62457ee6c6bbc89d95b63828",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\multi-elements.md": {
-    "mtime": 1787906185.0735848,
-    "ast_hash": "677e1aca1634f17c6d677140aec163b5",
+    "mtime": 1789119910.5713954,
+    "ast_hash": "39775092b7e8f73a73c27c32e4592de6",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\pyvista.md": {
@@ -875,13 +850,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\reception.md": {
-    "mtime": 1788357116.5246875,
-    "ast_hash": "4e18318866943365fdafbf8b0ceca5bd",
+    "mtime": 1789314523.810464,
+    "ast_hash": "20f1dfe5997442cf8f58ada565594003",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\simulation.md": {
-    "mtime": 1787906185.0795937,
-    "ast_hash": "8982c3026efed3cbddbf4b6432d0048a",
+    "mtime": 1789314486.3606722,
+    "ast_hash": "f6c7937a418ac451c617e5035bda4f89",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\transducer-objects.md": {
@@ -895,18 +870,18 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\transient-excitation.md": {
-    "mtime": 1787906185.0795937,
-    "ast_hash": "0d35b47cbe0c712cb48d56b156294251",
+    "mtime": 1789314499.8708825,
+    "ast_hash": "4965c2fa6465e5fcc4fb6d90001d74f0",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\transient-impulse.md": {
-    "mtime": 1787906185.087505,
-    "ast_hash": "59943a3761c7c493ca1316320e2bcb73",
+    "mtime": 1789314486.3562107,
+    "ast_hash": "5a5374139a741e98b823a3d840396b28",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\utilities.md": {
-    "mtime": 1787906185.087505,
-    "ast_hash": "91456f92a061fe9a65ca10cf99b9dc92",
+    "mtime": 1789316840.898481,
+    "ast_hash": "0589702af65073438168a149517380ac",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\visualization.md": {
@@ -915,8 +890,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\README.md": {
-    "mtime": 1787906185.0912197,
-    "ast_hash": "08589942fffed300c3469ea9a4851260",
+    "mtime": 1789073149.9080906,
+    "ast_hash": "6f2b4eed18a2330d9dbc6eb7bceb7b23",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example21_3Dphantom_volume\\README.md": {
@@ -925,223 +900,223 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_concave.png": {
-    "mtime": 1787906183.8589926,
-    "ast_hash": "f1b1b74f18ee03a5cfacfa2104627892",
+    "mtime": 1789315650.1357028,
+    "ast_hash": "c2a77f3a7acdc7c597e569cf101e265a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_convex.png": {
-    "mtime": 1787906183.8589926,
-    "ast_hash": "f9d48791ac22e4480419d65d933247bb",
+    "mtime": 1789315645.3884404,
+    "ast_hash": "a33eadc1d15b7c9b390090d04fd25165",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_convex_focused.png": {
-    "mtime": 1787906183.8748355,
-    "ast_hash": "ee89d21e898466390eb4c2963c9a0fd6",
+    "mtime": 1789315646.499328,
+    "ast_hash": "36814a7fb7c3244aec83c8f422154eb5",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_custom_helmet.png": {
-    "mtime": 1787906183.8906267,
-    "ast_hash": "49e9160025510f34db7644351e01dc65",
+    "mtime": 1789315652.845553,
+    "ast_hash": "1852aef4f0408041a3c9df8814f2b09f",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_flat_circular.png": {
-    "mtime": 1787906183.8906267,
-    "ast_hash": "4a60780d9d04319db6fea93023c740d1",
+    "mtime": 1789315648.6020014,
+    "ast_hash": "505b1f0200363c5639f1c558281ffbf5",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_focused_circular.png": {
-    "mtime": 1787906183.906439,
-    "ast_hash": "dc9aaf5162a62fc65d5cbe4aa8de46e2",
+    "mtime": 1789315651.4152489,
+    "ast_hash": "c0b683336536793e05167e08cb418f36",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_linear.png": {
-    "mtime": 1787906183.906439,
-    "ast_hash": "58a2cb63f25345a448444031843fd344",
+    "mtime": 1789315644.2446525,
+    "ast_hash": "baa7d839552c961daf27b4905b9f211e",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex01_gallery_matrix.png": {
-    "mtime": 1787906183.9223175,
-    "ast_hash": "acba19d04d0caf07fef73b7abdfb372c",
+    "mtime": 1789315647.5660107,
+    "ast_hash": "8bc21ab660f60d9f78db4f1d0d80657e",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex02_mono_concave.png": {
-    "mtime": 1787906183.9223175,
-    "ast_hash": "e205aac3cd3bb6f83252ef976b80357b",
+    "mtime": 1789315663.372337,
+    "ast_hash": "357237997f3dae3a554e3653c208b0dc",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex02_mono_convex.png": {
-    "mtime": 1787906183.938131,
-    "ast_hash": "6c04525ce11b1c3f7486b50e1a640c46",
+    "mtime": 1789315665.6518023,
+    "ast_hash": "701819e361c0810699ffb876ab6c1999",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex02_mono_flat.png": {
-    "mtime": 1787906183.938131,
-    "ast_hash": "fd697dc226934f08c22ea2e1aa2076cd",
+    "mtime": 1789315661.4567664,
+    "ast_hash": "13a0e77c79bd42af515f74a250d1f9f6",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex02_mono_focused.png": {
-    "mtime": 1787906183.938131,
-    "ast_hash": "8af96fefe84e6571d310d344107688db",
+    "mtime": 1789315664.4416964,
+    "ast_hash": "36e8f4ab299af1f3dcd5dc5f2f258f2a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex03_linear_array_field.png": {
-    "mtime": 1787906183.954011,
-    "ast_hash": "837bffaeb8ade5313656f8515c286bd4",
+    "mtime": 1789315677.7764413,
+    "ast_hash": "8bcbee7037ffab0fe333ab164f21953e",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex03_linear_array_pressure_field.png": {
-    "mtime": 1787906183.954011,
-    "ast_hash": "c8327769c5e88544d632a2080f4346ce",
+    "mtime": 1789315678.6103885,
+    "ast_hash": "b365abe589053daa24b3c5020604d320",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex03_matrix_array_field.png": {
-    "mtime": 1787906183.9850013,
-    "ast_hash": "07a686a119d5599019de8c32dca6a684",
+    "mtime": 1789315688.1833024,
+    "ast_hash": "2fc00ff730ca894a44c073b52b36ddc0",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex03_matrix_array_pressure_field.png": {
-    "mtime": 1787906183.9941025,
-    "ast_hash": "d677a1a392d3af906be2816c81b3b2e3",
+    "mtime": 1789315688.88227,
+    "ast_hash": "e8d66a5d14233ff74adc5930be354586",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex04_dw_transient.gif": {
-    "mtime": 1787906184.265903,
-    "ast_hash": "2c3f4dcf2e497fcd5b7b6075c49c2110",
+    "mtime": 1789315817.8677926,
+    "ast_hash": "2d288a1145270f1c6b327ef23f944a67",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex05_matrix_pw_3d.gif": {
-    "mtime": 1787906184.3450828,
-    "ast_hash": "21d18b6127d1f8286a7902ad47943eba",
+    "mtime": 1789315925.2314649,
+    "ast_hash": "866428d42adee9c5f9a65b15909aefc5",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex06_concave_psf_comparison.png": {
-    "mtime": 1787906184.3609848,
-    "ast_hash": "951ab98420da09fe5fec863f654bc714",
+    "mtime": 1789315938.1028645,
+    "ast_hash": "669991ca64c16c6f1cfd6eaf2dcddd89",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex07_reception_setup.png": {
-    "mtime": 1787906184.3609848,
-    "ast_hash": "1c8642639afa31ca2a514e9e730c34f8",
+    "mtime": 1789315946.9517317,
+    "ast_hash": "bbe243cb220acf330a1c59bce0b51499",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex07_reception_txfocus.png": {
-    "mtime": 1787906184.3767884,
-    "ast_hash": "1803301a953b987fd3f092d43d1d7c2e",
+    "mtime": 1789315950.7235818,
+    "ast_hash": "85f94003e6ee2463cb3d308c75c8291f",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex08_reception_fmc.png": {
-    "mtime": 1787906184.3767884,
-    "ast_hash": "6bc608ff9d24a4330bacd3f224a36ccb",
+    "mtime": 1789315959.84581,
+    "ast_hash": "9199409c7c9010bc2e907a3d76cd1ac2",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex09_bmode_psf_FD2_hanning.png": {
-    "mtime": 1787906184.3767884,
-    "ast_hash": "b4a58a3f4ecf615cb028e308869114fc",
+    "mtime": 1789315970.2975953,
+    "ast_hash": "deaadb78265758fb20a607809bde6685",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex10_intensities_peak_pressure.png": {
-    "mtime": 1787906184.3865228,
-    "ast_hash": "799913d1b94b1dd27343657ee35f09dc",
+    "mtime": 1789315980.3097553,
+    "ast_hash": "3b3e6ad92664bc510de672b6574706af",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex11_attenuation_brain.png": {
-    "mtime": 1787906184.3925874,
-    "ast_hash": "526024b09b6d44a86cfc4864959464fb",
+    "mtime": 1789315990.7518415,
+    "ast_hash": "4b772f92c1166403b072e261323a08bd",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex11_attenuation_map.png": {
-    "mtime": 1787906184.3925874,
-    "ast_hash": "73bf7031eec2cadc9ef05a0e39c4b025",
+    "mtime": 1789315993.112149,
+    "ast_hash": "771c72a0fc42816424267f75be2bdb43",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex11_attenuation_water.png": {
-    "mtime": 1787906184.4083078,
-    "ast_hash": "09fe915088a61af27297f7d7b883143d",
+    "mtime": 1789315989.9502084,
+    "ast_hash": "ec6442f2c8afa06d13df9e29899aadc8",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex12_brain_mouse_scene.png": {
-    "mtime": 1787906184.4241781,
-    "ast_hash": "0d469005eba5b9b00199151ce5061a49",
+    "mtime": 1789316008.5935736,
+    "ast_hash": "135b7210d5fe73711174e9bdc7ed7dc0",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex13_rat_brain_zones.png": {
-    "mtime": 1787906184.4559603,
-    "ast_hash": "7f2218f4808fe4f50d037573d35f6d19",
+    "mtime": 1789316020.7522337,
+    "ast_hash": "51f416d00ead5f24e9225d2b93ba4131",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex14_stl_lighting.png": {
-    "mtime": 1787906184.471761,
-    "ast_hash": "222f3a3dd021ee1190739760ae2cae21",
+    "mtime": 1789316028.1638758,
+    "ast_hash": "374cd72016cfb9417d92c170ee47d570",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex14_stl_multiple.png": {
-    "mtime": 1787906184.471761,
-    "ast_hash": "ab6923dbc3e01d8e60afc48c616524c8",
+    "mtime": 1789316027.699614,
+    "ast_hash": "b297ce5c1f1570193f0bee2b43f40dfc",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex14_stl_simple.png": {
-    "mtime": 1787906184.4871035,
-    "ast_hash": "4790436e67478f2e629cebf9a65a6470",
+    "mtime": 1789316026.786347,
+    "ast_hash": "3ee1660e16de5e63da33b155ea681ecb",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex15_stl_simulation.png": {
-    "mtime": 1787906184.50304,
-    "ast_hash": "0a0df891eadb01e3da3c105369f98ab1",
+    "mtime": 1789316037.5671346,
+    "ast_hash": "ee0a28decbca76bf866b808eebb81dd5",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex16_subdivision_density_comparison.png": {
-    "mtime": 1787906184.5189264,
+    "mtime": 1789316047.2467415,
     "ast_hash": "da8a55dcef23f044d6e0cceea0a6b0b0",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex16_subdivision_ellipsoid_cap.png": {
-    "mtime": 1787906184.5455928,
+    "mtime": 1789316044.224387,
     "ast_hash": "9430954c423b80cc6ea30764ca3992e7",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex16_subdivision_ellipsoid_cap_pyvista.png": {
-    "mtime": 1787906184.5455928,
-    "ast_hash": "41db3ed5e0f9171fb9a5dc734128a01b",
+    "mtime": 1789316045.6389349,
+    "ast_hash": "0ebd270f515030d414773bb9f3c37a30",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex17_fieldii_import_cw.png": {
-    "mtime": 1787906184.5565298,
-    "ast_hash": "34cf69d8ab5b8fc81a6e544656a523c2",
+    "mtime": 1789316056.4652772,
+    "ast_hash": "96e5b5e2e18278e19d8a69ed4f230106",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex17_fieldii_import_mesh.png": {
-    "mtime": 1787906184.5613914,
-    "ast_hash": "97ac44a1ef330ef95af460281738b9fb",
+    "mtime": 1789316053.3239253,
+    "ast_hash": "919abfd22acb1bdef4d586d971603827",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex18_custom_sparse_3dplanes.png": {
-    "mtime": 1787906184.5772455,
-    "ast_hash": "790a1785ff766843e53c6e8cfe75a4cd",
+    "mtime": 1789316072.5630639,
+    "ast_hash": "f04c63860b643254fd8b3913072e15ba",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex19_dualprobe_rf.png": {
-    "mtime": 1787906184.58646,
-    "ast_hash": "b5a6dda5bcbe4241b03e2158468f8b28",
+    "mtime": 1789316082.7335348,
+    "ast_hash": "f5045b27d85f069f0e31344e677ef934",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex19_dualprobe_setup.png": {
-    "mtime": 1787906184.593176,
-    "ast_hash": "38a8dc073feea70a87fad283537e100a",
+    "mtime": 1789316079.4951086,
+    "ast_hash": "cd4bfc6687cba833badbf42638998dc8",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex20_phantom_bmode.png": {
-    "mtime": 1787906184.6005013,
-    "ast_hash": "01383fdf55d3577437fc85c4daa4d293",
+    "mtime": 1789316158.68524,
+    "ast_hash": "c9d2a87f694061f7e13a32fa192c1ddc",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex20_phantom_map.png": {
-    "mtime": 1787906184.6005013,
+    "mtime": 1789316088.1780202,
     "ast_hash": "e94480865004d581533c5bfb708d7a74",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex20_phantom_setup.png": {
-    "mtime": 1787906184.6090953,
-    "ast_hash": "2452db655f8e99b2a7bbf04d2ea02026",
+    "mtime": 1789316089.6012423,
+    "ast_hash": "9f2eefece236d68df3cc3141577c4417",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex21_vermon_bmode.png": {
@@ -1382,6 +1357,266 @@
   "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example21_3Dphantom_volume\\figures\\zeus5\\zeus5_volume_3d.png": {
     "mtime": 1787906185.5406427,
     "ast_hash": "e74f20bb3d8f74d40fbd0d67c282be7a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\.claude-plugin\\marketplace.json": {
+    "mtime": 1788427496.5095036,
+    "ast_hash": "9eebaddedc672ea267f636a8f34617cf",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\.claude-plugin\\plugin.json": {
+    "mtime": 1788449699.5561316,
+    "ast_hash": "3de9a28b3e88c0cd18a3ee4cd6757557",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\bias_budget.py": {
+    "mtime": 1789121537.1749487,
+    "ast_hash": "11e579e16b8114e1bf6282866adba016",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\doppler_tools.py": {
+    "mtime": 1789166292.1186798,
+    "ast_hash": "3fd0b5133b7d4a0a1018f47759560301",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\make_videos.py": {
+    "mtime": 1789166342.2109623,
+    "ast_hash": "6e00ad1139d167131b6116ed725a824c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\step1_define_flow_phantom.py": {
+    "mtime": 1789166292.067022,
+    "ast_hash": "d4dcb572c03e7d16fbe6447a65c69160",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\step2_acquire_RF.py": {
+    "mtime": 1789073177.8910124,
+    "ast_hash": "c07f5588bc74061acd3cf0f1217e2a5d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\step3_doppler_processing.py": {
+    "mtime": 1789166292.193954,
+    "ast_hash": "6f306e79ba91ac1fd06c58d6f95aa849",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\step4_visualize.py": {
+    "mtime": 1789166342.2109623,
+    "ast_hash": "6f8b6cb701b094fc954ad84aad8d0f9b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\templates\\emission_transient.py": {
+    "mtime": 1789314344.60212,
+    "ast_hash": "43c58cd3d35fe7ee42f78cf9208a20c8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\templates\\reception_psf.py": {
+    "mtime": 1788426006.6721137,
+    "ast_hash": "fa7bb49e87ac1427c9b5fad900e99778",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\templates\\reception_sequence_das.py": {
+    "mtime": 1788426050.5689955,
+    "ast_hash": "86c9d7ec844fbda928df52aa4cde890d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\sir_paired.py": {
+    "mtime": 1789300366.6141331,
+    "ast_hash": "cb4ca93710d720dee8ec57cd70a5b286",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\sir_spectral.py": {
+    "mtime": 1789305443.659514,
+    "ast_hash": "2d3980795ef8f8ed211fbf6cad092792",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\sir_temporal.py": {
+    "mtime": 1789303281.4730096,
+    "ast_hash": "b646d202be68bcf21eb089e082653f04",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\paired.py": {
+    "mtime": 1789301009.4023318,
+    "ast_hash": "34e89f30c5bc096a98afc324521425f5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\utilities\\benchmark.py": {
+    "mtime": 1789316689.0000968,
+    "ast_hash": "e89c4bf166faf1726228976a65ef280f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\utilities\\noise.py": {
+    "mtime": 1789299788.1354604,
+    "ast_hash": "cfacfcd3be4ed18aa1c034f4a5612acb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\integration\\test_skill_frontmatter.py": {
+    "mtime": 1788427836.4894724,
+    "ast_hash": "028d229fffe1dbcf50f291a5f69d9e14",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\integration\\test_skill_templates.py": {
+    "mtime": 1788446676.2612615,
+    "ast_hash": "c2012406f9e685e1c29c67aaf15f376e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_lens_time_origin.py": {
+    "mtime": 1789119251.3800204,
+    "ast_hash": "69235e35a29ee019930bb57ba59b800c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_utilities\\test_benchmark.py": {
+    "mtime": 1789316719.3636763,
+    "ast_hash": "4eb0062fa49bb33511d33920ff99d4e1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_utilities\\test_noise.py": {
+    "mtime": 1789299591.3342326,
+    "ast_hash": "13b05a72a713c2aaac196ab19e01f0d6",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\AGENTS.md": {
+    "mtime": 1788427526.3482158,
+    "ast_hash": "f416465ce8fcbf40b561a4d73008b686",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\TODO.md": {
+    "mtime": 1789314879.4082966,
+    "ast_hash": "d29af539bbe4c85a33dda9cd753b8bbb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\.github\\workflows\\codecov.yml": {
+    "mtime": 1788448699.4540982,
+    "ast_hash": "7ef1c70562022969bca45fe3e57a4564",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\example22_flow_doppler.md": {
+    "mtime": 1789166673.2300518,
+    "ast_hash": "a89e928ef5a7350c8c2963a2987e5ca2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\ai-assistant.md": {
+    "mtime": 1789314486.3606722,
+    "ast_hash": "1f78a446c3435a962dcfc75cfb5e0e15",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\flow-simulation.md": {
+    "mtime": 1789166673.236609,
+    "ast_hash": "53d64a3d292d97338a0abc291345b2d0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\phantom-simulation.md": {
+    "mtime": 1789113784.1263902,
+    "ast_hash": "36d288330bd9a93ae8810db44df56bab",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\user-guide\\psf-simulation.md": {
+    "mtime": 1789113756.9634268,
+    "ast_hash": "21788dc9a706819f1ed1d17792e155cd",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\examples\\example22_flow_doppler\\README.md": {
+    "mtime": 1789166292.0700274,
+    "ast_hash": "9978d35077e372c7c01f6964c33ab995",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\README.md": {
+    "mtime": 1789314368.0620697,
+    "ast_hash": "e7167938e650508ca86870446e16b15e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-contribute\\SKILL.md": {
+    "mtime": 1789314422.7640717,
+    "ast_hash": "aefba8b0bb42dafe810183f0b57aea39",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\SKILL.md": {
+    "mtime": 1789314322.2240512,
+    "ast_hash": "5af38a3f810bd7acaa81766d909ea398",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\references\\emission.md": {
+    "mtime": 1789316844.7419436,
+    "ast_hash": "308bf1032ccf24875ee07d7648a4d3af",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\references\\physics.md": {
+    "mtime": 1789314366.787984,
+    "ast_hash": "40823b2ec948aeecaf42d197f6922634",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\references\\reception.md": {
+    "mtime": 1789314298.4465055,
+    "ast_hash": "842a8727e326636ad9ddbe5e4907154d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\references\\transducers.md": {
+    "mtime": 1788425601.8580856,
+    "ast_hash": "9c4839a89d7918d0a5dbbfbb44746faa",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\references\\visualization.md": {
+    "mtime": 1788426122.5069366,
+    "ast_hash": "6c46298c0a62204a4ad1aa88c0530175",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex22_bercoff_arms.png": {
+    "mtime": 1789151436.2530274,
+    "ast_hash": "1a1195b37f39de2cfc9eb3ac7e9500d7",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex22_bercoff_tradeoff.png": {
+    "mtime": 1789151439.7719,
+    "ast_hash": "7893d1bb9548aeafd633492fc058fa06",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex22_flow_setup.png": {
+    "mtime": 1789150708.1596632,
+    "ast_hash": "ce24339e73c4c63d007b10fbadd4a1a3",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex22_video1_flow.mp4": {
+    "mtime": 1789166587.1153903,
+    "ast_hash": "6b439bfe63e28cedf601e511976fbab0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\examples\\assets\\ex22_video2_sequences.mp4": {
+    "mtime": 1789166587.1641154,
+    "ast_hash": "91d217c1251b2161098cd84d4b7bbc87",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_h_sir\\test_sir_spectral.py": {
+    "mtime": 1789300472.179333,
+    "ast_hash": "270d7609439b0050c946333e76da99c2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\regression\\headless.py": {
+    "mtime": 1789314230.416357,
+    "ast_hash": "8cac31ed35c52485e2c5e785d3b26ff1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\regression\\test_examples.py": {
+    "mtime": 1789313118.5062232,
+    "ast_hash": "032a0e4d022169a57bee476078752829",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\regression\\test_golden.py": {
+    "mtime": 1789314230.416357,
+    "ast_hash": "d6d439bd92ba21acce3596bdca159621",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\templates\\emission_monochromatic.py": {
+    "mtime": 1789314336.6824758,
+    "ast_hash": "f6f00b347cf856889c174f982335e672",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\docs\\api\\hsir.md": {
+    "mtime": 1789314542.3868275,
+    "ast_hash": "f8d13b2b89b6c0c5f5cac747bf19529a",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\skills\\esdiva-simulate\\references\\validation.md": {
+    "mtime": 1789316848.4087508,
+    "ast_hash": "ef6d5f341a6edc305808d824c0c64be7",
     "semantic_hash": ""
   }
 }

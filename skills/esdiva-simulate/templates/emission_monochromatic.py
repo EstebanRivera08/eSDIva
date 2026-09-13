@@ -1,7 +1,7 @@
-"""Continuous-wave beam profile of a focused linear array.
+"""Monochromatic beam profile of a focused linear array.
 
-Monochromatic emission returns |H(r, w_c)|: the steady-state pressure amplitude at
-the centre frequency, one value per field point. It answers "how strong is the beam
+Monochromatic emission returns rho*w_c*|H(r, w_c)|: the steady-state pressure amplitude
+at the centre frequency (Pa per 1 m/s of surface velocity), one value per field point. It answers "how strong is the beam
 here" (beam width, depth of field, sidelobe level) and carries no time axis, so it
 cannot answer time-of-flight questions -- use emission_transient.py for those.
 
@@ -54,12 +54,12 @@ field_points = {
 
 # %% Simulate
 sim = Emission(tx, monochromatic=True, c=1540.0, verbose=True)
-p, coords = sim(field_points, method="auto")  # (Nx, Ny, Nz) CW amplitude at fc
-print(f"CW amplitude field: {p.shape}   peak = {p.max():.3g}")
+p, coords = sim(field_points)  # (Nx, Ny, Nz) pressure amplitude at fc
+print(f"Monochromatic amplitude field: {p.shape}   peak = {p.max():.3g}")
 
 # %% Beam profiles
 # The lateral cut at the focus gives the -6 dB beam width; the axial cut gives the
-# depth of field. Both are read from the same CW map.
+# depth of field. Both are read from the same monochromatic map.
 x_mm, z_mm = coords["x"], coords["z"]
 iz = int(np.argmin(np.abs(z_mm - FOCUS_MM[2])))
 lateral_db = 20 * np.log10(p[:, 0, iz] / p[:, 0, iz].max())

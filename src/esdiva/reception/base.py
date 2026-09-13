@@ -23,7 +23,7 @@ import numpy as np
 import pyvista as pv
 from scipy.signal import decimate, hilbert
 
-from esdiva.hsir.farfield_rect_patch import compute_h_sir
+from esdiva.hsir.sir_temporal import compute_h_sir
 from esdiva.plotting import add_transducer_mesh
 from esdiva.simulation_base import SimulationBase
 from esdiva.utilities.helper_functions import (
@@ -299,15 +299,24 @@ class ReceptionBase(SimulationBase):
         its geometric round-trip time ``(|p − r_tx| + |p − r_rx|)/c``. A delay-and-sum
         can then read the sample at ``(t_tx + t_rx − t0)/dt`` with no further
         correction — the convention Field II users reach through USTB, and the one
-        MUST/PyMUST get for free from a zero-phase pulse. Three shifts build it:
+        MUST gets for free from a zero-phase pulse. Three shifts build it:
 
         - **TX/RX focusing bulk.** ``pe_t0`` counts from the first-firing element, so
           the transmit bulk ``tx.delays.max()`` (the last-firing element's delay) is
           subtracted to put the origin on the beam axis; the RX bulk likewise.
-        - **Elevation lens transit.** A cylindrical-lens aperture's time grid is
-          referenced to the first-arriving rim, but the focused echo peaks one lens
-          transit later, so each aperture's sag ``R − √(R² − (h/2)²)`` is added as a
-          propagation time (TX once, RX once). Flat apertures have zero sag.
+        - **Elevation lens transit.** A cylindrical lens is a RECESSED surface: its
+          patches lie on an arc whose centre sits at ``z = −sag``, behind the rim
+          plane the beamformer measures depth from. Every patch is therefore
+          farther from an on-axis target than the face plane suggests — at the lens
+          focus, uniformly by one sag ``R − √(R² − (h/2)²)``, which is exactly the
+          condition that makes rim and centre equidistant and focuses the beam. The
+          echo thus arrives one lens transit LATE relative to the ``2z/c`` a
+          beamformer assumes, so the sag is SUBTRACTED from ``t0`` (TX once, RX
+          once) to put the echo back at its geometric depth. Flat apertures have
+          zero sag. Measured on a point target at the lens focus: with the term
+          subtracted the target lands within 0.005 mm of truth; adding it instead
+          places the image 2 sags (0.34 mm here) too deep, and omitting it
+          altogether 1 sag too deep.
         - **Two-way pulse centre.** The band-limited echo peaks half a pulse after the
           geometric arrival (see `_pulse_center_lag_s`); subtracting that lag here is
           what makes the naive delay-and-sum land on the peak. The value stays in
@@ -315,7 +324,7 @@ class ReceptionBase(SimulationBase):
           beamformer must NOT add it again.
         """
         t0 = pe_t0 - float(np.max(self.tx.delays)) - float(np.max(self.rx.delays))
-        t0 += (self.tx.elevation_lens_sag + self.rx.elevation_lens_sag) / self.c
+        t0 -= (self.tx.elevation_lens_sag + self.rx.elevation_lens_sag) / self.c
         lag = self._pulse_center_lag_s()
         t0 -= lag
         coords = {"t0": t0, "dt": dt, "pulse_center_lag_s": lag}
@@ -340,11 +349,13 @@ class ReceptionBase(SimulationBase):
         It depends only on the pulse model and ``fs`` — never on the phantom.
         """
 
-        def length(sig):
-            return 1 if sig is None else int(np.asarray(sig).size)
+        def length(
+            sig,
+        ):  # samples along time (axis 0 also for a per-element (L, E) pulse)
+            return 1 if sig is None else int(np.asarray(sig).shape[0])
 
         n_wave = (
-            length(self.excitation)
+            length(self._resolve_excitation())
             + length(self.tx.impulse_response)
             + length(self.rx.impulse_response)
             - 2
@@ -372,32 +383,6 @@ class ReceptionBase(SimulationBase):
         for r, off in results:
             rf[:, off : off + r.shape[1]] += r
         return rf
-
-    @staticmethod
-    def _snap_to_lattice(t0_nat, t0_global, dt):
-        """Align one depth bin's time grid with the shared global time axis.
-
-        All depth bins must add onto ONE common time axis (origin ``t0_global``,
-        sample step ``dt``), but a bin's natural start time ``t0_nat`` (the earliest
-        pulse-echo arrival in that bin) generally falls between two samples of that
-        axis. This rounds ``t0_nat`` DOWN to the nearest sample of the shared axis.
-
-        Time-domain paths simply build the bin's grid starting at ``t0_snap`` and
-        ignore ``shift``; the spectral path applies ``shift`` as a phase ramp on the
-        TX spectrum so the bin's RF still lands exactly on the shared samples.
-
-        Returns
-        -------
-        n0 : int
-            Integer sample index of the snapped start on the shared axis.
-        t0_snap : float
-            Snapped start time, ``t0_global + n0·dt`` (s).
-        shift : float
-            Sub-sample remainder ``t0_nat − t0_snap``, in ``[0, dt)`` (s).
-        """
-        n0 = int(np.floor((t0_nat - t0_global) / dt))
-        t0_snap = t0_global + n0 * dt
-        return n0, t0_snap, t0_nat - t0_snap
 
     def _auto_depth_bins(self, points_m, n_out):
         """Choose how many depth bins to split the scatterers into (1 = no binning).
@@ -444,6 +429,10 @@ class ReceptionBase(SimulationBase):
         periodicity returns coherent lattice echoes, not speckle); for phantoms
         draw random scatterers, e.g. with
         [make_phantom][esdiva.utilities.phantom.make_phantom].
+
+        A single acquisition sees ONE cloud, so a per-event ``(N_events, N_scat,
+        3)`` stack of moving scatterers is refused here — that shape belongs to
+        ``sequence_rf``, which fires one emission per event.
         """
         if isinstance(positions_mm, dict):
             # Grid dict → regular lattice of unit point targets (already metres).
@@ -453,6 +442,13 @@ class ReceptionBase(SimulationBase):
             pts_mm = np.asarray(positions_mm, dtype=np.float32)
             if pts_mm.ndim == 1 and pts_mm.shape[0] == 3:
                 pts_mm = pts_mm.reshape(1, 3)
+            if pts_mm.ndim == 3:
+                raise ValueError(
+                    f"scatterer positions have shape {pts_mm.shape}: a 3-D "
+                    "(N_events, N_scat, 3) stack describes a MOVING cloud, one "
+                    "cloud per emission. A single acquisition has one cloud — "
+                    "pass (N_scat, 3) here, or use sequence_rf() for motion."
+                )
             points_m = pts_mm * np.float32(1e-3)
         P = points_m.shape[0]
         if amplitudes is None:
@@ -465,6 +461,90 @@ class ReceptionBase(SimulationBase):
                     f"number of positions ({P})."
                 )
         return points_m, amps
+
+    @staticmethod
+    def _per_event_cloud(positions_mm, amplitudes, n_events):
+        """Resolve a static or per-event scatterer cloud into an event indexer.
+
+        A sequence may hold the medium still (one cloud, reused every emission)
+        or let it move: blood in a vessel travels ``v/PRF`` between emissions,
+        and it is exactly that inter-emission displacement — a round-trip path
+        change of twice the axial step — that a Doppler estimator reads as
+        phase. Both are expressed by the shape of the input: ``(N_scat, 3)``
+        holds still, ``(N_events, N_scat, 3)`` gives each emission its own
+        cloud. Amplitudes follow the same rule, so a scatterer that leaves the
+        region of interest (or a contrast bubble that is destroyed) is retired
+        by setting its amplitude to zero for the later events.
+
+        Parameters
+        ----------
+        positions_mm : (N_scat, 3) or (N_events, N_scat, 3) numpy.ndarray or dict
+            Scatterer positions in mm, or a grid dict (static clouds only).
+        amplitudes : (N_scat,) or (N_events, N_scat) numpy.ndarray or None
+            Scattering amplitudes. None defaults to ones.
+        n_events : int
+            Number of TX events in the sequence.
+
+        Returns
+        -------
+        pick : callable
+            ``pick(i)`` returns the ``(positions, amplitudes)`` of event ``i``.
+        moving : bool
+            True when the cloud differs between events.
+
+        Raises
+        ------
+        ValueError
+            If a per-event positions/amplitudes array does not have one entry
+            per TX event, or the two disagree on the scatterer count.
+        TypeError
+            If a grid dict is combined with per-event amplitudes — a lattice is
+            a fixed map of point targets, it has no trajectory.
+        """
+        if isinstance(positions_mm, dict):
+            if amplitudes is not None and np.asarray(amplitudes).ndim == 2:
+                raise TypeError(
+                    "a grid dict describes one fixed lattice of point targets, "
+                    "so it cannot carry per-event amplitudes; pass explicit "
+                    "(N_events, N_scat, 3) positions instead."
+                )
+            return (lambda i: (positions_mm, amplitudes)), False
+
+        pos = np.asarray(positions_mm, dtype=np.float32)
+        moving = pos.ndim == 3
+        if moving and pos.shape[0] != n_events:
+            raise ValueError(
+                f"moving scatterer positions have {pos.shape[0]} events but the "
+                f"sequence has {n_events} TX events — the first axis of a "
+                "(N_events, N_scat, 3) array is one cloud per emission."
+            )
+        n_scat = pos.shape[1] if moving else pos.shape[0]
+
+        if amplitudes is None:
+
+            def pick_static_amp(i):
+                return pos[i] if moving else pos, None
+
+            return pick_static_amp, moving
+
+        amps = np.asarray(amplitudes, dtype=np.float32)
+        amps_per_event = amps.ndim == 2
+        if amps_per_event:
+            if amps.shape[0] != n_events:
+                raise ValueError(
+                    f"per-event amplitudes have {amps.shape[0]} events but the "
+                    f"sequence has {n_events} TX events."
+                )
+            if amps.shape[1] != n_scat:
+                raise ValueError(
+                    f"per-event amplitudes hold {amps.shape[1]} scatterers but "
+                    f"the positions hold {n_scat}."
+                )
+
+        def pick(i):
+            return (pos[i] if moving else pos, amps[i] if amps_per_event else amps)
+
+        return pick, moving or amps_per_event
 
     # ------------------------------------------------------------------
     def show(
@@ -500,10 +580,13 @@ class ReceptionBase(SimulationBase):
         Parameters
         ----------
         scatterer_positions_mm : (N_scat, 3) array-like, optional
-            Scatterer positions in mm. None draws only the apertures.
+            Scatterer positions in mm. None draws only the apertures. A moving
+            cloud ``(N_events, N_scat, 3)`` (as `sequence_rf` takes) is drawn at
+            its FIRST emission — there is no single pose for a sequence.
         amplitudes : (N_scat,) array-like, optional
             Scattering amplitude per point. None defaults to ones
-            (all points fully opaque).
+            (all points fully opaque). Per-event ``(N_events, N_scat)``
+            amplitudes are likewise shown for the first emission.
         TX_color : str or tuple, default "Delays"
             Colour of the transmit aperture. Any PyVista colour (name, hex
             string or RGB tuple) paints the mesh uniformly. The special strings
@@ -647,9 +730,14 @@ class ReceptionBase(SimulationBase):
             _add_aperture(self.rx, RX_color, RX_show_edges, "RX", "right", RX_kwargs)
 
         if scatterer_positions_mm is not None:
-            points_m, amps = self._validate_scatterer_inputs(
-                scatterer_positions_mm, amplitudes
-            )
+            pos_show, amp_show = scatterer_positions_mm, amplitudes
+            # A moving cloud (N_events, N_scat, 3) has no single pose to draw;
+            # preview the first emission, where the sequence starts.
+            if not isinstance(pos_show, dict) and np.ndim(pos_show) == 3:
+                pos_show = np.asarray(pos_show)[0]
+                if amp_show is not None and np.ndim(amp_show) == 2:
+                    amp_show = np.asarray(amp_show)[0]
+            points_m, amps = self._validate_scatterer_inputs(pos_show, amp_show)
             cloud = pv.PolyData(np.asarray(points_m, dtype=np.float64) * 1e3)
             # Fade each point by |amplitude| so weak scatterers recede visually.
             a = np.abs(amps.astype(np.float64))
@@ -733,6 +821,29 @@ class ReceptionBase(SimulationBase):
         Each event sets the TX delays/apodization, then ``pulse_echo_rf`` is run
         (summed over scatterers). Useful as the emission basis for matrix imaging.
 
+        MOVING SCATTERERS. The medium may move between emissions: give
+        ``scatterer_positions_mm`` a ``(N_events, N_scat, 3)`` stack, one cloud
+        per event, and each emission sees its own cloud. Blood travelling at
+        ``v`` covers ``v/PRF`` between emissions, and the resulting round-trip
+        path change (twice the axial step) is the inter-emission phase a Doppler
+        estimator reads. eSDIva has no slow-time clock of its own, so the
+        trajectory is yours to write — one line for constant flow::
+
+            t = np.arange(n_events) / prf                       # slow-time, s
+            pos = pos0[None] + v_mm_s[None] * t[:, None, None]  # (N_ev, N, 3)
+
+        and any pulsatile, cardiac or decorrelating trajectory is the same call.
+        ``amplitudes`` may vary per event too, as ``(N_events, N_scat)``: the
+        scatterer count is fixed across the sequence, so a zero amplitude is how
+        a scatterer that has left the region of interest — or a contrast bubble
+        that has been destroyed — is retired.
+
+        The scatterers are FROZEN during each emission. Motion is resolved only
+        at the event rate, so the RF carries the phase shift BETWEEN emissions,
+        not an intra-pulse Doppler frequency shift within one echo; velocities
+        of clinical interest move a small fraction of a wavelength during a
+        single pulse, which is why this is the standard flow model.
+
         With ``out_path``, the sequence is CHECKPOINTED: each event's RF is
         written to disk (one compressed file per event + a contents file) the
         moment it finishes, and re-running the same call on the same folder skips
@@ -751,10 +862,13 @@ class ReceptionBase(SimulationBase):
 
         Parameters
         ----------
-        scatterer_positions_mm : (N_scat, 3) numpy.ndarray
-            Scatterer positions in mm.
-        amplitudes : (N_scat,) numpy.ndarray
-            Scattering amplitude of each scatterer.
+        scatterer_positions_mm : (N_scat, 3) or (N_events, N_scat, 3) numpy.ndarray
+            Scatterer positions in mm. A 2-D array holds the medium still for
+            the whole sequence; a 3-D array gives every emission its own cloud
+            (moving scatterers), and its first axis must match ``tx_events``.
+        amplitudes : (N_scat,) or (N_events, N_scat) numpy.ndarray
+            Scattering amplitude of each scatterer, either fixed for the
+            sequence or per emission.
         tx_events : list of dict
             Each dict has ``"delays"`` and/or ``"apodization"`` ``(E,)`` arrays.
         downsampling : int or None, default None
@@ -776,20 +890,23 @@ class ReceptionBase(SimulationBase):
             ``"t0"``/``"dt"`` of the first event, plus ``"t0_per_event"`` — an
             ``(N_events,)`` array of each event's beam-axis time origin.
             Events with differing focus have differing ``t0`` (the time grid
-            depends on that event's delays); beamform each event with its own
-            origin. ``dt`` is shared (one sampling rate); traces are
-            zero-padded at the END to the common ``Nt``, so only the origin
-            differs.
+            depends on that event's delays, and on where its scatterers are);
+            beamform each event with its own origin. ``dt`` is shared (one
+            sampling rate); traces are zero-padded at the END to the common
+            ``Nt``, so only the origin differs.
 
         Raises
         ------
         ValueError
-            If ``checkpoint_chunks > 1`` without ``out_path``, or if ``tx``
-            and ``rx`` are the same object while events set delays/apodization
-            (RX weights are per receive channel, so the event's TX weights
-            would corrupt the receive traces — pass ``rx=tx.copy()``).
+            If ``checkpoint_chunks > 1`` without ``out_path``, if a per-event
+            positions/amplitudes array does not carry one entry per TX event,
+            or if ``tx`` and ``rx`` are the same object while events set
+            delays/apodization (RX weights are per receive channel, so the
+            event's TX weights would corrupt the receive traces — pass
+            ``rx=tx.copy()``).
         TypeError
-            If ``checkpoint_chunks > 1`` with a grid-dict scatterer input.
+            If ``checkpoint_chunks > 1`` with a grid-dict scatterer input, or a
+            grid dict is combined with per-event amplitudes.
         """
         n_ev = len(tx_events)
         n_chunks = int(checkpoint_chunks)
@@ -833,15 +950,17 @@ class ReceptionBase(SimulationBase):
                     "checkpoint files done."
                 )
 
+        pick_cloud, moving = self._per_event_cloud(
+            scatterer_positions_mm, amplitudes, n_ev
+        )
         if n_chunks > 1:
-            pos_mm = np.asarray(scatterer_positions_mm, dtype=np.float64)
-            amp_arr = (
-                np.ones(pos_mm.shape[0], dtype=np.float32)
-                if amplitudes is None
-                else np.asarray(amplitudes, dtype=np.float32)
-            )
-            sentinels_mm = self._grid_sentinels_mm(pos_mm)
-            bounds = np.linspace(0, pos_mm.shape[0], n_chunks + 1).astype(int)
+            # A static cloud pins ONE time grid for the whole sequence, so its
+            # sentinels are computed once; a moving cloud needs its own per
+            # event (see the chunk loop below).
+            pos0_mm, _ = pick_cloud(0)
+            n_scat = np.asarray(pos0_mm).shape[0]
+            static_sentinels = None if moving else self._grid_sentinels_mm(pos0_mm)
+            bounds = np.linspace(0, n_scat, n_chunks + 1).astype(int)
 
         orig_delays = self.tx.delays.copy()
         orig_apod = self.tx.apodization.copy()
@@ -864,16 +983,32 @@ class ReceptionBase(SimulationBase):
                         event["apodization"], dtype=np.float32
                     )
                 self._refresh_sub_elem_attributes()
+                pos_ev, amp_ev = pick_cloud(i)
+                if n_chunks > 1:
+                    pos_mm = np.asarray(pos_ev, dtype=np.float64)
+                    amp_arr = (
+                        np.ones(pos_mm.shape[0], dtype=np.float32)
+                        if amp_ev is None
+                        else np.asarray(amp_ev, dtype=np.float32)
+                    )
+                    # Every chunk of ONE event must share a time grid or their
+                    # partial RFs cannot be summed; a moved cloud has moved its
+                    # near/far extremes, so its sentinels are recomputed here.
+                    sent_ev = (
+                        static_sentinels
+                        if static_sentinels is not None
+                        else self._grid_sentinels_mm(pos_mm)
+                    )
                 for k in range(n_chunks):
                     if dataset is not None and first + k in done:
                         continue
                     if n_chunks == 1:
-                        pts_k, amp_k = scatterer_positions_mm, amplitudes
+                        pts_k, amp_k = pos_ev, amp_ev
                     else:
                         sl = slice(bounds[k], bounds[k + 1])
-                        pts_k = np.concatenate([pos_mm[sl], sentinels_mm])
+                        pts_k = np.concatenate([pos_mm[sl], sent_ev])
                         amp_k = np.concatenate(
-                            [amp_arr[sl], np.zeros(len(sentinels_mm), np.float32)]
+                            [amp_arr[sl], np.zeros(len(sent_ev), np.float32)]
                         )
                     if self.verbose:
                         tag = f", chunk {k + 1}/{n_chunks}" if n_chunks > 1 else ""
@@ -884,8 +1019,8 @@ class ReceptionBase(SimulationBase):
                     )
                     dt_ev = time.perf_counter() - t_ev  # this event's sim wall time
                     n_done_run += 1
-                    if n_done_run == 1:
-                        long_run = _announce_eta(dt_ev, n_todo, "TX events")
+                    if n_done_run == 2:  # the 1st event also paid the numba JIT compile
+                        long_run = _announce_eta(dt_ev, n_todo, "TX events", n_done=2)
                     elif long_run and not self.verbose:
                         print(f"  TX event {n_done_run}/{n_todo} done", flush=True)
                     if self.verbose:
@@ -1107,10 +1242,15 @@ class ReceptionBase(SimulationBase):
 
         Parameters
         ----------
-        scatterer_positions_mm : (N_scat, 3) numpy.ndarray
-            Scatterer positions in mm.
-        amplitudes : (N_scat,) numpy.ndarray or None, default None
-            Scattering coefficient at each position. None defaults to ones.
+        scatterer_positions_mm : (N_scat, 3) or (N_groups, N_scat, 3) numpy.ndarray
+            Scatterer positions in mm. A 3-D array gives each transmit group its
+            own cloud: an FMC acquisition fires its groups one after another, so
+            a medium that moves meanwhile is seen at a different position by
+            each group — the motion artefact of a slow full-matrix capture. Its
+            first axis must match the number of groups.
+        amplitudes : (N_scat,) or (N_groups, N_scat) numpy.ndarray or None, default None
+            Scattering coefficient at each position, fixed or per transmit
+            group. None defaults to ones.
         tx_groups : str or int or list[list[int]], default "element"
             Transmit grouping: ``"element"`` fires each element alone (full
             FMC), ``int N`` fires N-element sub-apertures, ``list[list[int]]``
@@ -1148,10 +1288,13 @@ class ReceptionBase(SimulationBase):
         if out_path is None:
             # RAM-size estimate before committing: the pulse-echo window length
             # comes from the min/max patch↔scatterer travel times (same grid
-            # for every group — all fire flat).
-            points_m, _ = self._validate_scatterer_inputs(
-                scatterer_positions_mm, amplitudes
-            )
+            # for every group — all fire flat). A moving cloud shifts that
+            # window by a fraction of the flow displacement, far below the
+            # precision an allocation estimate needs, so the first cloud serves.
+            pos_est = scatterer_positions_mm
+            if not isinstance(pos_est, dict) and np.ndim(pos_est) == 3:
+                pos_est = np.asarray(pos_est)[0]
+            points_m, _ = self._validate_scatterer_inputs(pos_est, None)
             *_, tx_T = self._oneway_time_grid(points_m, "tx")
             *_, rx_T = self._oneway_time_grid(points_m, "rx")
             nt_dec = -(-(tx_T + rx_T - 1) // max(int(decimation), 1))  # ceil

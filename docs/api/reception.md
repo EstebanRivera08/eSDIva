@@ -12,10 +12,10 @@ for the method taxonomy, PSF, and phantom recipes.
 The single pulse-echo class. Its `method` selector chooses how the two-way SIR is
 evaluated — all methods give the same RF, they trade speed only:
 
-- `"spectral"` (default) — fast sparse-delta kernel via closed-form one-way SIR spectra.
-- `"fst"` / `"sdi"` / `"auto"` — sampled two-way SIR convolution (delegated to the
+- `"spectral"` (default) — `H_TX·H_RX` from the closed-form SIR spectrum, in-band only.
+- `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sampled two-way SIR convolution (delegated to the
   conventional `ReceptionConventional` backend; the string names its SIR-sampling kernel).
-- `"paired"` — exact but slow pedagogic reference (warns on selection).
+- `ReceptionPaired` — exact but slow pedagogic reference, a separate class (warns on construction).
 
 ::: esdiva.reception.Reception
     options:
@@ -41,3 +41,12 @@ delegates to for `method="fst"/"sdi"/"auto"`. Same API; normally reached through
         - synthetic_aperture_rf
         - scan_focusline
         - show
+
+## ReceptionPaired (pedagogic)
+
+The paired SDI form: 16 corner deltas per TX–RX patch pair, exact but O(M²). Same API as
+`Reception`; for teaching and cross-checks, and a candidate for future deprecation.
+
+::: esdiva.reception.ReceptionPaired
+    options:
+      members: false

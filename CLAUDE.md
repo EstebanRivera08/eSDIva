@@ -46,6 +46,8 @@ uv sync                # install + sync venv
 uv run <script.py>     # run a script
 uv add <package>       # add dependency
 just test              # run tests with coverage (alias: just t)
+just test-examples     # run every numbered example headless (slow, opt-in marker)
+just regen-golden      # rewrite tests/regression/golden.npz — ONLY after an intentional numerical change, say why in the commit
 just pre-commit        # ruff-check, ruff-format, ty, codespell, numpydoc (alias: just pc)
 just serve-docs        # build + serve Zensical docs locally (hot-reload)
 just docs              # build docs only → site/
@@ -95,9 +97,9 @@ non-Claude agents at both this file and `skills/`.
 
 - **Patch-based discretization**: transducers decompose into small rectangular patches; `no_sub_x`/`no_sub_y` control subdivision density and accuracy.
 - **Lazy geometry loading**: `TransducerBase` defers element-center/patch-vertex computation until needed.
-- **SIR method selection**: `"FST"` (slow reference), `"sdi"` (Sparse Delta Integration, faster on large grids), `"auto"` (picks based on grid properties).
+- **SIR method selection** (Emission and Reception): `"spectral"` (closed-form H(ω), `hsir.sir_spectral`; Reception default; Emission default `None` = fastest per mode, see gotcha 7) or the temporal SIR `"temporal"` (= `"sdi"`), `"fst"`, `"auto"` (sampled h(t), `hsir.sir_temporal`, then FFT). Same physics, same results; every feature (global/per-element excitation, attenuation, soft baffle, transfer function) works with both.
 - **Unit convention**: user-facing APIs use mm (`_mm` suffix); internals use SI (m, s).
-- **Monochromatic vs transient**: mono returns `p.shape = (Nx, Ny, Nz)` (CW); transient returns `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
+- **Monochromatic vs transient**: monochromatic returns the amplitude `|P(r, fc)|`, `p.shape = (Nx, Ny, Nz)`; transient returns SIGNED pressure (compression > 0, rarefaction < 0 — needed for PNP/MI and superposition; pyMUST `mkmovie`/`simus` are signed too; take `abs`/envelope for maps), shape `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
 
 ### Coordinate System
 - X: lateral (across array elements) · Y: elevation (perpendicular to imaging plane) · Z: axial (beam propagation, depth)
@@ -144,11 +146,11 @@ field_points = {"x_extent": [-5, 5], "y_extent": [-0.5, 0.5],
                 "z_extent": [5, 55], "dx": 0.1, "dy": 1.0, "dz": 0.2}
 
 # 4. Emission — 4 modes via constructor flags:
-sim = Emission(tx, monochromatic=True)            # CW amplitude at fc → (Nx,Ny,Nz)
+sim = Emission(tx, monochromatic=True)            # |P(r, fc)| at fc → (Nx,Ny,Nz)
 sim = Emission(tx)                                 # pulsed transient (raw SIR) → (Nt,...)
 sim = Emission(tx, fs=200e6, excitation=exc)       # global excitation (L,)
 sim = Emission(tx, fs=200e6, excitation=exc_LE)    # per-element excitation (L,E)
-p, coords = sim(field_points, method="auto")       # always returns (pressure, coords)
+p, coords = sim(field_points)                      # method: ctor or per call; (pressure, coords)
 ```
 
 **Reception** (pulse-echo RF): one public class — `Reception` (the fast PE-SDI kernel),
@@ -158,19 +160,30 @@ signal carries the 3rd derivative of the excitation (`v_pe = ρ₀/2c₀² · E_
 practice that ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
 (`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither applies an explicit ∂³.
 `Reception` selects how `v_pe ⊛ (h_tx ⊛ h_rx)` is evaluated via `method=` (default
-`spectral`): **`spectral`** (closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`, **no
-forward FFT**, cost ∝ M, exact, band-limited bins only, every RX element's spectrum built in
-one batched kernel call, supports per-patch one-way attenuation); **`fst` / `sdi` / `auto`**
-(sample both SIRs and FFT-convolve — delegates to `ReceptionConventional`; the string is its
-SIR-sampling kernel, `auto` lets it choose per grid); **`paired`** (pedagogic reference
-only — the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair; pushes `I⁴` onto
-the drive `w = I⁴ v_pe` once and splats a copy of `w` per corner event — **no FFT, no
-cumsum**, exact but cost ∝ M²·len(w), so far slower than `spectral` and **warns on
-selection**). Field II shares the convention
+`spectral`): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
+`hsir.compute_h_sir_spectrum` — per patch `A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}`,
+`rfft(h[n]) ≈ fs·H`; **no forward FFT, no I⁴, no dt clamp**, cost ∝ M, exact, band-limited
+bins only);
+**`temporal`** (= `sdi`) / **`fst`** / **`auto`** (sample both SIRs and FFT-convolve —
+delegates to `ReceptionConventional`; the string is its SIR-sampling kernel). Every method
+supports global `(L,)` and per-element `(L, E)` excitation (spectral: `H_TX = Σ_t D_t·H_TX,t`,
+one drive spectrum per TX element inside the fused kernel), the soft baffle, and
+attenuation along the round trip TX centre → scatterer → RX element centre. Spectral is
+the measured-fastest reception default in every case (64-el, 20k scatterers: 6× lossless,
+52× per-element, 105× attenuated — the conventional path loses depth bins there).
+**`ReceptionPaired`** (separate pedagogic class; `method="paired"` raises) — the two-way
+delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair, splats `w = I⁴ v_pe` per corner
+event: exact but cost ∝ M²·len(w), warns on construction. Field II shares the convention
 (`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
 parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
-`sequence_rf` (PW/DW event sweep; `out_path=` checkpoints each event to an
+`sequence_rf` (PW/DW event sweep; also takes MOVING scatterers — positions
+`(N_events, N_scat, 3)` and/or amplitudes `(N_events, N_scat)`, one cloud per
+emission, the flow/Doppler path, `ndim` disambiguating so static calls are
+unchanged; the user supplies the trajectory since there is no slow-time clock,
+`pos0[None] + v_mm_s[None]*(np.arange(n_ev)/prf)[:,None,None]`; scatterers are
+frozen *within* an emission, so the RF carries the inter-emission phase a Doppler
+estimator reads, not an intra-pulse shift; `out_path=` checkpoints each event to an
 `RFDataset` folder — crash-safe, resumable, refuses a changed config;
 `checkpoint_chunks=N` splits each event into N scatterer chunks checkpointed
 separately — zero-amplitude grid-sentinel points pin one time grid per event so
@@ -222,6 +235,12 @@ env, coords = sim.scan_focusline([0, 0, 30], pts, amp, FoverD=2.0,
    (element directivity already tapers); RCA bars → `das_rca_volume`.
 6. Metrics: TGC from speckle-only, PSF-scaled ROIs/margins (λz/D units, not mm),
    plain DAS numbers (CF only as ceiling), ~30 dB display window.
+7. **Doppler/flow**: measure the echo centre frequency on the *beamformed*
+   signal (DAS low-passes it — channel RF reads 4.5 % high and biases every
+   velocity); use a plug-flow control to separate a scale error from
+   resolution-cell smoothing; expect elevation (`λz/H`, unfocused) to dominate
+   profile flattening; add noise before any sensitivity claim. Measurements and
+   the refuted hypotheses: `ARCHITECTURE.md` § Imaging Recipe 6.
 
 **Visualize**: `plot2D_pressure_slices(p, coords=coords, db_scale=True)` (mono 3D or
 transient 4D); `plot2D_transient_slices(...)` for transient planes.
@@ -245,16 +264,18 @@ Kept in one place so the physics can't drift between two copies.
 Quick checklist — full rationale, locations, and history in
 [`ARCHITECTURE.md` § Risky Implementations](ARCHITECTURE.md#risky-implementations).
 
-1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`farfield_rect_patch.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
+1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`sir_temporal.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
 2. **d2h_all ≠ d2h_per_element.sum()** — float32 non-associativity (~5e-8). Never compare with `atol=0`.
-3. **PE SDI on-axis lag must be 0** — the delta placement in `transducer_sir_pe_sdi.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
-4. **Attenuation y=1 continuity** — `tan(y*pi/2)` diverges near y=1; test the y=1 branch independently.
+3. **PE SDI on-axis lag must be 0** — the delta placement in `sir_paired.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
+4. **Attenuation dispersion is referenced at f0 = fc** (fixed 2026-09-13) — the y≠1 phase needs the `−|f|·f0^(y−1)` term (else `c` is the phase speed at f→0 and the fc arrival diverges as y→1) and the y=1 phase is `+j(2α/π)f·ln(f/f0)d` (was sign-flipped: negative dispersion on the default `freq_power=1`). Tests pin high-f-first, y→1 continuity, zero phase at f0.
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
-6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect":
+6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect". Inlined helpers from other modules (`_causal_atten_factor`, `helpers.py`) do NOT invalidate the caller's cache, so clear the whole package:
    ```powershell
-   Get-ChildItem -Path "src\esdiva\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+   Get-ChildItem -Path src\esdiva -Recurse -Include *.nbi,*.nbc | Remove-Item -Force
    ```
-7. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
+7. **Emission `method=None` picks by measurement, not by feature** — spectral for monochromatic and for per-element drives/attenuation (one FFT for all elements vs one per element: 2.3×, 23× monochromatic), temporal for every single-group transient (1.3–2.5× faster, also with attenuation, TF or soft baffle: each is one multiply per bin either way). Explicit `method=` always wins. Re-measure before changing the rule (`bench` of 64-el array, 12.5k points, 2026-09-13).
+8. **Elevation-lens sag is SIGNED and reception SUBTRACTS it** — `_finalize` does `t0 -= (tx+rx).elevation_lens_sag/c`. Positive sag = concave (centre recessed, paths longer); negative = convex. Flipping the sign blurs *nothing* — it moves the whole image `2·sag` in depth (0.34 mm on a 4 mm aperture at R=12 mm) with a sharp PSF and healthy metrics, so it reads as a calibration error. It shipped wrong until 2026-09-11 and 207 tests passed with it. Guarded by `tests/unit/test_psimulation/test_lens_time_origin.py`. Also: `elevation_focus_mm` is a RADIUS — the focus is one sagitta shallower, at `elevation_focus_depth_mm`. Emission needs no such term and has none.
+9. **Emission is in pascals because `H` is continuous** (fixed 2026-09-13) — `Emission._sir_spectrum` returns the continuous `H(ω)` (spectral closed form, temporal `dt·rfft(h)`), so `irfft(H·jω·DFT(v))` is Pa, independent of `fs`; monochromatic is `ρ·ωc·|H(ωc)|`. The old `rfft(h)·jω·DFT(v)` was `fs` × Pa. Guarded by the Rayleigh far-field test (amplitude + sign). Reception was always correct (`scale = ρ/2c²·dt`). Verified findings, speed tables and fixed bugs: `skills/esdiva-simulate/references/validation.md`.
 
 ## graphify
 

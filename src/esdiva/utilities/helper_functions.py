@@ -47,34 +47,42 @@ def wrap_tqdm(iterable, **kwargs):
         return iterable
 
 
-def announce_eta(t_first_s, n_units, label, threshold_s=30.0):
-    """Print an estimated total run time after the first unit of a long loop.
+def announce_eta(unit_s, n_units, label, threshold_s=30.0, n_done=1):
+    """Print an estimated total run time for a long loop of identical units.
 
-    Extrapolates ``t_first_s × n_units`` and, when that projection exceeds
+    Extrapolates ``unit_s × n_units`` and, when that projection exceeds
     ``threshold_s``, prints one line with the estimate and the expected finish
     clock time — confirmation that a long simulation was launched correctly
     and when to come back for it. Below the threshold nothing is printed.
 
+    ``unit_s`` must come from a unit AFTER the first of the process: the first
+    call of a numba kernel also pays its JIT compilation, which can be 50× the
+    unit's real cost (a 4 s field once projected 1.9 min).
+
     Parameters
     ----------
-    t_first_s : float
-        Wall time of the first completed unit (seconds).
+    unit_s : float
+        Wall time of one representative (post-warm-up) unit (seconds).
     n_units : int
         Total number of identical units in the loop.
     label : str
         What one unit is, for the message (e.g. ``"batches"``, ``"RX elements"``).
     threshold_s : float, default: 30.0
         Minimum projected total (seconds) before anything is printed.
+    n_done : int, default: 1
+        Units already completed, for the expected finish time.
 
     Returns
     -------
     bool
         True if the estimate was printed (the run is long).
     """
-    est_s = t_first_s * n_units
-    if est_s <= threshold_s or n_units <= 1:
+    est_s = unit_s * n_units
+    if est_s <= threshold_s or n_units - n_done <= 0:
         return False
-    finish = time.strftime("%H:%M", time.localtime(time.time() + est_s - t_first_s))
+    finish = time.strftime(
+        "%H:%M", time.localtime(time.time() + unit_s * (n_units - n_done))
+    )
     est_val, unit = (est_s / 60, "min") if est_s >= 60 else (est_s, "s")
     # ASCII only: Windows consoles often decode cp1252, mangling dashes.
     msg = (
@@ -97,7 +105,9 @@ def announce_eta(t_first_s, n_units, label, threshold_s=30.0):
 def eta_progress(iterable, n_total, *, label="batches", progress=True):
     """Yield from ``iterable``, announcing an ETA and tracking progress for long runs.
 
-    Times the first iteration and extrapolates to ``n_total`` via
+    The first iteration is a warm-up (it carries the numba JIT compilation) and is
+    excluded from the rate; after the second, the per-unit time of the iterations
+    since the first is extrapolated to ``n_total`` via
     [announce_eta][esdiva.utilities.helper_functions.announce_eta]; short runs
     (projected under 30 s) stay completely silent. For long runs, when
     ``progress`` is True a single carriage-return line keeps the iteration
@@ -121,14 +131,19 @@ def eta_progress(iterable, n_total, *, label="batches", progress=True):
         The items of ``iterable``, unchanged.
     """
     t0 = time.perf_counter()
+    t_first = 0.0
     long_run = False
     for i, item in enumerate(iterable):
         yield item
         elapsed = time.perf_counter() - t0
         if i == 0:
-            long_run = announce_eta(elapsed, n_total, label)
+            t_first = elapsed  # warm-up unit: JIT compile, not representative
+            continue
+        unit_s = (elapsed - t_first) / i
+        if i == 1:
+            long_run = announce_eta(unit_s, n_total, label, n_done=2)
         if long_run and progress:
-            remaining = elapsed / (i + 1) * (n_total - i - 1)
+            remaining = unit_s * (n_total - i - 1)
             print(
                 f"\r  {label} {i + 1}/{n_total} - "
                 f"{elapsed:.0f}s elapsed, ~{remaining:.0f}s left ",
@@ -143,13 +158,13 @@ def method_to_flag(method):
     """Map a SIR method name to the integer flag the kernel expects.
 
     ``"FST"`` → 0 (fully-sampled trapezoid: evaluate the continuous trapezoid SIR
-    at every time sample), ``"sdi"`` → 1 (sparse delta integration), anything else
-    (``"auto"``) → 2 (per-patch choice in the kernel).
+    at every time sample), ``"sdi"``/``"temporal"`` → 1 (sparse delta integration),
+    anything else (``"auto"``) → 2 (per-patch choice in the kernel).
 
     Parameters
     ----------
     method : str
-        SIR method name: ``"FST"``, ``"sdi"`` or ``"auto"``.
+        SIR method name: ``"FST"``, ``"sdi"``, ``"temporal"`` or ``"auto"``.
 
     Returns
     -------
@@ -158,7 +173,7 @@ def method_to_flag(method):
     """
     if method in ("FST", "fst"):
         return 0
-    if method in ("sdi", "SDI"):
+    if method in ("sdi", "SDI", "temporal"):
         return 1
     return 2  # auto
 

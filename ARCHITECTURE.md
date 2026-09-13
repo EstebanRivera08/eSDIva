@@ -26,9 +26,9 @@ Sections:
 ```python
 from esdiva.emission import Emission
 
-# Mode 1 — Monochromatic CW (returns spatial amplitude at fc)
+# Mode 1 — Monochromatic: |P(r, fc)| = ρ·ωc·|H(r, ωc)| (Pa per 1 m/s) at exactly fc
 sim = Emission(tx, monochromatic=True)
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)   # method=None → measured-fastest SIR source
 # p.shape = (Nx, Ny, Nz), coords = {"x": ..., "y": ..., "z": ...}
 
 # Mode 2 — Pulsed transient (raw SIR, no excitation)
@@ -58,18 +58,22 @@ p, coords = sim(field_points)
 - `alpha0=None` — attenuation in dB/(MHz^y·cm). `None` = no attenuation.
 - `freq_power=1.0` — power-law exponent y
 - `excitation=None` — `None` / `(L,)` / `(L, E)` float32 array
-- `transfer_function=None` — callable `TF(freq) -> array`, applied in freq domain
-  multiplicatively alongside excitation in modes 3 and 4
-- `monochromatic=False` — if True, return CW amplitude at fc
-- `fast_attenuation=False` — if True with alpha0 set, use TX-center distance
-  (fast approximation); if False (default), per-element loop uses element-center
-  distances (accurate near-field model)
+- `transfer_function=None` — callable `TF(freq) -> array`, multiplied in the frequency
+  domain in every mode (at `fc` in monochromatic mode)
+- `monochromatic=False` — if True, return the pressure amplitude at exactly `fc`
+- `fast_attenuation=True` — attenuation path origin: transducer centre (`True`) or each
+  element's centre (`False`)
+- `method=None` — SIR source: `"spectral"` (closed-form `H(ω)`), `"temporal"` (= `"sdi"`),
+  `"fst"`, `"auto"` (sampled `h(t)` → FFT); `None` = measured fastest (spectral for
+  monochromatic and per-element cases, temporal otherwise). Per-call override `sim(fp, method=)`.
 - `verbose=True`
 
-**Per-element loop trigger**: activated when
-`(alpha0 is not None and not fast_attenuation) or excitation.ndim == 2`.
-Per-element loop computes h_sir independently per element and accumulates
-in freq domain. Peak memory is O(batch_P × nfft) independent of E.
+**One pipeline.** `P = Σ_groups H_g(ω) · D_g(ω) · H_att,g · TF`, groups = the whole
+aperture (TX-centre attenuation) or one per element (per-element drive `D_g =
+jω·DFT(v_g)` or per-element attenuation). `H` is continuous (spectral: closed form;
+temporal: `dt·rfft(h)`), so `irfft` gives **signed pressure in Pa** independent of `fs`
+(raw SIR: `D = fs` → `h(t)`). Points are processed in depth bins of ~1500 points, each on
+a short window snapped onto the global time lattice (`SimulationBase._snap_to_lattice`).
 
 **Reconstruct time vector**: `t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]`
 
@@ -81,7 +85,8 @@ sim.set("monochromatic", True)
 ```
 
 **Return convention**: `Emission.__call__` always returns `(pressure, coords)`.
-All modes scale pressure by `rho` (unified exit path).
+All modes scale pressure by `rho` (unified exit path). Transient output is signed
+(compression > 0); monochromatic output is an amplitude.
 - `coords` keys `"x"`, `"y"`, `"z"` for structured grid (dict input); also
   `"t0"`, `"dt"` for transient modes.
 - Structured grid: Monochromatic `p.shape = (Nx, Ny, Nz)`,
@@ -107,25 +112,28 @@ common_t, [pxz_a, pyz_a] = align_to_common_time(
 One public reception class, `Reception`, with `ReceptionConventional` as its
 sampled-convolution backend. `Reception` selects the formulation via `method=`
 (default `spectral`):
-  - `spectral` (default) — builds each one-way SIR spectrum in closed form from the corner
-    times (`Σ_TX·Σ_RX = F{Δδ_pe}`, **no forward FFT**), evaluated on the in-band bins only,
-    then applies `I⁴ = ÷(jω)⁴`. Cost ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**,
-    exact (no interpolation), and folds in per-patch one-way attenuation. Best for PSFs
-    and large apertures (`compute_oneway_spectrum_band` per element for the PSF;
-    `compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF).
-  - `fst` / `sdi` / `auto` — sampled two-way convolution `h_pe = h_tx ⊛ h_rx` (each SIR
+  - `spectral` (default) — the two-way spectrum `fs·H_TX·H_RX` from the closed-form SIR
+    spectrum (`hsir.compute_h_sir_spectrum`: per patch area × two sincs × delay phasor;
+    **no forward FFT, no I⁴, no dt clamp**), evaluated on the in-band bins only. Cost
+    ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**, exact. Per-element TX drives
+    enter as `H_TX = Σ_t DFT(e_t)·H_TX,t`; attenuation per (scatterer, RX element) round
+    trip. `compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF.
+    Measured fastest in every case (64 el, 20k scatterers: 6× lossless, 52× per-element,
+    105× attenuated vs the conventional path).
+  - `temporal` (= `sdi`) / `fst` / `auto` — sampled two-way convolution `h_pe = h_tx ⊛ h_rx` (each SIR
     built separately, convolved by FFT), delegated to `ReceptionConventional`. The string
     is its SIR-sampling kernel (`fst` fully samples each trapezoid, `sdi` places sparse
     corner deltas, `auto` chooses per grid). Depth-binned post-processing (see
     [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes this
     path competitive for real arrays: cost ~`O(P·M + P·log nfft)`, beating Field II
     `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
-  - `paired` — **pedagogic reference only** (warns on selection): forms the two-way delta
-    train `Δδ_pe = D²h_tx ⊛ D²h_rx` over all TX/RX patch pairs (16 corner events per pair,
+  - `ReceptionPaired` (separate class in `reception/paired.py`; `method="paired"` raises)
+    — **pedagogic reference only** (warns on construction): forms the two-way delta train
+    `Δδ_pe = D²h_tx ⊛ D²h_rx` over all TX/RX patch pairs (16 corner events per pair,
     **no cumsum, no FFT**), pushing the four integrations onto the drive once
     (`w = I⁴ v_pe`) and splatting a shifted, scaled copy of `w` per corner event. Cost
-    ~`O(P·M_tx·M_rx·len(w))` — **quadratic in patch count**, exact but far slower than
-    `spectral` (`compute_pe_complete`).
+    ~`O(P·M_tx·M_rx·len(w))` — **quadratic in patch count** (`hsir/sir_paired.py`).
+    Rigid baffle only, no attenuation, no per-element drives.
 
 All give the same RF (corr ~1.0); the choice trades speed only.
 
@@ -155,10 +163,10 @@ methods plus all common state (`set`, patch extraction, validation) live in
 time-grid helper, `_compute_rf_inner`, and the convention wrappers.
 
 The physical ∂³ is carried by the exc/IR chain (`v_pe ∝ e ⊛ h_e ⊛ h_r`), so no method
-adds it. The `fst`/`sdi`/`auto` (conventional) methods build `h_tx ⊛ h_rx` by FFT
-directly. The `spectral`/`paired` (SDI) methods place `Δδ_pe = D²h_tx ⊛ D²h_rx`
-(16 deltas/pair, no cumsum) and recover the **same** two-way SIR via `I⁴ = ÷(jω)⁴` in the
-frequency domain (no group delay → sample-aligned with the conventional path). All equal
+adds it. The `temporal`/`fst`/`sdi`/`auto` (conventional) methods build `h_tx ⊛ h_rx` by
+FFT directly; `spectral` multiplies the closed-form `H_TX·H_RX` (`rfft(h[n]) ≈ fs·H`, so
+`fs·H_TX·H_RX` equals the conventional `dt·DFT(h_tx)·DFT(h_rx)`); `ReceptionPaired`
+recovers the same two-way SIR from the corner-delta train via `I⁴ = ÷(jω)⁴`. All equal
 `v_pe ⊛ (h_tx ⊛ h_rx)` and match Field II corr≈1.0000 at the RF level (per-element RF
 verified 0.997 vs `calc_scat_multi`).
 
@@ -198,15 +206,15 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 - `fs=200e6` — sampling frequency (Hz)
 - `alpha0=None` — attenuation in dB/(MHz^y·cm)
 - `freq_power=1.0` — power-law exponent y
-- `excitation=None` — TX excitation `(L,)` float32 (or uses `tx.excitation`)
-- `method="spectral"` (`Reception`) — `spectral`/`fst`/`sdi`/`auto`/`paired`
+- `excitation=None` — TX excitation `(L,)` or per-element `(L, E)` float32 (or uses `tx.excitation`)
+- `method="spectral"` (`Reception`) — `spectral`/`temporal`/`fst`/`sdi`/`auto`
 - `n_depth_bins="auto"` — depth bins for the summed-RF fast path (`"auto"` or int; `1` disables)
 - `verbose=True`
 
 **Key differences from Emission**:
 - Takes separate TX and RX transducers
-- `spectral`/`paired` evaluate the SDI forms (`paired` via `compute_pe_complete`; `spectral` via `compute_oneway_spectrum_band` / `compute_twoway_spectrum_summed`); `pulse_echo_rf` applies `I⁴ = ÷(jω)⁴` in the freq domain to recover the two-way SIR `h_tx ⊛ h_rx`
-- `fst`/`sdi`/`auto` build `h_tx ⊛ h_rx` by conventional FFT convolution via `ReceptionConventional` (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
+- `spectral` multiplies closed-form SIR spectra (`compute_h_sir_spectrum` per element for the PSF, `compute_twoway_spectrum_summed` for the summed RF)
+- `temporal`/`fst`/`sdi`/`auto` build `h_tx ⊛ h_rx` by conventional FFT convolution via `ReceptionConventional` (no explicit extra ∂/∂t — exc/IR carry the physical derivatives)
 - Returns per-element RF data `(Erx, Nt)`, not spatial pressure fields
 - Scatterer positions instead of field grid
 
@@ -256,7 +264,7 @@ plot2D_transient_slices(p_4d, coords=coords)
 - Scale convention: eSDIva uses `rho/(2c²)`, Field II uses `rho/2`. Raw amplitude differs by `c²≈2.37e6`. Normalised PSF unaffected.
 
 **Modifying SIR Computation**:
-- Core implementation: `src/esdiva/hsir/farfield_rect_patch.py`
+- Core implementation: `src/esdiva/hsir/sir_temporal.py`
 - Uses Numba JIT compilation for performance
 - Parallelized over field points (not patches)
 
@@ -277,59 +285,27 @@ plot2D_transient_slices(p_4d, coords=coords)
 
 ## Emission Workflow
 
-### Mode Decision Tree
+### One pipeline, two SIR sources
 
 ```
-Emission.__call__(field_points_mm)
-    |
-    +-- monochromatic=True
-    |       use_per_element? -- False --> [A] Mono Global
-    |                        -- True  --> [B] Mono Per-Element
-    |
-    +-- monochromatic=False
-            use_per_element? -- True  --> [E] Per-Element Transient
-            exc=None, alpha0=None ------> [C] Pulsed Pure
-            exc=(L,) or fast_att -------> [D] Global FFT
-
-    use_per_element = (alpha0 is not None and not fast_attenuation) OR exc.ndim == 2
+Emission.__call__(field_points_mm, method=None)
+    groups   = whole aperture (TX-centre attenuation origin)
+             | one per element  if per-element drive (L, E) or fast_attenuation=False
+    method   = explicit, else spectral if monochromatic or per-element groups, else temporal
+    for each depth bin (~1500 points, window snapped to the global lattice):
+        H_g(ω) = compute_h_sir_spectrum(...)            # spectral: closed form
+               | dt · rfft(compute_h_sir(...))          # temporal: sampled h(t) → FFT
+        monochromatic: |P| = ρ·ωc·|Σ_g H_g(ωc)·H_att,g(fc)·TF(fc)|
+        transient:      p  = ρ·irfft(Σ_g H_g · D_g · H_att,g · TF)
+                        D_g = jω·DFT(exc_g ⊛ ir)   (raw SIR: D = fs → h(t))
 ```
 
-### Shared Preamble (every call)
-
-1. `create_3D_spatial_grid_from_points(field_points_mm)` → x, y, z, points_m
-2. Compute `per_elem_exc`, `use_per_element` flags
-3. `compute_time_grid(P, M, points_m, ...)` → time_grid, t0, dt, T
-4. If alpha0 and global path: `compute_attenuation_distances` → distances_m (P,)
-5. If exc and tx.impulse_response: convolve `exc * ir_tx`
-
-### [A] Mono Global
-
-`_compute_sir` → `compute_h_sir` (Numba) → `from_sir_to_monochromatic_pressure` (single FFT bin at fc).
-If alpha0: `|H_att(fc, d)|` scalar multiply per point.
-
-### [B] Mono Per-Element
-
-Loop over E elements. Each: `compute_h_sir(M/E patches)` → dot product `h_e @ exp(-j2pi*fc*t)` → accumulate + per-element attenuation at fc.
-
-### [C] Pulsed Pure
-
-`_compute_sir` → `compute_h_sir` → return h directly. Fastest mode — no FFT.
-
-### [D] Global FFT
-
-Per P-batch: `compute_h_sir` → `rfft` → multiply `fft_exc * TF * H_att` → `irfft`.
-
-### [E] Per-Element Transient
-
-P-outer, E-inner double loop. Pre-allocated `h_pad_buf = zeros((batch_P, nfft), float32)` **once** outside all loops. Per (batch, element): `compute_h_sir(M/E patches)` → write into h_pad → `rfft` (no scipy internal buffer since already nfft-length) → multiply `fft_exc[e] * TF * H_att_e` → accumulate into `acc_H`. One `irfft` per P-batch (not per element). Freq-domain accumulation preserves inter-element interference.
-
-### Attenuation Integration
-
-- SIR kernels stay lossless — attenuation is **always** post-hoc in frequency domain.
-- `P_att(r, f) = P_lossless(r, f) * H_att(f, d)` — one complex multiply per point per freq bin.
-- Per-element path: `H_att_e (cols, N_freq)` computed inside E-loop using element-center distances.
-- Global path: `H_att (P, N_freq)` pre-computed using TX-center distances.
-- `alpha0=None` → no attenuation ops, bit-identical to no-attenuation baseline.
+- `H` is the continuous spectrum, so transient `p` is signed and in pascals, independent
+  of `fs` (Rayleigh test). Spectral evaluates only the in-band bins of `max_g |D_g·TF|`.
+- Soft baffle: `cosθ = max(0, n·u)` per patch in both kernels (`soft_baffle=`).
+- Attenuation is post-hoc (`causal_attenuation_tf`, referenced at `fc`), never in a kernel.
+- Measured defaults (64 el, 12.5k pts): spectral 2× monochromatic, 2.3× per-element;
+  temporal 1.3–2.5× for single-group transients.
 
 ---
 
@@ -339,19 +315,18 @@ P-outer, E-inner double loop. Pre-allocated `h_pad_buf = zeros((batch_P, nfft), 
 
 ```
 spectral (default), per RX element e_rx:
-  Σ_TX·Σ_RX(ω) on the in-band bins   ← closed-form corner phasors, NO forward FFT
+  fs · H_TX(ω) · H_RX,e(ω) on the in-band bins   ← closed-form SIR spectra, NO forward FFT
+     H_TX = Σ_t DFT(e_t)·H_TX,t   (one row for a global drive)
      (compute_twoway_spectrum_summed fuses TX×RX, summing over scatterers in one pass;
-      per-patch one-way H_att folded into each phasor)
-  × I⁴=(jω)⁻⁴·fs × FFT(v) × FFT(ir_tx) × FFT(ir_rx)
-  IFFT (band-limited) → weight by f_m(r) → rf[:, e_rx]
-  Scale by rho / (2 * c^2)
+      H_att on the round trip TX centre → scatterer → RX element centre)
+  × FFT(ir_tx) × FFT(ir_rx)
+  IFFT (band-limited) → rf[:, e_rx];  scale ρ / (2c²)
 
-paired:       splat w = I⁴ v_pe per corner event (compute_pe_complete; no FFT, no cumsum).
-conventional: build h_tx, h_rx by sampling and FFT-convolve (delegates to Reception).
+temporal/fst/sdi/auto: sample h_tx, h_rx and FFT-convolve (ReceptionConventional).
+ReceptionPaired:       splat w = I⁴ v_pe per corner event (sir_paired; no FFT, no cumsum).
 ```
 
-- All convolutions become element-wise freq-domain multiplies; `I⁴ = (jω)⁻⁴·fs`.
-- IR_tx, IR_rx, V precomputed once; only the RX spectrum `Σ_RX` varies per RX element.
+- IR_tx, IR_rx, V precomputed once; only the RX spectrum `H_RX` varies per RX element.
 - When IR is None, corresponding FFT term = 1 (identity).
 - Attenuation distance: two-path model `d_total(s, e) = |r_s - r_tx_center| + |r_s - r_rx_e|`.
 - Memory: O(P × nfft) per RX element iteration — E_rx-independent.
@@ -398,10 +373,18 @@ broad; binning off (`n_depth_bins=1`) recovers the single-grid path.
 Result (Domino linear, E=128, M=1280, vs Field II `calc_scat_multi` time): N=100
 1.1×, N=1000 2.0×, N=10⁴ 2.1×. The 3 layers preserve the RF to ~4e-4 (binned vs
 unbinned) — within float/grid-snap tolerance. Attenuation, `per_scatterer`, and
-`focused_sum` keep the non-binned path. (the `spectral`/`paired` methods are not binned — their cost is
-the `O(M²)` kernel, not the FFT.)
+`focused_sum` keep the non-binned path (which is why the conventional path is 52–105× slower
+than spectral with per-element drives or attenuation). Spectral reception has its own
+depth binning (short windows → fewer in-band bins).
 
 ### sequence_rf
+
+**The recommended entry point for phantom studies, static or moving.** The same RF
+is reachable by looping `pulse_echo_rf` by hand (identical physics), but only
+`sequence_rf` carries the operational guarantees: on-disk checkpointing that lets a
+killed run resume, the config fingerprint that refuses to mix incompatible data,
+`checkpoint_chunks=` for bounding loss inside one event, and `t0_per_event` gathered
+for the beamformer. Use `pulse_echo_rf` for a single acquisition or a PSF map.
 
 Loop over TX events (different delays/apodization per event), call `pulse_echo_rf`
 each time. Returns `(N_events, Erx, Nt)`. TX state restored after all events.
@@ -413,6 +396,19 @@ grid-sentinel points pin one time grid per event so the chunk RFs sum exactly.
 `pulse_echo_rf` accepts the same `out_path=`/`checkpoint_chunks=` (wraps its
 current TX focus into a one-event sequence so the fingerprint covers it).
 
+**Moving scatterers.** `scatterer_positions_mm` also accepts `(N_events, N_scat, 3)`
+— one cloud per emission — and `amplitudes` `(N_events, N_scat)`; `ndim`
+disambiguates, so the static call is unchanged. This is the flow/Doppler/speckle-
+decorrelation path: the user supplies the trajectory (eSDIva has no slow-time clock),
+e.g. `pos0[None] + v_mm_s[None] * (np.arange(n_ev)/prf)[:, None, None]`. The
+scatterer count is fixed across the sequence, so a zero amplitude retires a scatterer
+that has left the region of interest. The checkpoint fingerprint hashes positions by
+value, so two flows cannot be mixed in one store, and the grid sentinels are
+recomputed per event (a moved cloud moves the near/far extremes that pin the time
+grid). Scatterers are frozen *within* one emission: the RF carries the inter-emission
+phase shift a Doppler estimator reads, not an intra-pulse frequency shift — the same
+modelling boundary as Field II's flow approach. See `example22`.
+
 ### synthetic_aperture_rf (Full Matrix Capture / synthetic aperture)
 
 Each TX element/group fires flat (zero delay, unit apod — overrides TX state), all
@@ -420,7 +416,9 @@ RX receive. Returns `(Ntx_grp, Erx, Nt)`, anti-aliased-decimated (`decimation=10
 default). `tx_groups` = `"element"` (FMC) / `int N` (sub-aperture) / custom groups.
 Delegates to `sequence_rf` (one event per group), so it shares its checkpointing:
 `out_path=` is an `RFDataset` folder (one compressed file per group, resumable;
-no longer a raw `.npy` memmap) and `checkpoint_chunks=` works per group. In-RAM
+no longer a raw `.npy` memmap) and `checkpoint_chunks=` works per group. It also
+shares the moving-scatterer path: `(N_groups, N_scat, 3)` gives each transmit group
+its own cloud, the motion artefact of a slow full-matrix capture. In-RAM
 runs estimate the output size first and show a 10 s abortable countdown.
 
 ### scan_focusline
@@ -508,7 +506,66 @@ yourself; resume cannot detect it.
 - Display: after TGC speckle fills ~30 dB; a 40+ dB window makes normal sidelobes
   look like artefacts.
 
-### 6. Symptom → cause quick table
+### 6. Flow & Doppler (measured in example22, with the control that showed it)
+
+- **Measure the echo centre frequency on the BEAMFORMED signal, not the channel
+  RF.** DAS low-passes the data (sample interpolation + coherent aperture
+  summation), so the beamformed echo centres below the channel echo — 4.27 vs
+  4.46 MHz on a 5 MHz probe. `v ∝ 1/f`, so the channel figure biases every
+  velocity low by 4.5 %, flat in radius and independent of speed. *Discriminating
+  test:* a plug-flow control went 0.955 → 0.998 of truth, and two independent
+  measurements agreed to 0.1 % — beamformed spectrum 4.268 MHz, frequency
+  demanded by the velocity error 4.261 MHz. The nominal 5 MHz would be −14 %.
+- **Scale the centre-frequency integration BAND to the probe.** An absolute band
+  carried over from another probe truncates the echo: `(2, 10) MHz` from a 5 MHz
+  probe reported 8.2 MHz for a 12.5 MHz echo whose true centroid is 10.5, scaling
+  every velocity by 28 %. Free check that caught it: **a vessel-core ratio above
+  1.0 is physically impossible** — a resolution-cell average of a core-peaked
+  profile cannot exceed the truth at the core.
+- **Elevation is a DESIGN parameter.** Flat 4 mm aperture at 22 mm (slice/lumen
+  0.56) → core 0.80×, wall 1.47×; elevation lens focused on the vessel
+  (slice/lumen 0.18) → 0.93× / 1.27×. Demonstration, not isolation — the redesign
+  moved frequency, depth and lens together.
+- **Plug-flow control = the tool for separating scale from gradient.** Identical
+  phantom/geometry/sequence/processing, one velocity for all blood. Flat ratio
+  vs radius ⇒ uniform scale error; a varying ratio (0.80 at the axis → 1.47 at
+  the wall) ⇒ resolution-cell averaging.
+- **Profile flattening is dominated by ELEVATION, not the in-plane cell.** An
+  unfocused elevation aperture averages out-of-plane blood, which is slower;
+  measured, that is a 20 % core deficit against ~1.5 % from the in-plane cell.
+  Model it as an elevation average **restricted to the blood chord**
+  (`|y| < √(R²−r²)`) — outside the lumen there is no flow signal to average in,
+  and omitting the restriction inflates the residual 1.6× (0.76 → 1.19 cm/s) and
+  biases the fitted width low (0.69 → 0.50 mm).
+- **The elevation WIDTH is measured, not predicted — `λ·z/H` was refuted as its
+  depth law.** It matches numerically at one depth (1.7 mm at z = 22, H = 4 mm),
+  which is how it got claimed as parameter-free. Discriminating test: a vessel
+  tilted 60° spans 18–26 mm inside ONE acquisition, so only depth changes. Over
+  19–25 mm the measured core ratio is flat (+0.016, scatter ±0.017) while
+  `λ·z/H` predicts +0.048 (chord-restricted) or +0.096 (not). Untested
+  hypothesis for why: the elevation far field starts near `H²/λ` ≈ 52 mm, so at
+  18–26 mm the aperture is still in its near field. Settling it needs two
+  well-separated depths or an elevation-focused probe.
+- **Add noise before claiming sensitivity.** Noiseless RF gives a long ensemble
+  nothing to average down (scatter fell only 2.58 → 2.50 cm/s, 100 % lumen
+  detection everywhere). `add_noise` with ONE shared `reference` across the
+  sequences compared — noise belongs to the receiver, not the transmit scheme.
+- **Truth for a diametral image plane is `(2/3)·v_peak·cosθ`**, not
+  `(1/2)·v_peak`: the voxels sample the radius uniformly, they do not average
+  the circular cross-section.
+- **Refuted as causes of a uniform velocity deficit** (do not re-open without new
+  evidence): wall-filter order (0 → 2 moves the mean 6.44 → 6.73 cm/s),
+  depth-restricted centroid (moves the wrong way), receive-aperture angle alone
+  (17° → 7° recovers 2.4 %), transit-time decorrelation (flat over a 4× change
+  in displacement per lag, +0.3 %).
+- **Trap:** decimating slow time to test decorrelation also halves the Nyquist
+  velocity — use a control slow enough to stay unambiguous, or the estimate folds
+  and the test says nothing.
+- **Bookkeeping trap:** each sequence advances the scatterers at *its own*
+  emission rate (a compounded frame fires N angles back to back). Get it wrong
+  and one sequence's velocities are scaled by N, which reads as a physics result.
+
+### 7. Symptom → cause quick table
 
 | Symptom | First suspect |
 |---|---|
@@ -519,6 +576,8 @@ yourself; resume cannot detect it.
 | Point misplaced ~1 mm | delay-reference convention (§4) |
 | Whole image deep-shifted | pulse-centre lag not applied (§4) |
 | Metrics collapse on new probe only | fixed-mm ROIs on a different PSF (§5) |
+| Velocities low by a few %, flat vs radius | centre frequency taken from channel RF, not beamformed (§6) |
+| Doppler profile flattened at the vessel axis | out-of-plane averaging by an unfocused elevation aperture — real, not a bug (§6) |
 
 ---
 
@@ -536,12 +595,13 @@ yourself; resume cannot detect it.
 | `calc_scat_all(tx, rx, pos, amp)` | `synthetic_aperture_rf(...)` | Full matrix capture / synthetic aperture |
 | `set_field('att', ...)` | `Emission/Reception(alpha0=..., freq_power=...)` | Attenuation |
 | `calc_scat(tx, rx, pos, amp)` (beamformed line) | `scan_focusline(focus_mm, pos, amp)` | Conventional focused scan line |
-| `xdc_baffle(Th, soft)` | Future extension | Not yet |
+| `xdc_baffle(Th, soft)` | `transducer.baffle = "soft"` | `cosθ` per patch, every method except `ReceptionPaired` |
 | `xdc_dynamic_focus(...)` | Future extension | Requires timeline system |
 
 **Improvements over Field II**:
-- Causal power-law attenuation with K-K dispersion (Field II uses non-causal minimum-phase)
-- Explicit per-element excitation support via shape dispatch `(L,)` vs `(L, E)`
+- Causal power-law attenuation with K-K dispersion referenced at `fc` (Field II uses non-causal minimum-phase)
+- Explicit per-element excitation support via shape dispatch `(L,)` vs `(L, E)`, in emission and reception
+- Closed-form SIR spectrum `H(ω)` (no sampling, no sub-sample clamp) as an alternative SIR source
 - Python/NumPy ecosystem
 
 ---
@@ -594,10 +654,38 @@ CORRECT (current): h_pad_buf = zeros((batch_P, nfft), float32) ONCE
 
 ## Risky Implementations (Validate Physics/Math)
 
+### 0. Elevation-Lens Sag — Signed, and SUBTRACTED from `t0`
+
+`ReceptionBase._finalize` applies `t0 -= (tx.elevation_lens_sag + rx.elevation_lens_sag)/c`.
+
+**Why subtract.** A beamformer measures depth from the `z = 0` element-centre plane, but
+the radiating surface is displaced from it: a concave lens recesses its centre by one
+sagitta, so every path is LONGER and the echo arrives LATE; a convex lens protrudes, so
+paths are SHORTER. `elevation_lens_sag` carries the sign, so one formula covers concave,
+convex and flat (`sag = 0`, a no-op).
+
+**Why it is dangerous.** A sign error here distorts nothing — sharp PSF, correct speckle,
+healthy contrast — it only displaces the image bodily by `2·sag`, which reads as a
+calibration error. It shipped inverted until 2026-09-11 and the full suite passed.
+Measured (4 mm aperture, R = 12 mm, sag 168 µm, target at 12 mm): `+=` → 12.335 mm,
+term removed → 12.165 mm, `-=` → 11.995 mm (±0.01 grid floor). Depth-independent,
+unchanged from `no_sub_y` 2 → 10. Guard:
+`tests/unit/test_psimulation/test_lens_time_origin.py`, which also asserts its own
+tolerance is tighter than `2·sag`.
+
+**`elevation_focus_mm` is a RADIUS OF CURVATURE, not a focal depth.** The rim is the
+`z = 0` datum, so the arc's centre of curvature — the true line focus, every patch
+exactly `|R|` away (spread < 1 nm) — sits one sagitta shallower. Use the
+`elevation_focus_depth_mm` property; `inf` for flat, negative (virtual) for convex.
+
+**Emission has no sag term and needs none** — its `t0` is a physical origin, not a
+beamforming reference, so the curved geometry already accounts for itself. Verified: a
+lens shifts the measured field onset +88.0 ns against +88.5 ns predicted.
+
 ### 1. SDI Tail Artifact — float32 Cumsum Cancellation
 
 **Location**: the inline double cumsum in `compute_parallelized_sir_optimized`
-(`farfield_rect_patch.py`).
+(`sir_temporal.py`).
 
 d2h events are large in magnitude. At that scale the float32 ULP is coarse: when large positive/negative corner events cancel, the residual is ±1 ULP, not the true value. This leaves a DC offset in dh that becomes a linear ramp in h after the double cumsum.
 
@@ -634,9 +722,15 @@ of FST vs PE-SDI 0 (Emission and `Reception(method="sdi")` were already lag-0).
 lag-insensitive — they did **not** catch the 2-sample shift. `example06` asserts on-axis
 lag == 0 as a phase-regression guard.
 
-### 4. Attenuation y=1 Continuity
+### 4. Attenuation Dispersion Referenced at f0 (fixed 2026-09-13)
 
-`tan(y*pi/2)` diverges as y→1. Cannot test y=1 continuity by approaching from y=1.001 (phase ~636× larger). Test y=1 branch independently via `|H(f)| = exp(-alpha0_nep * f * d)`.
+`tan(y*pi/2)` diverges as y→1. The y≠1 phase must carry the `−|f|·f0^(y−1)` reference
+term, otherwise `c` is the phase speed at f→0 and the arrival at `fc` diverges as y→1
+(the old "cannot test continuity" symptom: −374 ns instead of −34 ns over 5 cm at
+y=1.1). The y=1 phase is `+j(2α/π)f·ln(f/f0)d`, the y→1 limit — it was sign-flipped
+(negative dispersion on the default `freq_power=1`). Tests pin high-f-first, continuity
+across y=1 and zero dispersion phase at f0. The numba twin must match; clear the numba
+cache after editing it (inlined into the spectral kernels).
 
 ### 5. Global vs Per-Element Excitation Consistency
 
@@ -646,11 +740,17 @@ Global path tiles `(L,) → (L, E)` and calls same element-loop as per-element p
 
 ### 6. Numba Cache Staleness
 
-After editing Numba kernels, `.nbi`/`.nbc` cache files may retain old compiled versions. Symptom: fix "has no effect." Clear cache:
+After editing Numba kernels, `.nbi`/`.nbc` cache files may retain old compiled versions. Symptom: fix "has no effect." Inlined helpers from other modules do not invalidate the caller's cache, so clear the whole package:
 ```powershell
-Get-ChildItem -Path "src\esdiva\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+Get-ChildItem -Path src\esdiva -Recurse -Include *.nbi,*.nbc | Remove-Item -Force
 ```
 
-### 7. `from_sir_to_pressure` Attenuation with No Excitation
+### 7. Emission Scale: Continuous H, No Hidden fs (fixed 2026-09-13)
 
-When `excitation=None`, `from_sir_to_pressure` returns h_sir directly — no IRFFT step. Attenuation parameter is silently ignored. Callers relying on attenuation must provide excitation.
+The discrete convolution `Σ h[n]·v'[m−n]` lacks the `dt` of the continuous integral, so
+the old emission output was `fs` × pascals (1e8× at 100 MHz) and changed with `fs`.
+`_sir_spectrum` now returns the continuous `H(ω)` (spectral closed form, temporal
+`dt·rfft(h)`), making `irfft(H·jω·DFT(v))` the pressure in Pa; monochromatic is
+`ρ·ωc·|H(ωc)|`. Guarded by the Rayleigh far-field test (amplitude within 1–3 %, signed).
+Related fixes the same day: transient output was `abs(irfft)` (rectified) and
+`exc ⊛ ir` was truncated to `len(exc)` (56 % energy lost).

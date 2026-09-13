@@ -2,6 +2,8 @@
 
 from typing import TYPE_CHECKING
 
+from .benchmark import estimate_sequence_runtime
+from .noise import add_noise, rf_rms
 from .helper_functions import (
     align_to_common_time,
     compute_sub_elem_attributes,
@@ -41,6 +43,9 @@ __all__ = [
     "BG_Atlas",
     # Helpers
     "align_to_common_time",
+    "estimate_sequence_runtime",
+    "add_noise",
+    "rf_rms",
     "to_dB",
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",

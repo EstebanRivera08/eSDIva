@@ -41,13 +41,11 @@ not "impossible", and give the workaround where one exists:
 
 | Not yet | Where it stands today |
 |---|---|
-| Soft-baffle / obliquity weighting (Field II's `xdc_baffle`) | The rigid baffle is assumed and unavoidable. It flatters response at large angles off the normal; nothing else changes. |
-| Per-element impulse responses, a separate receive-electronics transfer function | One `impulse_response` per transducer. Per-element *excitation* already exists on emission (`(L, E)`). |
+| Per-element impulse responses, a separate receive-electronics transfer function | One `impulse_response` per transducer. Per-element *excitation* `(L, E)` exists on emission and reception, every method. |
 | Frequency-dependent scatterer amplitude (Rayleigh `f⁴`, scatterer size) | Amplitudes are frequency-flat scalars. Approximate by simulating scatterer classes separately and filtering each result. |
-| Moving scatterers inside one `sequence_rf` call | Advance the positions yourself between `pulse_echo_rf` calls (`v/PRF` per emission) and stack — this is how flow is done in Field II. Only the checkpointing convenience is missing. |
 | Attenuation that varies by region | `alpha0` is one global power law. |
 | A lens as a material layer (lens sound speed, lens loss) | A lens is a curved aperture surface: the focusing geometry is right, the layer physics is absent. |
-| Exact sub-sample patch response | A patch whose SIR is narrower than `1/fs` is widened to one sample bin (area conserved). Raise `fs` rather than working around it. |
+| Exact sub-sample patch response on the *temporal* SIR | The sampled SIR widens a patch narrower than `1/fs` to one bin (bias `sinc(πf/fs)` per clamped axis). The spectral SIR is exact — use it, or raise `fs`. |
 
 Noise, TGC, ADC quantisation and element crosstalk are **deliberately** absent, not
 pending: the RF is a clean, unamplified signal so the user controls the SNR. Add noise
@@ -122,8 +120,15 @@ trapezoid to hold. Both are controlled by the same knob — subdivision. So:
 
 Under identical assumptions the two produce the same SIR. SDI's cost is set by the
 number of breakpoints, not by the number of samples, so it wins as grids and
-sampling rates grow. `method="auto"` chooses per problem; pin a method only to
-benchmark or to reproduce a published reference.
+sampling rates grow. `"auto"` chooses per patch; `"temporal"` is SDI.
+
+**Spectral — the same trapezoid, in frequency.** A trapezoid is a rectangle convolved
+with a rectangle, so a patch's SIR spectrum is closed form:
+`H_patch(ω) = A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}` (the sincs are the
+rectangle's own directivity, `Δt = w·|u|/c`; `D` the baffle obliquity). `"spectral"`
+sums that per patch at only the frequencies the pulse occupies: exact, no sampling, no
+clamp, no forward FFT. It links to the sampled SIR by `rfft(h[n]) ≈ fs·H(ω)`. Which one
+is faster depends on the problem, not on the physics — see `references/validation.md`.
 
 One numerical caveat worth knowing when comparing runs: the double cumulative sum
 accumulates in float64 but stores float32, so SDI and FST agree to ~0.004 % of peak
@@ -138,10 +143,11 @@ drive gives an antisymmetric pressure pulse. With `excitation=None` the simulato
 returns `ρ₀·h` itself, which is the right object to compare against Field II
 `calc_h` but is **not** a pressure waveform.
 
-Monochromatic mode is `|H(r, ω_c)|`, the magnitude of the SIR's Fourier transform at
-the centre frequency: the steady-state CW amplitude map. It contains no time axis
+Monochromatic mode is `ρ₀·ω_c·|H(r, ω_c)|`, the steady-state pressure amplitude at
+exactly the centre frequency per 1 m/s of surface velocity. It contains no time axis
 and no pulse shape, so it answers beam-width and depth-of-field questions and cannot
-answer time-of-flight ones.
+answer time-of-flight ones. Transient pressure is signed and in pascals, independent
+of `fs`.
 
 ## Pulse-echo: where the third derivative went
 

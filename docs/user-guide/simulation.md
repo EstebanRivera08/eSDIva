@@ -13,9 +13,9 @@ impulse response engine:
 
     ---
 
-    Forward pressure field radiated by the transducer — **monochromatic** CW,
+    Forward pressure field radiated by the transducer — **monochromatic**,
     **transient** pulsed, or with power-law **attenuation**. Returns `p(x, y, z)`
-    (CW) or `p(t, x, y, z)` (transient).
+    (monochromatic) or `p(t, x, y, z)` (transient).
 
 -   :lucide-activity: **[Reception (RF)](reception.md)**
 

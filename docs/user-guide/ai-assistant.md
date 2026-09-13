@@ -13,7 +13,7 @@ They are optional. The package works without them.
 ## What they cover
 
 **`esdiva-simulate`** — building a transducer (array, bowl, custom assembly, Field II
-import), emission simulations (CW beam maps and transient wavefronts), pulse-echo RF
+import), emission simulations (monochromatic beam maps and transient wavefronts), pulse-echo RF
 (PSF, phantoms, plane- and diverging-wave sequences, FMC), beamforming with the
 built-in reconstructors *or* with your own, choosing a Matplotlib/PyVista backend
 that actually displays something, and the SIR/SDI physics behind any of it. It

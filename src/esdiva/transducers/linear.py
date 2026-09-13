@@ -46,8 +46,20 @@ class LinearArrayTransducer(TransducerBase):
         Subdivisions per element in y (elevation, ≥ 1).
         Must be ≥ 2 when ``elevation_focus_mm`` is set.
     elevation_focus_mm : float, optional
-        Radius of curvature for the cylindrical lens in mm.
-        ``None`` (default) means a flat aperture.
+        Cylindrical elevation lens, given as its RADIUS OF CURVATURE in mm.
+        ``None`` or 0 (default) means a flat aperture. POSITIVE curves the
+        surface away from the medium (concave, converging — an ordinary
+        elevation lens); NEGATIVE makes it bulge into the medium (convex,
+        diverging), which spreads the elevation beam instead of focusing it.
+        ``|radius|`` must be at least ``element_height_mm / 2``, and `no_sub_y`
+        must be ≥ 2 so the curved surface is actually resolved by the patches.
+
+        The line focus does NOT land at ``elevation_focus_mm``: the surface is
+        referenced with its RIM at ``z = 0`` (the Field II ``xdc_focused_array``
+        datum), so its centre of curvature — the depth where every patch is
+        equidistant, i.e. the true focus — sits one sagitta shallower, at
+        `elevation_focus_depth_mm`. The two differ by ``h²/(8R)``: 0.17 mm for a
+        4 mm aperture at R = 12 mm, 0.03 mm for a 1.5 mm aperture at R = 8 mm.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz with a warning.
     """
@@ -78,9 +90,17 @@ class LinearArrayTransducer(TransducerBase):
             element_height_mm, "element_height_mm", strict=True
         )
 
-        if elevation_focus_mm is not None:
-            validators.validate_positive(elevation_focus_mm, "elevation_focus_mm")
-            if elevation_focus_mm > 0 and no_sub_y < 2:
+        if elevation_focus_mm:
+            # Signed: + is concave (converging), - is convex (diverging). Only
+            # the MAGNITUDE is geometrically constrained - an arc of radius
+            # smaller than the element half-height cannot span the element.
+            if abs(elevation_focus_mm) < element_height_mm / 2:
+                raise ValueError(
+                    f"|elevation_focus_mm| = {abs(elevation_focus_mm)} mm is smaller "
+                    f"than half the element height ({element_height_mm / 2} mm): an "
+                    "arc of that radius cannot span the element."
+                )
+            if no_sub_y < 2:
                 raise ValueError(
                     "elevation_focus_mm requires no_sub_y >= 2 to model the curved surface."
                 )
@@ -111,20 +131,52 @@ class LinearArrayTransducer(TransducerBase):
     # ------------------------------------------------------------------
 
     def _default_elevation_lens_sag(self) -> float:
-        """Centre recession (m) of the cylindrical elevation lens; 0 if flat.
+        """SIGNED centre offset (m) of the cylindrical elevation lens; 0 if flat.
 
-        ``R − √(R² − (height/2)²)`` with ``R = elev_focus``: how far the lens surface
-        dishes back at the element centre relative to the rim (z = 0). Reception turns
-        this into the lens group delay that aligns the RF origin with Field II.
+        The sagitta ``|R| − √(R² − (height/2)²)``, carrying the sign of the
+        curvature: POSITIVE when the surface dishes BACK at the element centre
+        (concave/converging, the centre sits at ``z = −sag`` behind the rim), and
+        NEGATIVE when it bulges FORWARD into the medium (convex/diverging).
+
+        The sign is what makes the reception time origin correct for both. A
+        recessed centre lengthens the path to a target by one sagitta relative to
+        the ``z = 0`` plane a beamformer measures depth from; a protruding centre
+        shortens it. Reception therefore subtracts this signed value (per
+        aperture) from the beamforming reference, which lands the echo at its
+        true depth in either case and is a no-op for a flat aperture.
         """
-        if self.elev_focus and self.elev_focus > 0:
-            return float(
-                self.elev_focus
-                - np.sqrt(
-                    np.clip(self.elev_focus**2 - (self.elem_height / 2) ** 2, 0, None)
-                )
+        if self.elev_focus:
+            radius = abs(self.elev_focus)
+            sagitta = radius - np.sqrt(
+                np.clip(radius**2 - (self.elem_height / 2) ** 2, 0, None)
             )
+            return float(np.sign(self.elev_focus) * sagitta)
         return 0.0
+
+    @property
+    def elevation_focus_depth_mm(self) -> float:
+        """Depth (mm) of the elevation line focus — the arc's centre of curvature.
+
+        Every patch is exactly ``|R|`` from this point, which is what focusing
+        means, so this is where the elevation beam is narrowest (width ~
+        ``λ·z/height``). Because the lens is referenced with its rim at ``z = 0``,
+        it is one sagitta SHALLOWER than ``|elevation_focus_mm|``.
+
+        For a convex (diverging) lens the focus is virtual: the value is negative,
+        marking the point BEHIND the array the elevation beam appears to spread
+        from.
+
+        Returns
+        -------
+        float
+            Elevation focal depth in mm; ``inf`` for a flat aperture (no
+            elevation focus at all), negative for a convex lens's virtual focus.
+        """
+        if not self.elev_focus:
+            return float("inf")
+        return float((abs(self.elev_focus) - abs(self.elevation_lens_sag)) * 1e3) * (
+            1.0 if self.elev_focus > 0 else -1.0
+        )
 
     def _compute_element_centers(self) -> np.ndarray:
         """Evenly spaced element centres along x at z=0."""
@@ -141,23 +193,25 @@ class LinearArrayTransducer(TransducerBase):
         Build rectangular patches for every element.
 
         Each element is subdivided into ``no_sub_x × no_sub_y`` patches.
-        When ``elev_focus > 0`` the y-edges of each patch are lifted onto a
-        cylindrical arc so that all patches lie on the curved lens surface.
+        When ``elev_focus`` is non-zero the y-edges of each patch are lifted onto
+        a cylindrical arc so that all patches lie on the curved lens surface. The
+        arc's RADIUS is ``|elev_focus|``; its SIGN decides which way the surface
+        curves (positive = concave/converging, negative = convex/diverging).
         """
         xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
-        if self.elev_focus > 0:
+        radius = abs(self.elev_focus)
+        curve = float(np.sign(self.elev_focus))  # +1 concave, -1 convex, 0 flat
+        if radius > 0:
             # Cylindrical lens: place the elevation nodes equally along the ARC
             # (uniform in arc-angle θ), not uniform in Cartesian y. This is the
             # Field II `xdc_focused_array` convention — each tile spans an equal arc
             # length so the rim (θ = ±θ_max) lands exactly at y = ±height/2. The
             # half-angle subtended by the element is θ_max = asin((height/2) / R).
-            th_max = np.arcsin((self.elem_height / 2) / self.elev_focus)
-            ys = self.elev_focus * np.sin(
-                np.linspace(-th_max, th_max, self.no_sub_y + 1)
-            )
+            th_max = np.arcsin((self.elem_height / 2) / radius)
+            ys = radius * np.sin(np.linspace(-th_max, th_max, self.no_sub_y + 1))
             # Equal-arc tile height (used only for the nominal patch area; the SIR
             # reads each tile's true 3-D edge length from its corner vertices).
-            arc_dy = self.elev_focus * 2.0 * th_max / self.no_sub_y
+            arc_dy = radius * 2.0 * th_max / self.no_sub_y
             patch_area = (self.elem_width / self.no_sub_x) * arc_dy
         else:
             ys = np.linspace(
@@ -182,24 +236,24 @@ class LinearArrayTransducer(TransducerBase):
                     corners[:, 0] += center[0]
                     corners[:, 1] += center[1]
 
-                    if self.elev_focus > 0:
+                    if radius > 0:
                         # Cylindrical elevation lens. The element face (the rim, at
-                        # y = ±height/2) sits at z = 0 and the surface dishes back
-                        # toward the backing, so a point at elevation y lies at depth
-                        # (sagitta at the rim) − (sagitta at y); the centre (y = 0) is
-                        # deepest at −sagitta. This rim-referenced datum matches Field II
-                        # `xdc_focused_array`, which keeps the flat element face at z = 0.
+                        # y = ±height/2) sits at z = 0; a point at elevation y lies
+                        # at (sagitta at the rim) − (sagitta at y) from it. A concave
+                        # lens dishes back toward the backing, putting the centre
+                        # deepest at −sagitta; a convex one mirrors that and bulges
+                        # to +sagitta. This rim-referenced datum matches Field II
+                        # `xdc_focused_array`, which keeps the element face at z = 0.
                         y_vals = corners[:, 1]
-                        sag_edge = self.elev_focus - np.sqrt(
-                            np.clip(
-                                self.elev_focus**2 - (self.elem_height / 2) ** 2,
-                                0,
-                                None,
-                            )
+                        sag_edge = radius - np.sqrt(
+                            np.clip(radius**2 - (self.elem_height / 2) ** 2, 0, None)
                         )
-                        corners[:, 2] += (
-                            self.elev_focus
-                            - np.sqrt(np.clip(self.elev_focus**2 - y_vals**2, 0, None))
+                        # Rim-referenced: the arc is shifted so y = +/-height/2
+                        # lands at z = 0, leaving the centre at -sag (concave) or
+                        # +sag (convex, `curve` = -1).
+                        corners[:, 2] += curve * (
+                            radius
+                            - np.sqrt(np.clip(radius**2 - y_vals**2, 0, None))
                             - sag_edge
                         )
                     else:
@@ -346,12 +400,13 @@ class ConvexArrayTransducer(TransducerBase):
         Patch subdivisions per element in elevation (y, ≥ 1).
         Must be ≥ 2 when ``elevation_focus_mm`` is set.
     elevation_focus_mm : float, optional
-        Cylindrical elevation-lens focus depth in mm.  When provided, each
-        element surface is curved in the y-direction so that
-        ``z(y) = R_elev - √(R_elev² - y²)``, producing a geometric line
-        focus at ``elevation_focus_mm`` depth in elevation.  Equivalent to
-        the acoustic lens of a focused convex probe (FIELD II
-        ``xdc_focused_convex``).  Must be ≥ ``element_height_mm / 2``.
+        Cylindrical elevation lens, given as its RADIUS OF CURVATURE in mm
+        (positive = concave/converging, negative = convex/diverging). Each
+        element surface is curved in y onto that arc, with the RIM held at
+        ``z = 0``. The resulting line focus is the arc's centre of curvature,
+        one sagitta shallower than ``|elevation_focus_mm|`` — read it from
+        `elevation_focus_depth_mm`. ``|value|`` must be ≥
+        ``element_height_mm / 2``.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz with a warning.
     """

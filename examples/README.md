@@ -61,6 +61,7 @@ Run any example with `uv run examples/<script>.py`.
 | 19 | `example19_dualprobe_reception_show.py` | Pitch-catch pulse-echo: RX array tilted with `transform()`; `sim.show()` 3-D preview. |
 | 20 | `example20_phantom_simulation.py` | Speckle phantom via `make_phantom()` (cyst + lesion), piezo impulse response set, focused B-mode with `scan_focusline()`. |
 | 21 | `example21_3Dphantom_volume/` | Full volumetric case study: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics. See its `README.md` (incl. "Design notes & pitfalls"). |
+| 22 | `example22_flow_doppler/` | Ultrafast compound Doppler, replicating Bercoff 2011: three acquisitions on one moving phantom compare conventional focused colour Doppler with plane-wave compounding. Uses moving scatterers in `sequence_rf`. See its `README.md`. |
 
 ---
 

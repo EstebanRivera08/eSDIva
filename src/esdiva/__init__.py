@@ -123,10 +123,10 @@ def main() -> None:
         "dz": 0.05,
     }
 
-    print("Simulating a CW field at 10 MHz around the 3 mm focus ...")
+    print("Simulating a monochromatic field at 10 MHz around the 3 mm focus ...")
     sim = emission.Emission(probe, monochromatic=True)
     t0 = time.perf_counter()
-    p, coords = sim(field_points, method="auto")
+    p, coords = sim(field_points)
     dt = time.perf_counter() - t0
     print(f"  done in {dt:.2f} s  (peak |p| = {float(np.abs(p).max()):.3g})")
     print("  opening the 3-D field - close the window to exit.")

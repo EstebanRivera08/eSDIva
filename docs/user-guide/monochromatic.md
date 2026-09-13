@@ -4,16 +4,17 @@ icon: lucide/activity
 
 # Monochromatic Simulation
 
-Monochromatic mode computes the steady-state pressure amplitude for a continuous
-wave at the transducer centre frequency `fc`. The SIR is evaluated per field point
-and its Fourier component at `fc` is taken — returning a 3-D amplitude field
-`p(x, y, z)`.
+Monochromatic mode computes the steady-state pressure amplitude at exactly the
+transducer centre frequency `fc`: `|P(r, fc)| = ρ·ωc·|H(r, ωc)|`, in pascals per 1 m/s
+of surface velocity — a 3-D amplitude field `p(x, y, z)` with no time axis. By default
+`H(ωc)` is evaluated in closed form at that single frequency (the spectral SIR), which
+is the fastest route; attenuation, a soft baffle and a `transfer_function` apply at `fc`.
 
 ```python
 from esdiva.emission import Emission
 
 sim = Emission(tx, monochromatic=True)
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)
 # dict input : p.shape == (Nx, Ny, Nz), coords has "x", "y", "z"
 # (N,3) input: p.shape == (N_points,), you reshape
 ```

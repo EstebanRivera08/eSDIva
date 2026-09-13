@@ -86,7 +86,7 @@ field_points = {
 from esdiva.emission import Emission
 
 sim = Emission(tx, monochromatic=True)   # continuous-wave amplitude at fc
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)
 ```
 
 ### 5. Visualize results

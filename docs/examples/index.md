@@ -164,6 +164,12 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     Full pipeline: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics.
 
+-   :lucide-waves: **[22. Ultrafast Compound Doppler](example22_flow_doppler.md)**
+
+    ---
+
+    Replicates Bercoff 2011: tilted plane waves compounded vs conventional focused colour Doppler, on a phantom whose true velocity is known. Same performance, 10.7x fewer emissions.
+
 </div>
 
 ---
@@ -172,6 +178,6 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
 | Examples | Requirements |
 |----------|-------------|
-| 1–11, 16–21 | Core eSDIva installation |
+| 1–11, 16–22 | Core eSDIva installation |
 | 12–13 | `brainglobe-atlasapi` (atlas data downloaded on first run) |
 | 14–15 | `Petri_dish.stl` placed in `examples/` |

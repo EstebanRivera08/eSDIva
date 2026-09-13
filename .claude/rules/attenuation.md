@@ -32,7 +32,7 @@ Accuracy = better than non-causal (Field II, SIMUS).
 ### General case (y != 1):
 
     H_att(omega, d) = exp(-alpha0 * |omega|^y * d)
-                    * exp(-j * alpha0 * |omega|^y * tan(y*pi/2) * d)
+                    * exp(-j * alpha0 * tan(y*pi/2) * (|omega|^y - |omega|*omega0^(y-1)) * d)
 
 First term = absorption (amplitude decay). Second term = K-K dispersion (phase).
 
@@ -41,7 +41,12 @@ First term = absorption (amplitude decay). Second term = K-K dispersion (phase).
 tan(pi/2) diverges. Use logarithmic dispersion (O'Donnell 1981):
 
     H_att(omega, d) = exp(-alpha0 * |omega| * d)
-                    * exp(-j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
+                    * exp(+j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
+
+**Sign/reference check (bug fixed 2026-09-13).** The y=1 phase is the y→1 limit of
+the y≠1 form, so it carries `+j`; the y≠1 form needs the `omega0^(y-1)` term or `c` is
+the phase speed at f→0 and the fc arrival diverges as y→1. Tests pin: high f arrives
+first, continuity at y=1, zero dispersion phase at f0.
 
 ### Parameters:
 - `alpha0`: attenuation coefficient [Np/m/Hz^y]
@@ -70,6 +75,12 @@ Two approaches for propagation distance `d`:
 
 Option 1 sufficient for most cases. Option 2 needed for large aperture + strong
 attenuation + near-field.
+
+**eSDIva ships option 1 plus a per-element origin (decided 2026-09-13):** Emission
+`fast_attenuation=True` = transducer centre, `False` = each element's centre; Reception =
+TX centre + each RX element centre, every method. Per-patch distances were removed from
+the spectral kernel (measured cost of dropping them: ≈3 % RF near field at 3–6 mm on a
+19 mm aperture, 0.5 dB/MHz/cm; ≈0.3 % deep).
 
 ## Integration in SDI Pipeline
 
@@ -102,7 +113,7 @@ Use only when spectral content unimportant (e.g., monochromatic CW fields).
 
 ## What NOT To Do
 
-1. Do not add attenuation terms inside `farfield_rect_patch.py` or SIR kernels.
+1. Do not add attenuation terms inside `sir_temporal.py` or SIR kernels.
 2. Do not assume single attenuation value for all field points — distance-dependent.
 3. Do not use non-causal (amplitude-only) model. Add K-K dispersion phase.
    Non-causal produces acausal precursors (Kelly & McGough 2022).

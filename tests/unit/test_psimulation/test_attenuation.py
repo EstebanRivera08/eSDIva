@@ -127,6 +127,43 @@ class TestCausalAttenuationTfYOne:
 
 
 # ---------------------------------------------------------------------------
+# causal_attenuation_tf — dispersion (phase) physics
+# ---------------------------------------------------------------------------
+
+
+def _group_delay_s(f_hz, y, f0=5e6, d=0.05, alpha0_dB=0.5):
+    """Dispersion group delay −dφ/dω of H_att at ``f_hz`` (central difference)."""
+    df = 1e3
+    H = causal_attenuation_tf(
+        np.array([f_hz - df, f_hz + df]), np.array(d), alpha0_dB, y, f0
+    )
+    return -np.angle(H[1] / H[0]) / (2 * np.pi * 2 * df)
+
+
+class TestCausalAttenuationTfDispersion:
+    @pytest.mark.parametrize("y", [0.5, 1.0, 1.1, 1.5])
+    def test_positive_dispersion_high_f_arrives_first(self, y):
+        """Tissue-like dispersion: phase speed grows with f, so 8 MHz leads 2 MHz."""
+        assert _group_delay_s(8e6, y) < _group_delay_s(2e6, y)
+
+    def test_continuous_across_y_equals_one(self):
+        """The y≠1 branch must converge to the y=1 (O'Donnell) branch."""
+        tau1 = _group_delay_s(5e6, 1.0)
+        for y in (0.999, 1.001):
+            assert _group_delay_s(5e6, y) == pytest.approx(tau1, rel=0.02)
+
+    @pytest.mark.parametrize("y", [0.8, 1.0, 1.3])
+    def test_phase_speed_at_f0_is_c(self, y):
+        """Referenced at f0: the dispersion adds no phase at f0 (c is exact there)."""
+        H = causal_attenuation_tf(np.array([5e6]), np.array(0.05), 0.5, y, 5e6)
+        assert np.angle(H[0]) == pytest.approx(0.0, abs=1e-9)
+
+    def test_nonpositive_f0_raises(self):
+        with pytest.raises(ValueError, match="f0_hz must be positive"):
+            causal_attenuation_tf(np.array([5e6]), np.array(0.05), 0.5, 1.2, 0.0)
+
+
+# ---------------------------------------------------------------------------
 # compute_attenuation_distances
 # ---------------------------------------------------------------------------
 

@@ -47,12 +47,42 @@ backing, so the centre (`y = 0`) is the deepest point at `z = -sag_edge`, where
 computes the sag from the imported patches' elevation extent). Assign `None` to
 restore the default.
 
-Reception adds the lens **group delay** `elevation_lens_sag / c` **per aperture** (TX once,
-RX once) to `coords["t0"]`: the pulse-echo origin is referenced to the first-arriving rim,
-but the focused elevation echo peaks one lens transit later. Exposed as the transducer
-property `elevation_lens_sag` (metres; 0 for flat apertures). With this, a native
-elevation-focused linear matches Field II pulse-echo RF at lag 0 (corr ~0.97 single
-scatterer; residual is curved-patch far-field discretization, improves with `no_sub_y`).
+`elevation_focus_mm` is **SIGNED**: `+R` = concave (converging, centre recessed to
+`z = -sag`), `-R` = convex (diverging, centre protruding to `z = +sag`). `|R|` must be
+>= `height/2` and `no_sub_y >= 2`. `elevation_lens_sag` carries that sign.
+
+**The radius is NOT the focal depth.** Because the rim is the `z = 0` datum, the arc's
+centre of curvature — the point every patch is exactly `|R|` from, i.e. the true line
+focus — sits one sagitta shallower, at `|R| - sag`. Read it from the
+`elevation_focus_depth_mm` property (negative = virtual focus for a convex lens, `inf`
+for flat). Verified: patch-to-focus distances spread < 1 nm, mean = `|R|`.
+
+Reception **SUBTRACTS** the signed lens sag `elevation_lens_sag / c` **per aperture**
+(TX once, RX once) from `coords["t0"]`. Derivation: a beamformer measures depth from the
+`z = 0` element-centre plane, but the radiating surface is displaced from it — recessed
+by one sagitta for a concave lens, so every path is that much LONGER and the echo arrives
+LATE; protruding for a convex one, so paths are SHORTER. The subtraction puts the echo
+back at its true geometric depth, and the sign makes one formula cover concave, convex
+and flat (`sag = 0`, a no-op).
+
+⚠️ **This was wrong until 2026-09-11 — it ADDED the sag.** A sign error here does not
+blur or distort anything: it displaces the whole image in depth by **2·sag**, with sharp
+PSF, correct speckle and healthy metrics — which reads as a calibration error, not a bug.
+Measured on a 4 mm aperture with `R = 12 mm` (sag 168 µm): a point target at 12 mm
+beamformed to **12.335 mm** (+2·sag) with the add, **12.165 mm** (+1·sag) with the term
+suppressed, and **11.995 mm** (±0.01, the grid floor) once subtracted. Depth-independent,
+and unchanged from `no_sub_y` 2 → 10. Guarded end-to-end by
+`tests/unit/test_psimulation/test_lens_time_origin.py` (flat / concave / convex), which
+also asserts the tolerance is tighter than 2·sag so the guard has teeth.
+
+**Emission needs no such term and has none** — its `t0` is a physical time origin, not a
+beamforming reference, so the curved surface is already fully accounted for by the patch
+geometry. Verified: adding a lens shifts the measured field onset by +88.0 ns against a
+geometric prediction of +88.5 ns (one sample at 125 MHz).
+
+With this, a native elevation-focused linear matches Field II pulse-echo RF at lag 0
+(corr ~0.97 single scatterer; residual is curved-patch far-field discretization, improves
+with `no_sub_y`).
 
 ## focus_mm Definition (Concave / Convex / Focused)
 

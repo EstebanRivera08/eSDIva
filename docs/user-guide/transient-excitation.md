@@ -17,9 +17,14 @@ t = np.arange(0, n_cycles / fc, 1 / fs)
 excitation = np.hanning(len(t)) * np.sin(2 * np.pi * fc * t)
 
 sim = Emission(tx, fs=fs, excitation=excitation)
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)
 # dict input : p.shape == (Nt, Nx, Ny, Nz), coords has "x","y","z","t0","dt"
 ```
+
+`p` is the **signed** pressure in pascals (compression > 0, rarefaction < 0) for `rho`
+in kg/m³ and the excitation read as a surface velocity in m/s; it does not depend on
+`fs`. Peak negative pressure is `-p.min(axis=0)`; take `np.abs(p)` or an envelope for
+field maps. If `tx.impulse_response` is set, the velocity is the full `excitation ⊛ ir`.
 
 ![Steered plane-wave transient — matrix array](../examples/assets/ex04_dw_transient.gif)
 

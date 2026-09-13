@@ -1,4 +1,9 @@
-"""Far-field rectangular patch SIR computation kernels."""
+"""Temporal SIR kernels: the far-field trapezoidal SIR h(r, t) sampled at fs.
+
+Each rectangular patch contributes a trapezoid in time; `compute_h_sir` sums them per
+field point, either fully sampled (FST) or as sparse corner deltas double-integrated (SDI).
+Its frequency-domain twin lives in `sir_spectral`.
+"""
 
 import warnings
 
@@ -77,6 +82,7 @@ def compute_parallelized_sir_optimized(
     dt,
     method_flag,  # 0 -> FST, 1 -> sdi, 2 -> auto
     return_deltak,  # if True, fill range_k_matrix (per-patch trapezoid width in samples)
+    soft,  # soft baffle: weight each patch by cosθ = max(0, n·u)
 ):
     """Compute SIR in parallel over field points.
 
@@ -118,6 +124,9 @@ def compute_parallelized_sir_optimized(
         ``range_k_matrix``. If False, skip that ``(P, M)`` allocation entirely
         (a ``(1, 1)`` placeholder is returned) — the width is still computed as
         a scalar for the auto method decision.
+    soft : bool
+        Soft baffle: scale each trapezoid by ``cosθ = max(0, n·u)``, the angle between
+        the patch normal ``n = u-tangent × v-tangent`` and the direction to the point.
 
     Returns
     -------
@@ -186,6 +195,14 @@ def compute_parallelized_sir_optimized(
                 delays[m],
                 dt,
             )
+            if soft:
+                f = patch_frames[m]
+                zp = (
+                    dx * (f[1] * f[5] - f[2] * f[4])
+                    + dy * (f[2] * f[3] - f[0] * f[5])
+                    + dz * (f[0] * f[4] - f[1] * f[3])
+                ) * inv_dist
+                h_max *= max(np.float32(0.0), zp)
             # skip if h_max negligible
             if t1 < p_min_time:
                 p_min_time = t1
@@ -279,6 +296,7 @@ def compute_h_sir(
     eu=None,
     ev=None,
     return_deltak=False,
+    soft_baffle=False,
 ):
     """Compute the SIR impulse response for field points and patches.
 
@@ -320,6 +338,9 @@ def compute_h_sir(
         If True, include ``range_k_matrix`` (per-patch trapezoid width in
         samples, shape ``(P, M)``) in the returned info dict. Default False
         skips that allocation — most callers never read it.
+    soft_baffle : bool, optional
+        Soft (pressure-release) baffle: weight each patch by ``cosθ``. Default False
+        is the rigid baffle.
 
     Returns
     -------
@@ -350,6 +371,7 @@ def compute_h_sir(
         dt,
         method_flag,
         return_deltak,
+        bool(soft_baffle),
     )
 
     n_oob = int(oob.sum())

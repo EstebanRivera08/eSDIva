@@ -1,7 +1,7 @@
 """Shared helpers for the far-field rectangular-patch SIR kernels.
 
 Holds the geometry and array-prep pieces every SIR engine in this package needs, so the
-one-way (`farfield_rect_patch.py`) and pulse-echo (`transducer_sir_pe_sdi.py`) kernels
+temporal (`sir_temporal.py`), spectral (`sir_spectral.py`) and paired (`sir_paired.py`) kernels
 do not each carry their own copy:
 
 - `_compute_rectangle_SIR_params` — the trapezoidal SIR of a single rectangular patch

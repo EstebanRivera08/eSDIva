@@ -29,7 +29,7 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 - **SIR simulation** — The `H_sir` module computes discrete spatial impulse responses \( h(r, t) \) produced by apertures discretized into rectangular patches. It includes naïve, SDI, and automatic methods implemented with Numba‑accelerated kernels for field‑point‑parallel execution.
 
-- **Emission simulation** — Converts time‑domain SIRs into acoustic pressure fields via the `Emission` class. Supports monochromatic fields (spatial‑only, CW amplitude at `fc`) and broadband transient simulations with defined excitation pulses (spatio‑temporal pressure matrices), with global or per‑element excitation.
+- **Emission simulation** — Converts time‑domain SIRs into acoustic pressure fields via the `Emission` class. Supports monochromatic fields (spatial‑only, pressure amplitude at exactly `fc`) and broadband transient simulations with defined excitation pulses (spatio‑temporal pressure matrices), with global or per‑element excitation.
 
 - **Pulse‑echo reception** — The `Reception` class simulates pulse‑echo RF from scatterers using a fast closed‑form PE‑SDI spectral kernel (plus conventional Tupholme–Stepanishen and pedagogic reference backends). Generates PSFs, focused B‑mode lines, plane‑wave / diverging‑wave event sequences, and full‑matrix / synthetic‑aperture (FMC) acquisitions, with crash‑safe checkpointing of long runs.
 
@@ -49,7 +49,7 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 <table>
 <tr>
-<td width="50%"><img src="docs/examples/assets/ex03_matrix_array_field.png" width="100%" alt="Focused pressure field"><br><sub><b>Focused CW field</b> — matrix array</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex03_matrix_array_field.png" width="100%" alt="Focused pressure field"><br><sub><b>Focused monochromatic field</b> — matrix array</sub></td>
 <td width="50%"><img src="docs/examples/assets/ex05_matrix_pw_3d.gif" width="100%" alt="Steered plane-wave transient"><br><sub><b>Steered plane wave</b> — 3-D transient</sub></td>
 </tr>
 <tr>
@@ -155,9 +155,9 @@ field_points = {
     "dz": 0.2,
 }
 
-# Run a monochromatic (CW) simulation → pressure amplitude at fc
+# Run a monochromatic simulation → pressure amplitude at fc
 sim = diva.Emission(tx, monochromatic=True)
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)
 
 # Visualize
 diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)

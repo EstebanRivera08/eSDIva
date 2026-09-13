@@ -121,17 +121,25 @@ Work on a branch in your fork; never commit to `main`.
 - **Docs live in `docs/`** (a Zensical/MkDocs site). If behaviour changed, update the
   matching page and add new pages to `nav` in `zensical.toml`.
 - **Numba caching bites.** After editing a kernel, clear the cache or your fix
-  appears to do nothing:
-  `Get-ChildItem -Path "src\esdiva\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force`
+  appears to do nothing. Inlined helpers from other modules do not invalidate the
+  caller's cache, so clear the whole package:
+  `Get-ChildItem -Path src\esdiva -Recurse -Include *.nbi,*.nbc | Remove-Item -Force`
+- **Golden values guard the numbers.** `tests/regression/golden.npz` pins one
+  canonical case per example family on both SIR methods. If your change moves them on
+  purpose, run `just regen-golden` and say in the commit *why* the numbers changed;
+  if it moves them by accident, that is the bug. Read
+  `esdiva-simulate/references/validation.md` first: it lists what is verified and the
+  fixed bugs not to reintroduce.
 
 ### Before opening the PR
 
 ```bash
-just pre-commit    # ruff check, ruff format, ty, codespell, numpydoc
-just test          # full suite with coverage
+just pre-commit     # ruff check, ruff format, ty, codespell, numpydoc
+just test           # full suite with coverage (includes the golden values)
+just test-examples  # every numbered example, headless (slow; before touching an API)
 ```
 
-Both must pass. On Windows `numpydoc` needs `PYTHONUTF8=1`; `just pre-commit` sets it.
+All must pass. On Windows `numpydoc` needs `PYTHONUTF8=1`; `just pre-commit` sets it.
 
 Commit messages follow Commitizen: `<type>(<scope>): <summary>` with type in
 `feat|fix|docs|style|refactor|perf|test|chore` and scope in `hsir|transducers|
