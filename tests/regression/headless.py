@@ -36,5 +36,7 @@ plt.show = lambda *args, **kwargs: plt.close("all")
 
 script = sys.argv[1]
 sys.argv = [script]
-sys.path.insert(0, str(__import__("pathlib").Path(script).parent))  # `from config import`
+sys.path.insert(
+    0, str(__import__("pathlib").Path(script).parent)
+)  # `from config import`
 runpy.run_path(script, run_name="__main__")

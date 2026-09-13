@@ -15,7 +15,9 @@ where the transfer functions simply multiply: attenuation ``H_att(ω, d)``, a us
   then Fourier-transform it; the string names the trapezoid-sampling kernel.
 
 ``rfft(h[n]) ≈ fs·H(ω)`` links the two, so both give the same field; spectral is exact
-(no sub-sample clamp). ``method=None`` (default) picks the faster one, measured on a
+(no sub-sample clamp). Output is in pascals for ``rho`` in kg/m³ and a velocity pulse in
+m/s, independent of ``fs``; monochromatic mode gives ``|P(r, fc)| = ρ·ωc·|H(r, ωc)|`` per
+1 m/s of velocity amplitude. ``method=None`` (default) picks the faster one, measured on a
 64-element array, 12.5k points: spectral for monochromatic (2×; 23× with per-element
 attenuation) and for per-element drives or attenuation (2.3×, one FFT for all elements
 instead of one per element); temporal otherwise (1.3–2.5×, including with attenuation,
@@ -74,7 +76,8 @@ class Emission(SimulationBase):
         Extra frequency response ``TF(freq_hz) -> array``, multiplied in the frequency
         domain (applied at fc in monochromatic mode).
     monochromatic : bool, default False
-        True → pressure amplitude ``|P(r, fc)|`` at the centre frequency (no pulse).
+        True → pressure amplitude ``|P(r, fc)| = ρ·ωc·|H(r, ωc)|`` (Pa per 1 m/s of
+        velocity amplitude) at the centre frequency; no pulse.
     fast_attenuation : bool, default True
         Attenuation path origin: True → transducer centre (one path per point);
         False → each element's centre (per-element paths, accurate near field).
@@ -323,17 +326,18 @@ class Emission(SimulationBase):
         return list(zip(per, centres))
 
     def _sir_spectrum(self, pts, patches, t0, T, omega, method, nfft=0, b0=0):
-        """``fs·H(ω)`` of one patch group at ``pts``, phase-referenced to ``t0`` → (P, N_ω).
+        """Continuous SIR spectrum ``H(ω)`` of one patch group, phase-referenced to ``t0``.
 
         Spectral: the closed form. Temporal: sample h(t) on ``t0 + n/fs`` (``T`` samples)
-        and take its DFT — ``rfft`` over ``nfft`` sliced at ``b0`` for a band, or a
-        direct sum at the single frequency of monochromatic mode.
+        and take ``dt·DFT`` (≈ the continuous transform) — ``rfft`` over ``nfft`` sliced at
+        ``b0`` for a band, or a direct sum at the single monochromatic frequency.
+        Returns (P, N_ω) in metres.
         """
         c, wx, wy, ap, dl, eu, ev = patches
         soft = self.tx.baffle == "soft"
         with self._timer("hsir_s"):
             if method == "spectral":
-                return self.fs * compute_h_sir_spectrum(
+                return compute_h_sir_spectrum(
                     pts, c, wx, wy, ap, dl, 1.0 / self.c, t0, omega,
                     eu=eu, ev=ev, soft_baffle=soft,
                 )  # fmt: skip
@@ -347,8 +351,11 @@ class Emission(SimulationBase):
         h[:, max(0, min(T, int((info["max_time"] - t0) * self.fs) + 2)) :] = 0.0
         with self._timer("fft_s"):
             if omega.size == 1:
-                return (h @ np.exp(-1j * omega[0] * np.arange(T) / self.fs))[:, None]
-            return rfft(h, n=nfft, axis=1, workers=-1)[:, b0 : b0 + omega.size]
+                dft = h @ np.exp(-1j * omega[0] * np.arange(T) / self.fs)
+                return dft[:, None] / self.fs
+            return (
+                rfft(h, n=nfft, axis=1, workers=-1)[:, b0 : b0 + omega.size] / self.fs
+            )
 
     def _atten(self, freqs, pts, origin):
         """Causal attenuation ``H_att(f, |r − origin|)`` → (P, N_f), or 1 if disabled."""
@@ -376,7 +383,7 @@ class Emission(SimulationBase):
     # ------------------------------------------------------------------
 
     def _monochromatic(self, pts, groups, method):
-        """``|Σ_g fs·H_g(ωc)·H_att,g(fc)| · |TF(fc)|`` → (P,)."""
+        """``ωc·|Σ_g H_g(ωc)·H_att,g(fc)·TF(fc)|`` → (P,): |P|/ρ per 1 m/s at fc."""
         fc = np.array([self.fc])
         omega = 2.0 * np.pi * fc
         acc = np.zeros(pts.shape[0], dtype=np.complex128)
@@ -386,12 +393,14 @@ class Emission(SimulationBase):
             for patches, origin in groups:
                 H = self._sir_spectrum(p, patches, t0, T, omega, method)
                 acc[idx] += (H * self._atten(fc, p, origin))[:, 0]
-        return (np.abs(acc * self._tf(fc))).astype(np.float32)
+        return (omega[0] * np.abs(acc * self._tf(fc))).astype(np.float32)
 
     def _transient(self, pts, groups, drives, method):
-        """Signed ``irfft(Σ_g fs·H_g · D_g · TF · H_att,g)`` on one shared time axis → (T, P).
+        """Signed ``irfft(Σ_g H_g · D_g · TF · H_att,g)`` on one shared time axis → (T, P).
 
-        ``D_g = jω·DFT(pulse_g)`` is the drive of group g (1 for the raw SIR). Points are
+        ``D_g = jω·DFT(v_g)`` is the drive of group g; with the continuous ``H`` this
+        inverse transform is directly ``p/ρ`` in Pa per (m/s). The raw SIR uses
+        ``D = fs``, the sampled unit-area impulse, and returns ``h(t)``. Points are
         processed in depth bins, each on a short window snapped onto the global sample
         lattice, so its samples drop into place with no resampling.
         """
@@ -406,7 +415,10 @@ class Emission(SimulationBase):
             nfft = _next_pow2(T_b + L - 1)
             f = rfftfreq(nfft, dt)
             jw = 2j * np.pi * f
-            D = [np.ones_like(jw) if d is None else jw * rfft(d, nfft) for d in drives]
+            D = [
+                np.full_like(jw, self.fs) if d is None else jw * rfft(d, nfft)
+                for d in drives
+            ]
             b0, b1 = 0, f.size
             if method == "spectral":
                 b0, b1 = _band(np.abs(D).max(axis=0) * np.abs(self._tf(f) + 0 * f))

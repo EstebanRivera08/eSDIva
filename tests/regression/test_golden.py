@@ -110,8 +110,9 @@ def reception_psf_per_element_drive():  # example06 / example07
     exc = _pulse()[:, None] * np.linspace(0.5, 1.5, 16).astype(np.float32)
     pts = np.array([[0, 0, 20], [3, 0, 25]], np.float32)
     return {
-        m: Reception(tx, rx, fs=FS, excitation=exc, method=m, verbose=False)
-        .pulse_echo_rf(pts, per_scatterer=True)[0]
+        m: Reception(
+            tx, rx, fs=FS, excitation=exc, method=m, verbose=False
+        ).pulse_echo_rf(pts, per_scatterer=True)[0]
         for m in METHODS
     }
 

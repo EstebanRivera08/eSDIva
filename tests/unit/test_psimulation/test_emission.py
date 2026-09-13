@@ -334,7 +334,8 @@ class TestSpectralTemporalParity:
 
     @pytest.mark.parametrize("method", ["spectral", "temporal"])
     def test_far_field_is_signed_rayleigh(self, method):
-        """On axis, far from a small piston: p(t) ∝ +v'(t − z/c)/z (Rayleigh, signed)."""
+        """On axis, far from a small piston: p(t) = ρ·A/(2πz)·v'(t − z/c) — Rayleigh,
+        signed, in pascals (no dependence on fs)."""
         from esdiva.transducers import LinearArrayTransducer
 
         fs = 100e6
@@ -348,10 +349,20 @@ class TestSpectralTemporalParity:
         pts = np.column_stack([np.zeros(2), np.zeros(2), z]).astype(np.float32)
         p, co = _make_emission(tx, fs=fs, excitation=v, method=method)(pts)
         t = co["t0"] + np.arange(p.shape[0]) / fs
-        dv = np.gradient(v.astype(np.float64)) * fs
+        w, tw = 2 * np.pi * 5e6, (v.size - 1) / fs  # v = sin(ωt)·hann(t/tw), exactly
+
+        def dv(s):  # analytic v'(s), zero outside the pulse
+            win, dwin = (
+                0.5 - 0.5 * np.cos(2 * np.pi * s / tw),
+                np.pi / tw * np.sin(2 * np.pi * s / tw),
+            )
+            return np.where((s >= 0) & (s <= tw), w * np.cos(w * s) * win
+                            + np.sin(w * s) * dwin, 0.0)  # fmt: skip
+
         for i, zi in enumerate(z * 1e-3):
-            ref = np.interp(t - zi / 1540.0, np.arange(v.size) / fs, dv, 0, 0)
+            ref = dv(t - zi / 1540.0) * (0.3e-3) ** 2 / (2 * np.pi * zi)  # ρ = 1
             assert np.corrcoef(p[:, i], ref)[0, 1] > 0.99  # positive: same polarity
+            assert abs(np.abs(p[:, i]).max() / np.abs(ref).max() - 1) < 0.03  # pascals
         # Spherical spreading: doubling the range halves the peak.
         assert abs(np.abs(p[:, 1]).max() / np.abs(p[:, 0]).max() - 0.5) < 0.02
 
