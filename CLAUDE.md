@@ -257,14 +257,14 @@ Kept in one place so the physics can't drift between two copies.
 Quick checklist — full rationale, locations, and history in
 [`ARCHITECTURE.md` § Risky Implementations](ARCHITECTURE.md#risky-implementations).
 
-1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`farfield_rect_patch.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
+1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`sir_temporal.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
 2. **d2h_all ≠ d2h_per_element.sum()** — float32 non-associativity (~5e-8). Never compare with `atol=0`.
-3. **PE SDI on-axis lag must be 0** — the delta placement in `transducer_sir_pe_sdi.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
-4. **Attenuation y=1 continuity** — `tan(y*pi/2)` diverges near y=1; test the y=1 branch independently.
+3. **PE SDI on-axis lag must be 0** — the delta placement in `sir_spectral.py` / `sir_paired.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
+4. **Attenuation dispersion is referenced at f0 = fc** (fixed 2026-09-13) — the y≠1 phase needs the `−|f|·f0^(y−1)` term (else `c` is the phase speed at f→0 and the fc arrival diverges as y→1) and the y=1 phase is `+j(2α/π)f·ln(f/f0)d` (was sign-flipped: negative dispersion on the default `freq_power=1`). Tests pin high-f-first, y→1 continuity, zero phase at f0.
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
-6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect":
+6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect". Inlined helpers from other modules (`_causal_atten_factor`, `helpers.py`) do NOT invalidate the caller's cache, so clear the whole package:
    ```powershell
-   Get-ChildItem -Path "src\esdiva\hsir\__pycache__" -Filter "*.nb?" | Remove-Item -Force
+   Get-ChildItem -Path src\esdiva -Recurse -Include *.nbi,*.nbc | Remove-Item -Force
    ```
 7. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
 8. **Elevation-lens sag is SIGNED and reception SUBTRACTS it** — `_finalize` does `t0 -= (tx+rx).elevation_lens_sag/c`. Positive sag = concave (centre recessed, paths longer); negative = convex. Flipping the sign blurs *nothing* — it moves the whole image `2·sag` in depth (0.34 mm on a 4 mm aperture at R=12 mm) with a sharp PSF and healthy metrics, so it reads as a calibration error. It shipped wrong until 2026-09-11 and 207 tests passed with it. Guarded by `tests/unit/test_psimulation/test_lens_time_origin.py`. Also: `elevation_focus_mm` is a RADIUS — the focus is one sagitta shallower, at `elevation_focus_depth_mm`. Emission needs no such term and has none.

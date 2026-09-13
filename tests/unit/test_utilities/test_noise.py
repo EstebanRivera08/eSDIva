@@ -44,4 +44,6 @@ class TestAddNoise:
         assert not np.array_equal(a, add_noise(rf, 15, rng=8))
 
     def test_rf_rms_matches_numpy(self, rf):
-        assert rf_rms(rf) == pytest.approx(float(np.sqrt(np.mean(rf.astype(np.float64) ** 2))))
+        assert rf_rms(rf) == pytest.approx(
+            float(np.sqrt(np.mean(rf.astype(np.float64) ** 2)))
+        )

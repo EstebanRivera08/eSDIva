@@ -1,7 +1,7 @@
 """Spatial Impulse Response computation engine."""
 
-from .farfield_rect_patch import compute_h_sir
-from .transducer_sir_pe_sdi import compute_oneway_spectrum_band
+from .sir_spectral import compute_oneway_spectrum_band
+from .sir_temporal import compute_h_sir
 
 __all__ = [
     "compute_h_sir",

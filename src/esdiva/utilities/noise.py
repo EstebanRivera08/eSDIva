@@ -62,7 +62,9 @@ def add_noise(rf, snr_db, *, reference=None, rng=None):
         b = add_noise(rf_b, 6, reference=ref, rng=2)
     """
     rf = np.asarray(rf)
-    generator = rng if isinstance(rng, np.random.Generator) else np.random.default_rng(rng)
+    generator = (
+        rng if isinstance(rng, np.random.Generator) else np.random.default_rng(rng)
+    )
     if reference is None:
         reference = float(np.sqrt((rf.astype(np.float64) ** 2).mean()))
     sigma = float(reference) * 10.0 ** (-float(snr_db) / 20.0)
@@ -76,5 +78,15 @@ def rf_rms(rf):
     Compute this ONCE on one acquisition and pass it to `add_noise` as
     ``reference`` for every acquisition being compared, so they all sit on the
     same absolute noise floor.
+
+    Parameters
+    ----------
+    rf : numpy.ndarray
+        RF data of any shape.
+
+    Returns
+    -------
+    float
+        Root-mean-square amplitude over all samples.
     """
     return float(np.sqrt((np.asarray(rf).astype(np.float64) ** 2).mean()))

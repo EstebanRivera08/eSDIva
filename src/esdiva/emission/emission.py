@@ -6,7 +6,7 @@ from contextlib import contextmanager
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from esdiva.hsir.farfield_rect_patch import compute_h_sir
+from esdiva.hsir.sir_temporal import compute_h_sir
 from esdiva.utilities.helper_functions import (
     compute_sub_elem_attributes,
     compute_time_grid,

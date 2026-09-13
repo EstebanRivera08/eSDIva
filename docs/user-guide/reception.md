@@ -14,7 +14,7 @@ SIR is evaluated (speed only — all give the same RF):
 
 - **`"spectral"`** (default) — fast sparse-delta kernel via closed-form one-way SIR spectra.
 - **`"fst"` / `"sdi"` / `"auto"`** — conventional Tupholme-Stepanishen sampled convolution.
-- **`"paired"`** — exact but slow pedagogic reference (warns on selection).
+- **`ReceptionPaired`** (separate class) — exact but slow pedagogic reference (warns on construction).
 
 ```python
 from esdiva.reception import Reception
@@ -35,7 +35,7 @@ flowchart LR
     RX[RX transducer] --> R
     R --> M{method}
     M -->|spectral · default| SP[Closed-form one-way<br/>spectra · no FFT]
-    M -->|paired · pedagogic| PA[16 corner deltas / pair<br/>splat drive]
+    M -.->|ReceptionPaired · pedagogic| PA[16 corner deltas / pair<br/>splat drive]
     M -->|fst / sdi / auto| CV[sample SIRs + FFT]
     SP --> API
     PA --> API
@@ -58,9 +58,9 @@ flowchart LR
 | `synthetic_aperture_rf` | FMC — per-element transmit basis | `(Etx, Erx, Nt)` |
 | `scan_focusline` | One focused B-mode line, RX summed in-kernel | `(Nt,)` |
 
-The `method=` flag (`spectral` / `fst` / `sdi` / `auto` / `paired`) only trades
-speed — all produce the same RF. `paired` is a slow pedagogic reference and warns
-on selection.
+The `method=` flag (`spectral` / `fst` / `sdi` / `auto`) only trades
+speed — all produce the same RF. `ReceptionPaired` is a slow pedagogic reference and warns
+on construction.
 
 ## Studies at a glance
 

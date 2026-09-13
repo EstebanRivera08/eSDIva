@@ -256,7 +256,7 @@ plot2D_transient_slices(p_4d, coords=coords)
 - Scale convention: eSDIva uses `rho/(2c²)`, Field II uses `rho/2`. Raw amplitude differs by `c²≈2.37e6`. Normalised PSF unaffected.
 
 **Modifying SIR Computation**:
-- Core implementation: `src/esdiva/hsir/farfield_rect_patch.py`
+- Core implementation: `src/esdiva/hsir/sir_temporal.py`
 - Uses Numba JIT compilation for performance
 - Parallelized over field points (not patches)
 
@@ -708,7 +708,7 @@ lens shifts the measured field onset +88.0 ns against +88.5 ns predicted.
 ### 1. SDI Tail Artifact — float32 Cumsum Cancellation
 
 **Location**: the inline double cumsum in `compute_parallelized_sir_optimized`
-(`farfield_rect_patch.py`).
+(`sir_temporal.py`).
 
 d2h events are large in magnitude. At that scale the float32 ULP is coarse: when large positive/negative corner events cancel, the residual is ±1 ULP, not the true value. This leaves a DC offset in dh that becomes a linear ramp in h after the double cumsum.
 

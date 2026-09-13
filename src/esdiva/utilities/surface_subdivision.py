@@ -257,7 +257,7 @@ def subdivide_parametric_surface(
     Each patch is a genuine flat rectangle in the local tangent plane at the
     patch centre.  Patch dimensions ``(wu, wv)`` represent the physical width
     and height of that piston element in metres; they are used directly by the
-    SIR kernel (``farfield_rect_patch``).
+    SIR kernels (``sir_temporal`` / ``sir_spectral``).
 
     Parameters
     ----------

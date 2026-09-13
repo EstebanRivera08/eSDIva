@@ -1,18 +1,14 @@
-"""Tests for the surviving pulse-echo SDI kernels.
+"""Tests for the spectral SIR kernels (``sir_spectral.py``).
 
-Two analytic forms of the pulse-echo response are implemented in
-``transducer_sir_pe_sdi.py``: the paired form (`compute_pe_complete`, which splats the
-integrated drive per patch pair) and the spectral form (`compute_oneway_spectrum_band`,
-the closed-form one-way SIR-delta spectrum). This test checks the spectrum kernel produces
-a sane, position-dependent spectrum — the end-to-end equivalence of the three Reception
-methods is covered in test_reception.py.
+Checks the closed-form one-way SIR-delta spectrum is sane and position-dependent; the
+end-to-end equivalence of the Reception methods is covered in test_reception.py.
 """
 
 import warnings
 
 import numpy as np
 
-from esdiva.hsir.transducer_sir_pe_sdi import (
+from esdiva.hsir.sir_spectral import (
     compute_oneway_spectrum_band,
     compute_twoway_spectrum_summed,
 )

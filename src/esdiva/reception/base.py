@@ -23,7 +23,7 @@ import numpy as np
 import pyvista as pv
 from scipy.signal import decimate, hilbert
 
-from esdiva.hsir.farfield_rect_patch import compute_h_sir
+from esdiva.hsir.sir_temporal import compute_h_sir
 from esdiva.plotting import add_transducer_mesh
 from esdiva.simulation_base import SimulationBase
 from esdiva.utilities.helper_functions import (

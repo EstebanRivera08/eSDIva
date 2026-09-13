@@ -107,7 +107,7 @@ Use only when spectral content unimportant (e.g., monochromatic CW fields).
 
 ## What NOT To Do
 
-1. Do not add attenuation terms inside `farfield_rect_patch.py` or SIR kernels.
+1. Do not add attenuation terms inside `sir_temporal.py` or SIR kernels.
 2. Do not assume single attenuation value for all field points — distance-dependent.
 3. Do not use non-causal (amplitude-only) model. Add K-K dispersion phase.
    Non-causal produces acausal precursors (Kelly & McGough 2022).

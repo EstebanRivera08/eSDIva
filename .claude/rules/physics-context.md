@@ -245,8 +245,8 @@ physical d3v/dt3 is carried by the band-limited excitation/IR chain (same as Fie
 This differs from Emission, where the chain has an explicit dv/dt.
 
 Code: `compute_pe_complete` (paired) / `compute_oneway_spectrum_band` +
-`compute_twoway_spectrum_summed` (spectral) in `transducer_sir_pe_sdi.py`. The
-conventional path delegates to `ReceptionConventional` (`farfield_rect_patch.compute_h_sir`).
+`compute_twoway_spectrum_summed` (spectral) in `sir_spectral.py` (paired: `sir_paired.py`). The
+conventional path delegates to `ReceptionConventional` (`sir_temporal.compute_h_sir`).
 
 ## 9.2 Pulse-centre lag — a beamforming correction, NOT part of the RF
 

@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 from numpy.testing import assert_allclose
 
-from esdiva.reception import Reception
+from esdiva.reception import Reception, ReceptionPaired
 from esdiva.transducers import LinearArrayTransducer
 from esdiva.utilities.helper_functions import create_3D_spatial_grid_from_points
 
@@ -364,7 +364,7 @@ class TestMovingScatterers:
 
 
 class TestReceptionFormulations:
-    """method selector: auto router + conventional/spectral/paired equivalence."""
+    """method selector + conventional/spectral/ReceptionPaired equivalence."""
 
     @staticmethod
     def _exc(fs=100e6, fc=5e6):
@@ -373,8 +373,6 @@ class TestReceptionFormulations:
 
     @staticmethod
     def _big_tx(n=32):
-        # Many patches per element (3×6) so the paired M² placement clearly exceeds the
-        # patch-independent transform cost → the router leaves the paired regime.
         return LinearArrayTransducer(
             n_elements=n,
             element_width_mm=0.25,
@@ -400,16 +398,16 @@ class TestReceptionFormulations:
         pos = np.array([[0, 0, 18], [1.0, 0, 22], [-1.5, 0, 26]], dtype=np.float32)
         amp = np.array([1.0, 0.8, 1.2], dtype=np.float32)
         cases = {
-            "fst": {"method": "fst"},
-            "spectral": {"method": "spectral"},
-            "paired": {"method": "paired"},
+            "fst": (Reception, {"method": "fst"}),
+            "spectral": (Reception, {"method": "spectral"}),
+            "paired": (ReceptionPaired, {}),
         }
         out = {}
-        for name, kw in cases.items():
-            # paired warns (pedagogic reference); silence it here.
+        for name, (cls, kw) in cases.items():
+            # ReceptionPaired warns (pedagogic reference); silence it here.
             with warnings.catch_warnings():
                 warnings.simplefilter("ignore", UserWarning)
-                sim = Reception(
+                sim = cls(
                     simple_tx,
                     simple_rx,
                     fs=100e6,
@@ -446,9 +444,11 @@ class TestReceptionFormulations:
         )
         assert sim._last_method == "auto"
 
-    def test_paired_warns_pedagogic(self, simple_tx, simple_rx):
-        """Selecting the pedagogic 'paired' method warns that it is slow."""
+    def test_paired_is_its_own_class(self, simple_tx, simple_rx):
+        """ReceptionPaired warns it is slow; Reception(method='paired') points to it."""
         with pytest.warns(UserWarning, match="pedagogic"):
+            ReceptionPaired(simple_tx, simple_rx, verbose=False)
+        with pytest.raises(ValueError, match="ReceptionPaired"):
             Reception(simple_tx, simple_rx, method="paired", verbose=False)
 
     def test_spectral_binning_matches_single_window(self):
@@ -502,13 +502,12 @@ class TestReceptionFormulations:
     def test_paired_attenuation_not_supported(self, simple_tx, simple_rx):
         exc = self._exc()
         with pytest.warns(UserWarning, match="pedagogic"):
-            sim = Reception(
+            sim = ReceptionPaired(
                 simple_tx,
                 simple_rx,
                 fs=100e6,
                 excitation=exc,
                 alpha0=0.5,
-                method="paired",
                 verbose=False,
             )
         with pytest.raises(NotImplementedError, match="attenuation"):

@@ -106,8 +106,8 @@ All backends compute the same physics; they differ in cost.
 - `"fst"` / `"sdi"` / `"auto"` — sample both SIRs and FFT-convolve
   (`ReceptionConventional`); the string names its SIR-sampling kernel. Use to
   cross-check `spectral`.
-- `"paired"` — the pedagogic two-way delta train. Exact, no FFT, but cost ∝ M², so
-  far slower; it warns when selected. For teaching or auditing the kernel only.
+- `ReceptionPaired(tx, rx, ...)` (separate class; `method="paired"` raises) — the pedagogic two-way delta train. Exact, no FFT, but cost ∝ M², so
+  far slower; it warns on construction. For teaching or auditing the kernel only.
 
 ## Scatterers
 

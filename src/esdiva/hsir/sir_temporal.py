@@ -1,4 +1,9 @@
-"""Far-field rectangular patch SIR computation kernels."""
+"""Temporal SIR kernels: the far-field trapezoidal SIR h(r, t) sampled at fs.
+
+Each rectangular patch contributes a trapezoid in time; `compute_h_sir` sums them per
+field point, either fully sampled (FST) or as sparse corner deltas double-integrated (SDI).
+Its frequency-domain twin lives in `sir_spectral`.
+"""
 
 import warnings
 

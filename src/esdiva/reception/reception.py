@@ -33,7 +33,7 @@ its corners. Two ways to recombine the TX and RX corner trains give the two SDI 
 alongside the conventional sampled convolution::
 
     p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                                    ← conventional
-         = (I⁴ v_pe) ⊛ (D²h_tx ⊛ D²h_rx) = w ⊛ Δδ_pe              ← paired
+         = (I⁴ v_pe) ⊛ (D²h_tx ⊛ D²h_rx) = w ⊛ Δδ_pe              ← paired (`ReceptionPaired`)
          = F⁻¹{ V_pe/(i*omega)^4 · Σ_TX(ω) · Σ_RX(ω) }                      ← spectral
 
     Δδ_pe ≡ D²h_tx ⊛ D²h_rx   (16·M_tx·M_Erx deltas: 4 TX corners × 4 RX corners per pair)
@@ -47,14 +47,9 @@ The methods differ only in HOW the TX and RX corner trains are combined:
   is independent of the patch count M, but the SIR *build* is linear in M. Delegated to
   `ReceptionConventional`; ``fst``/``sdi`` pick its underlying trapezoid-sampling kernel
   (fully-sampled vs sparse-delta) and ``auto`` lets it choose per grid.
-* ``paired`` — convolve the two corner-delta trains analytically (deltas ⊛ deltas = deltas)
-  into the 16-delta two-way train ``Δδ_pe``, enumerating all ``M_tx·M_Erx`` TX–RX patch
-  pairs. The four integrations are pushed onto the drive ONCE, forming the integrated
-  pulse-echo waveform ``w = I⁴ v_pe``; each of the 16 corner events of a pair then lays down
-  a shifted, scaled copy of ``w`` (``Σ_i Σ_j a_i a_j w(t − τ_i − τ_j)``) — no FFT, no
-  cumulative sum, the output is the RF directly. Cost is quadratic in the patch count and
-  carries the full kernel length per event, so this is the exact reference path, used for
-  tiny apertures (a point-spread function, a monoelement) and cross-checks.
+* paired — convolve the two corner-delta trains analytically into ``Δδ_pe`` (16 deltas per
+  TX–RX patch pair) and splat ``w = I⁴ v_pe`` at each event. Exact but quadratic in the
+  patch count: a pedagogic reference living in its own class, `ReceptionPaired`.
 * ``spectral`` — never form the pairs. Each one-way SIR spectrum is the closed-form sum of
   four corner phasors per patch (``Σ_TX``, ``Σ_RX``), built independently and multiplied
   (convolution ⇒ product), so the cost is linear in the patch count (``M_tx + M_Erx``) with
@@ -73,9 +68,7 @@ the conventional form and Field II.
 
 Selecting a method. ``method="spectral"`` is the default (fast, exact, band-limited). The
 values ``"fst"``, ``"sdi"`` and ``"auto"`` route to the conventional `ReceptionConventional`
-backend (sampled two-way SIR convolution) with that SIR-sampling kernel. ``method="paired"``
-is a pedagogic reference formulation only: it is exact but O(M²) per patch pair, so it runs
-far slower than ``spectral`` and warns on selection — use it for teaching or cross-checks.
+backend (sampled two-way SIR convolution) with that SIR-sampling kernel.
 """
 
 import time
@@ -84,9 +77,8 @@ import warnings
 import numpy as np
 from scipy.fft import irfft, rfft, rfftfreq
 
-from esdiva.hsir.transducer_sir_pe_sdi import (
+from esdiva.hsir.sir_spectral import (
     compute_oneway_spectrum_band,
-    compute_pe_complete,
     compute_twoway_spectrum_summed,
 )
 
@@ -103,9 +95,8 @@ from .base import (
 )
 
 # Formulation selector values (see Reception.method). "fst"/"sdi"/"auto" delegate to the
-# conventional backend (that string is the SIR-sampling kernel it uses); "spectral"/"paired"
-# are the direct PE-SDI cores here.
-_VALID_METHODS = ("spectral", "paired", "fst", "sdi", "auto")
+# conventional backend (that string is the SIR-sampling kernel it uses).
+_VALID_METHODS = ("spectral", "fst", "sdi", "auto")
 
 # Values routed to the conventional `ReceptionConventional` delegate.
 _CONVENTIONAL_METHODS = ("fst", "sdi", "auto")
@@ -130,9 +121,8 @@ class Reception(ReceptionBase):
       to `ReceptionConventional`. The string names its SIR-sampling kernel: ``"fst"`` fully
       samples each trapezoid, ``"sdi"`` places sparse corner deltas, ``"auto"`` lets the
       delegate choose per grid.
-    * ``"paired"`` — pedagogic reference only. Splats the integrated drive ``w = I⁴ v_pe`` at
-      the 16 corner events of every TX–RX patch pair (no FFT, no cumsum): exact but O(M²) per
-      pair, so far slower than ``spectral``. Warns on selection. No attenuation.
+
+    The paired SDI form (O(M²), pedagogic) is the separate class `ReceptionPaired`.
 
     Parameters
     ----------
@@ -156,9 +146,8 @@ class Reception(ReceptionBase):
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
     method : str, default "spectral"
         Pulse-echo formulation: ``"spectral"`` (default) / ``"fst"`` / ``"sdi"`` /
-        ``"auto"`` / ``"paired"``. All produce the same RF; they trade speed only.
-        ``"fst"``/``"sdi"``/``"auto"`` delegate to `ReceptionConventional`; ``"paired"``
-        is a slow pedagogic reference (see the class summary above).
+        ``"auto"``. All produce the same RF; they trade speed only.
+        ``"fst"``/``"sdi"``/``"auto"`` delegate to `ReceptionConventional`.
     n_depth_bins : "auto" or int, default "auto"
         Spectral speed knob. Scatterers are grouped into this many depth bins so each bin
         uses a short time window — a small ``nfft`` and hence few in-band frequency bins,
@@ -176,7 +165,7 @@ class Reception(ReceptionBase):
         "alpha0": ((float, type(None)), "Attenuation dB/(MHz^y cm) or None"),
         "freq_power": (float, "Attenuation exponent"),
         "excitation": ((np.ndarray, type(None)), "Excitation pulse or None"),
-        "method": (str, "Formulation: spectral/fst/sdi/auto/paired"),
+        "method": (str, "Formulation: spectral/fst/sdi/auto"),
         "n_depth_bins": ((int, str), "Spectral depth bins: 'auto' or int"),
         "verbose": (bool, "Print diagnostics"),
     }
@@ -215,17 +204,14 @@ class Reception(ReceptionBase):
 
     @staticmethod
     def _validate_method(method):
+        if method == "paired":
+            raise ValueError(
+                "method='paired' moved to its own class: "
+                "esdiva.reception.ReceptionPaired(tx, rx, ...)."
+            )
         if method not in _VALID_METHODS:
             raise ValueError(
                 f"Unknown method {method!r}. Valid: {list(_VALID_METHODS)}"
-            )
-        if method == "paired":
-            warnings.warn(
-                "method='paired' is a pedagogic reference formulation: it is exact but "
-                "O(M²) per patch pair and runs far slower than the default 'spectral'. "
-                "Use it only for teaching or cross-checks.",
-                UserWarning,
-                stacklevel=3,
             )
         return method
 
@@ -317,13 +303,13 @@ class Reception(ReceptionBase):
         per_scatterer=False,
         focused_sum=False,
     ):
-        """Dispatch on ``self.method`` (spectral / paired / conventional family).
+        """Dispatch on ``self.method`` (spectral / conventional family).
 
-        ``"spectral"`` and ``"paired"`` run the PE-SDI cores here; ``"fst"``/``"sdi"``/
+        ``"spectral"`` runs the PE-SDI core here; ``"fst"``/``"sdi"``/
         ``"auto"`` delegate to `ReceptionConventional` with that SIR-sampling kernel.
         Signature is the one `pulse_echo_rf` / `_focused_sum_rf` and the
         `ReceptionBase` wrappers rely on. ``n_integrations`` is the PE-SDI integration
-        count (4 = full I⁴) used by the spectral/paired cores; the conventional
+        count (4 = full I⁴) used by the spectral core; the conventional
         branch ignores it (it builds ``h_tx ⊛ h_rx`` directly, Field II convention).
 
         Parameters
@@ -354,7 +340,7 @@ class Reception(ReceptionBase):
         method = self.method
 
         # Per-element excitation (L, E) needs each TX element's pulse folded into its own
-        # partial SIR. The spectral/paired cores build one fused TX spectrum, so they
+        # partial SIR. The spectral core builds one fused TX spectrum, so it
         # cannot; the conventional core (a per-element SIR loop) can — route there.
         exc = self._resolve_excitation()
         if exc is not None and exc.ndim == 2 and method not in _CONVENTIONAL_METHODS:
@@ -380,8 +366,7 @@ class Reception(ReceptionBase):
             )
             self.time_log = conv.time_log  # surface the delegate's phase timings
             return out
-        core = self._rf_paired if method == "paired" else self._rf_spectral
-        return core(
+        return self._rf_spectral(
             points_m,
             amps,
             n_integrations=n_integrations,
@@ -860,114 +845,6 @@ class Reception(ReceptionBase):
                 f"  Nt         : {rf.shape[1]}   ({self._fmt_time_log()})"
             )
         return self._finalize(rf, t0_g, dt, focused_sum, downsampling)
-
-    # ------------------------------------------------------------------
-    # paired SDI PE: Σ a_i a_j w(t − τ_i − τ_j),  w = I⁴ v_pe (no FFT, no cumsum)
-    # ------------------------------------------------------------------
-
-    def _rf_paired(
-        self,
-        points_m,
-        amps,
-        *,
-        n_integrations,
-        downsampling,
-        per_scatterer,
-        focused_sum,
-    ):
-        """Paired SDI PE core: precompute ``w = I⁴ v_pe`` once, splat it per patch pair.
-
-        Pushes the four integrations onto the drive once (``w = I⁴ v_pe``), then for each of
-        the 16 corner events of every TX–RX patch pair lays down a shifted, scaled copy of
-        ``w`` — no FFT and no cumulative sum, the output is the RF directly. Exact (it
-        reproduces the Fourier convolution), but O(len(w)) per pair, so it is the small-
-        aperture / cross-check path. Attenuation is not supported here (it would need a
-        separate integrated kernel per depth); use ``method='spectral'`` or ``'conventional'``.
-        """
-        s = self._pe_setup(
-            points_m,
-            n_integrations=n_integrations,
-            per_scatterer=per_scatterer,
-            focused_sum=focused_sum,
-            label="Reception [paired]",
-        )
-        if s["do_attenuation"]:
-            raise NotImplementedError(
-                "method='paired' does not support attenuation; "
-                "use method='spectral' or 'conventional'."
-            )
-        if s["inv_jw_pow"] is None:
-            raise ValueError("method='paired' requires n_integrations > 0 (full I⁴).")
-
-        pe_t0, pe_T, dt = s["pe_t0"], s["pe_T"], s["dt"]
-        # w = I⁴ v_pe = irfft( ÷(jω)⁴ · fft_v · fft_ir_tx · fft_ir_rx ) on the pe_T grid.
-        # ÷(jω)⁴ is zero-phase and delocalized, so the per-pair splat must be circular over
-        # the full nfft (sliced to pe_T) to match the FFT convolution; hence the full-length
-        # kernel.
-        with self._timer("fft_s"):
-            filt = s["inv_jw_pow"].astype(np.complex128)
-            for f in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
-                if f is not None:
-                    filt = filt * f
-            w = np.ascontiguousarray(irfft(filt, n=s["nfft"]))  # length nfft
-
-        P = points_m.shape[0]
-        t_wall = time.time()
-        rf = np.zeros(
-            (P, s["n_out"], pe_T) if per_scatterer else (s["n_out"], pe_T),
-            dtype=np.float32,
-        )
-        el_iter = (
-            _wrap_tqdm(
-                range(s["n_out"]), desc="RX elements", total=s["n_out"], leave=True
-            )
-            if s["show"]
-            else range(s["n_out"])
-        )
-        # ETA + in-place progress only when the projected run exceeds ~30 s
-        # (tqdm already shows progress in verbose mode).
-        el_iter = _eta_progress(
-            el_iter, s["n_out"], label="RX elements", progress=not s["show"]
-        )
-        for e_rx in el_iter:
-            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = s["rx_groups"][e_rx]
-            with self._timer("sir_s"):
-                rf_pe = compute_pe_complete(
-                    points_m,
-                    self._tx_centers,
-                    self._tx_wx,
-                    self._tx_wy,
-                    self._tx_apod,
-                    self._tx_delays,
-                    rx_c,
-                    rx_wx,
-                    rx_wy,
-                    rx_ap,
-                    rx_dl,
-                    w,
-                    s["inv_c"],
-                    pe_t0,
-                    pe_T,
-                    self.fs,
-                    dt,
-                    tx_eu=self._tx_eu,
-                    tx_ev=self._tx_ev,
-                    rx_eu=rx_eu,
-                    rx_ev=rx_ev,
-                )  # (P, pe_T) float32 — already the RF (w convolved in)
-            if per_scatterer:
-                rf[:, e_rx, :] = (rf_pe * amps[:, np.newaxis] * s["scale"]).astype(
-                    np.float32
-                )
-            else:
-                rf[e_rx, :] = ((amps @ rf_pe) * s["scale"]).astype(np.float32)
-
-        if s["show"]:
-            print(
-                f"Reception [paired] computed in {time.time() - t_wall:.2f} s "
-                f"({self._fmt_time_log()})\n"
-            )
-        return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
     def pulse_echo_rf(
         self,
