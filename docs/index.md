@@ -80,7 +80,7 @@ field_points = {
 
 # Run monochromatic simulation and visualize
 sim = diva.Emission(tx, monochromatic=True)
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)
 diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 ```
 
@@ -116,7 +116,7 @@ diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 
     ---
 
-    CW / transient / attenuated emission fields, and full pulse-echo **RF** for
+    monochromatic / transient / attenuated emission fields, and full pulse-echo **RF** for
     PSF, phantom, FMC, and sequence (PW/DW) studies.
 
 -   :lucide-radio-tower: **Rich transducer library**

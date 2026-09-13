@@ -1,6 +1,6 @@
 ---
 name: esdiva-simulate
-description: Help someone use the eSDIva ultrasound field simulator — build a transducer (linear/convex/matrix array, circular piston or bowl, custom or Field II import), run an emission pressure-field simulation (CW or transient), run a pulse-echo RF simulation (PSF, phantom, plane-/diverging-wave sequence), beamform it or feed the RF to their own beamformer, choose a working PyVista/Matplotlib backend, and explain the SIR/SDI physics behind a result. Use whenever the user mentions eSDIva, a spatial impulse response, an acoustic pressure field, a transducer aperture, a point spread function, RF channel data, delay-and-sum, or an ultrasound imaging simulation.
+description: Help someone use the eSDIva ultrasound field simulator — build a transducer (linear/convex/matrix array, circular piston or bowl, custom or Field II import), run an emission pressure-field simulation (monochromatic or transient), run a pulse-echo RF simulation (PSF, phantom, plane-/diverging-wave sequence), beamform it or feed the RF to their own beamformer, choose a working PyVista/Matplotlib backend, and explain the SIR/SDI physics behind a result. Use whenever the user mentions eSDIva, a spatial impulse response, an acoustic pressure field, a transducer aperture, a point spread function, RF channel data, delay-and-sum, or an ultrasound imaging simulation.
 ---
 
 # Simulating with eSDIva
@@ -52,9 +52,9 @@ same Jensen / Tupholme–Stepanishen model — which is usually the fastest way 
 them concrete for a user.
 
 Distinguish **never** from **not yet**. The list above is the model itself and will not
-change in a release; a handful of neighbouring things (soft-baffle/obliquity weighting,
-per-element impulse responses, frequency-dependent scatterer amplitudes, a per-region
-attenuation map) are current gaps with workarounds — `references/physics.md` § '"Never"
+change in a release; a handful of neighbouring things (per-element impulse responses,
+frequency-dependent scatterer amplitudes, a per-region attenuation map) are current gaps
+with workarounds — `references/physics.md` § '"Never"
 versus "not yet"' has the table. Saying "impossible" where the honest answer is "not
 yet, do it this way" is as misleading as the reverse.
 
@@ -86,14 +86,15 @@ it is installed. Read one reference, not all of them.
 | User wants | Read |
 |---|---|
 | A probe / aperture / geometry, delays, apodization, moving a probe in space | `references/transducers.md` |
-| A pressure field: beam plot, CW amplitude, propagating wavefront, intensity, attenuation | `references/emission.md` |
+| A pressure field: beam plot, monochromatic amplitude, propagating wavefront, intensity, attenuation, soft baffle | `references/emission.md` |
 | RF channel data, PSF, phantom image, PW/DW sequence, FMC, DAS, B-mode | `references/reception.md` |
 | What the RF output means, feeding it to a *custom* or third-party beamformer, exporting to USTB/MATLAB | `references/reception.md` § "What the RF output actually is" |
 | A figure that actually appears — notebook vs desktop vs headless, PyVista backends, saving movies | `references/visualization.md` |
 | "Why does the field look like this", method choice, sampling, `t0`, Field II equivalence | `references/physics.md` |
 | Whether a study is physically in scope at all — skull, layers, harmonics, flow, HIFU dose | `references/physics.md` § "What eSDIva cannot compute" |
+| How a result has been verified, how accurate it is, which method is faster, past bugs to not reintroduce | `references/validation.md` |
 
-Templates: `emission_cw.py` (beam profile), `emission_transient.py` (wavefront),
+Templates: `emission_monochromatic.py` (beam profile), `emission_transient.py` (wavefront),
 `reception_psf.py` (point spread function + timing check),
 `reception_sequence_das.py` (DW sequence → RF → image, with a hand-written
 beamformer beside the built-in one).
@@ -107,9 +108,10 @@ beamformer beside the built-in one).
    set patch size, which sets accuracy: a patch must be small compared with the
    wavelength or the SIR is quantised. Start at 2–4 per element side and check the
    result stops changing when you double it.
-3. **Return shapes.** `Emission(tx, monochromatic=True)` → `(Nx, Ny, Nz)` CW
-   amplitude at `fc`. Any transient emission → `(Nt, Nx, Ny, Nz)` with
-   `coords["t0"]` and `coords["dt"]`. `Reception.pulse_echo_rf` → `(Erx, Nt)`.
+3. **Return shapes and units.** `Emission(tx, monochromatic=True)` → `(Nx, Ny, Nz)`
+   pressure amplitude `ρ·ωc·|H|` at exactly `fc` (Pa per 1 m/s). Any transient emission
+   → `(Nt, Nx, Ny, Nz)` **signed** pressure in Pa (compression > 0, rarefaction < 0),
+   with `coords["t0"]` and `coords["dt"]`. `Reception.pulse_echo_rf` → `(Erx, Nt)`.
 4. **`coords["t0"]` is the beamforming reference, not the first sample's instant.**
    The two-way pulse lag and the transmit bulk delay are already subtracted, so an
    echo peaks at its *geometric* round-trip time. Any beamformer, built-in or
@@ -129,9 +131,10 @@ beamformer beside the built-in one).
 7. **Sampling.** `fs` defaults to 100 MHz and must oversample the pulse heavily — the
    SIR is a train of sharp edges, not a band-limited signal. 100–200 MHz for a
    few-MHz probe. Decimate afterwards with `downsampling=`, never by lowering `fs`.
-8. **Method selection.** Leave `method="auto"` for emission (`"FST"` = classic fully
-   sampled trapezoid, `"sdi"` = sparse delta integration; same answer, faster on
-   large grids) and `method="spectral"` for `Reception`, unless benchmarking.
+8. **Method selection.** Leave the defaults: `Emission(method=None)` picks the measured
+   fastest SIR source (spectral closed-form `H(ω)` for monochromatic and per-element
+   cases, temporal sampled `h(t)` otherwise) and `Reception` uses `"spectral"`. Both
+   sources give the same result (≤ ~1 %); pin one only to benchmark or reproduce.
 9. **Cost is the grid.** Runtime scales with field points × patches. Prototype on a
    coarse 2-D plane (`y_extent: [0, 0]`, `dy: 0`), then refine. Warn before
    launching anything that will take hours, and use `out_path=` checkpointing for it.

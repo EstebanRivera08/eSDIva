@@ -495,7 +495,7 @@
       "source_file": "examples/example10_intensities_peak_pressure.py",
       "source_location": "L1",
       "id": "examples_example10_intensities_peak_pressure_py",
-      "community": 113,
+      "community": 59,
       "norm_label": "example10_intensities_peak_pressure.py"
     },
     {
@@ -504,7 +504,7 @@
       "source_file": "examples/example10_intensities_peak_pressure.py",
       "source_location": "L99",
       "id": "examples_example10_intensities_peak_pressure_run_axial",
-      "community": 113,
+      "community": 59,
       "norm_label": "run_axial()"
     },
     {
@@ -513,7 +513,7 @@
       "source_file": "examples/example10_intensities_peak_pressure.py",
       "source_location": "L1",
       "id": "examples_example10_intensities_peak_pressure_rationale_1",
-      "community": 113,
+      "community": 59,
       "norm_label": "example 10: linear array \u2014 peak pressure and ispta along acoustic axis  field"
     },
     {
@@ -1804,22 +1804,22 @@
       "norm_label": "domino_fieldii.m"
     },
     {
-      "label": "emission_cw.py",
+      "label": "emission_monochromatic.py",
       "file_type": "code",
-      "source_file": "skills/esdiva-simulate/templates/emission_cw.py",
+      "source_file": "skills/esdiva-simulate/templates/emission_monochromatic.py",
       "source_location": "L1",
-      "id": "skills_esdiva_simulate_templates_emission_cw_py",
-      "community": 241,
-      "norm_label": "emission_cw.py"
+      "id": "skills_esdiva_simulate_templates_emission_monochromatic_py",
+      "community": 258,
+      "norm_label": "emission_monochromatic.py"
     },
     {
-      "label": "Continuous-wave beam profile of a focused linear array.  Monochromatic emission",
+      "label": "Monochromatic beam profile of a focused linear array.  Monochromatic emission re",
       "file_type": "rationale",
-      "source_file": "skills/esdiva-simulate/templates/emission_cw.py",
+      "source_file": "skills/esdiva-simulate/templates/emission_monochromatic.py",
       "source_location": "L1",
-      "id": "templates_emission_cw_rationale_1",
-      "community": 241,
-      "norm_label": "continuous-wave beam profile of a focused linear array.  monochromatic emission"
+      "id": "templates_emission_monochromatic_rationale_1",
+      "community": 258,
+      "norm_label": "monochromatic beam profile of a focused linear array.  monochromatic emission re"
     },
     {
       "label": "emission_transient.py",
@@ -2106,7 +2106,7 @@
       "source_file": "src/esdiva/attenuation/attenuation.py",
       "source_location": "L70",
       "id": "src_esdiva_attenuation_attenuation_py_ndarray",
-      "community": 203,
+      "community": 38,
       "norm_label": "ndarray"
     },
     {
@@ -2133,7 +2133,7 @@
       "source_file": "src/esdiva/attenuation/attenuation.py",
       "source_location": "L230",
       "id": "src_esdiva_attenuation_attenuation_py_str",
-      "community": 43,
+      "community": 203,
       "norm_label": "str"
     },
     {
@@ -2464,7 +2464,7 @@
       "label": "Emission",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L53",
+      "source_location": "L55",
       "id": "emission_emission_emission",
       "community": 53,
       "norm_label": "emission"
@@ -2473,7 +2473,7 @@
       "label": ".__init__()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L104",
+      "source_location": "L107",
       "id": "emission_emission_emission_init",
       "community": 53,
       "norm_label": ".__init__()"
@@ -2482,7 +2482,7 @@
       "label": "._validate_method()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L151",
+      "source_location": "L154",
       "id": "emission_emission_emission_validate_method",
       "community": 53,
       "norm_label": "._validate_method()"
@@ -2491,7 +2491,7 @@
       "label": "._refresh_sub_elem_attributes()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L156",
+      "source_location": "L159",
       "id": "emission_emission_emission_refresh_sub_elem_attributes",
       "community": 53,
       "norm_label": "._refresh_sub_elem_attributes()"
@@ -2500,7 +2500,7 @@
       "label": ".set()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L174",
+      "source_location": "L177",
       "id": "emission_emission_emission_set",
       "community": 53,
       "norm_label": ".set()"
@@ -2509,7 +2509,7 @@
       "label": "str",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L174",
+      "source_location": "L177",
       "id": "src_esdiva_emission_emission_py_str",
       "community": 53,
       "norm_label": "str"
@@ -2518,7 +2518,7 @@
       "label": "._timer()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L208",
+      "source_location": "L211",
       "id": "emission_emission_emission_timer",
       "community": 30,
       "norm_label": "._timer()"
@@ -2527,7 +2527,7 @@
       "label": "._apply_ir_to_excitation()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L217",
+      "source_location": "L220",
       "id": "emission_emission_emission_apply_ir_to_excitation",
       "community": 30,
       "norm_label": "._apply_ir_to_excitation()"
@@ -2536,7 +2536,7 @@
       "label": "._points_from_field()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L229",
+      "source_location": "L232",
       "id": "emission_emission_emission_points_from_field",
       "community": 219,
       "norm_label": "._points_from_field()"
@@ -2545,7 +2545,7 @@
       "label": "._time_grid()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L238",
+      "source_location": "L241",
       "id": "emission_emission_emission_time_grid",
       "community": 219,
       "norm_label": "._time_grid()"
@@ -2554,7 +2554,7 @@
       "label": ".compute_deltak()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L254",
+      "source_location": "L257",
       "id": "emission_emission_emission_compute_deltak",
       "community": 219,
       "norm_label": ".compute_deltak()"
@@ -2563,16 +2563,16 @@
       "label": "._groups()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L303",
+      "source_location": "L306",
       "id": "emission_emission_emission_groups",
-      "community": 30,
+      "community": 53,
       "norm_label": "._groups()"
     },
     {
       "label": "._sir_spectrum()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L325",
+      "source_location": "L328",
       "id": "emission_emission_emission_sir_spectrum",
       "community": 15,
       "norm_label": "._sir_spectrum()"
@@ -2581,7 +2581,7 @@
       "label": "._atten()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L353",
+      "source_location": "L360",
       "id": "emission_emission_emission_atten",
       "community": 15,
       "norm_label": "._atten()"
@@ -2590,7 +2590,7 @@
       "label": "._tf()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L360",
+      "source_location": "L367",
       "id": "emission_emission_emission_tf",
       "community": 15,
       "norm_label": "._tf()"
@@ -2599,7 +2599,7 @@
       "label": "._bins()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L368",
+      "source_location": "L375",
       "id": "emission_emission_emission_bins",
       "community": 15,
       "norm_label": "._bins()"
@@ -2608,7 +2608,7 @@
       "label": "._monochromatic()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L378",
+      "source_location": "L385",
       "id": "emission_emission_emission_monochromatic",
       "community": 15,
       "norm_label": "._monochromatic()"
@@ -2617,7 +2617,7 @@
       "label": "._transient()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L391",
+      "source_location": "L398",
       "id": "emission_emission_emission_transient",
       "community": 15,
       "norm_label": "._transient()"
@@ -2626,7 +2626,7 @@
       "label": ".__call__()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L429",
+      "source_location": "L441",
       "id": "emission_emission_emission_call",
       "community": 30,
       "norm_label": ".__call__()"
@@ -2635,7 +2635,7 @@
       "label": "ndarray",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L429",
+      "source_location": "L441",
       "id": "src_esdiva_emission_emission_py_ndarray",
       "community": 30,
       "norm_label": "ndarray"
@@ -2644,7 +2644,7 @@
       "label": ".__repr__()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L510",
+      "source_location": "L522",
       "id": "emission_emission_emission_repr",
       "community": 53,
       "norm_label": ".__repr__()"
@@ -2653,7 +2653,7 @@
       "label": "_band()",
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L519",
+      "source_location": "L531",
       "id": "emission_emission_band",
       "community": 15,
       "norm_label": "_band()"
@@ -2671,8 +2671,8 @@
       "label": "Compute emitted acoustic pressure fields (monochromatic or transient).      Para",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L54",
-      "id": "emission_emission_rationale_54",
+      "source_location": "L56",
+      "id": "emission_emission_rationale_56",
       "community": 53,
       "norm_label": "compute emitted acoustic pressure fields (monochromatic or transient).      para"
     },
@@ -2680,8 +2680,8 @@
       "label": "Update a simulation parameter at runtime.          Parameters         ----------",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L175",
-      "id": "emission_emission_rationale_175",
+      "source_location": "L178",
+      "id": "emission_emission_rationale_178",
       "community": 53,
       "norm_label": "update a simulation parameter at runtime.          parameters         ----------"
     },
@@ -2689,8 +2689,8 @@
       "label": "Add the wall-clock time of the enclosed block to ``self.time_log[key]``.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L209",
-      "id": "emission_emission_rationale_209",
+      "source_location": "L212",
+      "id": "emission_emission_rationale_212",
       "community": 30,
       "norm_label": "add the wall-clock time of the enclosed block to ``self.time_log[key]``."
     },
@@ -2698,8 +2698,8 @@
       "label": "Transmitted pulse ``exc \u229b ir`` at full length ``L + L_ir \u2212 1`` (float32).",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L218",
-      "id": "emission_emission_rationale_218",
+      "source_location": "L221",
+      "id": "emission_emission_rationale_221",
       "community": 30,
       "norm_label": "transmitted pulse ``exc \u229b ir`` at full length ``l + l_ir \u2212 1`` (float32)."
     },
@@ -2707,8 +2707,8 @@
       "label": "Parse field points (grid dict or raw mm array) \u2192 ``(x, y, z, points_m)``.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L230",
-      "id": "emission_emission_rationale_230",
+      "source_location": "L233",
+      "id": "emission_emission_rationale_233",
       "community": 219,
       "norm_label": "parse field points (grid dict or raw mm array) \u2192 ``(x, y, z, points_m)``."
     },
@@ -2716,8 +2716,8 @@
       "label": "SIR time window ``(time_grid, t0, dt, T)`` covering every point.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L239",
-      "id": "emission_emission_rationale_239",
+      "source_location": "L242",
+      "id": "emission_emission_rationale_242",
       "community": 219,
       "norm_label": "sir time window ``(time_grid, t0, dt, t)`` covering every point."
     },
@@ -2725,8 +2725,8 @@
       "label": "Per-patch trapezoid width \u0394k (in samples) for every field point.          SIR-ac",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L255",
-      "id": "emission_emission_rationale_255",
+      "source_location": "L258",
+      "id": "emission_emission_rationale_258",
       "community": 219,
       "norm_label": "per-patch trapezoid width \u03b4k (in samples) for every field point.          sir-ac"
     },
@@ -2734,26 +2734,26 @@
       "label": "Radiating groups ``(patch arrays, path origin)``.          One group = the whole",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L304",
-      "id": "emission_emission_rationale_304",
-      "community": 30,
+      "source_location": "L307",
+      "id": "emission_emission_rationale_307",
+      "community": 53,
       "norm_label": "radiating groups ``(patch arrays, path origin)``.          one group = the whole"
     },
     {
-      "label": "``fs\u00b7H(\u03c9)`` of one patch group at ``pts``, phase-referenced to ``t0`` \u2192 (P, N_\u03c9)",
+      "label": "Continuous SIR spectrum ``H(\u03c9)`` of one patch group, phase-referenced to ``t0``.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L326",
-      "id": "emission_emission_rationale_326",
+      "source_location": "L329",
+      "id": "emission_emission_rationale_329",
       "community": 15,
-      "norm_label": "``fs\u00b7h(\u03c9)`` of one patch group at ``pts``, phase-referenced to ``t0`` \u2192 (p, n_\u03c9)"
+      "norm_label": "continuous sir spectrum ``h(\u03c9)`` of one patch group, phase-referenced to ``t0``."
     },
     {
       "label": "Causal attenuation ``H_att(f, |r \u2212 origin|)`` \u2192 (P, N_f), or 1 if disabled.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L354",
-      "id": "emission_emission_rationale_354",
+      "source_location": "L361",
+      "id": "emission_emission_rationale_361",
       "community": 15,
       "norm_label": "causal attenuation ``h_att(f, |r \u2212 origin|)`` \u2192 (p, n_f), or 1 if disabled."
     },
@@ -2761,8 +2761,8 @@
       "label": "User transfer function on ``freqs`` (1 if unset).",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L361",
-      "id": "emission_emission_rationale_361",
+      "source_location": "L368",
+      "id": "emission_emission_rationale_368",
       "community": 15,
       "norm_label": "user transfer function on ``freqs`` (1 if unset)."
     },
@@ -2770,35 +2770,35 @@
       "label": "Field-point groups sorted by distance to the aperture (see `_POINTS_PER_BIN`).",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L369",
-      "id": "emission_emission_rationale_369",
+      "source_location": "L376",
+      "id": "emission_emission_rationale_376",
       "community": 15,
       "norm_label": "field-point groups sorted by distance to the aperture (see `_points_per_bin`)."
     },
     {
-      "label": "``|\u03a3_g fs\u00b7H_g(\u03c9c)\u00b7H_att,g(fc)| \u00b7 |TF(fc)|`` \u2192 (P,).",
+      "label": "``\u03c9c\u00b7|\u03a3_g H_g(\u03c9c)\u00b7H_att,g(fc)\u00b7TF(fc)|`` \u2192 (P,): |P|/\u03c1 per 1 m/s at fc.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L379",
-      "id": "emission_emission_rationale_379",
+      "source_location": "L386",
+      "id": "emission_emission_rationale_386",
       "community": 15,
-      "norm_label": "``|\u03c3_g fs\u00b7h_g(\u03c9c)\u00b7h_att,g(fc)| \u00b7 |tf(fc)|`` \u2192 (p,)."
+      "norm_label": "``\u03c9c\u00b7|\u03c3_g h_g(\u03c9c)\u00b7h_att,g(fc)\u00b7tf(fc)|`` \u2192 (p,): |p|/\u03c1 per 1 m/s at fc."
     },
     {
-      "label": "Signed ``irfft(\u03a3_g fs\u00b7H_g \u00b7 D_g \u00b7 TF \u00b7 H_att,g)`` on one shared time axis \u2192 (T,",
+      "label": "Signed ``irfft(\u03a3_g H_g \u00b7 D_g \u00b7 TF \u00b7 H_att,g)`` on one shared time axis \u2192 (T, P).",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L392",
-      "id": "emission_emission_rationale_392",
+      "source_location": "L399",
+      "id": "emission_emission_rationale_399",
       "community": 15,
-      "norm_label": "signed ``irfft(\u03c3_g fs\u00b7h_g \u00b7 d_g \u00b7 tf \u00b7 h_att,g)`` on one shared time axis \u2192 (t,"
+      "norm_label": "signed ``irfft(\u03c3_g h_g \u00b7 d_g \u00b7 tf \u00b7 h_att,g)`` on one shared time axis \u2192 (t, p)."
     },
     {
       "label": "Compute the pressure field at given field points.          Modes (instance state",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L430",
-      "id": "emission_emission_rationale_430",
+      "source_location": "L442",
+      "id": "emission_emission_rationale_442",
       "community": 30,
       "norm_label": "compute the pressure field at given field points.          modes (instance state"
     },
@@ -2806,8 +2806,8 @@
       "label": "Contiguous bin span ``[b0, b1)`` where ``mag`` exceeds ``tol`` of its peak.",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L520",
-      "id": "emission_emission_rationale_520",
+      "source_location": "L532",
+      "id": "emission_emission_rationale_532",
       "community": 15,
       "norm_label": "contiguous bin span ``[b0, b1)`` where ``mag`` exceeds ``tol`` of its peak."
     },
@@ -2817,7 +2817,7 @@
       "source_file": "src/esdiva/emission/__init__.py",
       "source_location": "L1",
       "id": "src_esdiva_emission_init_py",
-      "community": 53,
+      "community": 235,
       "norm_label": "__init__.py"
     },
     {
@@ -2826,7 +2826,7 @@
       "source_file": "src/esdiva/emission/__init__.py",
       "source_location": "L1",
       "id": "emission_init_rationale_1",
-      "community": 53,
+      "community": 235,
       "norm_label": "acoustic pressure field emission engine."
     },
     {
@@ -2835,7 +2835,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L1",
       "id": "src_esdiva_hsir_helpers_py",
-      "community": 191,
+      "community": 113,
       "norm_label": "helpers.py"
     },
     {
@@ -2853,7 +2853,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L76",
       "id": "hsir_helpers_identity_tangents",
-      "community": 191,
+      "community": 113,
       "norm_label": "identity_tangents()"
     },
     {
@@ -2862,7 +2862,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L101",
       "id": "hsir_helpers_pack_tangents",
-      "community": 191,
+      "community": 113,
       "norm_label": "pack_tangents()"
     },
     {
@@ -2871,7 +2871,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L126",
       "id": "hsir_helpers_prep_pe_arrays",
-      "community": 191,
+      "community": 113,
       "norm_label": "_prep_pe_arrays()"
     },
     {
@@ -2880,7 +2880,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L1",
       "id": "hsir_helpers_rationale_1",
-      "community": 191,
+      "community": 113,
       "norm_label": "shared helpers for the far-field rectangular-patch sir kernels.  holds the geo"
     },
     {
@@ -2898,7 +2898,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L77",
       "id": "hsir_helpers_rationale_77",
-      "community": 191,
+      "community": 113,
       "norm_label": "flat-patch local frames for m patches: u = (1,0,0), v = (0,1,0).      used whe"
     },
     {
@@ -2907,7 +2907,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L102",
       "id": "hsir_helpers_rationale_102",
-      "community": 191,
+      "community": 113,
       "norm_label": "pack (m,3) in-plane unit-vector pairs into one contiguous (m, 6) float32 array."
     },
     {
@@ -2916,7 +2916,7 @@
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L148",
       "id": "hsir_helpers_rationale_148",
-      "community": 191,
+      "community": 113,
       "norm_label": "cast pulse-echo tx/rx patch arrays to float32 and pack their tangent frames."
     },
     {
@@ -3123,7 +3123,7 @@
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L201",
       "id": "hsir_sir_spectral_twoway_summed_points",
-      "community": 233,
+      "community": 193,
       "norm_label": "_twoway_summed_points()"
     },
     {
@@ -3141,7 +3141,7 @@
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L322",
       "id": "hsir_sir_spectral_compute_twoway_spectrum_summed",
-      "community": 233,
+      "community": 193,
       "norm_label": "compute_twoway_spectrum_summed()"
     },
     {
@@ -3204,7 +3204,7 @@
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L236",
       "id": "hsir_sir_spectral_rationale_236",
-      "community": 233,
+      "community": 193,
       "norm_label": "\u03c3_p a_p\u00b7h_tx(p)\u00b7h_rx,e(p)\u00b7h_att(d_pe) \u2192 (n_out, n_\u03c9), one parallel pass."
     },
     {
@@ -3222,7 +3222,7 @@
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L333",
       "id": "hsir_sir_spectral_rationale_333",
-      "community": 233,
+      "community": 193,
       "norm_label": "amplitude-summed pulse-echo sir spectrum per receive element.      returns ``s"
     },
     {
@@ -3321,7 +3321,7 @@
       "source_file": "src/esdiva/hsir/__init__.py",
       "source_location": "L1",
       "id": "src_esdiva_hsir_init_py",
-      "community": 233,
+      "community": 191,
       "norm_label": "__init__.py"
     },
     {
@@ -3330,7 +3330,7 @@
       "source_file": "src/esdiva/hsir/__init__.py",
       "source_location": "L1",
       "id": "hsir_init_rationale_1",
-      "community": 233,
+      "community": 191,
       "norm_label": "spatial impulse response computation engine."
     },
     {
@@ -4518,7 +4518,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1",
       "id": "src_esdiva_reception_base_py",
-      "community": 235,
+      "community": 12,
       "norm_label": "base.py"
     },
     {
@@ -4536,7 +4536,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L75",
       "id": "reception_base_anti_alias_decimate",
-      "community": 235,
+      "community": 12,
       "norm_label": "_anti_alias_decimate()"
     },
     {
@@ -4545,7 +4545,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L83",
       "id": "reception_base_countdown",
-      "community": 235,
+      "community": 12,
       "norm_label": "_countdown()"
     },
     {
@@ -4554,7 +4554,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L97",
       "id": "reception_base_receptionbase",
-      "community": 62,
+      "community": 12,
       "norm_label": "receptionbase"
     },
     {
@@ -4563,7 +4563,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L117",
       "id": "reception_base_pulse_echo_rf",
-      "community": 235,
+      "community": 12,
       "norm_label": "pulse_echo_rf()"
     },
     {
@@ -4572,7 +4572,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L117",
       "id": "src_esdiva_reception_base_py_any",
-      "community": 235,
+      "community": 12,
       "norm_label": "any"
     },
     {
@@ -4581,7 +4581,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L117",
       "id": "src_esdiva_reception_base_py_ndarray",
-      "community": 235,
+      "community": 12,
       "norm_label": "ndarray"
     },
     {
@@ -4590,7 +4590,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L120",
       "id": "reception_base_focused_sum_rf",
-      "community": 235,
+      "community": 12,
       "norm_label": "_focused_sum_rf()"
     },
     {
@@ -4599,7 +4599,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L125",
       "id": "reception_base_receptionbase_call",
-      "community": 62,
+      "community": 12,
       "norm_label": ".__call__()"
     },
     {
@@ -4635,7 +4635,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L152",
       "id": "reception_base_receptionbase_fmt_time_log",
-      "community": 62,
+      "community": 12,
       "norm_label": "._fmt_time_log()"
     },
     {
@@ -4644,7 +4644,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L164",
       "id": "reception_base_receptionbase_refresh_sub_elem_attributes",
-      "community": 32,
+      "community": 6,
       "norm_label": "._refresh_sub_elem_attributes()"
     },
     {
@@ -4653,7 +4653,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L196",
       "id": "reception_base_receptionbase_set",
-      "community": 32,
+      "community": 6,
       "norm_label": ".set()"
     },
     {
@@ -4662,7 +4662,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L196",
       "id": "src_esdiva_reception_base_py_str",
-      "community": 32,
+      "community": 6,
       "norm_label": "str"
     },
     {
@@ -4671,7 +4671,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L219",
       "id": "reception_base_receptionbase_extract_rx_element_patches",
-      "community": 62,
+      "community": 12,
       "norm_label": "._extract_rx_element_patches()"
     },
     {
@@ -4680,7 +4680,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L235",
       "id": "reception_base_receptionbase_rx_groups",
-      "community": 62,
+      "community": 12,
       "norm_label": "._rx_groups()"
     },
     {
@@ -4725,7 +4725,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L365",
       "id": "reception_base_receptionbase_accumulate_depth_bins",
-      "community": 62,
+      "community": 254,
       "norm_label": "._accumulate_depth_bins()"
     },
     {
@@ -4734,7 +4734,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L387",
       "id": "reception_base_receptionbase_auto_depth_bins",
-      "community": 62,
+      "community": 250,
       "norm_label": "._auto_depth_bins()"
     },
     {
@@ -4824,7 +4824,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1315",
       "id": "reception_base_receptionbase_apply_focus_apod",
-      "community": 32,
+      "community": 44,
       "norm_label": "._apply_focus_apod()"
     },
     {
@@ -4833,7 +4833,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1329",
       "id": "reception_base_receptionbase_scan_focusline",
-      "community": 32,
+      "community": 44,
       "norm_label": ".scan_focusline()"
     },
     {
@@ -4842,7 +4842,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1",
       "id": "reception_base_rationale_1",
-      "community": 235,
+      "community": 12,
       "norm_label": "shared base class for reception and receptionconventional.  `receptionbase` ho"
     },
     {
@@ -4860,7 +4860,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L76",
       "id": "reception_base_rationale_76",
-      "community": 235,
+      "community": 12,
       "norm_label": "anti-aliased decimation along the last (time) axis (linear-phase fir)."
     },
     {
@@ -4869,7 +4869,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L84",
       "id": "reception_base_rationale_84",
-      "community": 235,
+      "community": 12,
       "norm_label": "print a 10 s abortable countdown before a heavy computation."
     },
     {
@@ -4878,7 +4878,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L98",
       "id": "reception_base_rationale_98",
-      "community": 62,
+      "community": 12,
       "norm_label": "shared state + public api for `reception` and `receptionconventional`.      su"
     },
     {
@@ -4914,7 +4914,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L153",
       "id": "reception_base_rationale_153",
-      "community": 62,
+      "community": 12,
       "norm_label": "one-line ``time_grid/sir/fft`` breakdown of the last rf computation."
     },
     {
@@ -4923,7 +4923,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L165",
       "id": "reception_base_rationale_165",
-      "community": 32,
+      "community": 6,
       "norm_label": "extract patch arrays from both tx and rx transducers."
     },
     {
@@ -4932,7 +4932,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L197",
       "id": "reception_base_rationale_197",
-      "community": 32,
+      "community": 6,
       "norm_label": "update a simulation parameter at runtime.          parameters         -------"
     },
     {
@@ -4941,7 +4941,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L220",
       "id": "reception_base_rationale_220",
-      "community": 62,
+      "community": 12,
       "norm_label": "pre-extract per-rx-element patch arrays."
     },
     {
@@ -4950,7 +4950,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L236",
       "id": "reception_base_rationale_236",
-      "community": 62,
+      "community": 12,
       "norm_label": "receive patch groups feeding the per-element / per-line sir.          ``focuse"
     },
     {
@@ -4986,7 +4986,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L366",
       "id": "reception_base_rationale_366",
-      "community": 62,
+      "community": 254,
       "norm_label": "compute the rf one depth bin at a time and sum onto one shared time axis."
     },
     {
@@ -4995,7 +4995,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L388",
       "id": "reception_base_rationale_388",
-      "community": 62,
+      "community": 250,
       "norm_label": "choose how many depth bins to split the scatterers into (1 = no binning)."
     },
     {
@@ -5085,7 +5085,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1316",
       "id": "reception_base_rationale_1316",
-      "community": 32,
+      "community": 44,
       "norm_label": "set focusing delays + apodization on ``trans`` from ``focus`` (mm)."
     },
     {
@@ -5094,7 +5094,7 @@
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1342",
       "id": "reception_base_rationale_1342",
-      "community": 32,
+      "community": 44,
       "norm_label": "one conventional focused scan line (field ii ``calc_scat`` match).          re"
     },
     {
@@ -5130,7 +5130,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L157",
       "id": "reception_conventional_receptionconventional_compute_sir_time_grids",
-      "community": 12,
+      "community": 32,
       "norm_label": "._compute_sir_time_grids()"
     },
     {
@@ -5148,7 +5148,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L185",
       "id": "reception_conventional_receptionconventional_fast_rf_binned",
-      "community": 12,
+      "community": 32,
       "norm_label": "._fast_rf_binned()"
     },
     {
@@ -5157,7 +5157,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L299",
       "id": "reception_conventional_receptionconventional_compute_rf_inner",
-      "community": 12,
+      "community": 32,
       "norm_label": "._compute_rf_inner()"
     },
     {
@@ -5166,7 +5166,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L626",
       "id": "reception_conventional_receptionconventional_pulse_echo_rf",
-      "community": 12,
+      "community": 32,
       "norm_label": ".pulse_echo_rf()"
     },
     {
@@ -5175,7 +5175,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L706",
       "id": "reception_conventional_receptionconventional_focused_sum_rf",
-      "community": 12,
+      "community": 32,
       "norm_label": "._focused_sum_rf()"
     },
     {
@@ -5220,7 +5220,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L158",
       "id": "reception_conventional_rationale_158",
-      "community": 12,
+      "community": 32,
       "norm_label": "separate tx and rx sir sample grids.          returns ``(time_grid_tx, t0_tx,"
     },
     {
@@ -5238,7 +5238,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L188",
       "id": "reception_conventional_rationale_188",
-      "community": 12,
+      "community": 32,
       "norm_label": "pulse-echo rf, split into depth bins for short per-bin ffts.          same phy"
     },
     {
@@ -5247,7 +5247,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L308",
       "id": "reception_conventional_rationale_308",
-      "community": 12,
+      "community": 32,
       "norm_label": "shared computation core for pulse_echo_rf (and the mixin wrappers).          b"
     },
     {
@@ -5256,7 +5256,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L636",
       "id": "reception_conventional_rationale_636",
-      "community": 12,
+      "community": 32,
       "norm_label": "pulse-echo rf from point scatterers.          the core reception primitive. th"
     },
     {
@@ -5265,7 +5265,7 @@
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L707",
       "id": "reception_conventional_rationale_707",
-      "community": 12,
+      "community": 32,
       "norm_label": "receive-beamformed line via in-kernel focused sum.          backend hook for `"
     },
     {
@@ -5373,7 +5373,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L79",
       "id": "reception_reception_reception",
-      "community": 222,
+      "community": 230,
       "norm_label": "reception"
     },
     {
@@ -5382,7 +5382,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L142",
       "id": "reception_reception_reception_init",
-      "community": 222,
+      "community": 230,
       "norm_label": ".__init__()"
     },
     {
@@ -5391,7 +5391,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L175",
       "id": "reception_reception_reception_validate_method",
-      "community": 222,
+      "community": 230,
       "norm_label": "._validate_method()"
     },
     {
@@ -5400,7 +5400,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L187",
       "id": "reception_reception_reception_set",
-      "community": 222,
+      "community": 230,
       "norm_label": ".set()"
     },
     {
@@ -5544,7 +5544,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L889",
       "id": "reception_reception_reception_repr",
-      "community": 222,
+      "community": 230,
       "norm_label": ".__repr__()"
     },
     {
@@ -5553,7 +5553,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L889",
       "id": "src_esdiva_reception_reception_py_str",
-      "community": 222,
+      "community": 12,
       "norm_label": "str"
     },
     {
@@ -5571,7 +5571,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L80",
       "id": "reception_reception_rationale_80",
-      "community": 222,
+      "community": 230,
       "norm_label": "compute pulse-echo rf from point scatterers (jensen's sir scattering model)."
     },
     {
@@ -5580,7 +5580,7 @@
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L188",
       "id": "reception_reception_rationale_188",
-      "community": 222,
+      "community": 230,
       "norm_label": "update a parameter at runtime, then invalidate the conventional delegate."
     },
     {
@@ -5859,7 +5859,7 @@
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L205",
       "id": "transducers_base_transducerbase_n_sub_patches",
-      "community": 193,
+      "community": 20,
       "norm_label": ".n_sub_patches()"
     },
     {
@@ -5904,7 +5904,7 @@
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L338",
       "id": "transducers_base_transducerbase_tx_n_active",
-      "community": 20,
+      "community": 256,
       "norm_label": ".tx_n_active()"
     },
     {
@@ -6228,7 +6228,7 @@
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L206",
       "id": "transducers_base_rationale_206",
-      "community": 193,
+      "community": 20,
       "norm_label": "total number of rectangular sub-patches across all elements.          returns"
     },
     {
@@ -6291,7 +6291,7 @@
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L339",
       "id": "transducers_base_rationale_339",
-      "community": 20,
+      "community": 256,
       "norm_label": "number of elements with non-zero apodization.          returns         ------"
     },
     {
@@ -9574,7 +9574,7 @@
       "label": "reception_phantom_attenuated()",
       "file_type": "code",
       "source_file": "tests/regression/test_golden.py",
-      "source_location": "L119",
+      "source_location": "L120",
       "id": "regression_test_golden_reception_phantom_attenuated",
       "community": 33,
       "norm_label": "reception_phantom_attenuated()"
@@ -9583,7 +9583,7 @@
       "label": "reception_focused_line()",
       "file_type": "code",
       "source_file": "tests/regression/test_golden.py",
-      "source_location": "L131",
+      "source_location": "L132",
       "id": "regression_test_golden_reception_focused_line",
       "community": 33,
       "norm_label": "reception_focused_line()"
@@ -9592,7 +9592,7 @@
       "label": "_run()",
       "file_type": "code",
       "source_file": "tests/regression/test_golden.py",
-      "source_location": "L154",
+      "source_location": "L155",
       "id": "regression_test_golden_run",
       "community": 33,
       "norm_label": "_run()"
@@ -9601,7 +9601,7 @@
       "label": "test_matches_golden()",
       "file_type": "code",
       "source_file": "tests/regression/test_golden.py",
-      "source_location": "L161",
+      "source_location": "L162",
       "id": "regression_test_golden_test_matches_golden",
       "community": 33,
       "norm_label": "test_matches_golden()"
@@ -10044,7 +10044,7 @@
       "source_file": "tests/unit/test_h_sir/test_sir_spectral.py",
       "source_location": "L60",
       "id": "test_h_sir_test_sir_spectral_test_twoway_summed_matches_oneway_product",
-      "community": 1,
+      "community": 193,
       "norm_label": "test_twoway_summed_matches_oneway_product()"
     },
     {
@@ -10080,7 +10080,7 @@
       "source_file": "tests/unit/test_h_sir/test_sir_spectral.py",
       "source_location": "L61",
       "id": "test_h_sir_test_sir_spectral_rationale_61",
-      "community": 1,
+      "community": 193,
       "norm_label": "fused kernel == \u03c3_p a_p \u00b7 h_tx \u00b7 h_rx,e \u00b7 h_att, per receive element."
     },
     {
@@ -11025,7 +11025,7 @@
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L78",
       "id": "test_psimulation_test_emission_testemissionpulsed",
-      "community": 59,
+      "community": 14,
       "norm_label": "testemissionpulsed"
     },
     {
@@ -11034,7 +11034,7 @@
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L79",
       "id": "test_psimulation_test_emission_testemissionpulsed_test_output_shape_structured",
-      "community": 59,
+      "community": 14,
       "norm_label": ".test_output_shape_structured()"
     },
     {
@@ -11043,7 +11043,7 @@
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L86",
       "id": "test_psimulation_test_emission_testemissionpulsed_test_output_shape_raw_points",
-      "community": 59,
+      "community": 14,
       "norm_label": ".test_output_shape_raw_points()"
     },
     {
@@ -11212,7 +11212,7 @@
       "label": ".test_unknown_method_raises()",
       "file_type": "code",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
-      "source_location": "L358",
+      "source_location": "L369",
       "id": "test_psimulation_test_emission_testspectraltemporalparity_test_unknown_method_raises",
       "community": 14,
       "norm_label": ".test_unknown_method_raises()"
@@ -11221,7 +11221,7 @@
       "label": "TestImpulseResponse",
       "file_type": "code",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
-      "source_location": "L368",
+      "source_location": "L379",
       "id": "test_psimulation_test_emission_testimpulseresponse",
       "community": 14,
       "norm_label": "testimpulseresponse"
@@ -11230,9 +11230,9 @@
       "label": ".test_ir_equals_preconvolved_pulse()",
       "file_type": "code",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
-      "source_location": "L370",
+      "source_location": "L381",
       "id": "test_psimulation_test_emission_testimpulseresponse_test_ir_equals_preconvolved_pulse",
-      "community": 14,
+      "community": 253,
       "norm_label": ".test_ir_equals_preconvolved_pulse()"
     },
     {
@@ -11299,21 +11299,21 @@
       "norm_label": "method=none: spectral for monochromatic / per-element, else temporal."
     },
     {
-      "label": "On axis, far from a small piston: p(t) \u221d +v'(t \u2212 z/c)/z (Rayleigh, signed).",
+      "label": "On axis, far from a small piston: p(t) = \u03c1\u00b7A/(2\u03c0z)\u00b7v'(t \u2212 z/c) \u2014 Rayleigh,",
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L337",
       "id": "test_psimulation_test_emission_rationale_337",
       "community": 14,
-      "norm_label": "on axis, far from a small piston: p(t) \u221d +v'(t \u2212 z/c)/z (rayleigh, signed)."
+      "norm_label": "on axis, far from a small piston: p(t) = \u03c1\u00b7a/(2\u03c0z)\u00b7v'(t \u2212 z/c) \u2014 rayleigh,"
     },
     {
       "label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir.",
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
-      "source_location": "L371",
-      "id": "test_psimulation_test_emission_rationale_371",
-      "community": 14,
+      "source_location": "L382",
+      "id": "test_psimulation_test_emission_rationale_382",
+      "community": 253,
       "norm_label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir."
     },
     {
@@ -11583,7 +11583,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L213",
       "id": "test_psimulation_test_reception_testreceptionsequence",
-      "community": 52,
+      "community": 227,
       "norm_label": "testreceptionsequence"
     },
     {
@@ -11592,7 +11592,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L216",
       "id": "test_psimulation_test_reception_testreceptionsequence_test_single_event_matches_call",
-      "community": 52,
+      "community": 227,
       "norm_label": ".test_single_event_matches_call()"
     },
     {
@@ -11601,7 +11601,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L238",
       "id": "test_psimulation_test_reception_testreceptionsequence_test_sequence_restores_tx_state",
-      "community": 52,
+      "community": 227,
       "norm_label": ".test_sequence_restores_tx_state()"
     },
     {
@@ -11610,7 +11610,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L257",
       "id": "test_psimulation_test_reception_testreceptionsequence_test_t0_per_event",
-      "community": 52,
+      "community": 227,
       "norm_label": ".test_t0_per_event()"
     },
     {
@@ -11853,7 +11853,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L649",
       "id": "test_psimulation_test_reception_testsequencecheckpoint_cloud",
-      "community": 238,
+      "community": 23,
       "norm_label": "._cloud()"
     },
     {
@@ -11889,7 +11889,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L728",
       "id": "test_psimulation_test_reception_testsequencecheckpoint_test_moving_chunked_is_chunk_count_invariant",
-      "community": 232,
+      "community": 23,
       "norm_label": ".test_moving_chunked_is_chunk_count_invariant()"
     },
     {
@@ -11907,7 +11907,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L777",
       "id": "test_psimulation_test_reception_testsequencecheckpoint_test_chunks_require_out_path",
-      "community": 238,
+      "community": 23,
       "norm_label": ".test_chunks_require_out_path()"
     },
     {
@@ -12114,7 +12114,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L214",
       "id": "test_psimulation_test_reception_rationale_214",
-      "community": 52,
+      "community": 227,
       "norm_label": "sequence_rf with multiple tx events."
     },
     {
@@ -12123,7 +12123,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L217",
       "id": "test_psimulation_test_reception_rationale_217",
-      "community": 52,
+      "community": 227,
       "norm_label": "sequence_rf with 1 event == __call__ with same delays/apod."
     },
     {
@@ -12132,7 +12132,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L239",
       "id": "test_psimulation_test_reception_rationale_239",
-      "community": 52,
+      "community": 227,
       "norm_label": "tx delays/apod must be restored after sequence_rf."
     },
     {
@@ -12141,7 +12141,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L258",
       "id": "test_psimulation_test_reception_rationale_258",
-      "community": 52,
+      "community": 227,
       "norm_label": "each event reports its own beam-axis t0; first equals coords['t0']."
     },
     {
@@ -12348,7 +12348,7 @@
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L731",
       "id": "test_psimulation_test_reception_rationale_731",
-      "community": 232,
+      "community": 23,
       "norm_label": "a moving cloud must be chunked as safely as a static one.          the grid se"
     },
     {
@@ -14076,7 +14076,7 @@
       "source_file": "ARCHITECTURE.md",
       "source_location": "L1",
       "id": "architecture_md",
-      "community": 26,
+      "community": 224,
       "norm_label": "architecture.md"
     },
     {
@@ -14085,7 +14085,7 @@
       "source_file": "ARCHITECTURE.md",
       "source_location": "L1",
       "id": "esdiva_architecture_esdiva_architecture_internals",
-      "community": 26,
+      "community": 224,
       "norm_label": "esdiva architecture & internals"
     },
     {
@@ -14094,7 +14094,7 @@
       "source_file": "ARCHITECTURE.md",
       "source_location": "L19",
       "id": "esdiva_architecture_full_api_reference",
-      "community": 26,
+      "community": 224,
       "norm_label": "full api reference"
     },
     {
@@ -14103,311 +14103,248 @@
       "source_file": "ARCHITECTURE.md",
       "source_location": "L21",
       "id": "esdiva_architecture_emission",
-      "community": 26,
+      "community": 224,
       "norm_label": "emission"
     },
     {
       "label": "Reception (Pulse-Echo RF Simulation)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L105",
+      "source_location": "L110",
       "id": "esdiva_architecture_reception_pulse_echo_rf_simulation",
-      "community": 26,
+      "community": 224,
       "norm_label": "reception (pulse-echo rf simulation)"
     },
     {
       "label": "Visualization",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L213",
+      "source_location": "L221",
       "id": "esdiva_architecture_visualization",
-      "community": 26,
+      "community": 224,
       "norm_label": "visualization"
     },
     {
       "label": "Common Modifications",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L241",
+      "source_location": "L249",
       "id": "esdiva_architecture_common_modifications",
-      "community": 26,
+      "community": 224,
       "norm_label": "common modifications"
     },
     {
       "label": "Emission Workflow",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L278",
+      "source_location": "L286",
       "id": "esdiva_architecture_emission_workflow",
-      "community": 26,
+      "community": 206,
       "norm_label": "emission workflow"
     },
     {
-      "label": "Mode Decision Tree",
+      "label": "One pipeline, two SIR sources",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L280",
-      "id": "esdiva_architecture_mode_decision_tree",
-      "community": 26,
-      "norm_label": "mode decision tree"
-    },
-    {
-      "label": "Shared Preamble (every call)",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L297",
-      "id": "esdiva_architecture_shared_preamble_every_call",
-      "community": 26,
-      "norm_label": "shared preamble (every call)"
-    },
-    {
-      "label": "[A] Mono Global",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L305",
-      "id": "esdiva_architecture_a_mono_global",
-      "community": 26,
-      "norm_label": "[a] mono global"
-    },
-    {
-      "label": "[B] Mono Per-Element",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L310",
-      "id": "esdiva_architecture_b_mono_per_element",
-      "community": 26,
-      "norm_label": "[b] mono per-element"
-    },
-    {
-      "label": "[C] Pulsed Pure",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L314",
-      "id": "esdiva_architecture_c_pulsed_pure",
-      "community": 26,
-      "norm_label": "[c] pulsed pure"
-    },
-    {
-      "label": "[D] Global FFT",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L318",
-      "id": "esdiva_architecture_d_global_fft",
-      "community": 26,
-      "norm_label": "[d] global fft"
-    },
-    {
-      "label": "[E] Per-Element Transient",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L322",
-      "id": "esdiva_architecture_e_per_element_transient",
-      "community": 26,
-      "norm_label": "[e] per-element transient"
-    },
-    {
-      "label": "Attenuation Integration",
-      "file_type": "document",
-      "source_file": "ARCHITECTURE.md",
-      "source_location": "L326",
-      "id": "esdiva_architecture_attenuation_integration",
-      "community": 26,
-      "norm_label": "attenuation integration"
+      "source_location": "L288",
+      "id": "esdiva_architecture_one_pipeline_two_sir_sources",
+      "community": 206,
+      "norm_label": "one pipeline, two sir sources"
     },
     {
       "label": "Reception Workflow",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L336",
+      "source_location": "L312",
       "id": "esdiva_architecture_reception_workflow",
-      "community": 26,
+      "community": 247,
       "norm_label": "reception workflow"
     },
     {
       "label": "Data Flow",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L338",
+      "source_location": "L314",
       "id": "esdiva_architecture_data_flow",
-      "community": 26,
+      "community": 247,
       "norm_label": "data flow"
     },
     {
       "label": "Pulse-Echo Post-Processing & Depth Binning",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L359",
+      "source_location": "L334",
       "id": "esdiva_architecture_pulse_echo_post_processing_depth_binning",
-      "community": 26,
+      "community": 247,
       "norm_label": "pulse-echo post-processing & depth binning"
     },
     {
       "label": "sequence_rf",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L404",
+      "source_location": "L380",
       "id": "esdiva_architecture_sequence_rf",
-      "community": 26,
+      "community": 247,
       "norm_label": "sequence_rf"
     },
     {
       "label": "synthetic_aperture_rf (Full Matrix Capture / synthetic aperture)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L436",
+      "source_location": "L412",
       "id": "esdiva_architecture_synthetic_aperture_rf_full_matrix_capture_synthetic_aperture",
-      "community": 26,
+      "community": 247,
       "norm_label": "synthetic_aperture_rf (full matrix capture / synthetic aperture)"
     },
     {
       "label": "scan_focusline",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L448",
+      "source_location": "L424",
       "id": "esdiva_architecture_scan_focusline",
-      "community": 26,
+      "community": 247,
       "norm_label": "scan_focusline"
     },
     {
       "label": "Imaging Simulation Recipe (phantom / sequence studies)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L455",
+      "source_location": "L431",
       "id": "esdiva_architecture_imaging_simulation_recipe_phantom_sequence_studies",
-      "community": 26,
+      "community": 209,
       "norm_label": "imaging simulation recipe (phantom / sequence studies)"
     },
     {
       "label": "1. Signal chain \u2014 set the impulse responses, always",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L461",
+      "source_location": "L437",
       "id": "esdiva_architecture_1_signal_chain_set_the_impulse_responses_always",
-      "community": 26,
+      "community": 209,
       "norm_label": "1. signal chain \u2014 set the impulse responses, always"
     },
     {
       "label": "2. Sequence design (PW / DW virtual sources)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L478",
+      "source_location": "L454",
       "id": "esdiva_architecture_2_sequence_design_pw_dw_virtual_sources",
-      "community": 26,
+      "community": 209,
       "norm_label": "2. sequence design (pw / dw virtual sources)"
     },
     {
       "label": "3. Phantom design",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L490",
+      "source_location": "L466",
       "id": "esdiva_architecture_3_phantom_design",
-      "community": 26,
+      "community": 209,
       "norm_label": "3. phantom design"
     },
     {
       "label": "4. Beamforming",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L504",
+      "source_location": "L480",
       "id": "esdiva_architecture_4_beamforming",
-      "community": 26,
+      "community": 209,
       "norm_label": "4. beamforming"
     },
     {
       "label": "5. Honest metrics",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L522",
+      "source_location": "L498",
       "id": "esdiva_architecture_5_honest_metrics",
-      "community": 26,
+      "community": 209,
       "norm_label": "5. honest metrics"
     },
     {
       "label": "6. Flow & Doppler (measured in example22, with the control that showed it)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L533",
+      "source_location": "L509",
       "id": "esdiva_architecture_6_flow_doppler_measured_in_example22_with_the_control_that_showed_it",
-      "community": 26,
+      "community": 209,
       "norm_label": "6. flow & doppler (measured in example22, with the control that showed it)"
     },
     {
       "label": "7. Symptom \u2192 cause quick table",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L592",
+      "source_location": "L568",
       "id": "esdiva_architecture_7_symptom_cause_quick_table",
-      "community": 26,
+      "community": 209,
       "norm_label": "7. symptom \u2192 cause quick table"
     },
     {
       "label": "Field II Correspondence",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L608",
+      "source_location": "L584",
       "id": "esdiva_architecture_field_ii_correspondence",
-      "community": 26,
+      "community": 224,
       "norm_label": "field ii correspondence"
     },
     {
       "label": "Performance Bottlenecks",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L632",
+      "source_location": "L609",
       "id": "esdiva_architecture_performance_bottlenecks",
-      "community": 26,
+      "community": 241,
       "norm_label": "performance bottlenecks"
     },
     {
       "label": "Benchmark Reference (LinearArrayTransducer E=128, M=1280, P=60501, nfft=8192, 12.5 MHz)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L634",
+      "source_location": "L611",
       "id": "esdiva_architecture_benchmark_reference_lineararraytransducer_e_128_m_1280_p_60501_nfft_8192_12_5_mhz",
-      "community": 26,
+      "community": 241,
       "norm_label": "benchmark reference (lineararraytransducer e=128, m=1280, p=60501, nfft=8192, 12.5 mhz)"
     },
     {
       "label": "Per-Element Mode Breakdown",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L644",
+      "source_location": "L621",
       "id": "esdiva_architecture_per_element_mode_breakdown",
-      "community": 26,
+      "community": 241,
       "norm_label": "per-element mode breakdown"
     },
     {
       "label": "Memory Architecture (Per-Element Mode)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L650",
+      "source_location": "L627",
       "id": "esdiva_architecture_memory_architecture_per_element_mode",
-      "community": 26,
+      "community": 241,
       "norm_label": "memory architecture (per-element mode)"
     },
     {
       "label": "Key Performance Rules",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L661",
+      "source_location": "L638",
       "id": "esdiva_architecture_key_performance_rules",
-      "community": 26,
+      "community": 241,
       "norm_label": "key performance rules"
     },
     {
       "label": "Potential Optimizations (not yet implemented)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L668",
+      "source_location": "L645",
       "id": "esdiva_architecture_potential_optimizations_not_yet_implemented",
-      "community": 26,
+      "community": 241,
       "norm_label": "potential optimizations (not yet implemented)"
     },
     {
       "label": "Risky Implementations (Validate Physics/Math)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L678",
+      "source_location": "L655",
       "id": "esdiva_architecture_risky_implementations_validate_physics_math",
       "community": 26,
       "norm_label": "risky implementations (validate physics/math)"
@@ -14416,7 +14353,7 @@
       "label": "0. Elevation-Lens Sag \u2014 Signed, and SUBTRACTED from `t0`",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L680",
+      "source_location": "L657",
       "id": "esdiva_architecture_0_elevation_lens_sag_signed_and_subtracted_from_t0",
       "community": 26,
       "norm_label": "0. elevation-lens sag \u2014 signed, and subtracted from `t0`"
@@ -14425,7 +14362,7 @@
       "label": "1. SDI Tail Artifact \u2014 float32 Cumsum Cancellation",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L708",
+      "source_location": "L685",
       "id": "esdiva_architecture_1_sdi_tail_artifact_float32_cumsum_cancellation",
       "community": 26,
       "norm_label": "1. sdi tail artifact \u2014 float32 cumsum cancellation"
@@ -14434,7 +14371,7 @@
       "label": "2. All-patches SIR \u2260 \u03a3 per-element SIR \u2014 Float32 Non-Associativity",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L725",
+      "source_location": "L702",
       "id": "esdiva_architecture_2_all_patches_sir_\u03c3_per_element_sir_float32_non_associativity",
       "community": 26,
       "norm_label": "2. all-patches sir = \u03c3 per-element sir \u2014 float32 non-associativity"
@@ -14443,25 +14380,25 @@
       "label": "3. PE SDI On-Axis Lag Must Be 0",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L731",
+      "source_location": "L708",
       "id": "esdiva_architecture_3_pe_sdi_on_axis_lag_must_be_0",
       "community": 26,
       "norm_label": "3. pe sdi on-axis lag must be 0"
     },
     {
-      "label": "4. Attenuation y=1 Continuity",
+      "label": "4. Attenuation Dispersion Referenced at f0 (fixed 2026-09-13)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L748",
-      "id": "esdiva_architecture_4_attenuation_y_1_continuity",
+      "source_location": "L725",
+      "id": "esdiva_architecture_4_attenuation_dispersion_referenced_at_f0_fixed_2026_09_13",
       "community": 26,
-      "norm_label": "4. attenuation y=1 continuity"
+      "norm_label": "4. attenuation dispersion referenced at f0 (fixed 2026-09-13)"
     },
     {
       "label": "5. Global vs Per-Element Excitation Consistency",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L752",
+      "source_location": "L735",
       "id": "esdiva_architecture_5_global_vs_per_element_excitation_consistency",
       "community": 26,
       "norm_label": "5. global vs per-element excitation consistency"
@@ -14470,19 +14407,19 @@
       "label": "6. Numba Cache Staleness",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L758",
+      "source_location": "L741",
       "id": "esdiva_architecture_6_numba_cache_staleness",
       "community": 26,
       "norm_label": "6. numba cache staleness"
     },
     {
-      "label": "7. `from_sir_to_pressure` Attenuation with No Excitation",
+      "label": "7. Emission Scale: Continuous H, No Hidden fs (fixed 2026-09-13)",
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
-      "source_location": "L765",
-      "id": "esdiva_architecture_7_from_sir_to_pressure_attenuation_with_no_excitation",
+      "source_location": "L748",
+      "id": "esdiva_architecture_7_emission_scale_continuous_h_no_hidden_fs_fixed_2026_09_13",
       "community": 26,
-      "norm_label": "7. `from_sir_to_pressure` attenuation with no excitation"
+      "norm_label": "7. emission scale: continuous h, no hidden fs (fixed 2026-09-13)"
     },
     {
       "label": "CLAUDE.md",
@@ -14632,7 +14569,7 @@
       "label": "graphify",
       "file_type": "document",
       "source_file": "CLAUDE.md",
-      "source_location": "L279",
+      "source_location": "L280",
       "id": "esdiva_claude_graphify",
       "community": 39,
       "norm_label": "graphify"
@@ -14776,7 +14713,7 @@
       "label": "LATER \u2014 fixable",
       "file_type": "document",
       "source_file": "TODO.md",
-      "source_location": "L86",
+      "source_location": "L93",
       "id": "esdiva_todo_later_fixable",
       "community": 220,
       "norm_label": "later \u2014 fixable"
@@ -14785,7 +14722,7 @@
       "label": "LEAVE USER-SIDE \u2014 Field II does the same",
       "file_type": "document",
       "source_file": "TODO.md",
-      "source_location": "L95",
+      "source_location": "L102",
       "id": "esdiva_todo_leave_user_side_field_ii_does_the_same",
       "community": 220,
       "norm_label": "leave user-side \u2014 field ii does the same"
@@ -14893,7 +14830,7 @@
       "label": "Integration in SDI Pipeline",
       "file_type": "document",
       "source_file": ".claude/rules/attenuation.md",
-      "source_location": "L79",
+      "source_location": "L85",
       "id": "rules_attenuation_integration_in_sdi_pipeline",
       "community": 36,
       "norm_label": "integration in sdi pipeline"
@@ -14902,7 +14839,7 @@
       "label": "Attenuation Parameter Convention",
       "file_type": "document",
       "source_file": ".claude/rules/attenuation.md",
-      "source_location": "L91",
+      "source_location": "L97",
       "id": "rules_attenuation_attenuation_parameter_convention",
       "community": 36,
       "norm_label": "attenuation parameter convention"
@@ -14911,7 +14848,7 @@
       "label": "Frequency-Independent Shortcut",
       "file_type": "document",
       "source_file": ".claude/rules/attenuation.md",
-      "source_location": "L98",
+      "source_location": "L104",
       "id": "rules_attenuation_frequency_independent_shortcut",
       "community": 36,
       "norm_label": "frequency-independent shortcut"
@@ -14920,7 +14857,7 @@
       "label": "What NOT To Do",
       "file_type": "document",
       "source_file": ".claude/rules/attenuation.md",
-      "source_location": "L108",
+      "source_location": "L114",
       "id": "rules_attenuation_what_not_to_do",
       "community": 36,
       "norm_label": "what not to do"
@@ -14929,7 +14866,7 @@
       "label": "When SIR + Attenuation TF Is Insufficient",
       "file_type": "document",
       "source_file": ".claude/rules/attenuation.md",
-      "source_location": "L117",
+      "source_location": "L123",
       "id": "rules_attenuation_when_sir_attenuation_tf_is_insufficient",
       "community": 36,
       "norm_label": "when sir + attenuation tf is insufficient"
@@ -14938,7 +14875,7 @@
       "label": "Key References",
       "file_type": "document",
       "source_file": ".claude/rules/attenuation.md",
-      "source_location": "L129",
+      "source_location": "L135",
       "id": "rules_attenuation_key_references",
       "community": 36,
       "norm_label": "key references"
@@ -15313,19 +15250,19 @@
       "norm_label": "9. receive signals (born approximation)"
     },
     {
-      "label": "9.1 PE SDI: three ways to evaluate the same pulse-echo RF",
+      "label": "9.1 Two SIR sources, one frequency-domain chain (Emission and Reception)",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
       "source_location": "L197",
-      "id": "rules_physics_context_9_1_pe_sdi_three_ways_to_evaluate_the_same_pulse_echo_rf",
+      "id": "rules_physics_context_9_1_two_sir_sources_one_frequency_domain_chain_emission_and_reception",
       "community": 29,
-      "norm_label": "9.1 pe sdi: three ways to evaluate the same pulse-echo rf"
+      "norm_label": "9.1 two sir sources, one frequency-domain chain (emission and reception)"
     },
     {
       "label": "9.2 Pulse-centre lag \u2014 a beamforming correction, NOT part of the RF",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
-      "source_location": "L251",
+      "source_location": "L234",
       "id": "rules_physics_context_9_2_pulse_centre_lag_a_beamforming_correction_not_part_of_the_rf",
       "community": 29,
       "norm_label": "9.2 pulse-centre lag \u2014 a beamforming correction, not part of the rf"
@@ -15334,7 +15271,7 @@
       "label": "10. Attenuation in SIR Simulations",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
-      "source_location": "L280",
+      "source_location": "L263",
       "id": "rules_physics_context_10_attenuation_in_sir_simulations",
       "community": 29,
       "norm_label": "10. attenuation in sir simulations"
@@ -15343,7 +15280,7 @@
       "label": "Causal Power-Law Model (recommended)",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
-      "source_location": "L289",
+      "source_location": "L272",
       "id": "rules_physics_context_causal_power_law_model_recommended",
       "community": 29,
       "norm_label": "causal power-law model (recommended)"
@@ -15352,7 +15289,7 @@
       "label": "Distance for H_att",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
-      "source_location": "L306",
+      "source_location": "L289",
       "id": "rules_physics_context_distance_for_h_att",
       "community": 29,
       "norm_label": "distance for h_att"
@@ -15361,7 +15298,7 @@
       "label": "Historical context",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
-      "source_location": "L312",
+      "source_location": "L295",
       "id": "rules_physics_context_historical_context",
       "community": 29,
       "norm_label": "historical context"
@@ -15370,7 +15307,7 @@
       "label": "11. Plane-Wave Steering Delays",
       "file_type": "document",
       "source_file": ".claude/rules/physics-context.md",
-      "source_location": "L329",
+      "source_location": "L312",
       "id": "rules_physics_context_11_plane_wave_steering_delays",
       "community": 29,
       "norm_label": "11. plane-wave steering delays"
@@ -16211,6 +16148,24 @@
       "id": "api_emission_emission",
       "community": 143,
       "norm_label": "emission"
+    },
+    {
+      "label": "hsir.md",
+      "file_type": "document",
+      "source_file": "docs/api/hsir.md",
+      "source_location": "L1",
+      "id": "docs_api_hsir_md",
+      "community": 257,
+      "norm_label": "hsir.md"
+    },
+    {
+      "label": "SIR kernels",
+      "file_type": "document",
+      "source_file": "docs/api/hsir.md",
+      "source_location": "L5",
+      "id": "api_hsir_sir_kernels",
+      "community": 257,
+      "norm_label": "sir kernels"
     },
     {
       "label": "index.md",
@@ -17989,7 +17944,7 @@
       "label": "Algorithmic flow",
       "file_type": "document",
       "source_file": "docs/user-guide/emission.md",
-      "source_location": "L22",
+      "source_location": "L28",
       "id": "user_guide_emission_algorithmic_flow",
       "community": 88,
       "norm_label": "algorithmic flow"
@@ -17998,34 +17953,43 @@
       "label": "Modes at a glance",
       "file_type": "document",
       "source_file": "docs/user-guide/emission.md",
-      "source_location": "L37",
+      "source_location": "L42",
       "id": "user_guide_emission_modes_at_a_glance",
       "community": 88,
       "norm_label": "modes at a glance"
     },
     {
-      "label": "Continuous-wave field",
+      "label": "Monochromatic field",
       "file_type": "document",
       "source_file": "docs/user-guide/emission.md",
-      "source_location": "L48",
-      "id": "user_guide_emission_continuous_wave_field",
+      "source_location": "L53",
+      "id": "user_guide_emission_monochromatic_field",
       "community": 88,
-      "norm_label": "continuous-wave field"
+      "norm_label": "monochromatic field"
     },
     {
       "label": "Transient field",
       "file_type": "document",
       "source_file": "docs/user-guide/emission.md",
-      "source_location": "L57",
+      "source_location": "L62",
       "id": "user_guide_emission_transient_field",
       "community": 88,
       "norm_label": "transient field"
     },
     {
+      "label": "SIR source: spectral or temporal",
+      "file_type": "document",
+      "source_file": "docs/user-guide/emission.md",
+      "source_location": "L69",
+      "id": "user_guide_emission_sir_source_spectral_or_temporal",
+      "community": 88,
+      "norm_label": "sir source: spectral or temporal"
+    },
+    {
       "label": "Key parameters",
       "file_type": "document",
       "source_file": "docs/user-guide/emission.md",
-      "source_location": "L64",
+      "source_location": "L80",
       "id": "user_guide_emission_key_parameters",
       "community": 88,
       "norm_label": "key parameters"
@@ -18448,7 +18412,7 @@
       "label": "When to use",
       "file_type": "document",
       "source_file": "docs/user-guide/monochromatic.md",
-      "source_location": "L23",
+      "source_location": "L24",
       "id": "user_guide_monochromatic_when_to_use",
       "community": 138,
       "norm_label": "when to use"
@@ -18664,7 +18628,7 @@
       "label": "Algorithmic flow",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L30",
+      "source_location": "L36",
       "id": "user_guide_reception_algorithmic_flow",
       "community": 78,
       "norm_label": "algorithmic flow"
@@ -18673,7 +18637,7 @@
       "label": "Entry methods",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L52",
+      "source_location": "L58",
       "id": "user_guide_reception_entry_methods",
       "community": 78,
       "norm_label": "entry methods"
@@ -18682,7 +18646,7 @@
       "label": "Studies at a glance",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L65",
+      "source_location": "L71",
       "id": "user_guide_reception_studies_at_a_glance",
       "community": 78,
       "norm_label": "studies at a glance"
@@ -18691,7 +18655,7 @@
       "label": "Scatterers in, RF out",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L83",
+      "source_location": "L89",
       "id": "user_guide_reception_scatterers_in_rf_out",
       "community": 78,
       "norm_label": "scatterers in, rf out"
@@ -18700,7 +18664,7 @@
       "label": "Preview the setup",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L104",
+      "source_location": "L110",
       "id": "user_guide_reception_preview_the_setup",
       "community": 78,
       "norm_label": "preview the setup"
@@ -18709,7 +18673,7 @@
       "label": "Examples",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L111",
+      "source_location": "L117",
       "id": "user_guide_reception_examples",
       "community": 78,
       "norm_label": "examples"
@@ -18718,7 +18682,7 @@
       "label": "Beamforming note",
       "file_type": "document",
       "source_file": "docs/user-guide/reception.md",
-      "source_location": "L119",
+      "source_location": "L125",
       "id": "user_guide_reception_beamforming_note",
       "community": 78,
       "norm_label": "beamforming note"
@@ -18889,7 +18853,7 @@
       "label": "When to use",
       "file_type": "document",
       "source_file": "docs/user-guide/transient-excitation.md",
-      "source_location": "L26",
+      "source_location": "L31",
       "id": "user_guide_transient_excitation_when_to_use",
       "community": 140,
       "norm_label": "when to use"
@@ -19492,7 +19456,7 @@
       "label": "Before opening the PR",
       "file_type": "document",
       "source_file": "skills/esdiva-contribute/SKILL.md",
-      "source_location": "L127",
+      "source_location": "L134",
       "id": "esdiva_contribute_skill_before_opening_the_pr",
       "community": 207,
       "norm_label": "before opening the pr"
@@ -19501,7 +19465,7 @@
       "label": "Reviewing your own diff first",
       "file_type": "document",
       "source_file": "skills/esdiva-contribute/SKILL.md",
-      "source_location": "L154",
+      "source_location": "L162",
       "id": "esdiva_contribute_skill_reviewing_your_own_diff_first",
       "community": 207,
       "norm_label": "reviewing your own diff first"
@@ -19555,7 +19519,7 @@
       "label": "Rules that decide whether the result is right",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/SKILL.md",
-      "source_location": "L101",
+      "source_location": "L102",
       "id": "esdiva_simulate_skill_rules_that_decide_whether_the_result_is_right",
       "community": 214,
       "norm_label": "rules that decide whether the result is right"
@@ -19564,7 +19528,7 @@
       "label": "Working style",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/SKILL.md",
-      "source_location": "L139",
+      "source_location": "L142",
       "id": "esdiva_simulate_skill_working_style",
       "community": 214,
       "norm_label": "working style"
@@ -19600,7 +19564,7 @@
       "label": "The four modes",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L67",
+      "source_location": "L71",
       "id": "references_emission_the_four_modes",
       "community": 202,
       "norm_label": "the four modes"
@@ -19609,7 +19573,7 @@
       "label": "The field grid",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L86",
+      "source_location": "L94",
       "id": "references_emission_the_field_grid",
       "community": 202,
       "norm_label": "the field grid"
@@ -19618,7 +19582,7 @@
       "label": "Return contract",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L101",
+      "source_location": "L109",
       "id": "references_emission_return_contract",
       "community": 202,
       "norm_label": "return contract"
@@ -19627,7 +19591,7 @@
       "label": "Method",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L110",
+      "source_location": "L118",
       "id": "references_emission_method",
       "community": 202,
       "norm_label": "method"
@@ -19636,7 +19600,7 @@
       "label": "Attenuation",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L118",
+      "source_location": "L135",
       "id": "references_emission_attenuation",
       "community": 202,
       "norm_label": "attenuation"
@@ -19645,7 +19609,7 @@
       "label": "Derived quantities",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L131",
+      "source_location": "L148",
       "id": "references_emission_derived_quantities",
       "community": 202,
       "norm_label": "derived quantities"
@@ -19654,7 +19618,7 @@
       "label": "Plotting",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/emission.md",
-      "source_location": "L143",
+      "source_location": "L161",
       "id": "references_emission_plotting",
       "community": 202,
       "norm_label": "plotting"
@@ -19699,7 +19663,7 @@
       "label": "The spatial impulse response",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L71",
+      "source_location": "L70",
       "id": "references_physics_the_spatial_impulse_response",
       "community": 192,
       "norm_label": "the spatial impulse response"
@@ -19708,7 +19672,7 @@
       "label": "Patches: exact pieces, approximate assembly",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L95",
+      "source_location": "L94",
       "id": "references_physics_patches_exact_pieces_approximate_assembly",
       "community": 192,
       "norm_label": "patches: exact pieces, approximate assembly"
@@ -19717,7 +19681,7 @@
       "label": "FST vs SDI \u2014 same integral, different bookkeeping",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L113",
+      "source_location": "L112",
       "id": "references_physics_fst_vs_sdi_same_integral_different_bookkeeping",
       "community": 192,
       "norm_label": "fst vs sdi \u2014 same integral, different bookkeeping"
@@ -19726,7 +19690,7 @@
       "label": "Emission: from SIR to pressure",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L132",
+      "source_location": "L138",
       "id": "references_physics_emission_from_sir_to_pressure",
       "community": 192,
       "norm_label": "emission: from sir to pressure"
@@ -19735,7 +19699,7 @@
       "label": "Pulse-echo: where the third derivative went",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L145",
+      "source_location": "L152",
       "id": "references_physics_pulse_echo_where_the_third_derivative_went",
       "community": 192,
       "norm_label": "pulse-echo: where the third derivative went"
@@ -19744,7 +19708,7 @@
       "label": "Time origin and the beamforming reference",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L164",
+      "source_location": "L171",
       "id": "references_physics_time_origin_and_the_beamforming_reference",
       "community": 192,
       "norm_label": "time origin and the beamforming reference"
@@ -19753,7 +19717,7 @@
       "label": "Attenuation",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L175",
+      "source_location": "L182",
       "id": "references_physics_attenuation",
       "community": 192,
       "norm_label": "attenuation"
@@ -19762,7 +19726,7 @@
       "label": "Coordinate frame",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L191",
+      "source_location": "L198",
       "id": "references_physics_coordinate_frame",
       "community": 192,
       "norm_label": "coordinate frame"
@@ -19771,7 +19735,7 @@
       "label": "Sampling and grid choices, in one place",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L200",
+      "source_location": "L207",
       "id": "references_physics_sampling_and_grid_choices_in_one_place",
       "community": 192,
       "norm_label": "sampling and grid choices, in one place"
@@ -19780,7 +19744,7 @@
       "label": "Field II correspondence",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L211",
+      "source_location": "L218",
       "id": "references_physics_field_ii_correspondence",
       "community": 192,
       "norm_label": "field ii correspondence"
@@ -19789,7 +19753,7 @@
       "label": "When a result surprises you",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/physics.md",
-      "source_location": "L225",
+      "source_location": "L232",
       "id": "references_physics_when_a_result_surprises_you",
       "community": 192,
       "norm_label": "when a result surprises you"
@@ -19843,7 +19807,7 @@
       "label": "Scatterers",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L112",
+      "source_location": "L117",
       "id": "references_reception_scatterers",
       "community": 195,
       "norm_label": "scatterers"
@@ -19852,7 +19816,7 @@
       "label": "Sequences and checkpointing",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L138",
+      "source_location": "L143",
       "id": "references_reception_sequences_and_checkpointing",
       "community": 195,
       "norm_label": "sequences and checkpointing"
@@ -19861,7 +19825,7 @@
       "label": "Moving scatterers (flow, Doppler, decorrelation)",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L184",
+      "source_location": "L189",
       "id": "references_reception_moving_scatterers_flow_doppler_decorrelation",
       "community": 195,
       "norm_label": "moving scatterers (flow, doppler, decorrelation)"
@@ -19870,7 +19834,7 @@
       "label": "Doppler: what was measured, and what was ruled out",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L216",
+      "source_location": "L221",
       "id": "references_reception_doppler_what_was_measured_and_what_was_ruled_out",
       "community": 195,
       "norm_label": "doppler: what was measured, and what was ruled out"
@@ -19879,7 +19843,7 @@
       "label": "What the RF output actually is (writing your own beamformer)",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L293",
+      "source_location": "L298",
       "id": "references_reception_what_the_rf_output_actually_is_writing_your_own_beamformer",
       "community": 195,
       "norm_label": "what the rf output actually is (writing your own beamformer)"
@@ -19888,7 +19852,7 @@
       "label": "Built-in beamformers",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L383",
+      "source_location": "L388",
       "id": "references_reception_built_in_beamformers",
       "community": 195,
       "norm_label": "built-in beamformers"
@@ -19897,7 +19861,7 @@
       "label": "Imaging-study checklist",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/reception.md",
-      "source_location": "L416",
+      "source_location": "L421",
       "id": "references_reception_imaging_study_checklist",
       "community": 195,
       "norm_label": "imaging-study checklist"
@@ -19975,6 +19939,69 @@
       "norm_label": "impulse response"
     },
     {
+      "label": "validation.md",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L1",
+      "id": "skills_esdiva_simulate_references_validation_md",
+      "community": 232,
+      "norm_label": "validation.md"
+    },
+    {
+      "label": "Validation \u2014 what has been verified, how, and what not to reintroduce",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L1",
+      "id": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "community": 232,
+      "norm_label": "validation \u2014 what has been verified, how, and what not to reintroduce"
+    },
+    {
+      "label": "Guarantees pinned by the test suite",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L7",
+      "id": "references_validation_guarantees_pinned_by_the_test_suite",
+      "community": 232,
+      "norm_label": "guarantees pinned by the test suite"
+    },
+    {
+      "label": "Which SIR method is faster (measured, 64-element linear array)",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L19",
+      "id": "references_validation_which_sir_method_is_faster_measured_64_element_linear_array",
+      "community": 232,
+      "norm_label": "which sir method is faster (measured, 64-element linear array)"
+    },
+    {
+      "label": "Physics decisions and the evidence behind them",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L41",
+      "id": "references_validation_physics_decisions_and_the_evidence_behind_them",
+      "community": 232,
+      "norm_label": "physics decisions and the evidence behind them"
+    },
+    {
+      "label": "Bugs fixed \u2014 do not reintroduce",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L66",
+      "id": "references_validation_bugs_fixed_do_not_reintroduce",
+      "community": 232,
+      "norm_label": "bugs fixed \u2014 do not reintroduce"
+    },
+    {
+      "label": "Making a new claim",
+      "file_type": "document",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L78",
+      "id": "references_validation_making_a_new_claim",
+      "community": 232,
+      "norm_label": "making a new claim"
+    },
+    {
       "label": "visualization.md",
       "file_type": "document",
       "source_file": "skills/esdiva-simulate/references/visualization.md",
@@ -20038,6 +20065,258 @@
       "norm_label": "when nothing appears"
     },
     {
+      "label": "Compute emitted acoustic pressure fields (monochromatic or transient).      Para",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L54",
+      "community": 53,
+      "norm_label": "compute emitted acoustic pressure fields (monochromatic or transient).      para",
+      "id": "emission_emission_rationale_54"
+    },
+    {
+      "label": "Update a simulation parameter at runtime.          Parameters         ----------",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L175",
+      "community": 53,
+      "norm_label": "update a simulation parameter at runtime.          parameters         ----------",
+      "id": "emission_emission_rationale_175"
+    },
+    {
+      "label": "Add the wall-clock time of the enclosed block to ``self.time_log[key]``.",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L209",
+      "community": 30,
+      "norm_label": "add the wall-clock time of the enclosed block to ``self.time_log[key]``.",
+      "id": "emission_emission_rationale_209"
+    },
+    {
+      "label": "Transmitted pulse ``exc \u229b ir`` at full length ``L + L_ir \u2212 1`` (float32).",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L218",
+      "community": 30,
+      "norm_label": "transmitted pulse ``exc \u229b ir`` at full length ``l + l_ir \u2212 1`` (float32).",
+      "id": "emission_emission_rationale_218"
+    },
+    {
+      "label": "Parse field points (grid dict or raw mm array) \u2192 ``(x, y, z, points_m)``.",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L230",
+      "community": 219,
+      "norm_label": "parse field points (grid dict or raw mm array) \u2192 ``(x, y, z, points_m)``.",
+      "id": "emission_emission_rationale_230"
+    },
+    {
+      "label": "SIR time window ``(time_grid, t0, dt, T)`` covering every point.",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L239",
+      "community": 219,
+      "norm_label": "sir time window ``(time_grid, t0, dt, t)`` covering every point.",
+      "id": "emission_emission_rationale_239"
+    },
+    {
+      "label": "Per-patch trapezoid width \u0394k (in samples) for every field point.          SIR-ac",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L255",
+      "community": 219,
+      "norm_label": "per-patch trapezoid width \u03b4k (in samples) for every field point.          sir-ac",
+      "id": "emission_emission_rationale_255"
+    },
+    {
+      "label": "Radiating groups ``(patch arrays, path origin)``.          One group = the whole",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L304",
+      "community": 53,
+      "norm_label": "radiating groups ``(patch arrays, path origin)``.          one group = the whole",
+      "id": "emission_emission_rationale_304"
+    },
+    {
+      "label": "``fs\u00b7H(\u03c9)`` of one patch group at ``pts``, phase-referenced to ``t0`` \u2192 (P, N_\u03c9)",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L326",
+      "community": 15,
+      "norm_label": "``fs\u00b7h(\u03c9)`` of one patch group at ``pts``, phase-referenced to ``t0`` \u2192 (p, n_\u03c9)",
+      "id": "emission_emission_rationale_326"
+    },
+    {
+      "label": "Causal attenuation ``H_att(f, |r \u2212 origin|)`` \u2192 (P, N_f), or 1 if disabled.",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L354",
+      "community": 15,
+      "norm_label": "causal attenuation ``h_att(f, |r \u2212 origin|)`` \u2192 (p, n_f), or 1 if disabled.",
+      "id": "emission_emission_rationale_354"
+    },
+    {
+      "label": "Field-point groups sorted by distance to the aperture (see `_POINTS_PER_BIN`).",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L369",
+      "community": 15,
+      "norm_label": "field-point groups sorted by distance to the aperture (see `_points_per_bin`).",
+      "id": "emission_emission_rationale_369"
+    },
+    {
+      "label": "``|\u03a3_g fs\u00b7H_g(\u03c9c)\u00b7H_att,g(fc)| \u00b7 |TF(fc)|`` \u2192 (P,).",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L379",
+      "community": 15,
+      "norm_label": "``|\u03c3_g fs\u00b7h_g(\u03c9c)\u00b7h_att,g(fc)| \u00b7 |tf(fc)|`` \u2192 (p,).",
+      "id": "emission_emission_rationale_379"
+    },
+    {
+      "label": "Signed ``irfft(\u03a3_g fs\u00b7H_g \u00b7 D_g \u00b7 TF \u00b7 H_att,g)`` on one shared time axis \u2192 (T,",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L392",
+      "community": 15,
+      "norm_label": "signed ``irfft(\u03c3_g fs\u00b7h_g \u00b7 d_g \u00b7 tf \u00b7 h_att,g)`` on one shared time axis \u2192 (t,",
+      "id": "emission_emission_rationale_392"
+    },
+    {
+      "label": "Compute the pressure field at given field points.          Modes (instance state",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L430",
+      "community": 30,
+      "norm_label": "compute the pressure field at given field points.          modes (instance state",
+      "id": "emission_emission_rationale_430"
+    },
+    {
+      "label": "Contiguous bin span ``[b0, b1)`` where ``mag`` exceeds ``tol`` of its peak.",
+      "file_type": "rationale",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L520",
+      "community": 15,
+      "norm_label": "contiguous bin span ``[b0, b1)`` where ``mag`` exceeds ``tol`` of its peak.",
+      "id": "emission_emission_rationale_520"
+    },
+    {
+      "label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir.",
+      "file_type": "rationale",
+      "source_file": "tests/unit/test_psimulation/test_emission.py",
+      "source_location": "L371",
+      "community": 253,
+      "norm_label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir.",
+      "id": "test_psimulation_test_emission_rationale_371"
+    },
+    {
+      "label": "Mode Decision Tree",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L280",
+      "community": 206,
+      "norm_label": "mode decision tree",
+      "id": "esdiva_architecture_mode_decision_tree"
+    },
+    {
+      "label": "Shared Preamble (every call)",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L297",
+      "community": 206,
+      "norm_label": "shared preamble (every call)",
+      "id": "esdiva_architecture_shared_preamble_every_call"
+    },
+    {
+      "label": "[A] Mono Global",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L305",
+      "community": 206,
+      "norm_label": "[a] mono global",
+      "id": "esdiva_architecture_a_mono_global"
+    },
+    {
+      "label": "[B] Mono Per-Element",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L310",
+      "community": 206,
+      "norm_label": "[b] mono per-element",
+      "id": "esdiva_architecture_b_mono_per_element"
+    },
+    {
+      "label": "[C] Pulsed Pure",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L314",
+      "community": 206,
+      "norm_label": "[c] pulsed pure",
+      "id": "esdiva_architecture_c_pulsed_pure"
+    },
+    {
+      "label": "[D] Global FFT",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L318",
+      "community": 206,
+      "norm_label": "[d] global fft",
+      "id": "esdiva_architecture_d_global_fft"
+    },
+    {
+      "label": "[E] Per-Element Transient",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L322",
+      "community": 206,
+      "norm_label": "[e] per-element transient",
+      "id": "esdiva_architecture_e_per_element_transient"
+    },
+    {
+      "label": "Attenuation Integration",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L326",
+      "community": 206,
+      "norm_label": "attenuation integration",
+      "id": "esdiva_architecture_attenuation_integration"
+    },
+    {
+      "label": "4. Attenuation y=1 Continuity",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L748",
+      "community": 26,
+      "norm_label": "4. attenuation y=1 continuity",
+      "id": "esdiva_architecture_4_attenuation_y_1_continuity"
+    },
+    {
+      "label": "7. `from_sir_to_pressure` Attenuation with No Excitation",
+      "file_type": "document",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L765",
+      "community": 26,
+      "norm_label": "7. `from_sir_to_pressure` attenuation with no excitation",
+      "id": "esdiva_architecture_7_from_sir_to_pressure_attenuation_with_no_excitation"
+    },
+    {
+      "label": "9.1 PE SDI: three ways to evaluate the same pulse-echo RF",
+      "file_type": "document",
+      "source_file": ".claude/rules/physics-context.md",
+      "source_location": "L197",
+      "community": 29,
+      "norm_label": "9.1 pe sdi: three ways to evaluate the same pulse-echo rf",
+      "id": "rules_physics_context_9_1_pe_sdi_three_ways_to_evaluate_the_same_pulse_echo_rf"
+    },
+    {
+      "label": "Continuous-wave field",
+      "file_type": "document",
+      "source_file": "docs/user-guide/emission.md",
+      "source_location": "L48",
+      "community": 88,
+      "norm_label": "continuous-wave field",
+      "id": "user_guide_emission_continuous_wave_field"
+    },
+    {
       "label": "Plot orthogonal XZ/XY/YZ slices of a 3D pressure field using PyVista.      Par",
       "file_type": "rationale",
       "source_file": "src/esdiva/plotting/plotting3D.py",
@@ -20069,7 +20348,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L348",
-      "community": 14,
+      "community": 253,
       "norm_label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir.",
       "id": "test_psimulation_test_emission_rationale_348"
     },
@@ -20110,15 +20389,6 @@
       "id": "emission_emission_rationale_200"
     },
     {
-      "label": "Parse field points (grid dict or raw mm array) \u2192 ``(x, y, z, points_m)``.",
-      "file_type": "rationale",
-      "source_file": "src/esdiva/emission/emission.py",
-      "source_location": "L221",
-      "community": 219,
-      "norm_label": "parse field points (grid dict or raw mm array) \u2192 ``(x, y, z, points_m)``.",
-      "id": "emission_emission_rationale_221"
-    },
-    {
       "label": "Per-patch trapezoid width \u0394k (in samples) for every field point.          SIR-ac",
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
@@ -20132,7 +20402,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L295",
-      "community": 30,
+      "community": 53,
       "norm_label": "radiating groups ``(patch arrays, path origin)``.          one group = the whole",
       "id": "emission_emission_rationale_295"
     },
@@ -20213,7 +20483,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L234",
-      "community": 233,
+      "community": 193,
       "norm_label": "\u03c3_p a_p\u00b7h_tx(p)\u00b7h_rx,e(p)\u00b7h_att(d_pe) \u2192 (n_out, n_\u03c9), one parallel pass.",
       "id": "hsir_sir_spectral_rationale_234"
     },
@@ -20231,7 +20501,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L323",
-      "community": 233,
+      "community": 193,
       "norm_label": "amplitude-summed pulse-echo sir spectrum per receive element.      returns ``s",
       "id": "hsir_sir_spectral_rationale_323"
     },
@@ -20240,7 +20510,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L364",
-      "community": 62,
+      "community": 254,
       "norm_label": "compute the rf one depth bin at a time and sum onto one shared time axis.",
       "id": "reception_base_rationale_364"
     },
@@ -20249,7 +20519,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L386",
-      "community": 62,
+      "community": 250,
       "norm_label": "choose how many depth bins to split the scatterers into (1 = no binning).",
       "id": "reception_base_rationale_386"
     },
@@ -20339,7 +20609,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1314",
-      "community": 32,
+      "community": 44,
       "norm_label": "set focusing delays + apodization on ``trans`` from ``focus`` (mm).",
       "id": "reception_base_rationale_1314"
     },
@@ -20348,7 +20618,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1340",
-      "community": 32,
+      "community": 44,
       "norm_label": "one conventional focused scan line (field ii ``calc_scat`` match).          re",
       "id": "reception_base_rationale_1340"
     },
@@ -20357,7 +20627,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L306",
-      "community": 12,
+      "community": 32,
       "norm_label": "shared computation core for pulse_echo_rf (and the mixin wrappers).          b",
       "id": "reception_conventional_rationale_306"
     },
@@ -20366,7 +20636,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L632",
-      "community": 12,
+      "community": 32,
       "norm_label": "pulse-echo rf from point scatterers.          the core reception primitive. th",
       "id": "reception_conventional_rationale_632"
     },
@@ -20375,7 +20645,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L703",
-      "community": 12,
+      "community": 32,
       "norm_label": "receive-beamformed line via in-kernel focused sum.          backend hook for `",
       "id": "reception_conventional_rationale_703"
     },
@@ -20393,7 +20663,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L79",
-      "community": 222,
+      "community": 230,
       "norm_label": "compute pulse-echo rf from point scatterers (jensen's sir scattering model).",
       "id": "reception_reception_rationale_79"
     },
@@ -20402,7 +20672,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L187",
-      "community": 222,
+      "community": 230,
       "norm_label": "update a parameter at runtime, then invalidate the conventional delegate.",
       "id": "reception_reception_rationale_187"
     },
@@ -20573,7 +20843,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L320",
-      "community": 14,
+      "community": 253,
       "norm_label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir.",
       "id": "test_psimulation_test_emission_rationale_320"
     },
@@ -20690,7 +20960,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L710",
-      "community": 232,
+      "community": 23,
       "norm_label": "a moving cloud must be chunked as safely as a static one.          the grid se",
       "id": "test_psimulation_test_reception_rationale_710"
     },
@@ -20780,7 +21050,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L355",
-      "community": 53,
+      "community": 30,
       "norm_label": "._extract_patch_slices()",
       "id": "emission_emission_emission_extract_patch_slices"
     },
@@ -20816,7 +21086,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L460",
-      "community": 53,
+      "community": 0,
       "norm_label": "._causal_tf_at_fc()",
       "id": "emission_emission_emission_causal_tf_at_fc"
     },
@@ -20825,7 +21095,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L471",
-      "community": 30,
+      "community": 53,
       "norm_label": "._announce_mode()",
       "id": "emission_emission_emission_announce_mode"
     },
@@ -20852,7 +21122,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L598",
-      "community": 53,
+      "community": 30,
       "norm_label": "._mono_per_element()",
       "id": "emission_emission_emission_mono_per_element"
     },
@@ -20933,7 +21203,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L356",
-      "community": 53,
+      "community": 30,
       "norm_label": "pre-extract per-element patch arrays (outside e-loop for efficiency).",
       "id": "emission_emission_rationale_356"
     },
@@ -20960,7 +21230,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L461",
-      "community": 53,
+      "community": 0,
       "norm_label": "evaluate causal attenuation tf at fc only. returns (p,) complex64.",
       "id": "emission_emission_rationale_461"
     },
@@ -20969,7 +21239,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L472",
-      "community": 30,
+      "community": 53,
       "norm_label": "print mode summary before heavy computation.",
       "id": "emission_emission_rationale_472"
     },
@@ -20996,7 +21266,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L599",
-      "community": 53,
+      "community": 30,
       "norm_label": "monochromatic, per-element: dot(h_e, exp(-j2\u03c0fc\u00b7t)) \u00d7 h_att_e, accumulate.",
       "id": "emission_emission_rationale_599"
     },
@@ -21041,7 +21311,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L386",
-      "community": 62,
+      "community": 255,
       "norm_label": "._snap_to_lattice()",
       "id": "reception_base_receptionbase_snap_to_lattice"
     },
@@ -21050,7 +21320,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L387",
-      "community": 62,
+      "community": 255,
       "norm_label": "align one depth bin's time grid with the shared global time axis.          all",
       "id": "reception_base_rationale_387"
     },
@@ -21059,7 +21329,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L412",
-      "community": 62,
+      "community": 250,
       "norm_label": "choose how many depth bins to split the scatterers into (1 = no binning).",
       "id": "reception_base_rationale_412"
     },
@@ -21149,7 +21419,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1366",
-      "community": 32,
+      "community": 44,
       "norm_label": "one conventional focused scan line (field ii ``calc_scat`` match).          re",
       "id": "reception_base_rationale_1366"
     },
@@ -21158,7 +21428,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_emission.py",
       "source_location": "L262",
-      "community": 14,
+      "community": 253,
       "norm_label": "exc + tx.impulse_response must equal driving the full pulse exc \u229b ir.",
       "id": "test_psimulation_test_emission_rationale_262"
     },
@@ -21176,7 +21446,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L473",
-      "community": 238,
+      "community": 27,
       "norm_label": "depth-binned spectral rf == single-window spectral rf (binning is exact).",
       "id": "test_psimulation_test_reception_rationale_473"
     },
@@ -21257,7 +21527,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L716",
-      "community": 232,
+      "community": 23,
       "norm_label": "a moving cloud must be chunked as safely as a static one.          the grid se",
       "id": "test_psimulation_test_reception_rationale_716"
     },
@@ -21365,7 +21635,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L108",
-      "community": 191,
+      "community": 113,
       "norm_label": "flat-patch local frames for m patches: u = (1,0,0), v = (0,1,0).      used whe",
       "id": "hsir_helpers_rationale_108"
     },
@@ -21374,7 +21644,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L133",
-      "community": 191,
+      "community": 113,
       "norm_label": "pack (m,3) in-plane unit-vector pairs into one contiguous (m, 6) float32 array.",
       "id": "hsir_helpers_rationale_133"
     },
@@ -21383,7 +21653,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L179",
-      "community": 191,
+      "community": 113,
       "norm_label": "cast pulse-echo tx/rx patch arrays to float32 and pack their tangent frames.",
       "id": "hsir_helpers_rationale_179"
     },
@@ -21473,7 +21743,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L411",
-      "community": 233,
+      "community": 193,
       "norm_label": "_accum_oneway_band()",
       "id": "hsir_sir_spectral_accum_oneway_band"
     },
@@ -21527,7 +21797,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L435",
-      "community": 233,
+      "community": 193,
       "norm_label": "add one aperture's closed-form one-way sir spectrum into ``acc`` over patches lo",
       "id": "hsir_sir_spectral_rationale_435"
     },
@@ -21536,7 +21806,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L520",
-      "community": 233,
+      "community": 193,
       "norm_label": "\u03c3_p a_p \u00b7 \u03c3_tx(p) \u00b7 \u03c3_rx,e(p) \u2192 (n_out, n_band) complex128, one parallel pass.",
       "id": "hsir_sir_spectral_rationale_520"
     },
@@ -21545,7 +21815,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/hsir/sir_spectral.py",
       "source_location": "L633",
-      "community": 233,
+      "community": 193,
       "norm_label": "amplitude-summed two-way (pulse-echo) sir spectrum per receive element.      t",
       "id": "hsir_sir_spectral_rationale_633"
     },
@@ -21554,7 +21824,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L631",
-      "community": 12,
+      "community": 32,
       "norm_label": "pulse-echo rf from point scatterers.          the core reception primitive. th",
       "id": "reception_conventional_rationale_631"
     },
@@ -21563,7 +21833,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/conventional.py",
       "source_location": "L702",
-      "community": 12,
+      "community": 32,
       "norm_label": "receive-beamformed line via in-kernel focused sum.          backend hook for `",
       "id": "reception_conventional_rationale_702"
     },
@@ -21581,7 +21851,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L106",
-      "community": 222,
+      "community": 230,
       "norm_label": "compute pulse-echo rf from point scatterers via sparse delta integration (sdi).",
       "id": "reception_reception_rationale_106"
     },
@@ -21590,7 +21860,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L219",
-      "community": 222,
+      "community": 230,
       "norm_label": "update a parameter at runtime, then invalidate the conventional delegate.",
       "id": "reception_reception_rationale_219"
     },
@@ -21779,7 +22049,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L205",
-      "community": 193,
+      "community": 20,
       "norm_label": "total number of rectangular sub-patches across all elements.          returns",
       "id": "transducers_base_rationale_205"
     },
@@ -21842,7 +22112,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L338",
-      "community": 20,
+      "community": 256,
       "norm_label": "number of elements with non-zero apodization.          returns         ------",
       "id": "transducers_base_rationale_338"
     },
@@ -22139,7 +22409,7 @@
       "file_type": "rationale",
       "source_file": "tests/unit/test_psimulation/test_reception.py",
       "source_location": "L698",
-      "community": 232,
+      "community": 23,
       "norm_label": "a moving cloud must be chunked as safely as a static one.          the grid se",
       "id": "test_psimulation_test_reception_rationale_698"
     },
@@ -22274,7 +22544,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L355",
-      "community": 53,
+      "community": 30,
       "norm_label": "pre-extract per-element patch arrays (outside e-loop for efficiency).",
       "id": "emission_emission_rationale_355"
     },
@@ -22310,7 +22580,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L460",
-      "community": 53,
+      "community": 0,
       "norm_label": "evaluate causal attenuation tf at fc only. returns (p,) complex64.",
       "id": "emission_emission_rationale_460"
     },
@@ -22319,7 +22589,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L471",
-      "community": 30,
+      "community": 53,
       "norm_label": "print mode summary before heavy computation.",
       "id": "emission_emission_rationale_471"
     },
@@ -22346,7 +22616,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L598",
-      "community": 53,
+      "community": 30,
       "norm_label": "monochromatic, per-element: dot(h_e, exp(-j2\u03c0fc\u00b7t)) \u00d7 h_att_e, accumulate.",
       "id": "emission_emission_rationale_598"
     },
@@ -22382,7 +22652,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L355",
-      "community": 62,
+      "community": 254,
       "norm_label": "compute the rf one depth bin at a time and sum onto one shared time axis.",
       "id": "reception_base_rationale_355"
     },
@@ -22391,7 +22661,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L378",
-      "community": 62,
+      "community": 255,
       "norm_label": "align one depth bin's time grid with the shared global time axis.          all",
       "id": "reception_base_rationale_378"
     },
@@ -22400,7 +22670,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L403",
-      "community": 62,
+      "community": 250,
       "norm_label": "choose how many depth bins to split the scatterers into (1 = no binning).",
       "id": "reception_base_rationale_403"
     },
@@ -22481,7 +22751,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1173",
-      "community": 32,
+      "community": 44,
       "norm_label": "set focusing delays + apodization on ``trans`` from ``focus`` (mm).",
       "id": "reception_base_rationale_1173"
     },
@@ -22490,7 +22760,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1199",
-      "community": 32,
+      "community": 44,
       "norm_label": "one conventional focused scan line (field ii ``calc_scat`` match).          re",
       "id": "reception_base_rationale_1199"
     },
@@ -22508,7 +22778,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L115",
-      "community": 222,
+      "community": 230,
       "norm_label": "compute pulse-echo rf from point scatterers via sparse delta integration (sdi).",
       "id": "reception_reception_rationale_115"
     },
@@ -22517,7 +22787,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/reception.py",
       "source_location": "L233",
-      "community": 222,
+      "community": 230,
       "norm_label": "update a parameter at runtime, then invalidate the conventional delegate.",
       "id": "reception_reception_rationale_233"
     },
@@ -22706,7 +22976,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L193",
-      "community": 193,
+      "community": 20,
       "norm_label": "total number of rectangular sub-patches across all elements.          returns",
       "id": "transducers_base_rationale_193"
     },
@@ -22742,7 +23012,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/transducers/base.py",
       "source_location": "L326",
-      "community": 20,
+      "community": 256,
       "norm_label": "number of elements with non-zero apodization.          returns         ------",
       "id": "transducers_base_rationale_326"
     },
@@ -23237,7 +23507,7 @@
       "file_type": "document",
       "source_file": "ARCHITECTURE.md",
       "source_location": "L511",
-      "community": 26,
+      "community": 209,
       "norm_label": "6. symptom \u2192 cause quick table",
       "id": "esdiva_architecture_6_symptom_cause_quick_table"
     },
@@ -23408,7 +23678,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L344",
-      "community": 62,
+      "community": 254,
       "norm_label": "compute the rf one depth bin at a time and sum onto one shared time axis.",
       "id": "reception_base_rationale_344"
     },
@@ -23417,7 +23687,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L367",
-      "community": 62,
+      "community": 255,
       "norm_label": "align one depth bin's time grid with the shared global time axis.          all",
       "id": "reception_base_rationale_367"
     },
@@ -23426,7 +23696,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L392",
-      "community": 62,
+      "community": 250,
       "norm_label": "choose how many depth bins to split the scatterers into (1 = no binning).",
       "id": "reception_base_rationale_392"
     },
@@ -23498,7 +23768,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1162",
-      "community": 32,
+      "community": 44,
       "norm_label": "set focusing delays + apodization on ``trans`` from ``focus`` (mm).",
       "id": "reception_base_rationale_1162"
     },
@@ -23507,7 +23777,7 @@
       "file_type": "rationale",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1188",
-      "community": 32,
+      "community": 44,
       "norm_label": "one conventional focused scan line (field ii ``calc_scat`` match).          re",
       "id": "reception_base_rationale_1188"
     },
@@ -23651,7 +23921,7 @@
       "file_type": "code",
       "source_file": "examples/example10_intensities_peak_pressure.py",
       "source_location": "L1",
-      "community": 113,
+      "community": 59,
       "norm_label": "example10_intensities_peak_pressure.py",
       "id": "examples_example10_intensities_peak_pressure_py_examples_example10_intensities_peak_pressure"
     },
@@ -23858,7 +24128,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/emission/__init__.py",
       "source_location": "L1",
-      "community": 53,
+      "community": 235,
       "norm_label": "__init__.py",
       "id": "emission_init"
     },
@@ -23876,7 +24146,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/hsir/__init__.py",
       "source_location": "L1",
-      "community": 233,
+      "community": 191,
       "norm_label": "__init__.py",
       "id": "hsir_init"
     },
@@ -23885,7 +24155,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/hsir/helpers.py",
       "source_location": "L1",
-      "community": 191,
+      "community": 113,
       "norm_label": "helpers.py",
       "id": "hsir_helpers"
     },
@@ -24002,7 +24272,7 @@
       "file_type": "code",
       "source_file": "src/esdiva/reception/base.py",
       "source_location": "L1",
-      "community": 235,
+      "community": 12,
       "norm_label": "base.py",
       "id": "reception_base"
     },
@@ -28273,12 +28543,12 @@
     {
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
-      "source_file": "skills/esdiva-simulate/templates/emission_cw.py",
+      "source_file": "skills/esdiva-simulate/templates/emission_monochromatic.py",
       "source_location": "L1",
       "weight": 1.0,
-      "confidence_score": 1.0,
-      "source": "templates_emission_cw_rationale_1",
-      "target": "skills_esdiva_simulate_templates_emission_cw_py"
+      "source": "templates_emission_monochromatic_rationale_1",
+      "target": "skills_esdiva_simulate_templates_emission_monochromatic_py",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -30841,6 +31111,16 @@
       "target": "emission_emission_emission"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L56",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_56",
+      "target": "emission_emission_emission",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "imports",
       "context": "import",
       "confidence": "EXTRACTED",
@@ -31170,6 +31450,16 @@
       "target": "emission_emission_emission_set"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L178",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_178",
+      "target": "emission_emission_emission_set",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "references",
       "context": "return_type",
       "confidence": "EXTRACTED",
@@ -31321,6 +31611,16 @@
       "target": "emission_emission_emission_timer"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L212",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_212",
+      "target": "emission_emission_emission_timer",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -31360,6 +31660,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_218",
       "target": "emission_emission_emission_apply_ir_to_excitation"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L221",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_221",
+      "target": "emission_emission_emission_apply_ir_to_excitation",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -31413,6 +31723,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_230",
       "target": "emission_emission_emission_points_from_field"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L233",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_233",
+      "target": "emission_emission_emission_points_from_field",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -31499,6 +31819,16 @@
       "target": "emission_emission_emission_time_grid"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L242",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_242",
+      "target": "emission_emission_emission_time_grid",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "INFERRED",
@@ -31539,6 +31869,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_255",
       "target": "emission_emission_emission_compute_deltak"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L258",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_258",
+      "target": "emission_emission_emission_compute_deltak",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -31590,6 +31930,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_304",
       "target": "emission_emission_emission_groups"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L307",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_307",
+      "target": "emission_emission_emission_groups",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -31656,6 +32006,16 @@
       "target": "emission_emission_emission_sir_spectrum"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L329",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_329",
+      "target": "emission_emission_emission_sir_spectrum",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -31696,6 +32056,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_354",
       "target": "emission_emission_emission_atten"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L361",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_361",
+      "target": "emission_emission_emission_atten",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -31740,6 +32110,16 @@
       "target": "emission_emission_emission_tf"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L368",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_368",
+      "target": "emission_emission_emission_tf",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -31782,6 +32162,16 @@
       "target": "emission_emission_emission_bins"
     },
     {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L376",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_376",
+      "target": "emission_emission_emission_bins",
+      "confidence_score": 1.0
+    },
+    {
       "relation": "calls",
       "context": "call",
       "confidence": "EXTRACTED",
@@ -31811,6 +32201,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_379",
       "target": "emission_emission_emission_monochromatic"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L386",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_386",
+      "target": "emission_emission_emission_monochromatic",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -31853,6 +32253,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_392",
       "target": "emission_emission_emission_transient"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L399",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_399",
+      "target": "emission_emission_emission_transient",
+      "confidence_score": 1.0
     },
     {
       "relation": "calls",
@@ -31977,6 +32387,16 @@
       "relation": "rationale_for",
       "confidence": "EXTRACTED",
       "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L442",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_442",
+      "target": "emission_emission_emission_call",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
       "source_location": "L777",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -32022,6 +32442,16 @@
       "confidence_score": 1.0,
       "source": "emission_emission_rationale_520",
       "target": "emission_emission_band"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "src/esdiva/emission/emission.py",
+      "source_location": "L532",
+      "weight": 1.0,
+      "source": "emission_emission_rationale_532",
+      "target": "emission_emission_band",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -35970,9 +36400,9 @@
       "source_file": "src/esdiva/plotting/plotting3D.py",
       "source_location": "L185",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "plotting_plotting3d_rationale_185",
-      "target": "plotting_plotting3d_plot3d_pressure_slices",
-      "confidence_score": 1.0
+      "target": "plotting_plotting3d_plot3d_pressure_slices"
     },
     {
       "relation": "imports",
@@ -36055,9 +36485,9 @@
       "source_file": "src/esdiva/plotting/plotting3D.py",
       "source_location": "L388",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "plotting_plotting3d_rationale_388",
-      "target": "plotting_plotting3d_plot3d_transient_slices",
-      "confidence_score": 1.0
+      "target": "plotting_plotting3d_plot3d_transient_slices"
     },
     {
       "relation": "imports",
@@ -50377,9 +50807,9 @@
       "source_file": "tests/regression/headless.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_headless_rationale_1",
-      "target": "tests_regression_headless_py",
-      "confidence_score": 1.0
+      "target": "tests_regression_headless_py"
     },
     {
       "relation": "contains",
@@ -50387,9 +50817,9 @@
       "source_file": "tests/regression/headless.py",
       "source_location": "L23",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_headless_py",
-      "target": "regression_headless_init_off_screen",
-      "confidence_score": 1.0
+      "target": "regression_headless_init_off_screen"
     },
     {
       "relation": "contains",
@@ -50397,9 +50827,9 @@
       "source_file": "tests/regression/headless.py",
       "source_location": "L28",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_headless_py",
-      "target": "regression_headless_render_and_close",
-      "confidence_score": 1.0
+      "target": "regression_headless_render_and_close"
     },
     {
       "relation": "rationale_for",
@@ -50407,9 +50837,9 @@
       "source_file": "tests/regression/test_examples.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_examples_rationale_1",
-      "target": "tests_regression_test_examples_py",
-      "confidence_score": 1.0
+      "target": "tests_regression_test_examples_py"
     },
     {
       "relation": "contains",
@@ -50417,9 +50847,9 @@
       "source_file": "tests/regression/test_examples.py",
       "source_location": "L26",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_examples_py",
-      "target": "regression_test_examples_test_example_runs",
-      "confidence_score": 1.0
+      "target": "regression_test_examples_test_example_runs"
     },
     {
       "relation": "rationale_for",
@@ -50427,9 +50857,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L1",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_rationale_1",
-      "target": "tests_regression_test_golden_py",
-      "confidence_score": 1.0
+      "target": "tests_regression_test_golden_py"
     },
     {
       "relation": "contains",
@@ -50437,9 +50867,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L86",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_emission_attenuated_soft_baffle",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_emission_attenuated_soft_baffle"
     },
     {
       "relation": "contains",
@@ -50447,9 +50877,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L97",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_emission_concave_bowl",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_emission_concave_bowl"
     },
     {
       "relation": "contains",
@@ -50457,9 +50887,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L73",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_emission_matrix_steered_pw",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_emission_matrix_steered_pw"
     },
     {
       "relation": "contains",
@@ -50467,9 +50897,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L51",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_emission_monochromatic_focused",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_emission_monochromatic_focused"
     },
     {
       "relation": "contains",
@@ -50477,9 +50907,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L63",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_emission_transient_diverging",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_emission_transient_diverging"
     },
     {
       "relation": "contains",
@@ -50487,9 +50917,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L36",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "contains",
@@ -50497,9 +50927,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L46",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_plane",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_plane"
     },
     {
       "relation": "contains",
@@ -50507,9 +50937,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L31",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "contains",
@@ -50517,9 +50947,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L131",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_reception_focused_line",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_reception_focused_line"
     },
     {
       "relation": "contains",
@@ -50527,9 +50957,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L119",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_reception_phantom_attenuated",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_reception_phantom_attenuated"
     },
     {
       "relation": "contains",
@@ -50537,9 +50967,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L107",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_reception_psf_per_element_drive",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_reception_psf_per_element_drive"
     },
     {
       "relation": "contains",
@@ -50547,9 +50977,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L154",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_run",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_run"
     },
     {
       "relation": "contains",
@@ -50557,9 +50987,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L161",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "tests_regression_test_golden_py",
-      "target": "regression_test_golden_test_matches_golden",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_test_matches_golden"
     },
     {
       "relation": "calls",
@@ -50568,9 +50998,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L91",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_attenuated_soft_baffle",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "calls",
@@ -50579,9 +51009,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L81",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_matrix_steered_pw",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "calls",
@@ -50590,9 +51020,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L68",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_transient_diverging",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "calls",
@@ -50601,9 +51031,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L133",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_reception_focused_line",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "calls",
@@ -50612,9 +51042,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L121",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_reception_phantom_attenuated",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "calls",
@@ -50623,9 +51053,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L109",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_reception_psf_per_element_drive",
-      "target": "regression_test_golden_pulse",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_pulse"
     },
     {
       "relation": "calls",
@@ -50634,9 +51064,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L87",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_attenuated_soft_baffle",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "calls",
@@ -50645,9 +51075,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L52",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_monochromatic_focused",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "calls",
@@ -50656,9 +51086,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L64",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_transient_diverging",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "calls",
@@ -50667,9 +51097,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L132",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_reception_focused_line",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "calls",
@@ -50678,9 +51108,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L120",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_reception_phantom_attenuated",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "calls",
@@ -50689,9 +51119,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L108",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_reception_psf_per_element_drive",
-      "target": "regression_test_golden_linear",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_linear"
     },
     {
       "relation": "calls",
@@ -50700,9 +51130,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L55",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_emission_monochromatic_focused",
-      "target": "regression_test_golden_plane",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_plane"
     },
     {
       "relation": "calls",
@@ -50711,9 +51141,9 @@
       "source_file": "tests/regression/test_golden.py",
       "source_location": "L163",
       "weight": 1.0,
+      "confidence_score": 1.0,
       "source": "regression_test_golden_test_matches_golden",
-      "target": "regression_test_golden_run",
-      "confidence_score": 1.0
+      "target": "regression_test_golden_run"
     },
     {
       "relation": "rationale_for",
@@ -53804,6 +54234,16 @@
       "confidence_score": 1.0,
       "source": "test_psimulation_test_emission_rationale_371",
       "target": "test_psimulation_test_emission_testimpulseresponse_test_ir_equals_preconvolved_pulse"
+    },
+    {
+      "relation": "rationale_for",
+      "confidence": "EXTRACTED",
+      "source_file": "tests/unit/test_psimulation/test_emission.py",
+      "source_location": "L382",
+      "weight": 1.0,
+      "source": "test_psimulation_test_emission_rationale_382",
+      "target": "test_psimulation_test_emission_testimpulseresponse_test_ir_equals_preconvolved_pulse",
+      "confidence_score": 1.0
     },
     {
       "relation": "rationale_for",
@@ -58942,6 +59382,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
+      "source_location": "L288",
+      "weight": 1.0,
+      "source": "esdiva_architecture_emission_workflow",
+      "target": "esdiva_architecture_one_pipeline_two_sir_sources",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ARCHITECTURE.md",
       "source_location": "L297",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -59172,6 +59622,16 @@
       "relation": "contains",
       "confidence": "EXTRACTED",
       "source_file": "ARCHITECTURE.md",
+      "source_location": "L725",
+      "weight": 1.0,
+      "source": "esdiva_architecture_risky_implementations_validate_physics_math",
+      "target": "esdiva_architecture_4_attenuation_dispersion_referenced_at_f0_fixed_2026_09_13",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ARCHITECTURE.md",
       "source_location": "L634",
       "weight": 1.0,
       "confidence_score": 1.0,
@@ -59197,6 +59657,16 @@
       "confidence_score": 1.0,
       "source": "esdiva_architecture_risky_implementations_validate_physics_math",
       "target": "esdiva_architecture_6_numba_cache_staleness"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "ARCHITECTURE.md",
+      "source_location": "L748",
+      "weight": 1.0,
+      "source": "esdiva_architecture_risky_implementations_validate_physics_math",
+      "target": "esdiva_architecture_7_emission_scale_continuous_h_no_hidden_fs_fixed_2026_09_13",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -60107,6 +60577,16 @@
       "confidence_score": 1.0,
       "source": "rules_physics_context_physics_context_sir_sdi_theory",
       "target": "rules_physics_context_9_1_pe_sdi_three_ways_to_evaluate_the_same_pulse_echo_rf"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": ".claude/rules/physics-context.md",
+      "source_location": "L197",
+      "weight": 1.0,
+      "source": "rules_physics_context_physics_context_sir_sdi_theory",
+      "target": "rules_physics_context_9_1_two_sir_sources_one_frequency_domain_chain_emission_and_reception",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -61207,6 +61687,16 @@
       "confidence_score": 1.0,
       "source": "api_emission",
       "target": "api_emission_emission"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/api/hsir.md",
+      "source_location": "L5",
+      "weight": 1.0,
+      "source": "docs_api_hsir_md",
+      "target": "api_hsir_sir_kernels",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -63197,6 +63687,26 @@
       "confidence_score": 1.0,
       "source": "user_guide_emission_emission",
       "target": "user_guide_emission_modes_at_a_glance"
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/emission.md",
+      "source_location": "L53",
+      "weight": 1.0,
+      "source": "user_guide_emission_emission",
+      "target": "user_guide_emission_monochromatic_field",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "docs/user-guide/emission.md",
+      "source_location": "L69",
+      "weight": 1.0,
+      "source": "user_guide_emission_emission",
+      "target": "user_guide_emission_sir_source_spectral_or_temporal",
+      "confidence_score": 1.0
     },
     {
       "relation": "contains",
@@ -65281,6 +65791,66 @@
     {
       "relation": "contains",
       "confidence": "EXTRACTED",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L1",
+      "weight": 1.0,
+      "source": "skills_esdiva_simulate_references_validation_md",
+      "target": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L66",
+      "weight": 1.0,
+      "source": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "target": "references_validation_bugs_fixed_do_not_reintroduce",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L7",
+      "weight": 1.0,
+      "source": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "target": "references_validation_guarantees_pinned_by_the_test_suite",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L78",
+      "weight": 1.0,
+      "source": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "target": "references_validation_making_a_new_claim",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L41",
+      "weight": 1.0,
+      "source": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "target": "references_validation_physics_decisions_and_the_evidence_behind_them",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
+      "source_file": "skills/esdiva-simulate/references/validation.md",
+      "source_location": "L19",
+      "weight": 1.0,
+      "source": "references_validation_validation_what_has_been_verified_how_and_what_not_to_reintroduce",
+      "target": "references_validation_which_sir_method_is_faster_measured_64_element_linear_array",
+      "confidence_score": 1.0
+    },
+    {
+      "relation": "contains",
+      "confidence": "EXTRACTED",
       "source_file": "skills/esdiva-simulate/references/visualization.md",
       "source_location": "L1",
       "weight": 1.0,
@@ -67153,5 +67723,5 @@
     }
   ],
   "hyperedges": [],
-  "built_at_commit": "32c14655f98589e001e9412fc5464ae97c27c45f"
+  "built_at_commit": "97e6cd24cf92be54ebf569805fd8c14b518e218f"
 }

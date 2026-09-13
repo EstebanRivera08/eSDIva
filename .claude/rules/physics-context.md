@@ -194,59 +194,42 @@ Redistributing derivatives onto SIRs (associativity of convolution):
 mean SDI can be truncated before integration stage. Saves O(T) operations per
 truncation, where T = temporal sampling length.
 
-## 9.1 PE SDI: three ways to evaluate the same pulse-echo RF
+## 9.1 Two SIR sources, one frequency-domain chain (Emission and Reception)
 
-The pulse-echo RF of one scatterer is p_pe = v_pe *_t h_tx *_t h_rx. Each one-way SIR is
-a trapezoid whose 2nd derivative is four corner deltas (d2h = sum of 4 signed Diracs,
-signs +,-,-,+, each scaled by the rising slope). eSDIva evaluates p_pe three ways; all
-agree to corr ~1.0 with each other and Field II. Reception's `method=` picks one:
+Every simulator needs the aperture SIR in the frequency domain, where excitation, impulse
+responses, attenuation, a transfer function and the baffle all multiply. Two sources:
 
-**fst / sdi / auto (conventional)** — sample both one-way SIRs (place corner deltas,
-double-cumsum to a trapezoid) and FFT-convolve. SIR build is linear in patch count M; the
-convolution is M-independent. (`ReceptionConventional`, with a depth-bin fast path; the
-string names its SIR-sampling kernel.)
+**temporal (`"temporal"` = `"sdi"`, `"fst"`, `"auto"`)** — sample h(t) (FST fills the
+trapezoid, SDI places the 4 corner deltas and double-cumsums), then FFT. The sampled SIR
+widens a patch narrower than 1/fs to one bin: spectrum × sinc(πf/fs) per clamped axis.
 
-**paired** — convolve the two corner-delta trains *analytically* (deltas *_t deltas =
-deltas), giving the two-way train
+**spectral (`"spectral"`)** — the trapezoid is rect ⊛ rect (widths Δt1, Δt2), so per patch
 
-    Δδ_pe = d2h_tx *_t d2h_rx = 16 Dirac deltas per (m_e, m_r) patch pair
+    H_patch(ω) = A/(2πl) · D(θ) · sinc(ωΔt1/2) · sinc(ωΔt2/2) · e^{-jω(t_c − t0)}
 
-at t_event = t_e_corner + t_r_corner (4 TX corners × 4 RX corners). Push the four
-integrations onto the excitation once, w = I4 v_pe, then for each of a pair's 16 corner
-events splat a shifted, scaled copy of w: p_pe = Σ_ij a_i a_j w(t − τ_i − τ_j). No FFT,
-no cumsum — the output is the RF directly. Cost ∝ M_tx·M_rx·len(w), so it is the exact
-reference path for compact apertures (a PSF, a monoelement). (`compute_pe_complete`.)
+(A = area × apodization, t_c = l/c + delay, D = 1 rigid / max(0, n·u) soft). Summed per
+patch at the in-band frequencies only: exact, no sampling, no clamp, no forward FFT; cost
+∝ patches × band bins. Identical to ÷(jω)² of the corner-delta spectrum Σ(ω) (verified to
+float32). `rfft(h[n]) ≈ fs·H(ω)` links the two sources (`hsir.compute_h_sir_spectrum`).
 
-**spectral** — never form the pairs. The Fourier transform of one aperture's corner
-train is closed form (a sum of four phasors per patch),
+- **Emission:** `P = ρ·Σ_g H_g·jω·DFT(v_g)·H_att·TF` (continuous H → pascals, signed);
+  monochromatic `ρ·ωc·|H(ωc)|`. `method=None` = measured fastest (spectral for
+  monochromatic / per-element groups, temporal otherwise).
+- **Reception:** `rf ∝ irfft(fs·H_TX·H_RX·DFT(v)·IR_tx·IR_rx·H_att)` with
+  `H_TX = Σ_t DFT(v_t)·H_TX,t` for per-element drives; `compute_twoway_spectrum_summed`
+  fuses TX×RX over scatterers. `fs·H·H` equals conventional `dt·DFT(h)·DFT(h)`. Spectral
+  is the default (fastest in every measured case).
+- **Attenuation** is applied per path origin (TX centre, RX element centre, or element
+  centre in emission) — never inside a kernel (attenuation.md).
 
-    Σ(ω) = Σ_m slope_m [ e^{-jω t1} − e^{-jω t2} − e^{-jω t3} + e^{-jω t4} ]
-
-so the two-way SIR spectrum is the PRODUCT of the one-way spectra (convolution ⇒
-multiply), Σ_TX·Σ_RX = F{Δδ_pe}, and h_tx *_t h_rx = ÷(jω)^4 · Σ_TX·Σ_RX. This builds no
-time-domain SIR and does NO forward FFT — cost is linear in patch count (M_tx + M_rx),
-and exact (no time sampling, no interpolation). Because the received signal is
-band-limited by the excitation/IR, Σ is evaluated only on the in-band bins
-(N_band ≪ N_freq). For the summed RF, `compute_twoway_spectrum_summed` builds the TX
-spectrum once per scatterer and reuses it across every RX element, summing Σ_TX·Σ_RX over
-scatterers in one fused pass; for the per-scatterer PSF, `compute_oneway_spectrum_band`
-builds one element's Σ at a time. Per-patch one-way attenuation (§10) is multiplied into
-each patch phasor for free, using the patch-to-point distance — the TX×RX product then
-carries the true round-trip loss, which conventional cannot do cheaply.
-
-**I4 scaling.** Δδ_pe / Σ hold delta *areas* (no width). ÷(jω) is a continuous
-integrator weighting each sample by dt, under-counting by fs=1/dt, so `inv_jw_pow`
-carries one ×fs. Doing all four integrations in Fourier (vs a time-domain cumsum) carries
-zero group delay → sample-aligned with conventional, and avoids float32 cumsum
-cancellation.
+**Paired (`ReceptionPaired`, pedagogic)** — convolve the corner trains analytically into
+Δδ_pe = d2h_tx ⊛ d2h_rx (16 deltas per patch pair), push I4 = ÷(jω)⁴ (× fs, deltas hold
+areas) onto the drive once, w = I4 v_pe, and splat w per corner event. Exact, cost ∝
+M_tx·M_rx·len(w). (`hsir/sir_paired.py`, `reception/paired.py`.)
 
 **Excitation.** v_pe = (rho_0 / 2c_0^2) · (E_m * v). No explicit derivative on v — the
 physical d3v/dt3 is carried by the band-limited excitation/IR chain (same as Field II).
 This differs from Emission, where the chain has an explicit dv/dt.
-
-Code: `compute_pe_complete` (paired) / `compute_oneway_spectrum_band` +
-`compute_twoway_spectrum_summed` (spectral) in `sir_spectral.py` (paired: `sir_paired.py`). The
-conventional path delegates to `ReceptionConventional` (`sir_temporal.compute_h_sir`).
 
 ## 9.2 Pulse-centre lag — a beamforming correction, NOT part of the RF
 

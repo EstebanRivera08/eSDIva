@@ -12,8 +12,8 @@ for the method taxonomy, PSF, and phantom recipes.
 The single pulse-echo class. Its `method` selector chooses how the two-way SIR is
 evaluated — all methods give the same RF, they trade speed only:
 
-- `"spectral"` (default) — fast sparse-delta kernel via closed-form one-way SIR spectra.
-- `"fst"` / `"sdi"` / `"auto"` — sampled two-way SIR convolution (delegated to the
+- `"spectral"` (default) — `H_TX·H_RX` from the closed-form SIR spectrum, in-band only.
+- `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sampled two-way SIR convolution (delegated to the
   conventional `ReceptionConventional` backend; the string names its SIR-sampling kernel).
 - `ReceptionPaired` — exact but slow pedagogic reference, a separate class (warns on construction).
 

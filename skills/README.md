@@ -5,7 +5,7 @@ Portable [Agent Skills](https://code.claude.com/docs/en/skills) for
 ultrasound field simulator. Plain Markdown with `name` / `description` front matter —
 the format Claude Code, OpenAI Codex and OpenCode all read.
 
-- **`esdiva-simulate`** — build transducers, run emission (CW / transient) and
+- **`esdiva-simulate`** — build transducers, run emission (monochromatic / transient) and
   pulse-echo RF simulations, beamform the RF or feed it to your own beamformer, get
   a figure to actually appear, and understand the SIR/SDI physics behind the result.
   Four runnable templates included.

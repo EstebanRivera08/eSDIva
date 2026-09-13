@@ -58,6 +58,7 @@ nav = [
   { "API Reference" = [
     { "Overview" = "api/index.md" },
     { "Transducers" = "api/transducers.md" },
+    { "SIR kernels" = "api/hsir.md" },
     { "Emission" = "api/emission.md" },
     { "Reception" = "api/reception.md" },
     { "Beamforming" = "api/beamforming.md" },

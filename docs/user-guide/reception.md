@@ -12,9 +12,15 @@ to correlation ~1.0 while running **>20× faster** on large apertures.
 One class, `Reception`, does everything; its `method` selector picks how the two-way
 SIR is evaluated (speed only — all give the same RF):
 
-- **`"spectral"`** (default) — fast sparse-delta kernel via closed-form one-way SIR spectra.
-- **`"fst"` / `"sdi"` / `"auto"`** — conventional Tupholme-Stepanishen sampled convolution.
+- **`"spectral"`** (default) — the two-way spectrum `H_TX·H_RX` from the closed-form
+  SIR spectrum, evaluated only on the pulse's band; fastest in every measured case.
+- **`"temporal"`** (= `"sdi"`) / **`"fst"`** / **`"auto"`** — conventional
+  Tupholme-Stepanishen sampled convolution.
 - **`ReceptionPaired`** (separate class) — exact but slow pedagogic reference (warns on construction).
+
+Every method supports a global `(L,)` or per-element `(L, E)` excitation, a soft baffle
+(`tx.baffle` / `rx.baffle = "soft"`) and attenuation along the round trip transducer
+centre → scatterer → receive-element centre.
 
 ```python
 from esdiva.reception import Reception
@@ -34,9 +40,9 @@ flowchart LR
     TX[TX transducer] --> R[Reception<br/>fs · c · method]
     RX[RX transducer] --> R
     R --> M{method}
-    M -->|spectral · default| SP[Closed-form one-way<br/>spectra · no FFT]
+    M -->|spectral · default| SP["closed-form H_TX·H_RX<br/>in-band only · no FFT"]
     M -.->|ReceptionPaired · pedagogic| PA[16 corner deltas / pair<br/>splat drive]
-    M -->|fst / sdi / auto| CV[sample SIRs + FFT]
+    M -->|temporal / fst / auto| CV[sample SIRs + FFT]
     SP --> API
     PA --> API
     CV --> API
@@ -58,7 +64,7 @@ flowchart LR
 | `synthetic_aperture_rf` | FMC — per-element transmit basis | `(Etx, Erx, Nt)` |
 | `scan_focusline` | One focused B-mode line, RX summed in-kernel | `(Nt,)` |
 
-The `method=` flag (`spectral` / `fst` / `sdi` / `auto`) only trades
+The `method=` flag (`spectral` / `temporal` / `fst` / `sdi` / `auto`) only trades
 speed — all produce the same RF. `ReceptionPaired` is a slow pedagogic reference and warns
 on construction.
 

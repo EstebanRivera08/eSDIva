@@ -76,6 +76,12 @@ Two approaches for propagation distance `d`:
 Option 1 sufficient for most cases. Option 2 needed for large aperture + strong
 attenuation + near-field.
 
+**eSDIva ships option 1 plus a per-element origin (decided 2026-09-13):** Emission
+`fast_attenuation=True` = transducer centre, `False` = each element's centre; Reception =
+TX centre + each RX element centre, every method. Per-patch distances were removed from
+the spectral kernel (measured cost of dropping them: ≈3 % RF near field at 3–6 mm on a
+19 mm aperture, 0.5 dB/MHz/cm; ≈0.3 % deep).
+
 ## Integration in SDI Pipeline
 
 After computing H(r, omega) via SDI:

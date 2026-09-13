@@ -100,12 +100,17 @@ prefer it to lowering `fs`: the SIR needs the fine grid, the output does not.
 
 All backends compute the same physics; they differ in cost.
 
-- `"spectral"` (default) — closed-form one-way spectra, `Σ_TX·Σ_RX = F{Δδ_pe}`, no
-  forward FFT, cost ∝ M (patches), exact, band-limited bins only. Supports per-patch
-  one-way attenuation. Use this.
-- `"fst"` / `"sdi"` / `"auto"` — sample both SIRs and FFT-convolve
-  (`ReceptionConventional`); the string names its SIR-sampling kernel. Use to
-  cross-check `spectral`.
+- `"spectral"` (default) — `fs·H_TX·H_RX` from the closed-form SIR spectrum (per patch:
+  area × two sincs × a delay phasor), no forward FFT, cost ∝ M (patches), exact,
+  band-limited bins only. Use this: measured fastest in every case (64 elements, 20k
+  scatterers: 6× lossless, 52× per-element drive, 105× attenuated).
+- `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sample both SIRs and FFT-convolve
+  (`ReceptionConventional`); the string names its SIR-sampling kernel. Same RF (≤ ~1 %);
+  use to cross-check `spectral`.
+
+Every method supports a global `(L,)` or per-element `(L, E)` excitation (spectral forms
+`H_TX = Σ_t DFT(e_t)·H_TX,t`), `tx.baffle`/`rx.baffle = "soft"`, and attenuation along
+the round trip TX centre → scatterer → RX element centre.
 - `ReceptionPaired(tx, rx, ...)` (separate class; `method="paired"` raises) — the pedagogic two-way delta train. Exact, no FFT, but cost ∝ M², so
   far slower; it warns on construction. For teaching or auditing the kernel only.
 

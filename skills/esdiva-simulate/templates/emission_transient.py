@@ -60,14 +60,15 @@ field_points = {
 # returns rho * d(e (*) ir_tx)/dt (*) h(r, t). With no impulse_response set, the
 # bare excitation acts as the normal velocity.
 sim = Emission(tx, fs=FS, excitation=excitation, c=1540.0, verbose=True)
-p, coords = sim(field_points, method="auto")  # (Nt, Nx, Ny, Nz)
+p, coords = sim(field_points)  # (Nt, Nx, Ny, Nz), signed pressure in Pa
 
 t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]
 print(f"Transient field: {p.shape}   t = [{t[0] * 1e6:.2f}, {t[-1] * 1e6:.2f}] us")
 print(f"Phase timings (s): {sim.time_log}")
 
 # %% Waveform on the beam axis
-# One field point's pressure over time: the shape the medium actually sees.
+# One field point's pressure over time: the shape the medium actually sees
+# (compression positive, rarefaction negative; -p.min() is the peak negative pressure).
 ix = int(np.argmin(np.abs(coords["x"] - 0.0)))
 iz = int(np.argmin(np.abs(coords["z"] - 15.0)))
 fig, ax = plt.subplots(figsize=(7, 3))

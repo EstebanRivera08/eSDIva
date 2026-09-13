@@ -9,7 +9,7 @@ no excitation convolution. This is the pure geometric SIR sampled at `fs`.
 
 ```python
 sim = Emission(tx, fs=200e6)            # excitation=None, monochromatic=False
-p, coords = sim(field_points, method="auto")
+p, coords = sim(field_points)
 # dict input : p.shape == (Nt, Nx, Ny, Nz), coords has "x","y","z","t0","dt"
 # (N,3) input: p.shape == (Nt, N_points)
 ```
