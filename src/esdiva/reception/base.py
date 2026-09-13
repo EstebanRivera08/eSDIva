@@ -382,32 +382,6 @@ class ReceptionBase(SimulationBase):
             rf[:, off : off + r.shape[1]] += r
         return rf
 
-    @staticmethod
-    def _snap_to_lattice(t0_nat, t0_global, dt):
-        """Align one depth bin's time grid with the shared global time axis.
-
-        All depth bins must add onto ONE common time axis (origin ``t0_global``,
-        sample step ``dt``), but a bin's natural start time ``t0_nat`` (the earliest
-        pulse-echo arrival in that bin) generally falls between two samples of that
-        axis. This rounds ``t0_nat`` DOWN to the nearest sample of the shared axis.
-
-        Time-domain paths simply build the bin's grid starting at ``t0_snap`` and
-        ignore ``shift``; the spectral path applies ``shift`` as a phase ramp on the
-        TX spectrum so the bin's RF still lands exactly on the shared samples.
-
-        Returns
-        -------
-        n0 : int
-            Integer sample index of the snapped start on the shared axis.
-        t0_snap : float
-            Snapped start time, ``t0_global + n0·dt`` (s).
-        shift : float
-            Sub-sample remainder ``t0_nat − t0_snap``, in ``[0, dt)`` (s).
-        """
-        n0 = int(np.floor((t0_nat - t0_global) / dt))
-        t0_snap = t0_global + n0 * dt
-        return n0, t0_snap, t0_nat - t0_snap
-
     def _auto_depth_bins(self, points_m, n_out):
         """Choose how many depth bins to split the scatterers into (1 = no binning).
 

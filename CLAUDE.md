@@ -95,9 +95,9 @@ non-Claude agents at both this file and `skills/`.
 
 - **Patch-based discretization**: transducers decompose into small rectangular patches; `no_sub_x`/`no_sub_y` control subdivision density and accuracy.
 - **Lazy geometry loading**: `TransducerBase` defers element-center/patch-vertex computation until needed.
-- **SIR method selection**: `"FST"` (slow reference), `"sdi"` (Sparse Delta Integration, faster on large grids), `"auto"` (picks based on grid properties).
+- **SIR method selection** (Emission and Reception): `"spectral"` (closed-form H(ω), `hsir.sir_spectral`; Reception default; Emission default `None` = fastest per mode, see gotcha 7) or the temporal SIR `"temporal"` (= `"sdi"`), `"fst"`, `"auto"` (sampled h(t), `hsir.sir_temporal`, then FFT). Same physics, same results; every feature (global/per-element excitation, attenuation, soft baffle, transfer function) works with both.
 - **Unit convention**: user-facing APIs use mm (`_mm` suffix); internals use SI (m, s).
-- **Monochromatic vs transient**: mono returns `p.shape = (Nx, Ny, Nz)` (CW); transient returns `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
+- **Monochromatic vs transient**: monochromatic returns `|P(r, fc)|`, `p.shape = (Nx, Ny, Nz)`; transient returns `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
 
 ### Coordinate System
 - X: lateral (across array elements) · Y: elevation (perpendicular to imaging plane) · Z: axial (beam propagation, depth)
@@ -144,11 +144,11 @@ field_points = {"x_extent": [-5, 5], "y_extent": [-0.5, 0.5],
                 "z_extent": [5, 55], "dx": 0.1, "dy": 1.0, "dz": 0.2}
 
 # 4. Emission — 4 modes via constructor flags:
-sim = Emission(tx, monochromatic=True)            # CW amplitude at fc → (Nx,Ny,Nz)
+sim = Emission(tx, monochromatic=True)            # |P(r, fc)| at fc → (Nx,Ny,Nz)
 sim = Emission(tx)                                 # pulsed transient (raw SIR) → (Nt,...)
 sim = Emission(tx, fs=200e6, excitation=exc)       # global excitation (L,)
 sim = Emission(tx, fs=200e6, excitation=exc_LE)    # per-element excitation (L,E)
-p, coords = sim(field_points, method="auto")       # always returns (pressure, coords)
+p, coords = sim(field_points)                      # method: ctor or per call; (pressure, coords)
 ```
 
 **Reception** (pulse-echo RF): one public class — `Reception` (the fast PE-SDI kernel),
@@ -267,7 +267,7 @@ Quick checklist — full rationale, locations, and history in
    ```powershell
    Get-ChildItem -Path src\esdiva -Recurse -Include *.nbi,*.nbc | Remove-Item -Force
    ```
-7. **`from_sir_to_pressure` ignores attenuation when `excitation=None`** — provide excitation if attenuation must apply.
+7. **Emission `method=None` picks by measurement, not by feature** — spectral for monochromatic and for per-element drives/attenuation (one FFT for all elements vs one per element: 2.3×, 23× monochromatic), temporal for every single-group transient (1.3–2.5× faster, also with attenuation, TF or soft baffle: each is one multiply per bin either way). Explicit `method=` always wins. Re-measure before changing the rule (`bench` of 64-el array, 12.5k points, 2026-09-13).
 8. **Elevation-lens sag is SIGNED and reception SUBTRACTS it** — `_finalize` does `t0 -= (tx+rx).elevation_lens_sag/c`. Positive sag = concave (centre recessed, paths longer); negative = convex. Flipping the sign blurs *nothing* — it moves the whole image `2·sag` in depth (0.34 mm on a 4 mm aperture at R=12 mm) with a sharp PSF and healthy metrics, so it reads as a calibration error. It shipped wrong until 2026-09-11 and 207 tests passed with it. Guarded by `tests/unit/test_psimulation/test_lens_time_origin.py`. Also: `elevation_focus_mm` is a RADIUS — the focus is one sagitta shallower, at `elevation_focus_depth_mm`. Emission needs no such term and has none.
 
 ## graphify

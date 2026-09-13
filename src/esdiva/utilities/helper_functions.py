@@ -143,13 +143,13 @@ def method_to_flag(method):
     """Map a SIR method name to the integer flag the kernel expects.
 
     ``"FST"`` → 0 (fully-sampled trapezoid: evaluate the continuous trapezoid SIR
-    at every time sample), ``"sdi"`` → 1 (sparse delta integration), anything else
-    (``"auto"``) → 2 (per-patch choice in the kernel).
+    at every time sample), ``"sdi"``/``"temporal"`` → 1 (sparse delta integration),
+    anything else (``"auto"``) → 2 (per-patch choice in the kernel).
 
     Parameters
     ----------
     method : str
-        SIR method name: ``"FST"``, ``"sdi"`` or ``"auto"``.
+        SIR method name: ``"FST"``, ``"sdi"``, ``"temporal"`` or ``"auto"``.
 
     Returns
     -------
@@ -158,7 +158,7 @@ def method_to_flag(method):
     """
     if method in ("FST", "fst"):
         return 0
-    if method in ("sdi", "SDI"):
+    if method in ("sdi", "SDI", "temporal"):
         return 1
     return 2  # auto
 

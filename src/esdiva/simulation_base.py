@@ -79,6 +79,29 @@ class SimulationBase:
         return exc
 
     @staticmethod
+    def _snap_to_lattice(t0_nat, t0_global, dt):
+        """Align one depth bin's time grid with the shared global time axis.
+
+        All depth bins must land on ONE common time axis (origin ``t0_global``, step
+        ``dt``), but a bin's natural start ``t0_nat`` generally falls between two of its
+        samples. This rounds ``t0_nat`` DOWN to the nearest sample of the shared axis.
+        Time-domain paths build the bin's grid from ``t0_snap``; a spectral path can
+        instead reference its phase to ``t0_snap`` (or apply ``shift`` as a phase ramp).
+
+        Returns
+        -------
+        n0 : int
+            Integer sample index of the snapped start on the shared axis.
+        t0_snap : float
+            Snapped start time, ``t0_global + n0·dt`` (s).
+        shift : float
+            Sub-sample remainder ``t0_nat − t0_snap``, in ``[0, dt)`` (s).
+        """
+        n0 = int(np.floor((t0_nat - t0_global) / dt))
+        t0_snap = t0_global + n0 * dt
+        return n0, t0_snap, t0_nat - t0_snap
+
+    @staticmethod
     def _require_rigid(*transducers):
         """The temporal SIR kernels model a rigid baffle only; refuse ``baffle="soft"``."""
         if any(getattr(t, "baffle", "rigid") == "soft" for t in transducers):
