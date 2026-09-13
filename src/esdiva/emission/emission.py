@@ -37,6 +37,7 @@ from esdiva.utilities.helper_functions import (
     compute_time_grid,
     create_3D_spatial_grid_from_points,
     method_to_flag as _method_to_flag,
+    eta_progress as _eta_progress,
     next_pow2 as _next_pow2,
     reshape_to_mapped_points,
 )
@@ -373,10 +374,15 @@ class Emission(SimulationBase):
         )
 
     def _bins(self, pts):
-        """Field-point groups sorted by distance to the aperture (see `_POINTS_PER_BIN`)."""
+        """Field-point groups sorted by distance to the aperture (see `_POINTS_PER_BIN`).
+
+        Yielded through `eta_progress`: a run projected over 30 s announces its ETA and
+        tracks progress, exactly as reception does over its receive elements.
+        """
         centre = np.asarray(self.tx.element_centers, dtype=np.float64).mean(axis=0)
         order = np.argsort(np.linalg.norm(pts - centre, axis=1))
-        return np.array_split(order, max(1, pts.shape[0] // _POINTS_PER_BIN))
+        bins = np.array_split(order, max(1, pts.shape[0] // _POINTS_PER_BIN))
+        return _eta_progress(bins, len(bins), label="depth bins")
 
     # ------------------------------------------------------------------
     # The two modes

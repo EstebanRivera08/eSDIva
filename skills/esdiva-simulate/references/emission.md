@@ -102,7 +102,11 @@ field_points = {"x_extent": [-10, 10], "y_extent": [0, 0], "z_extent": [0.5, 50]
 ```
 
 Cost is linear in the number of points × the number of patches. Prototype on the
-XZ plane (`y_extent: [0, 0]`) before asking for a volume. Keep `z_extent` away from
+XZ plane (`y_extent: [0, 0]`) before asking for a volume. Before a big volume or a sweep
+of many fields, measure on the user's machine instead of guessing:
+`estimate_sequence_runtime(sim, field_points, n_emissions=n_fields)` times probes on
+subsets of the grid (±30 % with the default fractions on a 6 s field; probing
+`(0.2, 0.5)` came within 1 %). Runs over 30 s print an ETA while computing. Keep `z_extent` away from
 0: the SIR is singular on the aperture face, and the near field within a fraction of
 an element width is not physically meaningful anyway.
 

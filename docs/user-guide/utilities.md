@@ -28,19 +28,23 @@ Helper modules for geometry construction, brain atlas integration, and 3-D visua
 
 </div>
 
-## Planning a long acquisition
+## Planning a long acquisition or field sweep
 
 ```python
 from esdiva.utilities import estimate_sequence_runtime
 
-est = estimate_sequence_runtime(sim, positions_mm, n_emissions=n_angles * n_frames)
+# Reception: scatterers × emissions
+est = estimate_sequence_runtime(sim_rx, positions_mm, n_emissions=n_angles * n_frames)
+# Emission: field points × fields (e.g. one per steering angle); a grid dict is accepted
+est = estimate_sequence_runtime(sim_tx, field_points, n_emissions=n_angles)
 ```
 
-Times a few short pulse-echo probes on subsets of your real phantom, with your
-real probe and excitation, and projects the wall time of the full sequence. Cost
-is dominated by **scatterers × emissions**, but the constant is a property of the
+Times a few short probes on subsets of your real points (phantom scatterers or field
+points), with your real probe, excitation and mode, and projects the wall time of the
+full run. Cost is dominated by **points × runs**, but the constant is a property of the
 machine — cores, memory bandwidth, threading — and varies by more than an order
-of magnitude between a laptop and a compute node.
+of magnitude between a laptop and a compute node. Long emission runs also print an ETA
+while they compute, like reception.
 
 !!! warning "A timing from another machine is not a prediction for yours"
     It is not even stable on one machine: an identical computation has measured
