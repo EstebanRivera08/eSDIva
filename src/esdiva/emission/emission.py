@@ -823,6 +823,7 @@ class Emission(SimulationBase):
         coords : dict
             Keys "x", "y", "z" for structured grid; "t0", "dt" for transient.
         """
+        self._require_rigid(self.tx)
         is_structured = isinstance(field_points_mm, dict)
         x, y, z, points_m = self._points_from_field(field_points_mm)
 

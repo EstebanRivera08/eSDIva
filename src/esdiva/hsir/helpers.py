@@ -6,8 +6,6 @@ do not each carry their own copy:
 
 - `_compute_rectangle_SIR_params` — the trapezoidal SIR of a single rectangular patch
   (corner times + plateau height), the atom every kernel evaluates per patch.
-- `_patch_corner_times` — the same atom seen from a field point in the patch's own
-  frame, returning the corner times and rising slope the SDI kernels place.
 - `identity_tangents` / `pack_tangents` — build and pack the per-patch local frame
   (in-plane unit vectors) the kernels project the field-point direction onto.
 - `_prep_pe_arrays` — cast the pulse-echo TX/RX patch arrays to the float32 layout the
@@ -73,35 +71,6 @@ def _compute_rectangle_SIR_params(wx, wy, ux, uy, dist, inv_c, apod, delay, dt):
     t4 = t1 + Dt1 + Dt2
     h_max = area * apod / Dt2
     return t1, t2, t3, t4, h_max
-
-
-@njit(inline="always")
-def _patch_corner_times(
-    px, py, pz, cx, cy, cz, eu0, eu1, eu2, ev0, ev1, ev2, wx, wy, inv_c, apod, delay, dt
-):
-    """Trapezoid corner times + slope of one patch seen from one field point.
-
-    Projects the patch-to-point direction onto the patch local frame, then returns the
-    trapezoidal SIR corners and its rising slope (= plateau height / rise time). The
-    second derivative of that trapezoid is the delta train the SDI kernels place, scaled
-    by this slope. ``slope == 0.0`` flags a degenerate patch (point on the patch, or a
-    sub-threshold plateau) the caller should skip.
-    """
-    dx = px - cx
-    dy = py - cy
-    dz = pz - cz
-    dist = np.sqrt(dx * dx + dy * dy + dz * dz)
-    if dist < np.float32(1e-12):
-        return np.float32(0.0), np.float32(0.0), np.float32(0.0), np.float32(0.0), 0.0
-    inv_dist = np.float32(1.0) / dist
-    xp = (dx * eu0 + dy * eu1 + dz * eu2) * inv_dist
-    yp = (dx * ev0 + dy * ev1 + dz * ev2) * inv_dist
-    t1, t2, t3, t4, h_max = _compute_rectangle_SIR_params(
-        wx, wy, xp, yp, dist, inv_c, apod, delay, dt
-    )
-    if h_max < np.float32(1e-6):
-        return t1, t2, t3, t4, 0.0
-    return t1, t2, t3, t4, h_max / (t2 - t1)
 
 
 def identity_tangents(M):

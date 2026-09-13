@@ -335,6 +335,7 @@ class ReceptionConventional(ReceptionBase):
         """
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
+        self._require_rigid(self.tx, self.rx)
         self._reset_time_log()
         P = points_m.shape[0]
         n_rx = int(self.rx.delays.shape[0])

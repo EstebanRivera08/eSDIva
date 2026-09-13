@@ -158,15 +158,16 @@ signal carries the 3rd derivative of the excitation (`v_pe = ρ₀/2c₀² · E_
 practice that ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
 (`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither applies an explicit ∂³.
 `Reception` selects how `v_pe ⊛ (h_tx ⊛ h_rx)` is evaluated via `method=` (default
-`spectral`): **`spectral`** (closed-form one-way spectra `Σ_TX·Σ_RX = F{Δδ_pe}`, **no
-forward FFT**, cost ∝ M, exact, band-limited bins only, every RX element's spectrum built in
-one batched kernel call, supports per-patch one-way attenuation); **`fst` / `sdi` / `auto`**
-(sample both SIRs and FFT-convolve — delegates to `ReceptionConventional`; the string is its
-SIR-sampling kernel, `auto` lets it choose per grid); **`paired`** (pedagogic reference
-only — the two-way delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair; pushes `I⁴` onto
-the drive `w = I⁴ v_pe` once and splats a copy of `w` per corner event — **no FFT, no
-cumsum**, exact but cost ∝ M²·len(w), so far slower than `spectral` and **warns on
-selection**). Field II shares the convention
+`spectral`): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
+`hsir.compute_h_sir_spectrum` — per patch `A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}`,
+`rfft(h[n]) ≈ fs·H`; **no forward FFT, no I⁴, no dt clamp**, cost ∝ M, exact, band-limited
+bins only; the only method modelling `transducer.baffle="soft"` (cosθ per patch));
+**`fst` / `sdi` / `auto`** (sample both SIRs and FFT-convolve — delegates to
+`ReceptionConventional`; the string is its SIR-sampling kernel, `auto` lets it choose per
+grid). Attenuation in every method: round trip TX centre → scatterer → RX element centre.
+**`ReceptionPaired`** (separate pedagogic class; `method="paired"` raises) — the two-way
+delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair, splats `w = I⁴ v_pe` per corner
+event: exact but cost ∝ M²·len(w), warns on construction. Field II shares the convention
 (`calc_scat`≡`calc_hhp`, no explicit ∂³), so both coincide with it — adoption
 parallel, not justification. Four methods (axis `[emission, reception,
 Nt]`): `pulse_echo_rf` (core, =`__call__`; `per_scatterer=True` gives the PSF),
@@ -259,7 +260,7 @@ Quick checklist — full rationale, locations, and history in
 
 1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`sir_temporal.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
 2. **d2h_all ≠ d2h_per_element.sum()** — float32 non-associativity (~5e-8). Never compare with `atol=0`.
-3. **PE SDI on-axis lag must be 0** — the delta placement in `sir_spectral.py` / `sir_paired.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
+3. **PE SDI on-axis lag must be 0** — the delta placement in `sir_paired.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
 4. **Attenuation dispersion is referenced at f0 = fc** (fixed 2026-09-13) — the y≠1 phase needs the `−|f|·f0^(y−1)` term (else `c` is the phase speed at f→0 and the fc arrival diverges as y→1) and the y=1 phase is `+j(2α/π)f·ln(f/f0)d` (was sign-flipped: negative dispersion on the default `freq_power=1`). Tests pin high-f-first, y→1 continuity, zero phase at f0.
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
 6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect". Inlined helpers from other modules (`_causal_atten_factor`, `helpers.py`) do NOT invalidate the caller's cache, so clear the whole package:

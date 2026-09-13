@@ -71,6 +71,7 @@ class TransducerBase(ABC):
         self.FoverD: Optional[float] = None
         self._impulse_response: Optional[np.ndarray] = None
         self._excitation: Optional[np.ndarray] = None
+        self._baffle: str = "rigid"
 
         # Geometry cache (populated lazily)
         self._element_centers: Optional[np.ndarray] = None
@@ -373,6 +374,41 @@ class TransducerBase(ABC):
         if value is not None:
             value = np.asarray(value, dtype=np.float32).ravel()
         self._impulse_response = value
+
+    @property
+    def baffle(self) -> str:
+        """Baffle around the aperture: ``"rigid"`` (default) or ``"soft"``.
+
+        Rigid: no obliquity factor (the Rayleigh integral of a rigidly baffled piston).
+        Soft (pressure-release, Field II ``xdc_baffle(Th, 1)``): each patch is weighted by
+        ``cosθ`` between its normal and the direction to the field point, so the response
+        falls off at large angles. Applies on transmit and, by reciprocity, on receive.
+        Only the spectral method models ``"soft"``.
+
+        Returns
+        -------
+        str
+            ``"rigid"`` or ``"soft"``.
+        """
+        return self._baffle
+
+    @baffle.setter
+    def baffle(self, value: str) -> None:
+        """Set the baffle model.
+
+        Parameters
+        ----------
+        value : str
+            ``"rigid"`` or ``"soft"``.
+
+        Raises
+        ------
+        ValueError
+            If ``value`` is neither.
+        """
+        if value not in ("rigid", "soft"):
+            raise ValueError(f"baffle must be 'rigid' or 'soft', got {value!r}.")
+        self._baffle = value
 
     @property
     def excitation(self) -> Optional[np.ndarray]:

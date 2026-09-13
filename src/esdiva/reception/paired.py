@@ -27,6 +27,16 @@ class ReceptionPaired(Reception):
 
     Same constructor and public methods as `Reception`; only the RF core differs.
     Warns on construction because it is far slower than `Reception`.
+
+    Parameters
+    ----------
+    tx : TransducerBase
+        Transmit transducer.
+    rx : TransducerBase
+        Receive transducer.
+    **kwargs
+        Medium and excitation options of `Reception` (``c``, ``rho``, ``fs``,
+        ``excitation``, ``verbose``, ...).
     """
 
     def __init__(self, tx, rx, **kwargs):
@@ -44,13 +54,13 @@ class ReceptionPaired(Reception):
         points_m,
         amps,
         *,
-        n_integrations=0,
         downsampling=None,
         per_scatterer=False,
         focused_sum=False,
     ):
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
+        self._require_rigid(self.tx, self.rx)
         exc = self._resolve_excitation()
         if exc is not None and exc.ndim == 2:
             raise NotImplementedError(
@@ -62,7 +72,6 @@ class ReceptionPaired(Reception):
         return self._rf_paired(
             points_m,
             amps,
-            n_integrations=n_integrations,
             downsampling=downsampling,
             per_scatterer=per_scatterer,
             focused_sum=focused_sum,
@@ -73,7 +82,6 @@ class ReceptionPaired(Reception):
         points_m,
         amps,
         *,
-        n_integrations,
         downsampling,
         per_scatterer,
         focused_sum,
@@ -89,26 +97,26 @@ class ReceptionPaired(Reception):
         """
         s = self._pe_setup(
             points_m,
-            n_integrations=n_integrations,
             per_scatterer=per_scatterer,
             focused_sum=focused_sum,
             label="Reception [paired]",
         )
         if s["do_attenuation"]:
             raise NotImplementedError(
-                "method='paired' does not support attenuation; "
-                "use method='spectral' or 'conventional'."
+                "ReceptionPaired does not support attenuation; use Reception."
             )
-        if s["inv_jw_pow"] is None:
-            raise ValueError("method='paired' requires n_integrations > 0 (full I⁴).")
 
         pe_t0, pe_T, dt = s["pe_t0"], s["pe_T"], s["dt"]
         # w = I⁴ v_pe = irfft( ÷(jω)⁴ · fft_v · fft_ir_tx · fft_ir_rx ) on the pe_T grid.
         # ÷(jω)⁴ is zero-phase and delocalized, so the per-pair splat must be circular over
         # the full nfft (sliced to pe_T) to match the FFT convolution; hence the full-length
         # kernel.
+        # I⁴ = ÷(jω)⁴: exact, zero group delay; ×fs because Δδ_pe holds delta areas and
+        # a continuous integrator weights each sample by dt. DC is zeroed (band-pass drive).
         with self._timer("fft_s"):
-            filt = s["inv_jw_pow"].astype(np.complex128)
+            jw = 2j * np.pi * s["freqs"].astype(np.float64)
+            filt = np.zeros_like(jw)
+            filt[1:] = self.fs / jw[1:] ** 4
             for f in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
                 if f is not None:
                     filt = filt * f

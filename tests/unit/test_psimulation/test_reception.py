@@ -444,6 +444,24 @@ class TestReceptionFormulations:
         )
         assert sim._last_method == "auto"
 
+    def test_soft_baffle_spectral_only(self, simple_tx, simple_rx):
+        """Soft baffle: spectral lowers the off-axis echo; temporal paths refuse it."""
+        from esdiva.emission import Emission
+
+        pos = np.array([[8, 0, 10]], dtype=np.float32)  # ~39° off the normal
+        rigid, _ = Reception(simple_tx, simple_rx, verbose=False).pulse_echo_rf(pos)
+        simple_tx.baffle = simple_rx.baffle = "soft"
+        soft, _ = Reception(simple_tx, simple_rx, verbose=False).pulse_echo_rf(pos)
+        assert 0.4 < np.abs(soft).max() / np.abs(rigid).max() < 0.8  # ≈ cos²θ two-way
+        for sim in (
+            Reception(simple_tx, simple_rx, method="fst", verbose=False),
+            Emission(simple_tx, verbose=False),
+        ):
+            with pytest.raises(NotImplementedError, match="spectral"):
+                sim(pos)
+        with pytest.raises(ValueError, match="rigid"):
+            simple_tx.baffle = "hard"
+
     def test_paired_is_its_own_class(self, simple_tx, simple_rx):
         """ReceptionPaired warns it is slow; Reception(method='paired') points to it."""
         with pytest.warns(UserWarning, match="pedagogic"):

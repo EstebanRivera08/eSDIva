@@ -78,6 +78,14 @@ class SimulationBase:
                 exc = tx_exc.ravel() if tx_exc.ndim == 1 else tx_exc
         return exc
 
+    @staticmethod
+    def _require_rigid(*transducers):
+        """The temporal SIR kernels model a rigid baffle only; refuse ``baffle="soft"``."""
+        if any(getattr(t, "baffle", "rigid") == "soft" for t in transducers):
+            raise NotImplementedError(
+                "baffle='soft' is only modelled by the spectral SIR (method='spectral')."
+            )
+
     # ------------------------------------------------------------------
     # Per-element patch grouping
     # ------------------------------------------------------------------
