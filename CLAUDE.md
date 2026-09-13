@@ -97,7 +97,7 @@ non-Claude agents at both this file and `skills/`.
 - **Lazy geometry loading**: `TransducerBase` defers element-center/patch-vertex computation until needed.
 - **SIR method selection** (Emission and Reception): `"spectral"` (closed-form H(ω), `hsir.sir_spectral`; Reception default; Emission default `None` = fastest per mode, see gotcha 7) or the temporal SIR `"temporal"` (= `"sdi"`), `"fst"`, `"auto"` (sampled h(t), `hsir.sir_temporal`, then FFT). Same physics, same results; every feature (global/per-element excitation, attenuation, soft baffle, transfer function) works with both.
 - **Unit convention**: user-facing APIs use mm (`_mm` suffix); internals use SI (m, s).
-- **Monochromatic vs transient**: monochromatic returns `|P(r, fc)|`, `p.shape = (Nx, Ny, Nz)`; transient returns `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
+- **Monochromatic vs transient**: monochromatic returns the amplitude `|P(r, fc)|`, `p.shape = (Nx, Ny, Nz)`; transient returns SIGNED pressure (compression > 0, rarefaction < 0 — needed for PNP/MI and superposition; pyMUST `mkmovie`/`simus` are signed too; take `abs`/envelope for maps), shape `(Nt, Nx, Ny, Nz)` with `coords["t0"]`/`coords["dt"]`.
 
 ### Coordinate System
 - X: lateral (across array elements) · Y: elevation (perpendicular to imaging plane) · Z: axial (beam propagation, depth)

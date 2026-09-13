@@ -185,8 +185,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\emission.py": {
-    "mtime": 1789305100.5585423,
-    "ast_hash": "27ab1c2642e83b779e28f17b05170904",
+    "mtime": 1789311067.755541,
+    "ast_hash": "b67a1d1dfdd258d7d2ebef76fb8b25a3",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\__init__.py": {
@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\plotting\\plotting3D.py": {
-    "mtime": 1787906185.6594641,
-    "ast_hash": "6e424c241c71fd573ff4ec6d2386072c",
+    "mtime": 1789311227.8151784,
+    "ast_hash": "cbdbc5510f56e895b35e8fcdca83e1e0",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\plotting\\plotting_pyvista.py": {
@@ -445,8 +445,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_emission.py": {
-    "mtime": 1789305098.9461138,
-    "ast_hash": "c8a9c37e558d1d537eddcc7539951524",
+    "mtime": 1789311117.7491517,
+    "ast_hash": "6808b743793cfbbdeba4d465efe031b7",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_reception.py": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\CLAUDE.md": {
-    "mtime": 1789307367.3658855,
-    "ast_hash": "57e9ffca4925d84b85e1701f1e03c48c",
+    "mtime": 1789311256.517436,
+    "ast_hash": "d1c40d9e940d00e15bacb6b4de9119a5",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\codecov.yml": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\TODO.md": {
-    "mtime": 1789307364.8023853,
-    "ast_hash": "85c68c0c077c1e4f415023affa261cde",
+    "mtime": 1789311261.182113,
+    "ast_hash": "5858913d17b5e0e9768a5b3baf454f77",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.github\\workflows\\codecov.yml": {

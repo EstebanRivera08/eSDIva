@@ -513,7 +513,10 @@ def plot3D_transient_slices(
             if vmax is None
             else vmax
         )
-        vmin = 0 if vmin is None else vmin
+        # Signed pressure: default to the data minimum so the rarefaction is visible.
+        vmin = (
+            min(float(np.nanmin(v)) for v in planes.values()) if vmin is None else vmin
+        )
 
     clim = [vmin, vmax]
 

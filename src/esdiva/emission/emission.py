@@ -389,7 +389,7 @@ class Emission(SimulationBase):
         return (np.abs(acc * self._tf(fc))).astype(np.float32)
 
     def _transient(self, pts, groups, drives, method):
-        """``|irfft(Σ_g fs·H_g · D_g · TF · H_att,g)|`` on one shared time axis → (T, P).
+        """Signed ``irfft(Σ_g fs·H_g · D_g · TF · H_att,g)`` on one shared time axis → (T, P).
 
         ``D_g = jω·DFT(pulse_g)`` is the drive of group g (1 for the raw SIR). Points are
         processed in depth bins, each on a short window snapped onto the global sample
@@ -419,7 +419,7 @@ class Emission(SimulationBase):
                 X[:, b0:b1] += H * D[g % len(D)][b0:b1] * self._atten(fb, p, origin)
             with self._timer("fft_s"):
                 X[:, b0:b1] *= self._tf(fb)
-                out[idx, n0 : n0 + T_b] = np.abs(irfft(X, nfft, axis=1)[:, :T_b])
+                out[idx, n0 : n0 + T_b] = irfft(X, nfft, axis=1)[:, :T_b]
         return out.T, t0
 
     # ------------------------------------------------------------------
@@ -444,8 +444,9 @@ class Emission(SimulationBase):
         Returns
         -------
         pressure : ndarray
-            Monochromatic: ``(Nx, Ny, Nz)`` / ``(N,)``. Transient: ``(Nt, Nx, Ny, Nz)``
-            / ``(Nt, N)``.
+            Monochromatic: amplitude ``(Nx, Ny, Nz)`` / ``(N,)``. Transient: signed
+            pressure ``(Nt, Nx, Ny, Nz)`` / ``(Nt, N)`` (compression > 0, rarefaction < 0;
+            take ``abs`` or an envelope for field maps).
         coords : dict
             ``"x"``, ``"y"``, ``"z"`` for a grid; ``"t0"``, ``"dt"`` when transient.
 

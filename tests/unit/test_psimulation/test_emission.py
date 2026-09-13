@@ -332,6 +332,29 @@ class TestSpectralTemporalParity:
         sim(self._PTS)
         assert sim._last_method == expected
 
+    @pytest.mark.parametrize("method", ["spectral", "temporal"])
+    def test_far_field_is_signed_rayleigh(self, method):
+        """On axis, far from a small piston: p(t) ∝ +v'(t − z/c)/z (Rayleigh, signed)."""
+        from esdiva.transducers import LinearArrayTransducer
+
+        fs = 100e6
+        tx = LinearArrayTransducer(
+            n_elements=1, element_width_mm=0.3, element_height_mm=0.3, kerf_mm=0.0,
+            no_sub_x=1, no_sub_y=1, frequency_Hz=5e6,
+        )  # fmt: skip
+        v = _make_excitation(fs=fs)
+        v = v * np.hanning(v.size).astype(np.float32)
+        z = np.array([30.0, 60.0])
+        pts = np.column_stack([np.zeros(2), np.zeros(2), z]).astype(np.float32)
+        p, co = _make_emission(tx, fs=fs, excitation=v, method=method)(pts)
+        t = co["t0"] + np.arange(p.shape[0]) / fs
+        dv = np.gradient(v.astype(np.float64)) * fs
+        for i, zi in enumerate(z * 1e-3):
+            ref = np.interp(t - zi / 1540.0, np.arange(v.size) / fs, dv, 0, 0)
+            assert np.corrcoef(p[:, i], ref)[0, 1] > 0.99  # positive: same polarity
+        # Spherical spreading: doubling the range halves the peak.
+        assert abs(np.abs(p[:, 1]).max() / np.abs(p[:, 0]).max() - 0.5) < 0.02
+
     def test_unknown_method_raises(self, small_linear_transducer):
         with pytest.raises(ValueError, match="Unknown method"):
             _make_emission(small_linear_transducer, method="bogus")
