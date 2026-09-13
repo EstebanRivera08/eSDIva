@@ -444,15 +444,36 @@ class TestReceptionFormulations:
         )
         assert sim._last_method == "auto"
 
-    def test_soft_baffle_spectral_only(self, simple_tx, simple_rx):
-        """Soft baffle: spectral lowers the off-axis echo; temporal paths refuse it."""
+    @pytest.mark.parametrize("drive", ["global", "per_element"])
+    @pytest.mark.parametrize("alpha0", [None, 0.5])
+    @pytest.mark.parametrize("baffle", ["rigid", "soft"])
+    def test_spectral_equals_temporal(
+        self, simple_tx, simple_rx, drive, alpha0, baffle
+    ):
+        """Same RF from the closed-form H and the sampled h(t), every feature combo."""
+        exc = self._exc()
+        if drive == "per_element":
+            exc = exc[:, None] * np.linspace(0.5, 1.5, simple_tx.n_elements)
+        simple_tx.baffle = simple_rx.baffle = baffle
+        simple_tx.impulse_response = simple_rx.impulse_response = self._exc()
+        pos = np.array([[0, 0, 18], [6, 0, 12], [-2, 0, 25]], dtype=np.float32)
+        out = [
+            Reception(
+                simple_tx, simple_rx, fs=100e6, excitation=exc, alpha0=alpha0,
+                method=m, n_depth_bins=1, verbose=False,
+            ).pulse_echo_rf(pos)[0]
+            for m in ("spectral", "temporal")
+        ]  # fmt: skip
+        n = min(o.shape[-1] for o in out)
+        a, b = out[0][..., :n], out[1][..., :n]
+        assert np.abs(a - b).max() < 2e-2 * np.abs(b).max()
+
+    def test_soft_baffle_lowers_off_axis_echo(self, simple_tx, simple_rx):
         pos = np.array([[8, 0, 10]], dtype=np.float32)  # ~39° off the normal
         rigid, _ = Reception(simple_tx, simple_rx, verbose=False).pulse_echo_rf(pos)
         simple_tx.baffle = simple_rx.baffle = "soft"
         soft, _ = Reception(simple_tx, simple_rx, verbose=False).pulse_echo_rf(pos)
         assert 0.4 < np.abs(soft).max() / np.abs(rigid).max() < 0.8  # ≈ cos²θ two-way
-        with pytest.raises(NotImplementedError, match="spectral"):
-            Reception(simple_tx, simple_rx, method="fst", verbose=False)(pos)
         with pytest.raises(ValueError, match="rigid"):
             simple_tx.baffle = "hard"
 

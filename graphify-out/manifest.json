@@ -155,8 +155,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\simulation_base.py": {
-    "mtime": 1789303513.3896787,
-    "ast_hash": "80698ffa28e891a06eff9c0e88653a6f",
+    "mtime": 1789306462.2399921,
+    "ast_hash": "41dac5ef16ab8af937364863e96e6b3c",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\__init__.py": {
@@ -185,8 +185,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\emission.py": {
-    "mtime": 1789304106.227408,
-    "ast_hash": "9183de72f6c4c4364f33ba7239fefc8a",
+    "mtime": 1789305100.5585423,
+    "ast_hash": "27ab1c2642e83b779e28f17b05170904",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\emission\\__init__.py": {
@@ -260,18 +260,18 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\base.py": {
-    "mtime": 1789303507.9942143,
-    "ast_hash": "6a76007aa7de1c748a917574169eadcd",
+    "mtime": 1789305544.3505247,
+    "ast_hash": "6d49d7e1644c9859233e2f348291f79a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\conventional.py": {
-    "mtime": 1789300344.8746812,
-    "ast_hash": "9940ae7b70a789f316aaddd2e0f4296a",
+    "mtime": 1789305410.387987,
+    "ast_hash": "681f890aba256fd28209141aa35acb35",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\reception.py": {
-    "mtime": 1789300367.275128,
-    "ast_hash": "1a997fb35b86bc1f03dbdfcc2a4b967b",
+    "mtime": 1789306453.5102398,
+    "ast_hash": "cefed76ea6e587f559546a1919d341b4",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\reception\\__init__.py": {
@@ -280,8 +280,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\transducers\\base.py": {
-    "mtime": 1789300163.0990944,
-    "ast_hash": "d058f5f112b8a42f41381b8636341955",
+    "mtime": 1789306455.1319203,
+    "ast_hash": "f5f4ae0df6656fe58cb8d2830a0d8c0a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\transducers\\circular.py": {
@@ -445,13 +445,13 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_emission.py": {
-    "mtime": 1789303611.1935468,
-    "ast_hash": "8d7ac78f633a8c2cee8dd7bea07c8c6c",
+    "mtime": 1789305098.9461138,
+    "ast_hash": "c8a9c37e558d1d537eddcc7539951524",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\test_reception.py": {
-    "mtime": 1789303615.9914238,
-    "ast_hash": "e0f65946d34996abc5ab0ebfe203e6ce",
+    "mtime": 1789305749.0871973,
+    "ast_hash": "3abdc7e11327c042980de38632436488",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_psimulation\\__init__.py": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\CLAUDE.md": {
-    "mtime": 1789304222.4340746,
-    "ast_hash": "638fafad81056c41a27705c2acd11a2f",
+    "mtime": 1789307367.3658855,
+    "ast_hash": "57e9ffca4925d84b85e1701f1e03c48c",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\codecov.yml": {
@@ -1430,8 +1430,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\sir_spectral.py": {
-    "mtime": 1789301272.1687973,
-    "ast_hash": "472188e00baec97cecf07847022fb7d3",
+    "mtime": 1789305443.659514,
+    "ast_hash": "2d3980795ef8f8ed211fbf6cad092792",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\hsir\\sir_temporal.py": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\TODO.md": {
-    "mtime": 1789304229.7298934,
-    "ast_hash": "d40849a6178da36c208b2fbb064afabd",
+    "mtime": 1789307364.8023853,
+    "ast_hash": "85c68c0c077c1e4f415023affa261cde",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.github\\workflows\\codecov.yml": {

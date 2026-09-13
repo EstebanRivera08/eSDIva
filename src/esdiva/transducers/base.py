@@ -383,7 +383,7 @@ class TransducerBase(ABC):
         Soft (pressure-release, Field II ``xdc_baffle(Th, 1)``): each patch is weighted by
         ``cosθ`` between its normal and the direction to the field point, so the response
         falls off at large angles. Applies on transmit and, by reciprocity, on receive.
-        Only the spectral method models ``"soft"``.
+        Every SIR method models it except the pedagogic `ReceptionPaired`.
 
         Returns
         -------

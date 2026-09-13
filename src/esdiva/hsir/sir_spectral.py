@@ -209,6 +209,8 @@ def _twoway_summed_points(
     tx_delays,
     tx_t0,
     tx_soft,
+    tx_ptr,
+    tx_drive,
     rx_centers,
     rx_wx,
     rx_wy,
@@ -233,6 +235,8 @@ def _twoway_summed_points(
 ):
     """Σ_p a_p·H_TX(p)·H_RX,e(p)·H_att(d_pe) → (n_out, N_ω), one parallel pass.
 
+    ``H_TX = Σ_t D_t·H_TX,t``: transmit element ``t`` (patches ``tx_ptr[t]:tx_ptr[t+1]``)
+    is weighted by its drive spectrum ``D_t = tx_drive[t]`` (one row = a global drive).
     Each thread chunk of scatterers owns a private ``(n_out, N_ω)`` buffer (race-free).
     Receive element ``e`` is the patch block ``rx_ptr[e]:rx_ptr[e+1]``. Attenuation uses
     the round trip ``d_pe = |r_p − tx_ref| + |r_p − rx_ref[e]|`` (aperture centres).
@@ -240,18 +244,24 @@ def _twoway_summed_points(
     P = points.shape[0]
     nb = omega.shape[0]
     n_out = rx_ptr.shape[0] - 1
-    Mtx = tx_centers.shape[0]
+    n_tx = tx_ptr.shape[0] - 1
     buf = np.zeros((n_chunks, n_out, nb), dtype=np.complex128)
     for ci in prange(n_chunks):  # ty: ignore[not-iterable]
         h_tx = np.zeros(nb, dtype=np.complex128)
+        h_t = np.zeros(nb, dtype=np.complex128)
         h_rx = np.zeros(nb, dtype=np.complex128)
         for p in range(ci * P // n_chunks, (ci + 1) * P // n_chunks):
             px, py, pz = points[p, 0], points[p, 1], points[p, 2]
             h_tx[:] = 0.0
-            _accum_aperture(
-                h_tx, px, py, pz, tx_centers, tx_wx, tx_wy, tx_t, tx_apod,
-                tx_delays, 0, Mtx, inv_c, tx_t0, omega, inv_w2, tx_soft,
-            )  # fmt: skip
+            for t in range(n_tx):
+                h_t[:] = 0.0
+                _accum_aperture(
+                    h_t, px, py, pz, tx_centers, tx_wx, tx_wy, tx_t, tx_apod,
+                    tx_delays, tx_ptr[t], tx_ptr[t + 1], inv_c, tx_t0, omega, inv_w2,
+                    tx_soft,
+                )  # fmt: skip
+                for k in range(nb):
+                    h_tx[k] += tx_drive[t, k] * h_t[k]
             d_tx = np.sqrt(
                 (px - tx_ref[0]) ** 2 + (py - tx_ref[1]) ** 2 + (pz - tx_ref[2]) ** 2
             )
@@ -335,7 +345,9 @@ def compute_twoway_spectrum_summed(
     tx, rx : dict
         Aperture patch arrays with keys ``centers, wx, wy, apod, delays, eu, ev`` (see
         `compute_h_sir_spectrum`), ``t0`` (phase origin, s) and ``soft`` (bool). The RX
-        patches are laid out element by element.
+        patches are laid out element by element. ``tx`` may add ``ptr`` (TX element
+        offsets, patches laid out element by element) and ``drive`` ``(E_tx, N_ω)``, the
+        per-element drive spectra; omitted → one element with a unit drive.
     rx_ptr : (n_out + 1,) numpy.ndarray
         Offsets: receive element ``e`` owns RX patches ``rx_ptr[e]:rx_ptr[e+1]``.
     inv_c : float
@@ -355,6 +367,10 @@ def compute_twoway_spectrum_summed(
 
     points = np.asarray(points, dtype=np.float32)
     n_out = len(rx_ptr) - 1
+    tx_ptr = np.asarray(tx.get("ptr", [0, len(tx["centers"])]), dtype=np.int64)
+    tx_drive = np.asarray(
+        tx.get("drive", np.ones((1, len(omega)))), dtype=np.complex128
+    ).reshape(len(tx_ptr) - 1, len(omega))
     at = atten or {}
     y = float(at.get("freq_power", 1.0))
     y_is_one = abs(y - 1.0) < 1e-10
@@ -364,6 +380,8 @@ def compute_twoway_spectrum_summed(
         points,
         np.asarray(amps, dtype=np.float64),
         *_aperture(tx),
+        tx_ptr,
+        np.ascontiguousarray(tx_drive),
         *_aperture(rx),
         np.ascontiguousarray(rx_ptr, dtype=np.int64),
         float(inv_c),

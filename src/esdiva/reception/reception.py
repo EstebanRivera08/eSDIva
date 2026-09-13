@@ -41,7 +41,8 @@ Evaluations of the SAME RF equation (``p_pe`` = one scatterer's bracket):
 The paired SDI form (16 corner deltas per patch pair, O(M²)) is the separate pedagogic
 class `ReceptionPaired`. All agree to correlation ~1.0 with each other and Field II.
 Attenuation (causal power law) uses the round trip TX-centre → scatterer → RX element
-centre in every method; a soft baffle (``transducer.baffle = "soft"``) is spectral-only.
+centre in every method, as do per-element excitation ``(L, E)`` and the soft baffle
+(``transducer.baffle = "soft"``).
 """
 
 import time
@@ -69,10 +70,10 @@ from .base import (
 
 # Formulation selector values (see Reception.method). "fst"/"sdi"/"auto" delegate to the
 # conventional backend (that string is the SIR-sampling kernel it uses).
-_VALID_METHODS = ("spectral", "fst", "sdi", "auto")
+_VALID_METHODS = ("spectral", "temporal", "fst", "sdi", "auto")
 
-# Values routed to the conventional `ReceptionConventional` delegate.
-_CONVENTIONAL_METHODS = ("fst", "sdi", "auto")
+# Values routed to the conventional `ReceptionConventional` delegate ("temporal" = "sdi").
+_CONVENTIONAL_METHODS = ("temporal", "fst", "sdi", "auto")
 
 
 class Reception(ReceptionBase):
@@ -84,7 +85,7 @@ class Reception(ReceptionBase):
 
     * ``"spectral"`` (default) — multiply the closed-form one-way SIR spectra
       ``H_TX·H_RX`` on the in-band bins only. No forward FFT, cost linear in patches,
-      exact; the only method that models ``baffle="soft"``.
+      exact.
     * ``"fst"`` / ``"sdi"`` / ``"auto"`` — sample ``h_tx``/``h_rx`` and convolve, delegated
       to `ReceptionConventional`. The string names its SIR-sampling kernel: ``"fst"`` fully
       samples each trapezoid, ``"sdi"`` places sparse corner deltas, ``"auto"`` lets the
@@ -301,20 +302,12 @@ class Reception(ReceptionBase):
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
         self._reset_time_log()
         method = self.method
-
-        # Per-element excitation (L, E) needs each TX element's pulse folded into its own
-        # partial SIR. The spectral core builds one fused TX spectrum, so it
-        # cannot; the conventional core (a per-element SIR loop) can — route there.
         exc = self._resolve_excitation()
-        if exc is not None and exc.ndim == 2 and method not in _CONVENTIONAL_METHODS:
-            warnings.warn(
-                "Per-element excitation (L, E) is only supported by the conventional "
-                f"core; falling back from method='{method}' to 'auto'.",
-                UserWarning,
-                stacklevel=2,
+        n_tx = int(self.tx.delays.shape[0])
+        if exc is not None and exc.ndim == 2 and exc.shape[1] != n_tx:
+            raise ValueError(
+                f"Per-element excitation must have shape (L, E={n_tx}), got {exc.shape}."
             )
-            method = "auto"
-
         self._last_method = method  # introspection hook (tests / diagnostics)
 
         if method in _CONVENTIONAL_METHODS:
@@ -397,8 +390,9 @@ class Reception(ReceptionBase):
         freqs = rfftfreq(nfft, d=1.0 / self.fs).astype(np.float32)
 
         # Excitation and IR spectra (no jω: the physical ∂³ lives in the band-limited chain).
+        # A per-element excitation (L, E) gives one spectrum row per TX element, (E, N).
         fft_v = (
-            rfft(exc, n=nfft, workers=-1).astype(np.complex64)
+            rfft(exc, n=nfft, axis=0, workers=-1).T.astype(np.complex64)
             if exc is not None
             else None
         )
@@ -424,7 +418,7 @@ class Reception(ReceptionBase):
         band_mag = np.ones(freqs.shape[0], dtype=np.float64)
         for filt in (fft_v, fft_ir_tx, fft_ir_rx):
             if filt is not None:
-                band_mag *= np.abs(filt).astype(np.float64)
+                band_mag *= np.abs(filt).reshape(-1, freqs.size).max(axis=0)
         b0, b1 = self._band_range(band_mag)
         omega_band = (2.0 * np.pi * freqs[b0:b1]).astype(np.float64)
 
@@ -482,7 +476,9 @@ class Reception(ReceptionBase):
         ``H_TX`` and each receive element's ``H_RX`` are evaluated only on the in-band
         frequencies; their product is the two-way SIR spectrum. For the summed RF the
         scatterers are amplitude-summed in the frequency domain (``amps @ H_TX·H_RX``), the
-        shared filter ``G = fs·exc·IR`` is applied per bin, and one inverse FFT per element
+        shared filter ``G = fs·IR`` is applied per bin (the excitation weights each TX
+        element's ``H_TX,t``, so global and per-element drives share one path), and one
+        inverse FFT per element
         returns the RF. Attenuation multiplies each (scatterer, element) product by
         ``H_att`` over the round trip TX centre → scatterer → element centre.
 
@@ -525,7 +521,7 @@ class Reception(ReceptionBase):
 
         if not per_scatterer:
             t_wall = time.time()
-            rx_csr = self._build_rx_csr(s["rx_groups"])
+            rx_csr = self._build_csr(s["rx_groups"])
             rf = self._spectral_summed_from_setup(s, points_m, amps, rx_csr)
             if s["show"]:
                 print(
@@ -540,23 +536,26 @@ class Reception(ReceptionBase):
         b0, b1, omega_band = s["b0"], s["b1"], s["omega_band"]
         n_freq = s["freqs"].shape[0]
         scale, inv_c = s["scale"], s["inv_c"]
-        g_band, atten = self._spectral_filters(s)
+        g_band, atten, drive = self._spectral_filters(s)
+        tx = self._tx_layout(drive.shape[0])
         t_wall = time.time()
+        h_tx = np.zeros((P, omega_band.size), dtype=np.complex64)
         with self._timer("sir_s"):
-            h_tx = compute_h_sir_spectrum(
-                points_m,
-                self._tx_centers,
-                self._tx_wx,
-                self._tx_wy,
-                self._tx_apod,
-                self._tx_delays,
-                inv_c,
-                s["tx_t0"],
-                omega_band,
-                eu=self._tx_eu,
-                ev=self._tx_ev,
-                soft_baffle=self.tx.baffle == "soft",
-            )  # (P, N_band) complex64
+            for t, (lo, hi) in enumerate(zip(tx["ptr"][:-1], tx["ptr"][1:])):
+                h_tx += drive[t] * compute_h_sir_spectrum(
+                    points_m,
+                    tx["centers"][lo:hi],
+                    tx["wx"][lo:hi],
+                    tx["wy"][lo:hi],
+                    tx["apod"][lo:hi],
+                    tx["delays"][lo:hi],
+                    inv_c,
+                    s["tx_t0"],
+                    omega_band,
+                    eu=tx["eu"][lo:hi],
+                    ev=tx["ev"][lo:hi],
+                    soft_baffle=self.tx.baffle == "soft",
+                )  # Σ_t D_t·H_TX,t → (P, N_band)
         el_iter = (
             _wrap_tqdm(
                 range(s["n_out"]), desc="RX elements", total=s["n_out"], leave=True
@@ -597,19 +596,19 @@ class Reception(ReceptionBase):
         return 1 if focused_sum else int(self.rx.delays.shape[0])
 
     @staticmethod
-    def _build_rx_csr(rx_groups):
-        """Lay the per-element RX patch arrays out element-by-element, CSR-style.
+    def _build_csr(groups):
+        """Lay per-element patch arrays out element-by-element, CSR-style.
 
-        The fused two-way kernel reads the whole receive aperture as one set of patch
-        arrays in which receive element ``e`` occupies the contiguous block
-        ``ptr[e]:ptr[e+1]``. This concatenates the per-element groups into that layout and
-        returns the patch arrays, their tangent frames, and the offsets ``ptr``.
+        The fused two-way kernel reads an aperture as one set of patch arrays in which
+        element ``e`` occupies the contiguous block ``ptr[e]:ptr[e+1]``. This concatenates
+        the per-element groups into that layout and returns the patch arrays, their
+        tangent frames, and the offsets ``ptr``.
         """
 
         def cat(i):
-            return np.concatenate([g[i] for g in rx_groups])
+            return np.concatenate([g[i] for g in groups])
 
-        counts = [g[0].shape[0] for g in rx_groups]
+        counts = [g[0].shape[0] for g in groups]
         return {
             "centers": cat(0).astype(np.float32),
             "wx": cat(1).astype(np.float32),
@@ -621,29 +620,57 @@ class Reception(ReceptionBase):
             "ptr": np.concatenate([[0], np.cumsum(counts)]).astype(np.int64),
         }
 
+    def _tx_layout(self, n_drives):
+        """TX patch arrays + element offsets ``ptr``: one block per element when each
+        element has its own drive (``n_drives > 1``), else the whole aperture as one."""
+        arrays = (
+            self._tx_centers,
+            self._tx_wx,
+            self._tx_wy,
+            self._tx_apod,
+            self._tx_delays,
+            self._tx_eu,
+            self._tx_ev,
+        )
+        if n_drives > 1:
+            groups = self._group_patches_by_element(
+                n_drives, self._tx_sub_el_idx, arrays
+            )
+        else:
+            groups = [arrays]
+        return self._build_csr(groups)
+
     def _spectral_filters(self, s):
-        """In-band filter ``G = fs·exc·ir_tx·ir_rx`` and the round-trip attenuation spec.
+        """Shared filter ``G = fs·ir_tx·ir_rx``, TX drives and the attenuation spec.
 
         ``fs`` turns the product of two continuous SIR spectra into the sampled-RF scale
         (``rfft(h[n]) ≈ fs·H`` per SIR, and the discrete convolution carries one ``dt``).
-        Attenuation (None when ``alpha0`` is unset) is referenced to the TX aperture centre
-        and each receive element centre (the aperture centroid for a focused sum).
+        The drive spectra ``(E_tx or 1, N_band)`` weight each TX element's ``H_TX,t``
+        (one row of ones without excitation). Attenuation (None when ``alpha0`` is unset)
+        is referenced to the TX aperture centre and each receive element centre (the
+        aperture centroid for a focused sum).
         """
         b0, b1 = s["b0"], s["b1"]
         g_band = np.full(b1 - b0, self.fs, dtype=np.complex64)
-        for filt in (s["fft_v"], s["fft_ir_tx"], s["fft_ir_rx"]):
+        for filt in (s["fft_ir_tx"], s["fft_ir_rx"]):
             if filt is not None:
                 g_band = g_band * filt[b0:b1]
+        drive = (
+            np.atleast_2d(s["fft_v"])[:, b0:b1]
+            if s["fft_v"] is not None
+            else np.ones((1, b1 - b0), dtype=np.complex64)
+        )
         if self.alpha0 is None:
-            return g_band, None
+            return g_band, None, drive
         ec = np.asarray(self.rx.element_centers, dtype=np.float64)
-        return g_band, {
+        atten = {
             "alpha0_np": convert_alpha0_to_nepers(self.alpha0, self.freq_power),
             "freq_power": self.freq_power,
             "f0_hz": self.tx.fc,
             "tx_ref": np.asarray(self.tx.element_centers, dtype=np.float64).mean(0),
             "rx_ref": ec if ec.shape[0] == s["n_out"] else ec.mean(0, keepdims=True),
         }
+        return g_band, atten, drive
 
     def _spectral_h_rx(self, s, e_rx, points_m, omega_band):
         """One receive element's closed-form SIR spectrum ``H_RX`` → (P, N_band)."""
@@ -671,7 +698,7 @@ class Reception(ReceptionBase):
         amplitude-sums it over scatterers in a single fused parallel pass (the analogue of
         conventional's ``amps @ H_pe``): the transmit one-way spectrum is built once per
         scatterer and reused across all receive elements, with nothing of size
-        ``(P, N_band)`` materialised. The shared filter ``G = fs·exc·IR`` is then applied
+        ``(P, N_band)`` materialised. The shared filter ``G = fs·IR`` is then applied
         per bin and one inverse FFT per element returns the RF. Reused for the single-window
         path and for each depth bin (the window — hence ``nfft`` and the band-bin count —
         comes from ``s``); ``rx_csr`` is the receive aperture laid out element-by-element.
@@ -683,15 +710,10 @@ class Reception(ReceptionBase):
         b0, b1, omega_band = s["b0"], s["b1"], s["omega_band"]
         n_freq = s["freqs"].shape[0]
         scale = s["scale"]
-        g_band, atten = self._spectral_filters(s)
+        g_band, atten, drive = self._spectral_filters(s)
         tx = {
-            "centers": self._tx_centers,
-            "wx": self._tx_wx,
-            "wy": self._tx_wy,
-            "apod": self._tx_apod,
-            "delays": self._tx_delays,
-            "eu": self._tx_eu,
-            "ev": self._tx_ev,
+            **self._tx_layout(drive.shape[0]),
+            "drive": drive,
             "t0": s["tx_t0"],
             "soft": self.tx.baffle == "soft",
         }
@@ -733,7 +755,7 @@ class Reception(ReceptionBase):
         # Global lattice origin (also the reported t0); every bin snaps to it.
         t0_g, dt, _pe_T, _txt0, _txT, _rxt0, _rxT = self._compute_pe_time_grid(points_m)
         # RX aperture layout is bin-independent → build the element-CSR once for all bins.
-        rx_csr = self._build_rx_csr(self._rx_groups(focused_sum))
+        rx_csr = self._build_csr(self._rx_groups(focused_sum))
 
         def per_bin(idx):
             pts, am = points_m[idx], amps[idx]

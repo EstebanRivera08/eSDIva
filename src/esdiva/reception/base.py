@@ -349,11 +349,13 @@ class ReceptionBase(SimulationBase):
         It depends only on the pulse model and ``fs`` — never on the phantom.
         """
 
-        def length(sig):
-            return 1 if sig is None else int(np.asarray(sig).size)
+        def length(
+            sig,
+        ):  # samples along time (axis 0 also for a per-element (L, E) pulse)
+            return 1 if sig is None else int(np.asarray(sig).shape[0])
 
         n_wave = (
-            length(self.excitation)
+            length(self._resolve_excitation())
             + length(self.tx.impulse_response)
             + length(self.rx.impulse_response)
             - 2

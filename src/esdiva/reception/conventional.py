@@ -246,6 +246,7 @@ class ReceptionConventional(ReceptionBase):
                 method_flag,
                 self._tx_eu,
                 self._tx_ev,
+                soft_baffle=self.tx.baffle == "soft",
             )
             with self._timer("fft_s"):
                 H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)
@@ -270,6 +271,7 @@ class ReceptionConventional(ReceptionBase):
                     method_flag,
                     rx_eu,
                     rx_ev,
+                    soft_baffle=self.rx.baffle == "soft",
                 )
                 with self._timer("fft_s"):
                     H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
@@ -335,7 +337,6 @@ class ReceptionConventional(ReceptionBase):
         """
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
-        self._require_rigid(self.tx, self.rx)
         self._reset_time_log()
         P = points_m.shape[0]
         n_rx = int(self.rx.delays.shape[0])
@@ -494,6 +495,7 @@ class ReceptionConventional(ReceptionBase):
                     method_flag,
                     eu_e,
                     ev_e,
+                    soft_baffle=self.tx.baffle == "soft",
                 )  # (P, T_tx) float32
                 with self._timer("fft_s"):
                     H_tx += rfft(h_e, n=nfft, axis=1, workers=-1) * _rfft64(exc[:, e])
@@ -517,6 +519,7 @@ class ReceptionConventional(ReceptionBase):
                 method_flag,
                 self._tx_eu,
                 self._tx_ev,
+                soft_baffle=self.tx.baffle == "soft",
             )  # (P, T_tx) float32
             with self._timer("fft_s"):
                 H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)  # (P, N_freq) complex64
@@ -562,6 +565,7 @@ class ReceptionConventional(ReceptionBase):
                 method_flag,
                 rx_eu,
                 rx_ev,
+                soft_baffle=self.rx.baffle == "soft",
             )  # (P, T_rx) float32
 
             # H_pe = FFT(h_tx) * FFT(h_rx_e) — convolve SIRs in freq domain.

@@ -103,10 +103,11 @@ class SimulationBase:
 
     @staticmethod
     def _require_rigid(*transducers):
-        """The temporal SIR kernels model a rigid baffle only; refuse ``baffle="soft"``."""
+        """Refuse ``baffle="soft"`` in a core that models the rigid baffle only."""
         if any(getattr(t, "baffle", "rigid") == "soft" for t in transducers):
             raise NotImplementedError(
-                "baffle='soft' is only modelled by the spectral SIR (method='spectral')."
+                "This core models a rigid baffle only; use Reception or Emission for "
+                "baffle='soft'."
             )
 
     # ------------------------------------------------------------------

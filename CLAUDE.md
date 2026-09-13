@@ -161,10 +161,14 @@ practice that ∂³ is **baked into** the band-limited excitation + TX/RX impuls
 `spectral`): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
 `hsir.compute_h_sir_spectrum` — per patch `A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}`,
 `rfft(h[n]) ≈ fs·H`; **no forward FFT, no I⁴, no dt clamp**, cost ∝ M, exact, band-limited
-bins only; the only method modelling `transducer.baffle="soft"` (cosθ per patch));
-**`fst` / `sdi` / `auto`** (sample both SIRs and FFT-convolve — delegates to
-`ReceptionConventional`; the string is its SIR-sampling kernel, `auto` lets it choose per
-grid). Attenuation in every method: round trip TX centre → scatterer → RX element centre.
+bins only);
+**`temporal`** (= `sdi`) / **`fst`** / **`auto`** (sample both SIRs and FFT-convolve —
+delegates to `ReceptionConventional`; the string is its SIR-sampling kernel). Every method
+supports global `(L,)` and per-element `(L, E)` excitation (spectral: `H_TX = Σ_t D_t·H_TX,t`,
+one drive spectrum per TX element inside the fused kernel), the soft baffle, and
+attenuation along the round trip TX centre → scatterer → RX element centre. Spectral is
+the measured-fastest reception default in every case (64-el, 20k scatterers: 6× lossless,
+52× per-element, 105× attenuated — the conventional path loses depth bins there).
 **`ReceptionPaired`** (separate pedagogic class; `method="paired"` raises) — the two-way
 delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair, splats `w = I⁴ v_pe` per corner
 event: exact but cost ∝ M²·len(w), warns on construction. Field II shares the convention
