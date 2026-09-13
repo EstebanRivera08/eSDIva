@@ -34,6 +34,11 @@ Both give the same physics; speed depends on the problem.
 | per-element drive | 6.8 s | 353 s |
 | PSF, 50 points | 0.70 s | 1.06 s |
 
+Runtime projection (`estimate_sequence_runtime`, both simulators): on a 50k-point
+transient emission field it landed at 0.70–1.27× the real time with the default and
+(0.1, 0.3) probe fractions and 0.99× with (0.2, 0.5); two identical real runs differed by
+27 % (7.1 vs 5.6 s) — run-to-run load noise is of the same order. Monochromatic: 1.11×.
+
 Refuted hypothesis: "attenuation / obliquity / a transfer function make spectral faster".
 They are one multiply per frequency bin on either path; what flips the choice is the
 number of radiating groups (temporal pays one sampled SIR + one FFT per element).
@@ -74,6 +79,7 @@ number of radiating groups (temporal pays one sampled SIR + one FFT per element)
 | Monochromatic read the nearest FFT bin | 1.2 % error vs exact `fc` | golden values |
 | Pulse-centre lag used `exc.size` | `t0` off for per-element `(L, E)` drives (L·E samples) | reception parity |
 | Elevation-lens sag added instead of subtracted | Image shifted 2·sag in depth, sharp PSF | `test_lens_time_origin.py` |
+| In-run ETA extrapolated the first unit, which carries the numba JIT compile | `uv run esdiva` announced 1.9 min for a 4 s run | `test_slow_first_unit_is_not_extrapolated` (ETA now from units 2+) |
 
 ## Making a new claim
 

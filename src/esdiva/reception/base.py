@@ -1019,8 +1019,8 @@ class ReceptionBase(SimulationBase):
                     )
                     dt_ev = time.perf_counter() - t_ev  # this event's sim wall time
                     n_done_run += 1
-                    if n_done_run == 1:
-                        long_run = _announce_eta(dt_ev, n_todo, "TX events")
+                    if n_done_run == 2:  # the 1st event also paid the numba JIT compile
+                        long_run = _announce_eta(dt_ev, n_todo, "TX events", n_done=2)
                     elif long_run and not self.verbose:
                         print(f"  TX event {n_done_run}/{n_todo} done", flush=True)
                     if self.verbose:
