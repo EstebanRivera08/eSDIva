@@ -17,7 +17,8 @@ Ultrasound pressure-field simulation for arbitrary transducer geometries — <b>
 
 eSDIva is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
 eSDIva implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
-FST reproduces the classic Field II approach, while SDI is a new, algorithmically and mathematically improved method that computes the same SIRs — under identical assumptions — but substantially faster; an automatic mode picks the best method for each simulation.
+FST reproduces the classic Field II approach, while SDI is a new, algorithmically and mathematically improved method that computes the same SIRs — under identical assumptions — but substantially faster.
+The SIR is available through **two kernels that feed emission and reception alike**: a *temporal* kernel (the sampled `h(r, t)`, FST/SDI) and a *spectral* kernel (the closed-form `H(r, ω)`, exact at any frequency). Excitation, impulse responses, attenuation and baffle obliquity are then applied in one shared frequency-domain chain, so emission and reception mirror each other.
 
 > [!NOTE]
 > eSDIva is designed as complementary material to the work presented in [https://arxiv.org/abs/2608.26891]. Its goal is to provide fundamental building blocks that researchers can inspect, reuse, contribute to, or adapt. It also leaves room for community‑driven extensions that integrate naturally with the broader scientific Python ecosystem.
@@ -27,15 +28,13 @@ FST reproduces the classic Field II approach, while SDI is a new, algorithmicall
 
 - **Transducer objects** — Tools to create and assemble common transducer types: linear arrays, convex arrays, matrix arrays, flat/concave/focused circular transducers, and arbitrary custom arrays. These utilities compute geometric focal laws, generate apodization windows for specified F/D ratios, and more.
 
-- **SIR simulation** — The `H_sir` module computes discrete spatial impulse responses \( h(r, t) \) produced by apertures discretized into rectangular patches. It includes naïve, SDI, and automatic methods implemented with Numba‑accelerated kernels for field‑point‑parallel execution.
+- **SIR simulation** — The `hsir` module computes the spatial impulse response of apertures discretized into rectangular patches, with Numba‑accelerated, field‑point‑parallel kernels: `compute_h_sir` samples \( h(r, t) \) (FST, SDI or automatic), and `compute_h_sir_spectrum` evaluates its closed‑form spectrum \( H(r, \omega) \) (per patch: area × two sincs × a delay phasor) — exact, no time sampling.
 
-- **Emission simulation** — Converts time‑domain SIRs into acoustic pressure fields via the `Emission` class. Supports monochromatic fields (spatial‑only, pressure amplitude at exactly `fc`) and broadband transient simulations with defined excitation pulses (spatio‑temporal pressure matrices), with global or per‑element excitation.
+- **Emission simulation** — The `Emission` class turns the SIR into acoustic pressure fields: monochromatic fields (pressure amplitude at exactly `fc`) and broadband transient fields (signed pressure in pascals), with global or per‑element excitation, attenuation, a soft or rigid baffle and user transfer functions.
 
-- **Pulse‑echo reception** — The `Reception` class simulates pulse‑echo RF from scatterers using a fast closed‑form PE‑SDI spectral kernel (plus conventional Tupholme–Stepanishen and pedagogic reference backends). Generates PSFs, focused B‑mode lines, plane‑wave / diverging‑wave event sequences, and full‑matrix / synthetic‑aperture (FMC) acquisitions, with crash‑safe checkpointing of long runs.
+- **Pulse‑echo reception** — The `Reception` class simulates pulse‑echo RF from scatterers with the same two kernels (spectral by default, temporal on request) and the same options as emission — per‑element excitation, attenuation, baffle. Generates PSFs, focused B‑mode lines, plane‑wave / diverging‑wave event sequences, moving scatterers for flow and Doppler, and full‑matrix / synthetic‑aperture (FMC) acquisitions, with crash‑safe checkpointing of long runs.
 
-- **Beamforming** — Numba‑accelerated 3‑D delay‑and‑sum (`das_volume`, `das_rca_volume`) and focused scanline (`DAS_focused_scanline`) reconstructors for plane‑wave, diverging‑wave, focused, and row‑column sequences, with optional coherence weighting and envelope/log‑compression helpers.
-
-- **Attenuation** — Causal power‑law (frequency‑dependent) attenuation transfer functions applicable per patch in both emission and reception.
+- **Attenuation** — Causal power‑law (frequency‑dependent) attenuation with Kramers–Kronig dispersion referenced at the centre frequency, applied in both emission and reception along each propagation path, with either kernel. See the [attenuation guide](https://estebanrivera08.github.io/eSDIva/user-guide/attenuation/).
 
 - **Phantoms & I/O** — Random‑scatterer phantom generation with echogenicity maps, and a checkpointed on‑disk RF store (`RFDataset`, `.npz`) with HDF5 export (UFF‑compatible fields) for MATLAB/USTB interchange.
 
@@ -170,6 +169,23 @@ uv run examples/example03_multielements_monochromatic_CW.py
 uv run examples/example04_lineararray_excitation_DW.py
 uv run examples/example01_transducer_gallery.py
 ```
+
+### Two SIR kernels: temporal and spectral
+
+Both simulators take `method=`. The physics is identical — the far‑field trapezoidal SIR of each patch — and the two agree to about 1 %; only the route differs:
+
+| `method` | SIR | Best for |
+| --- | --- | --- |
+| `"spectral"` | closed‑form `H(r, ω)`, evaluated only at the frequencies the pulse occupies | monochromatic fields, per‑element drives or attenuation, and **all reception** |
+| `"temporal"` (= `"sdi"`), `"fst"`, `"auto"` | sampled `h(r, t)`, then an FFT | single‑group transient emission fields on dense grids |
+
+```python
+p, coords = diva.Emission(tx, excitation=pulse)(field_points)          # method=None: fastest for the mode
+rf, coords = diva.Reception(tx, rx, excitation=pulse).pulse_echo_rf(pos_mm, amp)  # spectral by default
+p_t, _ = diva.Emission(tx, excitation=pulse, method="temporal")(field_points)     # pin a kernel
+```
+
+`Emission(method=None)` picks the kernel measured fastest for the mode; `Reception` defaults to `"spectral"`, which was the faster in every measured case.
 
 ---
 

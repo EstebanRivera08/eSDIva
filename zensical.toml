@@ -33,7 +33,6 @@ nav = [
         { "Monochromatic" = "user-guide/monochromatic.md" },
         { "Transient Impulse" = "user-guide/transient-impulse.md" },
         { "Transient + Excitation" = "user-guide/transient-excitation.md" },
-        { "Attenuation" = "user-guide/attenuation.md" },
       ]},
       { "Reception (RF)" = [
         { "Overview" = "user-guide/reception.md" },
@@ -41,6 +40,7 @@ nav = [
         { "Phantom Simulation" = "user-guide/phantom-simulation.md" },
         { "Flow Simulation" = "user-guide/flow-simulation.md" },
       ]},
+      { "Attenuation" = "user-guide/attenuation.md" },
     ]},
     { "Visualization" = [
       { "Overview" = "user-guide/visualization.md" },
