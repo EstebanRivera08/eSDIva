@@ -76,19 +76,21 @@ def causal_attenuation_tf(
 ) -> np.ndarray:
     """Causal power-law attenuation transfer function H_att(f, d).
 
-    Absorption and Kramers–Kronig dispersion combined.
+    Absorption times Kramers–Kronig dispersion. The dispersion phase is referenced at
+    ``f₀`` so the phase speed at ``f₀`` equals the medium ``c`` used for every geometric
+    delay; higher frequencies travel slightly faster (positive dispersion, as in tissue).
 
-    General case (y ≠ 1):
-
-    .. code-block:: text
-
-        H(f, d) = exp(-α₀ |f|^y d) · exp(-j α₀ |f|^y tan(yπ/2) d)
-
-    Special case (y = 1, O'Donnell 1981):
+    General case (y ≠ 1, Szabo 1994):
 
     .. code-block:: text
 
-        H(f, d) = exp(-α₀ |f| d) · exp(-j (2α₀/π) f ln(|f|/f₀) d)
+        H(f, d) = exp(-α₀ |f|^y d) · exp(-j α₀ tan(yπ/2) sign(f) (|f|^y − |f| f₀^(y−1)) d)
+
+    Special case (y = 1, O'Donnell 1981 — the y → 1 limit of the above):
+
+    .. code-block:: text
+
+        H(f, d) = exp(-α₀ |f| d) · exp(+j (2α₀/π) f ln(|f|/f₀) d)
 
     Where α₀ is in Np/(Hz^y·m) (converted internally from dB/(MHz^y·cm)).
 
@@ -105,14 +107,19 @@ def causal_attenuation_tf(
     y : float
         Power-law exponent (tissue: 1.0–1.3).
     f0_hz : float
-        Reference frequency in Hz (transducer centre frequency).  Used only
-        for the y = 1 logarithmic dispersion term.
+        Reference frequency in Hz (transducer centre frequency) at which the phase
+        speed equals the medium ``c``. Must be positive.
 
     Returns
     -------
     numpy.ndarray
         Attenuation transfer function H, shape ``(..., N_freq)``,
         complex128.  ``|H| <= 1``.
+
+    Raises
+    ------
+    ValueError
+        If attenuation is enabled and ``f0_hz <= 0``.
 
     Notes
     -----
@@ -123,6 +130,8 @@ def causal_attenuation_tf(
         freqs = np.asarray(freqs_hz, dtype=np.float64)
         dist = np.asarray(distances_m, dtype=np.float64)
         return np.ones((*dist.shape, freqs.shape[0]), dtype=np.complex128)
+    if not f0_hz > 0:
+        raise ValueError(f"f0_hz must be positive, got {f0_hz}.")
 
     alpha0 = convert_alpha0_to_nepers(float(alpha0_dB), float(y))
     freqs = np.asarray(freqs_hz, dtype=np.float64)  # (N_freq,)
@@ -138,16 +147,16 @@ def causal_attenuation_tf(
         with np.errstate(divide="ignore", invalid="ignore"):
             log_ratio = np.where(freq_abs > 0.0, np.log(freq_abs / f0), 0.0)
         absorption = np.exp(-alpha0 * freq_abs * dist_e)
-        # f * ln(|f|/f0) → 0 at DC (handled by where above when freq=0 → log_ratio=0)
-        phase = -(2.0 * alpha0 / np.pi) * freqs * log_ratio * dist_e
+        phase = (2.0 * alpha0 / np.pi) * freqs * log_ratio * dist_e
         H = absorption * np.exp(1j * phase)
     else:
         # General case y ≠ 1: Szabo 1994.
         freq_pow_y = freq_abs ** float(y)  # (N_freq,)
         absorption = np.exp(-alpha0 * freq_pow_y * dist_e)  # (..., N_freq)
         tan_term = np.tan(float(y) * np.pi / 2.0)
-        # sign(f) ensures causal dispersion for negative-frequency components.
-        phase = -alpha0 * np.sign(freqs) * freq_pow_y * tan_term * dist_e
+        # The −|f|·f0^(y−1) term is a pure delay that pins the phase speed at f0 to c.
+        disp = freq_pow_y - freq_abs * float(f0_hz) ** (float(y) - 1.0)
+        phase = -alpha0 * tan_term * np.sign(freqs) * disp * dist_e
         H = absorption * np.exp(1j * phase)
 
     return H  # complex128, shape (..., N_freq)
@@ -170,8 +179,8 @@ def _causal_atten_factor(omega, dist, alpha0_np, y, tan_y, f0_hz, y_is_one):
     The formulas are stated in linear frequency ``f = ω/2π`` (Hz), matching
     `causal_attenuation_tf`. With absorption coefficient ``α₀`` in Np/(Hz^y·m):
 
-        y ≠ 1 :  H = exp(−α₀|f|^y d) · exp(−j α₀ sign(f) |f|^y tan(yπ/2) d)
-        y = 1 :  H = exp(−α₀|f|  d) · exp(−j (2α₀/π) f ln(|f|/f₀) d)   (O'Donnell 1981)
+        y ≠ 1 :  H = exp(−α₀|f|^y d) · exp(−j α₀ tan(yπ/2) sign(f) (|f|^y − |f| f₀^(y−1)) d)
+        y = 1 :  H = exp(−α₀|f|  d) · exp(+j (2α₀/π) f ln(|f|/f₀) d)   (O'Donnell 1981)
 
     Parameters
     ----------
@@ -187,7 +196,7 @@ def _causal_atten_factor(omega, dist, alpha0_np, y, tan_y, f0_hz, y_is_one):
     tan_y : float
         Precomputed ``tan(yπ/2)`` (ignored on the y = 1 branch; pass any value).
     f0_hz : float
-        Reference frequency f₀ (Hz) for the y = 1 logarithmic dispersion.
+        Reference frequency f₀ (Hz) at which the phase speed equals ``c`` (> 0).
     y_is_one : bool
         True selects the y = 1 logarithmic-dispersion branch.
 
@@ -202,12 +211,14 @@ def _causal_atten_factor(omega, dist, alpha0_np, y, tan_y, f0_hz, y_is_one):
         return complex(1.0, 0.0)
     if y_is_one:
         absorption = np.exp(-alpha0_np * f_abs * dist)
-        phase = -(2.0 * alpha0_np / np.pi) * f * np.log(f_abs / f0_hz) * dist
+        phase = (2.0 * alpha0_np / np.pi) * f * np.log(f_abs / f0_hz) * dist
     else:
         f_pow_y = f_abs**y
         absorption = np.exp(-alpha0_np * f_pow_y * dist)
         sign_f = 1.0 if f > 0.0 else -1.0
-        phase = -alpha0_np * sign_f * f_pow_y * tan_y * dist
+        phase = (
+            -alpha0_np * tan_y * sign_f * (f_pow_y - f_abs * f0_hz ** (y - 1.0)) * dist
+        )
     return absorption * complex(np.cos(phase), np.sin(phase))
 
 

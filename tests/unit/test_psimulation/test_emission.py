@@ -257,26 +257,19 @@ class TestTransferFunction:
 
 
 class TestImpulseResponse:
-    def test_ir_none_same_as_ir_delta(self, small_linear_transducer):
-        """ir=None must produce same output as ir=delta function."""
+    @pytest.mark.parametrize("ir_kind", ["delta", "burst"])
+    def test_ir_equals_preconvolved_pulse(self, small_linear_transducer, ir_kind):
+        """exc + tx.impulse_response must equal driving the full pulse exc ⊛ ir."""
         exc = _make_excitation()
+        ir = np.zeros(32, np.float32)
+        ir[0] = 1.0
+        if ir_kind == "burst":
+            ir = exc * np.hanning(exc.size).astype(np.float32)
         pts = np.array([[0.0, 0.0, 20.0]], dtype=np.float32)
-
-        delta = np.zeros(32, dtype=np.float32)
-        delta[0] = 1.0
-
-        sim_no_ir = _make_emission(small_linear_transducer, excitation=exc)
-
-        # Set delta IR
         tx = small_linear_transducer
-        tx.impulse_response = delta
-        sim_delta_ir = _make_emission(tx, excitation=exc)
-        # Clear for other tests
+        tx.impulse_response = ir
+        p_ir, _ = _make_emission(tx, excitation=exc)(pts)
         tx.impulse_response = None
-
-        p_no, _ = sim_no_ir(pts)
-        p_delta, _ = sim_delta_ir(pts)
-
-        # With delta IR, output should be same (identity convolution) or very close.
-        # Truncation to excitation length may introduce minor differences.
-        assert p_no.shape == p_delta.shape
+        full = np.convolve(exc, ir).astype(np.float32)
+        p_full, _ = _make_emission(tx, excitation=full)(pts)
+        np.testing.assert_allclose(p_ir, p_full, atol=1e-6 * np.abs(p_full).max())

@@ -32,7 +32,7 @@ Accuracy = better than non-causal (Field II, SIMUS).
 ### General case (y != 1):
 
     H_att(omega, d) = exp(-alpha0 * |omega|^y * d)
-                    * exp(-j * alpha0 * |omega|^y * tan(y*pi/2) * d)
+                    * exp(-j * alpha0 * tan(y*pi/2) * (|omega|^y - |omega|*omega0^(y-1)) * d)
 
 First term = absorption (amplitude decay). Second term = K-K dispersion (phase).
 
@@ -41,7 +41,12 @@ First term = absorption (amplitude decay). Second term = K-K dispersion (phase).
 tan(pi/2) diverges. Use logarithmic dispersion (O'Donnell 1981):
 
     H_att(omega, d) = exp(-alpha0 * |omega| * d)
-                    * exp(-j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
+                    * exp(+j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
+
+**Sign/reference check (bug fixed 2026-09-13).** The y=1 phase is the y→1 limit of
+the y≠1 form, so it carries `+j`; the y≠1 form needs the `omega0^(y-1)` term or `c` is
+the phase speed at f→0 and the fc arrival diverges as y→1. Tests pin: high f arrives
+first, continuity at y=1, zero dispersion phase at f0.
 
 ### Parameters:
 - `alpha0`: attenuation coefficient [Np/m/Hz^y]

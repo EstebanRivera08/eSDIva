@@ -202,14 +202,15 @@ class Emission(SimulationBase):
 
     @staticmethod
     def _apply_ir_to_excitation(excitation, ir):
-        """Convolve excitation with impulse response (if not None).
+        """Transmitted pulse ``exc ⊛ ir`` at full length ``L + L_ir − 1`` (float32).
 
-        Returns float32 array truncated to the original excitation length.
+        Truncating to ``len(exc)`` would drop the pulse tail (over half its energy for a
+        2-cycle excitation and a 2-cycle impulse response).
         """
         if ir is None:
             return excitation
         conv = np.convolve(excitation.astype(np.float64), ir.astype(np.float64))
-        return conv[: len(excitation)].astype(np.float32)
+        return conv.astype(np.float32)
 
     def _compute_sir(self, points_m, *, method="auto", time_grid_params=None):
         """Compute h_sir summed over all patches, returns (T, P) float32.

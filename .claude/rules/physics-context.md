@@ -291,12 +291,12 @@ freq-domain convolution step.
 General case (y != 1), from Szabo (1994), Holm (2019):
 
     H_att(omega, d) = exp(-alpha0 * |omega|^y * d)                    [absorption]
-                    * exp(-j * alpha0 * |omega|^y * tan(y*pi/2) * d)  [K-K dispersion]
+                    * exp(-j * alpha0 * tan(y*pi/2) * (|omega|^y - |omega|*omega0^(y-1)) * d)  [K-K dispersion]
 
 Special case (y = 1), O'Donnell (1981):
 
     H_att(omega, d) = exp(-alpha0 * |omega| * d)
-                    * exp(-j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
+                    * exp(+j * (2*alpha0/pi) * omega * ln(|omega|/omega0) * d)
 
 Parameters: alpha0 [Np/m/Hz^y], y (tissue: 1.0–1.3), d [m], omega0 = 2*pi*f0.
 
