@@ -13,7 +13,7 @@ into a finding without one.
 | Emission is signed and in pascals | On-axis far field of a small piston = `ρ·A/(2πz)·v'(t − z/c)` within 1–3 %, positive correlation > 0.99, 1/z spreading — `test_far_field_is_signed_rayleigh` |
 | Soft baffle = `cosθ` per patch, zero behind | Ratio soft/rigid = 0.8000 for `cosθ = 0.8` — `test_soft_baffle_is_cos_theta_and_zero_behind` |
 | Attenuation dispersion is physical | High frequencies arrive first (y = 0.5, 1, 1.1, 1.5), continuous across y = 1, zero dispersion phase at `f0 = fc` — `test_attenuation.py` |
-| No silent numerical drift | 8 canonical scenarios (one per example family, both methods) pinned to `tests/regression/golden.npz`; regenerate with `just regen-golden` only after an intentional change, stated in the commit |
+| No silent numerical drift | 8 canonical scenarios (one per example family, both methods) pinned to `tests/regression/golden.npz` at 1e-3 of peak — above the cross-CPU drift of the same code (≤ 1.8e-4, numba fastmath vectorises float32 differently per CPU; CI on Ubuntu/macOS/Windows failed at 1e-4), below the smallest intentional change (2.3e-3). Regenerate with `just regen-golden` only after an intentional change, stated in the commit |
 | Examples still run | `just test-examples` runs every numbered example headless (plotters off-screen, closed after one render) |
 
 ## Which SIR method is faster (measured, 64-element linear array)

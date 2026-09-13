@@ -158,6 +158,14 @@ def _run(name):
         return {k: np.asarray(v) for k, v in SCENARIOS[name]().items()}
 
 
+# Tolerance, measured: the same code compiled by numba for another CPU (fastmath float32
+# vectorisation differs between AVX2 / AVX-512 / generic) moves the values by up to
+# 1.8e-4 of peak — worst in the temporal phantom, where 300 random-sign echoes cancel.
+# The smallest intentional change these values must catch was 2.3e-3 of peak (spectral
+# dt-clamp removal); physics regressions are far larger. 1e-3 sits between the two.
+ATOL_OF_PEAK = 1e-3
+
+
 @pytest.mark.parametrize("name", sorted(SCENARIOS))
 def test_matches_golden(name):
     ref = np.load(GOLDEN)
@@ -165,7 +173,7 @@ def test_matches_golden(name):
         expected = ref[f"{name}/{key}"]
         assert value.shape == expected.shape, key
         np.testing.assert_allclose(
-            value, expected, rtol=1e-6, atol=1e-4 * np.abs(expected).max(),
+            value, expected, rtol=0, atol=ATOL_OF_PEAK * np.abs(expected).max(),
             err_msg=f"{name}/{key} drifted — regenerate only if intentional (see module)",
         )  # fmt: skip
 
