@@ -25,6 +25,18 @@ clean-graphify:
 test:
     uv run pytest tests/
 
+# Run every numbered example headless (slow; checks they still run end to end).
+test-examples:
+    uv run pytest tests/regression/test_examples.py -m examples
+
+# Regenerate the documentation figures headless (no windows; plotters closed after saving).
+figures:
+    $env:ESDIVA_SAVE_FIG = "1"; Get-ChildItem examples -Filter "example*.py" | ForEach-Object { uv run python tests/regression/headless.py $_.FullName }
+
+# Regenerate the golden reference values — only after an intentional numerical change.
+regen-golden:
+    uv run python tests/regression/test_golden.py
+
 # Run all pre-commit hooks.
 pre-commit:
     $env:PYTHONUTF8 = "1"; uv run prek run --all-files

@@ -46,6 +46,8 @@ uv sync                # install + sync venv
 uv run <script.py>     # run a script
 uv add <package>       # add dependency
 just test              # run tests with coverage (alias: just t)
+just test-examples     # run every numbered example headless (slow, opt-in marker)
+just regen-golden      # rewrite tests/regression/golden.npz — ONLY after an intentional numerical change, say why in the commit
 just pre-commit        # ruff-check, ruff-format, ty, codespell, numpydoc (alias: just pc)
 just serve-docs        # build + serve Zensical docs locally (hot-reload)
 just docs              # build docs only → site/

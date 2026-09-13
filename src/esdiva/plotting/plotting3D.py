@@ -63,7 +63,8 @@ def plot3D_pressure_vol(
     show_fig : bool, optional
         If True, call ``plotter.show()`` to display the figure. Default True.
     save_path : str or Path, optional
-        Path to save a screenshot. If None, no file is written. Default None.
+        Path to save a screenshot (the plotter is closed after saving). If None, no
+        file is written. Default None.
     file_name : str, optional
         File name for saved screenshot. Default
         ``"3D_pressure_volume.png"``.
@@ -148,6 +149,7 @@ def plot3D_pressure_vol(
         file_path.parent.mkdir(parents=True, exist_ok=True)
 
         plotter.screenshot(str(file_path), transparent_background=True)
+        plotter.close()  # saved: free the off-screen render window
         print(f"\nPlot saved to: {save_path}")
 
     elif show_fig:
@@ -200,7 +202,8 @@ def plot3D_pressure_slices(
     show_fig : bool, optional
         If True, call ``plotter.show()`` to display the figure. Default True.
     save_path : str or Path, optional
-        Path to save a screenshot. If None, no file is written. Default None.
+        Path to save a screenshot (the plotter is closed after saving). If None, no
+        file is written. Default None.
     scalars : str, optional
         Name of the scalar array attached to the volume. Default ``"Pressure"``.
     plotter : pyvista.Plotter, optional
@@ -340,6 +343,7 @@ def plot3D_pressure_slices(
 
         Path(save_path).parent.mkdir(parents=True, exist_ok=True)
         plotter.screenshot(str(save_path), transparent_background=True)
+        plotter.close()  # saved: free the off-screen render window
         print(f"\nPlot saved to: {save_path}")
 
     elif show_fig:

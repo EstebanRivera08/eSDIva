@@ -235,8 +235,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\plotting\\plotting3D.py": {
-    "mtime": 1789311227.8151784,
-    "ast_hash": "cbdbc5510f56e895b35e8fcdca83e1e0",
+    "mtime": 1789313135.8085012,
+    "ast_hash": "7e031841619a86ea505bca234da7a9b9",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\src\\esdiva\\plotting\\plotting_pyvista.py": {
@@ -525,8 +525,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\CLAUDE.md": {
-    "mtime": 1789311256.517436,
-    "ast_hash": "d1c40d9e940d00e15bacb6b4de9119a5",
+    "mtime": 1789312747.7573693,
+    "ast_hash": "0b6ac16d0aad25a1a77d8358d742374a",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\codecov.yml": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\TODO.md": {
-    "mtime": 1789311261.182113,
-    "ast_hash": "5858913d17b5e0e9768a5b3baf454f77",
+    "mtime": 1789312751.6995573,
+    "ast_hash": "ac5ab393a79217917f05e40869e281f5",
     "semantic_hash": ""
   },
   "C:\\Users\\deyve\\Documents\\eSDIva\\.github\\workflows\\codecov.yml": {
@@ -1592,6 +1592,21 @@
   "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\unit\\test_h_sir\\test_sir_spectral.py": {
     "mtime": 1789300472.179333,
     "ast_hash": "270d7609439b0050c946333e76da99c2",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\regression\\headless.py": {
+    "mtime": 1789313111.2841644,
+    "ast_hash": "c99a9e911a38021ece275c9c24fb1c8c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\regression\\test_examples.py": {
+    "mtime": 1789313118.5062232,
+    "ast_hash": "032a0e4d022169a57bee476078752829",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\deyve\\Documents\\eSDIva\\tests\\regression\\test_golden.py": {
+    "mtime": 1789312606.6888013,
+    "ast_hash": "c0f5796d0c2c74d7e84a19a4cef9cb97",
     "semantic_hash": ""
   }
 }
