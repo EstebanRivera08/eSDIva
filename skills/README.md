@@ -5,6 +5,13 @@ Portable [Agent Skills](https://code.claude.com/docs/en/skills) for
 ultrasound field simulator. Plain Markdown with `name` / `description` front matter —
 the format Claude Code, OpenAI Codex and OpenCode all read.
 
+- **`esdiva-sdi`** — the expert and front door. An authority on the SIR/SDI method in the
+  temporal and spectral domain that **fact-checks** a physics claim against the canonical
+  derivation, recalls the package's functions/capabilities/architecture (via the graphify
+  knowledge graph when a checkout is present), and **routes** hands-on work automatically:
+  it hands off to `esdiva-simulate` for building and running simulations and to
+  `esdiva-contribute` for issues and pull requests. Start here for any general "eSDIva…"
+  or "how does the SDI method…" question.
 - **`esdiva-simulate`** — build transducers, run emission (monochromatic / transient) and
   pulse-echo RF simulations, beamform the RF or feed it to your own beamformer, get
   a figure to actually appear, and understand the SIR/SDI physics behind the result.
@@ -74,6 +81,9 @@ the move.
 ## Layout
 
 ```
+esdiva-sdi/
+  SKILL.md            front door: fact-check protocol, package recall, routing to the two below
+  references/         sdi-theory (temporal & spectral SDI canon, the fact-check ground truth)
 esdiva-simulate/
   SKILL.md            routing table, onboarding flow, the rules that decide correctness
   references/         transducers · emission · reception · visualization · physics
