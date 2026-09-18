@@ -65,6 +65,9 @@ VOL_STRIDE = 2
 scale = SCALE if SAVE_FIG else 1
 if SAVE_FIG:
     FIG_DIR.mkdir(parents=True, exist_ok=True)
+    # Save PNGs with an alpha channel (no opaque backdrop) so the renders drop
+    # cleanly onto any page/slide background.
+    pv.global_theme.transparent_background = True
 
 FONTSIZE = 19
 plt.rcParams.update({"font.size": FONTSIZE})
@@ -111,37 +114,41 @@ vol_mesh = create_3Dvol_mesh(
     z_mm[::s],
     scalars="Envelope (dB)",
 )
-plotter = pv.Plotter(window_size=[850 * scale, 950 * scale], off_screen=SAVE_FIG)
-add_transducer_mesh(probe.get_mesh(), plotter=plotter, color="blue", scale=scale)
-_add_volume_box(plotter, x_mm, y_mm, z_mm)
-plotter.add_volume(
-    vol_mesh,
-    scalars="Envelope (dB)",
-    mapper="smart",
-    cmap="binary",
-    opacity="sigmoid_7",
-    show_scalar_bar=True,
-    scalar_bar_args={
-        "title": "dB",
-        "title_font_size": 20 * scale,
-        "label_font_size": 20 * scale,
-        "position_x": 0.3,
-        "position_y": 0.05,
-    },
-)
-# plotter.show_grid(
-#     xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)", font_size=13 * scale
-# )
-plotter.camera_position = "yz"
-plotter.camera.azimuth = 40
-plotter.camera.elevation = -25
-plotter.camera.up = (0.0, 0.0, -1.0)  # ty: ignore[unresolved-attribute]
-plotter.camera_position = [
-    (13.378040491070358, 44.161316083419806, -10.470568079647542),
-    (-0.5859471497780473, 1.4651943972742822, 9.805476223963389),
-    (-0.12900800212517702, -0.3906497673463856, -0.9114547134443298),
-]
-_finish(plotter, f"ex21_{SCENARIO}_volume_3d.png")
+# Rendered twice: with the probe mesh (shows the volume relative to the
+# aperture) and without it (the bare B-mode volume for overlay/compositing).
+for with_probe in (True, False):
+    plotter = pv.Plotter(window_size=[850 * scale, 950 * scale], off_screen=SAVE_FIG)
+    if with_probe:
+        add_transducer_mesh(
+            probe.get_mesh(), plotter=plotter, color="blue", scale=scale
+        )
+    _add_volume_box(plotter, x_mm, y_mm, z_mm)
+    plotter.add_volume(
+        vol_mesh,
+        scalars="Envelope (dB)",
+        mapper="smart",
+        cmap="binary",
+        opacity="sigmoid_7",
+        show_scalar_bar=True,
+        scalar_bar_args={
+            "title": "dB",
+            "title_font_size": 20 * scale,
+            "label_font_size": 20 * scale,
+            "position_x": 0.3,
+            "position_y": 0.05,
+        },
+    )
+    plotter.camera_position = "yz"
+    plotter.camera.azimuth = 40
+    plotter.camera.elevation = -25
+    plotter.camera.up = (0.0, 0.0, -1.0)  # ty: ignore[unresolved-attribute]
+    plotter.camera_position = [
+        (13.378040491070358, 44.161316083419806, -10.470568079647542),
+        (-0.5859471497780473, 1.4651943972742822, 9.805476223963389),
+        (-0.12900800212517702, -0.3906497673463856, -0.9114547134443298),
+    ]
+    suffix = "volume_3d" if with_probe else "volume_3d_noprobe"
+    _finish(plotter, f"ex21_{SCENARIO}_{suffix}.png")
 
 # ============================================================================
 # FIGURE 2 — MPR: cut planes through the targets + −6 dB iso-surface

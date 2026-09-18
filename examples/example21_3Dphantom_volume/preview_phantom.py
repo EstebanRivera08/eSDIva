@@ -43,6 +43,10 @@ SCALE = 5
 # High-resolution screenshots: scale window size + fonts by SCALE when saving.
 scale = SCALE if SAVE_FIG else 1
 FIG_DIR.mkdir(parents=True, exist_ok=True)
+if SAVE_FIG:
+    # Save the 3-D PNGs with an alpha channel (no opaque backdrop) so the
+    # setup scene drops cleanly onto any page/slide background.
+    pv.global_theme.transparent_background = True
 VOLUME = SC["volume"]
 DB_RANGE = 25  # display range of the gray "bmode" phantom volume
 VOL_STRIDE = 2  # step down the volume for the semi-transparent render only
