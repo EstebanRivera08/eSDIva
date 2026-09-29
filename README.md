@@ -13,7 +13,7 @@ Ultrasound pressure-field simulation for arbitrary transducer geometries — <b>
 📖 **Documentation:** <https://estebanrivera08.github.io/eSDIva/>
 
 > [!WARNING]
-> eSDIva is currently under development. The API is subject to change, and some features may be incomplete or unstable.
+> eSDIva is currently under development. The API is subject to change, and some features may be unstable. Contact me if you have any problem.
 
 eSDIva is an open‑source Spatial Impulse Response (SIR) and pressure‑field simulation library that supports arbitrary transducer geometries composed of small rectangular patches with apodization and delays.
 eSDIva implements both the Fully Sampled Trapezoid (FST) and the Sparse Delta Integration (SDI) methods for computing SIRs following the Tupholme–Stepanishen formulation.
