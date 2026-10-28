@@ -55,7 +55,7 @@ from scipy.optimize import minimize
 from scipy.special import j1
 from esdiva import Emission
 
-# loss = mean-squared dB mismatch against the jinc bell inside the main lobe (±40°),
+# loss = mean-squared dB mismatch against the jinc bell inside the main lobe (±50°),
 # with BOUNDED Nelder–Mead — the bounds keep D and the coeffs in range directly;
 # clipping them inside the loss would flatten the objective past the edge and the
 # simplex would drift onto that plateau. With a FREE diameter the loss vs D is
@@ -81,7 +81,7 @@ res = minimize(loss, x0, method="Nelder-Mead",
 Each is shown with the same four panels: **surface profile** `z(r)` and **directivity**
 (found solid-red vs reference dotted-black), the patch **mesh**, and the **xz** pressure
 plane. The refractive doublet reaches ~30°, the free aspheric ~34°, and the single-term
-sphere shrinks to the smallest allowed aperture (~31°): a lone `r²` cap has no interior
+sphere shrinks to the smallest allowed aperture (~29°): a lone `r²` cap has no interior
 optimum — it only widens by getting smaller — so a single rigid cap cannot cleanly match
 the bell, which the paper's real multilens does.
 

@@ -39,7 +39,7 @@ C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 ANGLE = np.linspace(-60, 60, 241)
-FIT = np.abs(ANGLE) <= 40.0  # fit the main lobe (±40°), where the bell shape matters
+FIT = np.abs(ANGLE) <= 50.0  # fit the main lobe (±50°), where the bell shape matters
 D_BOUNDS = (2.5, 5.5)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
