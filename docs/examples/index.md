@@ -170,11 +170,11 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     Replicates Bercoff 2011: tilted plane waves compounded vs conventional focused colour Doppler, on a phantom whose true velocity is known. Same performance, 10.7x fewer emissions.
 
--   :lucide-target: **[23. Optimize a Radial Element](example23_optimize_radial_element.md)**
+-   :lucide-target: **[23. Diverging Multilens as a Rigid Cap](example23_optimize_radial_element.md)**
 
     ---
 
-    `scipy.optimize` shapes a `RadialProfileTransducer` surface `z(r)` to a target directivity, visualized with `visualize_element`.
+    Model a paper's diverging multilens element as a rigid cap: refractive doublet, spherical `r²`, and free aspheric fits compared with `scipy.optimize` and `visualize_element`.
 
 </div>
 

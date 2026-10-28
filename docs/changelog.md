@@ -35,9 +35,11 @@ All notable changes to eSDIva are documented here.
   surface `z(r)`; exact rectangular patches, exact circular rim, no shear.
 - **`RadialProfileTransducer`** — single element with an arbitrary radial
   profile `z(r)` (dome, bowl, aspheric lens); `max z(r)` pinned to `z = 0`.
-- **`plotting.visualize_element`** — four-panel element diagnostic (mesh,
-  directivity, on-axis field, xz plane) from one monochromatic emission.
-- **Example 23** — optimize a radial element's directivity with `scipy.optimize`.
+- **`plotting.visualize_element`** — four-panel element diagnostic (surface
+  profile `z(r)`, directivity, mesh, xz plane) from one monochromatic emission;
+  `reference`/`reference_profile` overlay a target (dotted) against the found (red).
+- **Example 23** — model a diverging multilens element as a rigid cap, comparing a
+  refractive-doublet, a spherical `r²`, and a free aspheric fit with `scipy.optimize`.
 - **`normalize_patch_size`** parameter on `ConcaveCircularTransducer` and
   `ConvexCircularTransducer` (cartesian method only, default `False`).
   When `True`, patch `wu`/`wv` are set to the arc-length parameter step

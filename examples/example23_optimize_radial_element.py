@@ -1,21 +1,23 @@
 """
-Example 23: Can one rigid curved cap mimic a diverging multilens element?
+Example 23: Three ways to mimic a diverging multilens element with a rigid cap.
 
 The multi-lens array of Nardone et al. (Nat. Commun. 2025, s41467-025-64911-z)
 widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
-linear and homogeneous — no refraction — so the lens can only be modelled as a
-curved *rigid* cap whose surface sag reproduces the same aperture phase. Collapsing
-the paper's doublet through a refractive-index (Snell) model gives one effective
-diverging cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (R = 3.2 mm, n₂−n₁ ≈ 0.92).
+linear and homogeneous — no refraction — so the lens can only be modelled as a curved
+*rigid* cap whose surface sag reproduces the same aperture phase. This example builds
+and compares three candidate caps against the paper's measured directivity (a Bessel
+bell crossing −6 dB at 33.17°):
 
-This script seeds `scipy.optimize` from that physical cap and tunes the even-power
-coefficients of an axisymmetric sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (plus the
-diameter) to the paper's measured directivity (−6 dB at 33.17°), then shows with
-`plotting.visualize_element` how closely the cap matches. Matching the main lobe alone
-is under-determined — a central-dimple aspheric fits it as well as a smooth cap — so the
-coefficients are held **non-negative**, which keeps the surface a convex diverging cap
-(apex at r=0) and makes the recovered surface unique and physical rather than an artefact
-of the optimizer.
+1. **refractive doublet** — the paper's lens itself, collapsed through a refractive-index
+   (Snell) model to one effective cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (no optimization).
+2. **spherical cap (r²)** — a single-term convex cap ``z(r) = −λ·c₀·(r/R)²``, with
+   ``c₀`` and the diameter tuned to the bell.
+3. **free aspheric** — three even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, tuned
+   freely (coefficients may go negative, giving a non-convex aspheric surface).
+
+The surface is even in ``r`` (axisymmetric, apex pinned to z=0), so only even powers
+appear. Each cap is shown with `plotting.visualize_element`: surface profile and
+directivity (found solid-red vs reference dotted-black), mesh, and xz field.
 
 Run with:
     uv run python examples/example23_optimize_radial_element.py
@@ -36,14 +38,9 @@ from esdiva.transducers import RadialProfileTransducer
 C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
-N_COEFFS = 4  # fit-MSE plateaus by ~4 even-power terms; higher ones are near-collinear
 ANGLE = np.linspace(-60, 60, 241)
 FIT = np.abs(ANGLE) <= 50.0  # fit the bell over ±50°
-# Non-negative coefficients keep every u^{2(k+1)} term increasing, so z(r) decreases
-# monotonically from the centre: a convex *diverging* cap (apex at r=0). This makes the
-# inverse problem well-posed — without it a central-dimple aspheric fits the same main
-# lobe just as well, so the recovered surface would depend on the optimizer, not physics.
-D_BOUNDS, COEF_BOUNDS = (2.5, 5.5), (0.0, 3.0)
+D_BOUNDS = (2.5, 5.5)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
 # epoxy c=2570 then silicone c=1015 → index contrast n₂−n₁ = c0/c₂ − c0/c₁).
@@ -71,7 +68,7 @@ def sag_of(coeffs, diameter_mm):
     )
 
 
-def make_element(diameter_mm, coeffs, no_sub_diameter):
+def make_element(diameter_mm, coeffs, no_sub_diameter=40):
     return RadialProfileTransducer(
         diameter_mm=diameter_mm,
         surface_sag_m=sag_of(coeffs, diameter_mm),
@@ -98,13 +95,6 @@ def half_angle_deg(dir_db):
     return float(ANGLE[pos][below[0]]) if below.size else float("nan")
 
 
-def profile_mm(coeffs, diameter_mm, n=200):
-    """Surface profile ``(r, z)`` in mm, apex pinned to z=0 as the simulator tiles it."""
-    r_mm = np.linspace(0.0, diameter_mm / 2, n)
-    z_mm = sag_of(coeffs, diameter_mm)(r_mm * 1e-3) * 1e3
-    return r_mm, z_mm - z_mm.max()
-
-
 # Target: unapodised-disc directivity ``2·J1(x)/x`` scaled to the paper half-angle.
 beta = 2.21536 / np.sin(np.deg2rad(TARGET_HALF_DEG))
 x = np.where(np.abs(ANGLE) < 1e-6, 1e-6, beta * np.sin(np.deg2rad(ANGLE)))
@@ -112,77 +102,81 @@ reference_db = np.clip(
     20 * np.log10(np.clip(np.abs(2 * j1(x) / x), 1e-6, None)), -20, None
 )
 
-# Physical seed: fit the paper's effective cap to the polynomial basis.
-r_seed = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
-u_seed = r_seed / (D_PHYS_MM / 2 * 1e-3)
-basis = np.stack([u_seed ** (2 * (k + 1)) for k in range(N_COEFFS)], 1)
-c_seed = np.clip(
-    np.linalg.lstsq(basis, -physical_sag(r_seed) / (LAMBDA_MM * 1e-3), rcond=None)[0],
-    0.0,
-    None,
-)  # the physical cap is already convex (coeffs ≥ 0); clip guarantees a feasible start
+
+def optimize_cap(n_terms, coeff_bounds):
+    """Fit ``n_terms`` even-power coefficients + diameter to the bell, seeded from the
+    physical cap. ``coeff_bounds`` of ``(0, +)`` forces a convex diverging cap;
+    allowing negatives lets the surface become a non-convex aspheric."""
+    r = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
+    u = r / (D_PHYS_MM / 2 * 1e-3)
+    basis = np.stack([u ** (2 * (k + 1)) for k in range(n_terms)], 1)
+    seed = np.clip(
+        np.linalg.lstsq(basis, -physical_sag(r) / (LAMBDA_MM * 1e-3), rcond=None)[0],
+        coeff_bounds[0],
+        coeff_bounds[1],
+    )
+
+    def loss(p):
+        with warnings.catch_warnings():  # coarse trial profiles under-resolve by design
+            warnings.simplefilter("ignore")
+            dir_db = directivity_db(make_element(p[0], p[1:], no_sub_diameter=26))
+        return float(
+            np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2)
+        )
+
+    # Bounds hold D and the coeffs in range directly; clipping inside the loss would
+    # instead flatten the objective past the edge and let the simplex drift there.
+    res = minimize(
+        loss,
+        np.r_[D_PHYS_MM, seed],
+        method="Nelder-Mead",
+        bounds=[D_BOUNDS] + [coeff_bounds] * n_terms,
+        options={"maxiter": 600, "xatol": 1e-4, "fatol": 1e-7},
+    )
+    return float(res.x[0]), res.x[1:]
 
 
-def loss(p):
-    with (
-        warnings.catch_warnings()
-    ):  # coarse trial profiles are expected to under-resolve
-        warnings.simplefilter("ignore")
-        dir_db = directivity_db(make_element(p[0], p[1:], no_sub_diameter=26))
-    # Mean-square directivity error vs the target bell over the main lobe.
-    return float(np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2))
-
-
-# Bounded Nelder-Mead: the bounds keep D and the coeffs in range directly — clipping
-# them inside the loss instead makes the objective flat past the edge and the simplex
-# drifts onto that plateau.
-res = minimize(
-    loss,
-    np.r_[D_PHYS_MM, c_seed],
-    method="Nelder-Mead",
-    bounds=[D_BOUNDS] + [COEF_BOUNDS] * N_COEFFS,
-    options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6},
+# Build the three candidate caps. The refractive doublet is the exact Snell sag (no fit);
+# the other two fit even-power coefficients + diameter to the bell.
+el_refr = RadialProfileTransducer(
+    diameter_mm=D_PHYS_MM,
+    surface_sag_m=physical_sag,
+    frequency_Hz=FC,
+    no_sub_diameter=40,
+    ratio_big_patches=0.7,
+    refine_factor=2,
 )
-D = float(res.x[0])
-coeffs = res.x[1:]
+D_sph, c_sph = optimize_cap(1, (0.0, 3.0))  # strictly r², convex → unique physical cap
+D_asp, c_asp = optimize_cap(3, (-3.0, 3.0))  # free even polynomial, may be non-convex
+el_sph = make_element(D_sph, c_sph)
+el_asp = make_element(D_asp, c_asp)
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    seed_half = half_angle_deg(directivity_db(make_element(D_PHYS_MM, c_seed, 40)))
-el = make_element(D, coeffs, no_sub_diameter=40)
-opt_half = half_angle_deg(directivity_db(el))
-print(f"physical seed: D = {D_PHYS_MM:.2f} mm, -6 dB = {seed_half:.1f} deg")
-print(
-    f"optimized:     D = {D:.3f} mm, -6 dB = {opt_half:.1f} deg  (target {TARGET_HALF_DEG} deg)"
-)
-print(f"coeffs = {np.array2string(coeffs, precision=3)}")
+models = [
+    (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
+    (el_sph, f"spherical cap r² (D={D_sph:.2f} mm)", "spherical"),
+    (el_asp, f"free aspheric, 3 terms (D={D_asp:.2f} mm)", "aspheric"),
+]
+for el, name, _tag in models:
+    print(f"  {name:34s} -6 dB = {half_angle_deg(directivity_db(el)):.1f} deg")
+
+# Reference surface for the profile panels = the physical refraction cap.
+r_ref_mm = np.linspace(0.0, D_PHYS_MM / 2, 200)
+z_ref_um = physical_sag(r_ref_mm * 1e-3) * 1e6
+z_ref_um -= z_ref_um.max()
 
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
-
-# Profile check: how the surface changed from the physical seed to the optimum.
-rs_mm, zs_mm = profile_mm(c_seed, D_PHYS_MM)
-ro_mm, zo_mm = profile_mm(coeffs, D)
-fig_p, axp = plt.subplots(figsize=(6, 4))
-axp.plot(rs_mm, zs_mm * 1e3, "k--", lw=2, label=f"physical seed (D={D_PHYS_MM:.1f} mm)")
-axp.plot(ro_mm, zo_mm * 1e3, "C0", lw=2, label=f"optimized (D={D:.2f} mm)")
-axp.set(xlabel="r (mm)", ylabel="z (µm)", title="radial surface profile z(r)")
-axp.legend()
-axp.grid(alpha=0.3)
-fig_p.tight_layout()
-if SAVE_FIG:
-    fig_p.savefig(FIG_FOLDER / "ex23_profiles.png", dpi=130)
-    print(f"  Saved: {FIG_FOLDER / 'ex23_profiles.png'}")
-
-save_path = str(FIG_FOLDER / "ex23_optimized_element.png") if SAVE_FIG else None
-fig = visualize_element(
-    el,
-    c_m_s=C0,
-    reference=(ANGLE, reference_db),
-    title=f"multilens cap vs paper directivity (D = {D:.2f} mm)",
-    save_path=save_path,
-)
-if SAVE_FIG:
-    print(f"  Saved: {save_path}")
-else:
+for el, title, tag in models:
+    save_path = str(FIG_FOLDER / f"ex23_{tag}.png") if SAVE_FIG else None
+    visualize_element(
+        el,
+        c_m_s=C0,
+        reference=(ANGLE, reference_db),
+        reference_profile=(r_ref_mm, z_ref_um),
+        title=title,
+        save_path=save_path,
+    )
+    if SAVE_FIG:
+        print(f"  Saved: {save_path}")
+if not SAVE_FIG:
     plt.show()

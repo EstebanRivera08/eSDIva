@@ -2,32 +2,37 @@
 icon: lucide/target
 ---
 
-# Example 23: Optimize a Radial-Profile Element
+# Example 23: A Diverging Multilens Element as a Rigid Cap
 
-Shapes the surface `z(r)` of a single
-[`RadialProfileTransducer`][esdiva.transducers.RadialProfileTransducer] so its
-emitted beam matches a target **−6 dB half-angle**. The surface is a polynomial
-sag `z(r) = −λ · Σ cₖ (r/R)^{2(k+1)}`; `scipy.optimize` tunes the diameter and the
-ten coefficients to fit an ideal Bessel (jinc) directivity, and
-[`visualize_element`][esdiva.plotting.visualize_element] shows the result — mesh,
-directivity, on-axis field, and `xz` plane — in one figure.
+The multi-lens array of Nardone et al. (*Nat. Commun.* 2025, s41467-025-64911-z)
+widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
+linear and homogeneous — **no refraction** — so the lens can only be modelled as a
+curved **rigid cap** whose surface sag reproduces the same aperture phase. This example
+builds three candidate caps and compares each against the paper's measured directivity
+(a Bessel bell crossing **−6 dB at 33.17°**), using
+[`visualize_element`][esdiva.plotting.visualize_element]:
 
-This is a design loop: a convex (divergent) cap widens the beam, so the optimizer
-settles on a dome whose `−6 dB` half-angle lands on the target.
+1. **refractive doublet** — the paper's lens, collapsed through a refractive-index
+   (Snell) model to one effective cap `z(r) = −(n₂−n₁)·(R−√(R²−r²))` (no optimization).
+2. **spherical cap (r²)** — a single convex term `z(r) = −λ·c₀·(r/R)²`, with `c₀` and
+   the diameter tuned to the bell.
+3. **free aspheric** — three even-power terms `z(r) = −λ·Σ cₖ(r/R)^{2(k+1)}`, tuned
+   freely (coefficients may go negative → a non-convex aspheric surface).
 
 [Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example23_optimize_radial_element.py)
 
 ---
 
-## Step 1 — Target and parametric profile
+## The parametric surface
+
+An axisymmetric cap is **even in `r`** (symmetric about the axis, apex pinned to
+`z = 0`), so only even powers appear — a Taylor expansion of `z(r²)`:
 
 ```python
 import numpy as np
-from esdiva.transducers import RadialProfileTransducer
 
 C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
-TARGET_HALF_DEG, N_COEFFS = 33.0, 10
 
 def sag_of(coeffs, diameter_mm):
     r_ap, c = diameter_mm / 2 * 1e-3, np.asarray(coeffs, float)
@@ -37,47 +42,44 @@ def sag_of(coeffs, diameter_mm):
     )
 ```
 
-`RadialProfileTransducer` pins the highest point of the profile to `z = 0`; with
-positive coefficients the centre is forward and the rim recedes — a convex,
-diverging dome.
+With **non-negative** coefficients every term increases outward, so `z(r)` decreases
+monotonically — a convex *diverging* cap (apex at the centre). Allowing negative
+coefficients lets a central dimple form (the free aspheric).
 
 ---
 
-## Step 2 — Fit the directivity
+## Fitting to the directivity
 
 ```python
 from scipy.optimize import minimize
 from scipy.special import j1
 from esdiva import Emission
 
-def directivity_db(element):
-    th = np.deg2rad(ANGLE)
-    pts = np.stack([35.0 * np.sin(th), np.zeros_like(th), 35.0 * np.cos(th)], 1)
-    p = np.abs(Emission(element, fs=100e6, c=C0, monochromatic=True)(pts)[0]).squeeze()
-    return 20 * np.log10(p / p.max())
-
-# loss = mean-squared dB mismatch against the jinc bell inside ±45°, minimized
-# over (diameter, 10 coefficients) with Nelder–Mead.
+# loss = mean-squared dB mismatch against the jinc bell inside ±50°, minimized over
+# (diameter, coefficients) with BOUNDED Nelder–Mead — the bounds keep D and the coeffs
+# in range directly; clipping them inside the loss would flatten the objective past the
+# edge and the simplex would drift onto that plateau.
+res = minimize(loss, x0, method="Nelder-Mead",
+               bounds=[(2.5, 5.5)] + [coeff_bounds] * n_terms)
 ```
 
-A coarse `no_sub_diameter` keeps each of the hundreds of trial evaluations fast;
-the final element is rebuilt at full resolution.
+!!! note "Well-posedness"
+    Matching the main lobe alone is **under-determined** — a smooth convex cap and a
+    central-dimple aspheric fit the same bell — so the recovered surface would otherwise
+    depend on the optimizer, not the physics. The **spherical** model resolves this by
+    construction (one convex term); the **free aspheric** keeps the extra freedom and is
+    shown as the richer, non-unique alternative.
 
 ---
 
-## Step 3 — Visualize the optimized element
+## The three caps
 
-```python
-from esdiva.plotting import visualize_element
+Each is shown with the same four panels: **surface profile** `z(r)` and **directivity**
+(found solid-red vs reference dotted-black), the patch **mesh**, and the **xz** pressure
+plane. The refractive doublet reaches ~30°; the two fitted caps reach ~34–35° (a single
+rigid cap cannot fully suppress the ±45° shoulder — spherical aberration — which the
+paper's real multilens removes).
 
-el = RadialProfileTransducer(diameter_mm=D, surface_sag_m=sag_of(coeffs, D),
-                             frequency_Hz=FC, no_sub_diameter=30)
-visualize_element(el, c_m_s=C0, reference=(ANGLE, reference_db),
-                  title=f"optimized radial element (D = {D:.2f} mm)")
-```
-
-The four panels: the patch **mesh**; the **directivity** against the target bell
-with the `−6 dB` half-angle marked; the **on-axis** `|P|` decaying monotonically
-(the beam diverges, no focus); and the **xz** pressure plane.
-
-![Optimized radial element](assets/ex23_optimized_element.png)
+![Refractive doublet](assets/ex23_refraction.png)
+![Spherical cap r²](assets/ex23_spherical.png)
+![Free aspheric](assets/ex23_aspheric.png)
