@@ -13,11 +13,7 @@ from .helper_functions import (
 )
 from .matlab import explore_mat, mat_struct_fields, mat_struct_to_dict
 from .phantom import make_phantom
-from .surface_subdivision import (
-    subdivide_cartesian,
-    subdivide_radial,
-    subdivide_spherical_cap,
-)
+from .surface_subdivision import subdivide_cartesian, subdivide_radial
 
 if TYPE_CHECKING:
     from .bg_atlas import BG_Atlas
@@ -56,7 +52,6 @@ __all__ = [
     "make_phantom",
     "subdivide_cartesian",
     "subdivide_radial",
-    "subdivide_spherical_cap",
     "reshape_to_mapped_points",
     # MATLAB .mat exploration
     "explore_mat",
