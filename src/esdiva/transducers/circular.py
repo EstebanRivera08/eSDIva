@@ -25,7 +25,7 @@ from typing import Dict, List, Optional, Tuple
 import numpy as np
 
 from esdiva.utilities.surface_subdivision import (
-    subdivide_parametric_surface,
+    subdivide_cartesian,
     subdivide_spherical_cap,
 )
 
@@ -287,7 +287,7 @@ class ConcaveCircularTransducer(TransducerBase):
         Target number of patches across the diameter.
     method : {'cartesian', 'spherical'}
         ``'cartesian'`` (default) uses the arc-length reparameterised Cartesian
-        grid via :func:`subdivide_parametric_surface` — good for shallow bowls.
+        grid via :func:`subdivide_cartesian` — good for shallow bowls.
         ``'spherical'`` uses ring-based spherical-coordinate tiling via
         :func:`subdivide_spherical_cap` — preferred at high curvature or for
         hemispheres.
@@ -435,7 +435,7 @@ class ConcaveCircularTransducer(TransducerBase):
                 y = R * np.sin(sy / R)
                 return x * x + y * y <= R_accept * R_accept
 
-            frames = subdivide_parametric_surface(
+            frames = subdivide_cartesian(
                 surface_fn,
                 u_range=(-s_max, s_max),
                 v_range=(-s_max, s_max),
@@ -639,7 +639,7 @@ class ConvexCircularTransducer(TransducerBase):
                 y = R * np.sin(sy / R)
                 return x * x + y * y <= R_accept * R_accept
 
-            frames = subdivide_parametric_surface(
+            frames = subdivide_cartesian(
                 surface_fn,
                 u_range=(-s_max, s_max),
                 v_range=(-s_max, s_max),
@@ -807,7 +807,7 @@ class FocusedCircularTransducer(TransducerBase):
         deepest point at z = -sag. Built with the centre line at z = 0 and then
         shifted by -sag.
 
-        Uses :func:`subdivide_parametric_surface` so each patch has arc-length
+        Uses :func:`subdivide_cartesian` so each patch has arc-length
         extents and tangents tangent to the cylindrical surface.
         Frames are stored in ``_sub_patch_frames`` as a side-effect.
         """
@@ -825,7 +825,7 @@ class FocusedCircularTransducer(TransducerBase):
         R_inner = rbp * R_ap
         R_accept = 1.005 * R_ap
 
-        frames = subdivide_parametric_surface(
+        frames = subdivide_cartesian(
             surface_fn,
             u_range=(-R_ap, R_ap),
             v_range=(-R_ap, R_ap),

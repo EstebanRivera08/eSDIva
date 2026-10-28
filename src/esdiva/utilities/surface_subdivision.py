@@ -376,7 +376,7 @@ def subdivide_spherical_cap(
     }
 
 
-def subdivide_parametric_surface(
+def subdivide_cartesian(
     surface_fn: Callable[[float, float], np.ndarray],
     u_range: Tuple[float, float],
     v_range: Tuple[float, float],
@@ -388,13 +388,15 @@ def subdivide_parametric_surface(
     border_refine: int = 3,
     normal_sign: float = 1.0,
     normalize_patch_size: bool = False,
+    max_shear_deg: float = 5.0,
 ) -> dict:
-    """Subdivide a C1 parametric surface into flat rectangular patches.
+    """Tile a C1 surface on a cartesian (u, v) grid with flat rectangular patches.
 
-    Each patch is a genuine flat rectangle in the local tangent plane at the
-    patch centre.  Patch dimensions ``(wu, wv)`` represent the physical width
-    and height of that piston element in metres; they are used directly by the
-    SIR kernels (``sir_temporal`` / ``sir_spectral``).
+    Each patch is a flat rectangle in the local tangent plane at the patch centre;
+    ``(wu, wv)`` are its physical width and height in metres, used directly by the
+    SIR kernels. Right for flat / mildly curved / single-axis geometries. On a
+    doubly-curved cap the cell frames tilt and the round rim staircases — use
+    :func:`subdivide_radial` for an axisymmetric cap instead.
 
     Parameters
     ----------
@@ -433,6 +435,10 @@ def subdivide_parametric_surface(
         (the parameter-space step), ignoring the local Jacobian stretch factor.
         For arc-length parameterisations (where ``u`` is already in metres) this
         produces uniform patches across the aperture.  Default ``False``.
+    max_shear_deg : float
+        Warn when the surface tangents ``∂r/∂u``, ``∂r/∂v`` depart from orthogonal
+        by more than this (the cartesian grid shears on a doubly-curved cap).
+        Default ``5.0``.
 
     Returns
     -------
@@ -464,8 +470,10 @@ def subdivide_parametric_surface(
     tv_list: List[np.ndarray] = []
     wu_list: List[float] = []
     wv_list: List[float] = []
+    max_shear = 0.0  # worst tangent non-orthogonality (deg), for the shear warning
 
     def _add_patch(uc: float, vc: float, ddu: float, ddv: float) -> None:
+        nonlocal max_shear
         # --- centre on the curved surface ---
         cen = surface_fn(uc, vc)
 
@@ -474,6 +482,11 @@ def subdivide_parametric_surface(
         eps_v = ddv * 0.001
         drdu = (surface_fn(uc + eps_u, vc) - surface_fn(uc - eps_u, vc)) / (2.0 * eps_u)
         drdv = (surface_fn(uc, vc + eps_v) - surface_fn(uc, vc - eps_v)) / (2.0 * eps_v)
+
+        cos_uv = float(np.dot(drdu, drdv)) / (
+            np.linalg.norm(drdu) * np.linalg.norm(drdv) + 1e-30
+        )
+        max_shear = max(max_shear, abs(90.0 - np.degrees(np.arccos(np.clip(cos_uv, -1, 1)))))
 
         # Limit maximum tangent length to avoid extreme patch overlap at singularities.
         len_u = float(np.linalg.norm(drdu))
@@ -578,6 +591,15 @@ def subdivide_parametric_surface(
                             _add_patch(suc, svc, sdu, sdv)
 
     M = len(centers_list)
+
+    if max_shear > max_shear_deg:
+        warnings.warn(
+            f"Cartesian patches shear {max_shear:.1f}° from orthogonal (> "
+            f"{max_shear_deg:.0f}): the surface is too curved for the (u, v) grid. "
+            "Use subdivide_radial for an axisymmetric cap.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # ------------------------------------------------------------------
     # Coverage statistics
