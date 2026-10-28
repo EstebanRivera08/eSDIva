@@ -14,10 +14,11 @@ builds three candidate caps and compares each against the paper's measured direc
 
 1. **refractive doublet** — the paper's lens, collapsed through a refractive-index
    (Snell) model to one effective cap `z(r) = −(n₂−n₁)·(R−√(R²−r²))` (no optimization).
-2. **spherical cap (r²)** — a single convex term `z(r) = −λ·c₀·(r/R)²`, with `c₀` and the
-   diameter fitted freely (multistart over the diameter).
-3. **free aspheric** — four even-power terms `z(r) = −λ·Σ cₖ(r/R)^{2(k+1)}`, fitted
-   freely including the diameter (coefficients may go negative → a non-convex aspheric).
+2. **strictly convex cap** — four even-power terms `z(r) = −λ·Σ cₖ(r/R)^{2(k+1)}` with
+   **non-negative** coefficients, so the sag is monotone (apex at the centre, no dip) —
+   the best purely convex rigid cap.
+3. **free aspheric** — the same four terms but coefficients free to go negative, so a
+   central dimple may form if it sharpens the agreement with the bell.
 
 [Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example23_optimize_radial_element.py)
 
@@ -55,7 +56,7 @@ from scipy.optimize import minimize
 from scipy.special import j1
 from esdiva import Emission
 
-# loss = mean-squared dB mismatch against the jinc bell inside the main lobe (±50°),
+# loss = mean-squared dB mismatch against the jinc bell inside the main lobe (±40°),
 # with BOUNDED Nelder–Mead — the bounds keep D and the coeffs in range directly;
 # clipping them inside the loss would flatten the objective past the edge and the
 # simplex would drift onto that plateau. With a FREE diameter the loss vs D is
@@ -67,10 +68,13 @@ res = minimize(loss, x0, method="Nelder-Mead",
 
 !!! note "Well-posedness"
     Matching the main lobe alone is **under-determined** — a smooth convex cap and a
-    central-dimple aspheric fit the same bell, and with a free diameter Nelder–Mead can
-    even walk to the diameter bound. **Multistart** over the diameter (restart from
-    several diameters, keep the lowest-MSE basin) makes both fits reproducible — each
-    settles on an interior diameter rather than a bound.
+    central-dimple aspheric fit nearly the same bell, and with a free diameter Nelder–Mead
+    can even walk to the diameter bound. Two guards keep the example well-posed: the
+    coefficient sign (non-negative → convex; free → the dimple can appear) separates the
+    two shapes, and **multistart** over the diameter (restart from several diameters, keep
+    the lowest-MSE basin) makes each fit reproducible on an interior diameter. The two
+    solutions are near-degenerate at ±40°, which is exactly why constraining the sign is
+    what cleanly distinguishes "best convex cap" from "best free cap".
 
 ---
 
@@ -78,13 +82,15 @@ res = minimize(loss, x0, method="Nelder-Mead",
 
 Each is shown with the same four panels: **surface profile** `z(r)` and **directivity**
 (found solid-red vs reference dotted-black), the patch **mesh**, and the **xz** pressure
-plane. The refractive doublet reaches ~30°, the free aspheric ~34°, and the single-term
-sphere ~35°. The sphere overshoots the bell with an on-axis dip — a lone `r²` cap cannot
-suppress the ±45° shoulder (spherical aberration); the richer aspheric sits closer, and
-the paper's real multilens removes it entirely.
+plane. The refractive doublet reaches ~30°; both fitted caps reach ~34° but by different
+shapes — the **strictly convex** cap (D≈4.5 mm) stays monotone, while the **free aspheric**
+(D≈3.8 mm) develops a shallow central dimple that pulls the shoulder in a little tighter.
+Neither fully removes the ±45° shoulder (spherical aberration) that the paper's real
+multilens suppresses — a single rigid cap trades aperture phase for beam width, it cannot
+reshape the lens's two-material refraction.
 
 ![Refractive doublet](assets/ex23_refraction.png)
-![Spherical cap r²](assets/ex23_spherical.png)
+![Strictly convex cap](assets/ex23_convex.png)
 ![Free aspheric](assets/ex23_aspheric.png)
 
 ---

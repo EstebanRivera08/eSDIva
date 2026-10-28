@@ -174,7 +174,7 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     ---
 
-    Model a paper's diverging multilens element as a rigid cap: refractive doublet, spherical `r²`, and free aspheric fits compared with `scipy.optimize` and `visualize_element`.
+    Model a paper's diverging multilens element as a rigid cap: refractive doublet, strictly-convex, and free-aspheric fits compared with `scipy.optimize` and `visualize_element`.
 
 </div>
 

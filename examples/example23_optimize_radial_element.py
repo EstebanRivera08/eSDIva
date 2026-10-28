@@ -10,10 +10,10 @@ bell crossing −6 dB at 33.17°):
 
 1. **refractive doublet** — the paper's lens itself, collapsed through a refractive-index
    (Snell) model to one effective cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (no optimization).
-2. **spherical cap (r²)** — a single-term convex cap ``z(r) = −λ·c₀·(r/R)²``, with ``c₀``
-   and the diameter fitted freely (multistart over the diameter).
-3. **free aspheric** — four even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, fitted
-   freely including the diameter (coefficients may go negative → a non-convex aspheric).
+2. **strictly convex cap** — four even-power terms with **non-negative** coefficients, so
+   the sag is monotone (apex at the centre, no dip) — the best purely convex rigid cap.
+3. **free aspheric** — the same four terms but coefficients free to go negative, so a
+   central dimple may form if it sharpens the agreement with the bell.
 
 The surface is even in ``r`` (axisymmetric, apex pinned to z=0), so only even powers
 appear. Each cap is shown with `plotting.visualize_element`: surface profile and
@@ -39,7 +39,7 @@ C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 ANGLE = np.linspace(-60, 60, 241)
-FIT = np.abs(ANGLE) <= 50.0  # fit the main lobe (±50°), where the bell shape matters
+FIT = np.abs(ANGLE) <= 40.0  # fit the main lobe (±40°), where the bell shape matters
 D_BOUNDS = (3.0, 5.5)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
@@ -165,17 +165,18 @@ el_refr = RadialProfileTransducer(
     ratio_big_patches=0.7,
     refine_factor=2,
 )
-D_sph, c_sph = optimize_cap(1, (0.0, 3.0))  # convex sphere, diameter free (multistart)
+# Strictly convex: non-negative coeffs keep every term increasing outward, so the sag is
+# monotone (apex at the centre, no dip). Free aspheric: negatives allowed, so a central
+# dimple may form if it fits the bell better.
+D_cvx, c_cvx = optimize_cap(4, (0.0, 2.0))
 asp_trace = []  # [D, *coeffs] at each Nelder-Mead iterate — animated below
-D_asp, c_asp = optimize_cap(
-    4, (-2.0, 2.0), trace=asp_trace
-)  # free even polynomial (size floats), may be non-convex
-el_sph = make_element(D_sph, c_sph)
+D_asp, c_asp = optimize_cap(4, (-2.0, 2.0), trace=asp_trace)
+el_cvx = make_element(D_cvx, c_cvx)
 el_asp = make_element(D_asp, c_asp)
 
 models = [
     (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
-    (el_sph, f"spherical cap r² (D={D_sph:.2f} mm)", "spherical"),
+    (el_cvx, f"strictly convex cap, 4 terms (D={D_cvx:.2f} mm)", "convex"),
     (el_asp, f"free aspheric, 4 terms (D={D_asp:.2f} mm)", "aspheric"),
 ]
 for el, name, _tag in models:
