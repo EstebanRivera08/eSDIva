@@ -8,6 +8,10 @@ icon: lucide/square-activity
 `plotter=` to compose several objects in one scene. See the
 [Visualization user guide](../user-guide/visualization.md).
 
+## Element diagnostic
+
+::: esdiva.plotting.visualize_element
+
 ## 2-D (Matplotlib)
 
 ::: esdiva.plotting.plot2D_pressure_slices

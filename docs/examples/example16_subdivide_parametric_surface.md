@@ -4,7 +4,7 @@ icon: lucide/grid-3x3
 
 # Example 16: Parametric Surface Subdivision in rectangular patches (for transducers)
 
-Demonstrates `subdivide_parametric_surface`, the public utility that tiles any
+Demonstrates `subdivide_cartesian`, the public utility that tiles any
 C1 parametric surface with flat tangent-plane rectangles — the patch
 representation the SIR kernel requires, and the machinery behind the curved
 circular transducers.
@@ -14,7 +14,7 @@ variation from centre to rim — to show how patches follow the local tangent
 plane and how `border_refine` controls how closely the mosaic follows the
 aperture boundary.
 
-[Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example16_subdivide_parametric_surface.py)
+[Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example16_subdivide_cartesian.py)
 
 ---
 
@@ -22,7 +22,7 @@ aperture boundary.
 
 ```python
 import numpy as np
-from esdiva.utilities.surface_subdivision import subdivide_parametric_surface
+from esdiva.utilities.surface_subdivision import subdivide_cartesian
 
 # Ellipsoidal cap: z(x, y) = c * sqrt(1 - x²/a² - y²/b²)
 a, b, c = 30e-3, 20e-3, 15e-3   # semi-axes in metres
@@ -41,7 +41,7 @@ required.
 ## Step 2 — Subdivide
 
 ```python
-frames = subdivide_parametric_surface(
+frames = subdivide_cartesian(
     ellipsoid_cap,
     u_range=(-R_ap, R_ap),
     v_range=(-R_ap, R_ap),

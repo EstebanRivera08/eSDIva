@@ -132,7 +132,7 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     ---
 
-    Direct use of `subdivide_parametric_surface` on an ellipsoidal cap. Patch distribution, coverage, and flat-patch accuracy.
+    Direct use of `subdivide_cartesian` on an ellipsoidal cap. Patch distribution, coverage, and flat-patch accuracy.
 
 -   :lucide-import: **[17. Import a Field II Probe](example17_import_fieldii_transducer.md)**
 
@@ -170,6 +170,12 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     Replicates Bercoff 2011: tilted plane waves compounded vs conventional focused colour Doppler, on a phantom whose true velocity is known. Same performance, 10.7x fewer emissions.
 
+-   :lucide-target: **[23. Optimize a Radial Element](example23_optimize_radial_element.md)**
+
+    ---
+
+    `scipy.optimize` shapes a `RadialProfileTransducer` surface `z(r)` to a target directivity, visualized with `visualize_element`.
+
 </div>
 
 ---
@@ -178,6 +184,6 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
 | Examples | Requirements |
 |----------|-------------|
-| 1–11, 16–22 | Core eSDIva installation |
+| 1–11, 16–23 | Core eSDIva installation |
 | 12–13 | `brainglobe-atlasapi` (atlas data downloaded on first run) |
 | 14–15 | `Petri_dish.stl` placed in `examples/` |

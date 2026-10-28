@@ -55,6 +55,10 @@ are mm at the API surface. See the [Transducers user guide](../user-guide/transd
     options:
       members: false
 
+::: esdiva.transducers.RadialProfileTransducer
+    options:
+      members: false
+
 ## Custom & imported
 
 ::: esdiva.transducers.CustomTransducer
