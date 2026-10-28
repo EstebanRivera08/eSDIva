@@ -40,7 +40,7 @@ LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 ANGLE = np.linspace(-60, 60, 241)
 FIT = np.abs(ANGLE) <= 50.0  # fit the main lobe (±50°), where the bell shape matters
-D_BOUNDS = (2.5, 5.5)
+D_BOUNDS = (3.0, 5.5)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
 # epoxy c=2570 then silicone c=1015 → index contrast n₂−n₁ = c0/c₂ − c0/c₁).

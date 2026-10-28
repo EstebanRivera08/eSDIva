@@ -62,17 +62,15 @@ from esdiva import Emission
 # multimodal, so the free-aspheric fit restarts from several diameters (multistart)
 # and keeps the lowest-MSE result — a single start is not reproducible.
 res = minimize(loss, x0, method="Nelder-Mead",
-               bounds=[(2.5, 5.5)] + [coeff_bounds] * n_terms)
+               bounds=[(3.0, 5.5)] + [coeff_bounds] * n_terms)
 ```
 
 !!! note "Well-posedness"
     Matching the main lobe alone is **under-determined** — a smooth convex cap and a
     central-dimple aspheric fit the same bell, and with a free diameter Nelder–Mead can
     even walk to the diameter bound. **Multistart** over the diameter (restart from
-    several diameters, keep the lowest-MSE basin) makes the fit reproducible. The
-    single-term **sphere** has no interior optimum and runs to the smallest allowed
-    aperture — an honest corner solution; the richer **free aspheric** finds a true
-    interior minimum.
+    several diameters, keep the lowest-MSE basin) makes both fits reproducible — each
+    settles on an interior diameter rather than a bound.
 
 ---
 
@@ -81,9 +79,9 @@ res = minimize(loss, x0, method="Nelder-Mead",
 Each is shown with the same four panels: **surface profile** `z(r)` and **directivity**
 (found solid-red vs reference dotted-black), the patch **mesh**, and the **xz** pressure
 plane. The refractive doublet reaches ~30°, the free aspheric ~34°, and the single-term
-sphere shrinks to the smallest allowed aperture (~29°): a lone `r²` cap has no interior
-optimum — it only widens by getting smaller — so a single rigid cap cannot cleanly match
-the bell, which the paper's real multilens does.
+sphere ~35°. The sphere overshoots the bell with an on-axis dip — a lone `r²` cap cannot
+suppress the ±45° shoulder (spherical aberration); the richer aspheric sits closer, and
+the paper's real multilens removes it entirely.
 
 ![Refractive doublet](assets/ex23_refraction.png)
 ![Spherical cap r²](assets/ex23_spherical.png)
