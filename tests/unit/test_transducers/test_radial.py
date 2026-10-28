@@ -11,9 +11,19 @@ from esdiva.transducers import (
 from esdiva.utilities import subdivide_radial
 
 R = 3e-3  # radius of curvature for the spherical test caps
-CONVEX = lambda r: np.sqrt(np.clip(R**2 - np.asarray(r, float) ** 2, 0.0, None)) - R
-CONCAVE = lambda r: R - np.sqrt(np.clip(R**2 - np.asarray(r, float) ** 2, 0.0, None))
-ASPHERIC = lambda r: -8e-4 * (np.asarray(r, float) / 2e-3) ** 2 - 3e-4 * (np.asarray(r, float) / 2e-3) ** 4
+
+
+def CONVEX(r):
+    return np.sqrt(np.clip(R**2 - np.asarray(r, float) ** 2, 0.0, None)) - R
+
+
+def CONCAVE(r):
+    return R - np.sqrt(np.clip(R**2 - np.asarray(r, float) ** 2, 0.0, None))
+
+
+def ASPHERIC(r):
+    u = np.asarray(r, float) / 2e-3
+    return -8e-4 * u**2 - 3e-4 * u**4
 
 
 def _max_corner_angle_dev(element):
@@ -23,7 +33,9 @@ def _max_corner_angle_dev(element):
 
     def angle(a, b, c):
         u, v = a - b, c - b
-        cos = (u * v).sum(-1) / (np.linalg.norm(u, axis=-1) * np.linalg.norm(v, axis=-1))
+        cos = (u * v).sum(-1) / (
+            np.linalg.norm(u, axis=-1) * np.linalg.norm(v, axis=-1)
+        )
         return np.degrees(np.arccos(np.clip(cos, -1, 1)))
 
     corners = np.stack(
@@ -51,24 +63,32 @@ def test_flat_piston_matches_analytic_jinc():
 
     diameter_mm, fc, c = 10.0, 1e6, 1540.0
     el = RadialProfileTransducer(
-        diameter_mm=diameter_mm, surface_sag_m=lambda r: np.zeros_like(np.asarray(r, float)),
-        frequency_Hz=fc, no_sub_diameter=24,
+        diameter_mm=diameter_mm,
+        surface_sag_m=lambda r: np.zeros_like(np.asarray(r, float)),
+        frequency_Hz=fc,
+        no_sub_diameter=24,
     )
     ang = np.linspace(0, 30, 601)
     th = np.deg2rad(ang)
     pts = np.stack([150.0 * np.sin(th), np.zeros_like(th), 150.0 * np.cos(th)], 1)
-    p = np.abs(Emission(el, fs=100e6, c=c, monochromatic=True, verbose=False)(pts)[0]).squeeze()
+    p = np.abs(
+        Emission(el, fs=100e6, c=c, monochromatic=True, verbose=False)(pts)[0]
+    ).squeeze()
     measured = float(ang[np.argmax((20 * np.log10(p / p.max())) <= -6.0)])
 
     ka = 2 * np.pi / (c / fc) * (diameter_mm / 2 * 1e-3)
     x = np.linspace(1e-6, ka, 2000)
-    analytic = float(np.degrees(np.arcsin(x[np.argmax(np.abs(2 * j1(x) / x) <= 0.5)] / ka)))
+    analytic = float(
+        np.degrees(np.arcsin(x[np.argmax(np.abs(2 * j1(x) / x) <= 0.5)] / ka))
+    )
     assert abs(measured - analytic) < 1.5
 
 
 def test_method_radial_rename():
     # "radial" is the new ring method; "spherical" was removed (no deprecation shim).
-    ConvexCircularTransducer(diameter_mm=10.0, focus_mm=6.0, no_sub_diameter=16, method="radial")
+    ConvexCircularTransducer(
+        diameter_mm=10.0, focus_mm=6.0, no_sub_diameter=16, method="radial"
+    )
     with pytest.raises(ValueError):
         ConvexCircularTransducer(diameter_mm=10.0, focus_mm=6.0, method="spherical")
     with pytest.raises(ImportError):

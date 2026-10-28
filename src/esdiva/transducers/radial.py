@@ -33,8 +33,10 @@ class RadialProfileTransducer(TransducerBase):
         ``"radial"`` tiles by concentric rings — no shear, exact circular rim,
         right for any curved cap. ``"cartesian"`` tiles an ``(x, y)`` grid — fine
         for a flat / mildly curved piston, shears a strongly curved cap.
-    ratio_big_patches, refine_factor
-        Passed to :func:`esdiva.utilities.subdivide_radial` (radial method).
+    ratio_big_patches : float, default: 0.8
+        Fraction of outer rings kept coarse (radial method).
+    refine_factor : int, default: 3
+        Sub-ring count for the refined inner rings (radial method).
     """
 
     def __init__(
@@ -85,23 +87,32 @@ class RadialProfileTransducer(TransducerBase):
             )
         else:
             r = self.radius
-            fn = lambda x, y: np.array([x, y, float(self._sag(np.array([np.hypot(x, y)]))[0])])
+
+            def fn(x, y):
+                return np.array([x, y, float(self._sag(np.array([np.hypot(x, y)]))[0])])
+
             frames = subdivide_cartesian(
                 fn,
                 u_range=(-r, r),
                 v_range=(-r, r),
                 n_u=self.no_sub_diameter,
                 n_v=self.no_sub_diameter,
-                inside_fn=lambda x, y: x * x + y * y <= (self.ratio_big_patches * r) ** 2,
+                inside_fn=lambda x, y: x * x + y * y
+                <= (self.ratio_big_patches * r) ** 2,
                 accept_fn=lambda x, y: x * x + y * y <= (1.005 * r) ** 2,
                 border_refine=self.refine_factor,
                 normalize_patch_size=True,
             )
         self._sub_patch_frames = frames
-        return frames["corners"], float(np.mean(frames["wu"] * frames["wv"])), frames["el_idx"]
+        return (
+            frames["corners"],
+            float(np.mean(frames["wu"] * frames["wv"])),
+            frames["el_idx"],
+        )
 
     def _build_patch_frames(self) -> Dict:
         _ = self.sub_quad_verts
+        assert self._sub_patch_frames is not None
         return self._sub_patch_frames
 
     def __repr__(self) -> str:

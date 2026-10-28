@@ -72,14 +72,11 @@ def visualize_element(
 
     sim = Emission(transducer, fs=fs, c=c_m_s, monochromatic=True, verbose=False)
 
-    def magnitude(points_mm: np.ndarray) -> np.ndarray:
-        return np.abs(sim(points_mm)[0]).squeeze()
-
     # Directivity on an arc at constant radius, peak-normalised.
     angle = np.linspace(-max_angle_deg, max_angle_deg, 361)
     th = np.deg2rad(angle)
     arc_pts = np.stack([arc_mm * np.sin(th), np.zeros_like(th), arc_mm * np.cos(th)], 1)
-    p_arc = magnitude(arc_pts)
+    p_arc = np.abs(sim(arc_pts)[0]).squeeze()
     dir_db = 20 * np.log10(p_arc / p_arc.max())
     pos = angle >= 0
     below = np.where(dir_db[pos] <= -6.0)[0]
@@ -87,7 +84,8 @@ def visualize_element(
 
     # On-axis |P| vs depth, normalised.
     z_axis = np.linspace(0.5, axial_max_mm, 400)
-    axial = magnitude(np.stack([np.zeros_like(z_axis), np.zeros_like(z_axis), z_axis], 1))
+    axis_pts = np.stack([np.zeros_like(z_axis), np.zeros_like(z_axis), z_axis], 1)
+    axial = np.abs(sim(axis_pts)[0]).squeeze()
     axial /= axial.max()
 
     # xz pressure plane from one grid Emission (same machinery, shared conventions).
@@ -102,11 +100,19 @@ def visualize_element(
     p_grid, coords = sim(grid)
     x, z = coords["x"], coords["z"]
     p = np.abs(p_grid).squeeze()  # (Nx, Nz), y is singleton
-    plane = (20 * np.log10(np.clip(p / p.max(), 10 ** (db_floor / 20), None))).T  # (Nz, Nx)
+    plane = (
+        20 * np.log10(np.clip(p / p.max(), 10 ** (db_floor / 20), None))
+    ).T  # (Nz, Nx)
 
     # Element mesh screenshot.
     pl = pv.Plotter(off_screen=off_screen, window_size=(700, 700))
-    pl.add_mesh(transducer.get_mesh(), show_edges=True, scalars="Apodization", cmap="cool", clim=[0, 1])
+    pl.add_mesh(
+        transducer.get_mesh(),
+        show_edges=True,
+        scalars="Apodization",
+        cmap="cool",
+        clim=[0, 1],
+    )
     pl.view_isometric()
     pl.reset_camera()
     pl.camera.zoom(1.2)
@@ -122,8 +128,13 @@ def visualize_element(
         ax[1].plot(reference[0], reference[1], "k--", lw=1, label="reference")
     ax[1].plot(angle, dir_db, "C0", lw=2, label=f"−6 dB at {half_angle:.0f}°")
     ax[1].axhline(-6, color="r", ls=":")
-    ax[1].set(xlabel="angle (deg)", ylabel="dB", ylim=(-20, 1),
-              xlim=(-max_angle_deg, max_angle_deg), title="directivity")
+    ax[1].set(
+        xlabel="angle (deg)",
+        ylabel="dB",
+        ylim=(-20, 1),
+        xlim=(-max_angle_deg, max_angle_deg),
+        title="directivity",
+    )
     ax[1].legend()
 
     ax[2].plot(z_axis, axial, "C0", lw=2)
@@ -136,7 +147,9 @@ def visualize_element(
     ax[2].set(xlabel="z (mm)", ylabel="|P|", title="on-axis field")
     ax[2].grid(alpha=0.3)
 
-    im = ax[3].pcolormesh(x, z, plane, cmap="jet", shading="auto", vmin=db_floor, vmax=0)
+    im = ax[3].pcolormesh(
+        x, z, plane, cmap="jet", shading="auto", vmin=db_floor, vmax=0
+    )
     if diameter_mm is not None:
         r = diameter_mm * 1e3 / 2
         ax[3].plot([-r, r], [0, 0], "w", lw=3)

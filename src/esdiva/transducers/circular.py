@@ -389,8 +389,10 @@ class ConcaveCircularTransducer(TransducerBase):
         """Subdivide the spherical cap using the chosen method."""
         if self.method == "radial":
             R = self.radius_of_curvature
-            # Apex at z=0, rim at z=+sag (bowl opening toward +z).
-            sag = lambda r: R - np.sqrt(np.clip(R * R - r * r, 0.0, None))
+
+            def sag(r):  # apex at z=0, rim at z=+sag (bowl opening toward +z)
+                return R - np.sqrt(np.clip(R * R - r * r, 0.0, None))
+
             frames = subdivide_radial(
                 sag,
                 self.radius,
@@ -591,8 +593,10 @@ class ConvexCircularTransducer(TransducerBase):
         """Subdivide the convex dome using the chosen method."""
         if self.method == "radial":
             R = self.radius_of_curvature
-            # Apex at z=0, rim at z=-sag (dome bulging toward +z).
-            sag = lambda r: np.sqrt(np.clip(R * R - r * r, 0.0, None)) - R
+
+            def sag(r):  # apex at z=0, rim at z=-sag (dome bulging toward +z)
+                return np.sqrt(np.clip(R * R - r * r, 0.0, None)) - R
+
             frames = subdivide_radial(
                 sag,
                 self.radius,

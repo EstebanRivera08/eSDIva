@@ -125,7 +125,9 @@ def subdivide_radial(
     z0 = float(sag(np.array([0.0]))[0])
     ex, ey = np.array([0.5 * s0, 0.0, 0.0]), np.array([0.0, 0.5 * s0, 0.0])
     cen0 = np.array([0.0, 0.0, z0])
-    corners.append(np.array([cen0 - ex - ey, cen0 + ex - ey, cen0 + ex + ey, cen0 - ex + ey]))
+    corners.append(
+        np.array([cen0 - ex - ey, cen0 + ex - ey, cen0 + ex + ey, cen0 - ex + ey])
+    )
     centers.append(cen0)
     normals.append(np.array([0.0, 0.0, normal_sign]))
     tu_l.append(np.array([1.0, 0.0, 0.0]))
@@ -137,7 +139,9 @@ def subdivide_radial(
     for r_c, dr in schedule:
         h = max(dr * 1e-3, 1e-9)
         z_c = float(sag(np.array([r_c]))[0])
-        z_prime = float((sag(np.array([r_c + h]))[0] - sag(np.array([r_c - h]))[0]) / (2 * h))
+        z_prime = float(
+            (sag(np.array([r_c + h]))[0] - sag(np.array([r_c - h]))[0]) / (2 * h)
+        )
         slope_angles.append(np.arctan(z_prime))
         wu = dr * np.hypot(1.0, z_prime)  # radial arc length
         n_azi = max(1, round(2 * np.pi * r_c / wu))
@@ -152,7 +156,9 @@ def subdivide_radial(
             nrm /= np.linalg.norm(nrm)
             cen = np.array([r_c * cos_p, r_c * sin_p, z_c])
             hu, hv = 0.5 * wu * tu, 0.5 * wv * tv
-            corners.append(np.array([cen - hu - hv, cen + hu - hv, cen + hu + hv, cen - hu + hv]))
+            corners.append(
+                np.array([cen - hu - hv, cen + hu - hv, cen + hu + hv, cen - hu + hv])
+            )
             centers.append(cen)
             normals.append(nrm)
             tu_l.append(tu)
@@ -176,7 +182,9 @@ def subdivide_radial(
 
     wu_arr, wv_arr = np.array(wu_l, np.float32), np.array(wv_l, np.float32)
     rr = np.linspace(0.0, radius, 400)
-    area = float(np.trapezoid(2 * np.pi * rr * np.hypot(1.0, np.gradient(sag(rr), rr)), rr))
+    area = float(
+        np.trapezoid(2 * np.pi * rr * np.hypot(1.0, np.gradient(sag(rr), rr)), rr)
+    )
     coverage = float(np.sum(wu_arr * wv_arr) / area)
     print(f"  Patches: {len(centers)}  |  Coverage: {coverage * 100:.1f}%")
     return {
@@ -302,7 +310,9 @@ def subdivide_cartesian(
         cos_uv = float(np.dot(drdu, drdv)) / (
             np.linalg.norm(drdu) * np.linalg.norm(drdv) + 1e-30
         )
-        max_shear = max(max_shear, abs(90.0 - np.degrees(np.arccos(np.clip(cos_uv, -1, 1)))))
+        max_shear = max(
+            max_shear, abs(90.0 - np.degrees(np.arccos(np.clip(cos_uv, -1, 1))))
+        )
 
         # Limit maximum tangent length to avoid extreme patch overlap at singularities.
         len_u = float(np.linalg.norm(drdu))
