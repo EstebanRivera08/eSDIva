@@ -33,10 +33,10 @@ from esdiva.transducers import RadialProfileTransducer
 C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
-N_COEFFS = 10
+N_COEFFS = 4  # fit-MSE plateaus by ~4 even-power terms; higher ones are near-collinear
 ANGLE = np.linspace(-70, 70, 281)
-FIT = np.abs(ANGLE) <= 50.0  # fit the whole bell over ±50°, not just the half-angle
-Z_AXIS = np.linspace(0.5, 60, 300)  # on-axis sampling for the diverging penalty
+FIT = np.abs(ANGLE) <= 40.0  # fit the main lobe (±40°), where the bell shape matters
+D_BOUNDS, COEF_BOUNDS = (2.5, 6.0), (-2.0, 2.0)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
 # epoxy c=2570 then silicone c=1015 → index contrast n₂−n₁ = c0/c₂ − c0/c₁).
@@ -85,15 +85,6 @@ def directivity_db(element):
     return 20 * np.log10(p / p.max())
 
 
-def axial_norm(element):
-    """On-axis ``|P|`` vs ``Z_AXIS``, peak-normalised (flat/rising = diverging)."""
-    pts = np.stack([np.zeros_like(Z_AXIS), np.zeros_like(Z_AXIS), Z_AXIS], 1)
-    p = np.abs(
-        Emission(element, fs=100e6, c=C0, monochromatic=True, verbose=False)(pts)[0]
-    ).squeeze()
-    return p / p.max()
-
-
 def half_angle_deg(dir_db):
     pos = ANGLE >= 0
     below = np.where(dir_db[pos] <= -6.0)[0]
@@ -124,28 +115,27 @@ c_seed = np.linalg.lstsq(basis, -physical_sag(r_seed) / (LAMBDA_MM * 1e-3), rcon
 
 
 def loss(p):
-    diameter_mm = float(np.clip(p[0], 2.5, 6.0))
     with (
         warnings.catch_warnings()
     ):  # coarse trial profiles are expected to under-resolve
         warnings.simplefilter("ignore")
-        el = make_element(diameter_mm, np.clip(p[1:], -2, 2), no_sub_diameter=26)
-        dir_db, ax = directivity_db(el), axial_norm(el)
-    shape = float(np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2))
-    # Keep the cap diverging: penalise any on-axis climb past the near field.
-    far = Z_AXIS[:-1] > diameter_mm**2 / (4 * LAMBDA_MM)
-    focus = float(np.clip(np.diff(ax)[far], 0, None).sum())
-    return shape + 2.0 * focus
+        dir_db = directivity_db(make_element(p[0], p[1:], no_sub_diameter=26))
+    # Mean-square directivity error vs the target bell over the main lobe.
+    return float(np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2))
 
 
+# Bounded Nelder-Mead: the bounds keep D and the coeffs in range directly — clipping
+# them inside the loss instead makes the objective flat past the edge and the simplex
+# drifts onto that plateau.
 res = minimize(
     loss,
     np.r_[D_PHYS_MM, c_seed],
     method="Nelder-Mead",
-    options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-5},
+    bounds=[D_BOUNDS] + [COEF_BOUNDS] * N_COEFFS,
+    options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6},
 )
-D = float(np.clip(res.x[0], 2.5, 6.0))
-coeffs = np.clip(res.x[1:], -2, 2)
+D = float(res.x[0])
+coeffs = res.x[1:]
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")
