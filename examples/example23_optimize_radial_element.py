@@ -11,7 +11,7 @@ bell crossing −6 dB at 33.17°):
 1. **refractive doublet** — the paper's lens itself, collapsed through a refractive-index
    (Snell) model to one effective cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (no optimization).
 2. **spherical cap (r²)** — a single-term convex cap ``z(r) = −λ·c₀·(r/R)²``, with ``c₀``
-   fitted on the paper's real 4.5 mm aperture (diameter fixed).
+   and the diameter fitted freely (multistart over the diameter).
 3. **free aspheric** — four even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, fitted
    freely including the diameter (coefficients may go negative → a non-convex aspheric).
 
@@ -150,7 +150,7 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None):
 
 
 # Build the three candidate caps. The refractive doublet is the exact Snell sag (no fit);
-# the sphere fits one convex term at the paper aperture; the aspheric fits four terms + D.
+# the sphere fits one convex term + D (multistart); the aspheric fits four terms + D.
 el_refr = RadialProfileTransducer(
     diameter_mm=D_PHYS_MM,
     surface_sag_m=physical_sag,
@@ -159,9 +159,7 @@ el_refr = RadialProfileTransducer(
     ratio_big_patches=0.7,
     refine_factor=2,
 )
-D_sph, c_sph = optimize_cap(
-    1, (0.0, 3.0), diameter_mm=D_PHYS_MM
-)  # sphere on the paper aperture
+D_sph, c_sph = optimize_cap(1, (0.0, 3.0))  # convex sphere, diameter free (multistart)
 D_asp, c_asp = optimize_cap(
     4, (-2.0, 2.0)
 )  # free even polynomial (size floats), may be non-convex
@@ -170,7 +168,7 @@ el_asp = make_element(D_asp, c_asp)
 
 models = [
     (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
-    (el_sph, f"spherical cap r², D fixed to {D_sph:.2f} mm", "spherical"),
+    (el_sph, f"spherical cap r² (D={D_sph:.2f} mm)", "spherical"),
     (el_asp, f"free aspheric, 4 terms (D={D_asp:.2f} mm)", "aspheric"),
 ]
 for el, name, _tag in models:

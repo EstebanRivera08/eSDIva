@@ -14,8 +14,8 @@ builds three candidate caps and compares each against the paper's measured direc
 
 1. **refractive doublet** — the paper's lens, collapsed through a refractive-index
    (Snell) model to one effective cap `z(r) = −(n₂−n₁)·(R−√(R²−r²))` (no optimization).
-2. **spherical cap (r²)** — a single convex term `z(r) = −λ·c₀·(r/R)²`, with `c₀` fitted
-   on the paper's real 4.5 mm aperture (diameter fixed).
+2. **spherical cap (r²)** — a single convex term `z(r) = −λ·c₀·(r/R)²`, with `c₀` and the
+   diameter fitted freely (multistart over the diameter).
 3. **free aspheric** — four even-power terms `z(r) = −λ·Σ cₖ(r/R)^{2(k+1)}`, fitted
    freely including the diameter (coefficients may go negative → a non-convex aspheric).
 
@@ -68,10 +68,11 @@ res = minimize(loss, x0, method="Nelder-Mead",
 !!! note "Well-posedness"
     Matching the main lobe alone is **under-determined** — a smooth convex cap and a
     central-dimple aspheric fit the same bell, and with a free diameter Nelder–Mead can
-    even walk to the diameter bound. Two guards make the example reproducible: the
-    **spherical** cap is fitted at the paper's **fixed** 4.5 mm aperture (one convex
-    term, unique by construction), and the **free aspheric** uses **multistart** over
-    the diameter and keeps the lowest-MSE basin.
+    even walk to the diameter bound. **Multistart** over the diameter (restart from
+    several diameters, keep the lowest-MSE basin) makes the fit reproducible. The
+    single-term **sphere** has no interior optimum and runs to the smallest allowed
+    aperture — an honest corner solution; the richer **free aspheric** finds a true
+    interior minimum.
 
 ---
 
@@ -79,9 +80,10 @@ res = minimize(loss, x0, method="Nelder-Mead",
 
 Each is shown with the same four panels: **surface profile** `z(r)` and **directivity**
 (found solid-red vs reference dotted-black), the patch **mesh**, and the **xz** pressure
-plane. The refractive doublet reaches ~30°, the free aspheric ~34°, and the fixed-aperture
-sphere overshoots to ~37° with an on-axis dip — a single rigid cap cannot fully suppress
-the ±45° shoulder (spherical aberration), which the paper's real multilens removes.
+plane. The refractive doublet reaches ~30°, the free aspheric ~34°, and the single-term
+sphere shrinks to the smallest allowed aperture (~31°): a lone `r²` cap has no interior
+optimum — it only widens by getting smaller — so a single rigid cap cannot cleanly match
+the bell, which the paper's real multilens does.
 
 ![Refractive doublet](assets/ex23_refraction.png)
 ![Spherical cap r²](assets/ex23_spherical.png)
