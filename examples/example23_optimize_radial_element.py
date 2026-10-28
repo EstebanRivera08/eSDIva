@@ -103,13 +103,15 @@ reference_db = np.clip(
 )
 
 
-def optimize_cap(n_terms, coeff_bounds, diameter_mm=None):
+def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
     """Fit ``n_terms`` even-power coefficients to the bell, seeded from the physical cap.
 
     ``coeff_bounds`` of ``(0, +)`` forces a convex diverging cap; allowing negatives
     lets the surface become a non-convex aspheric. If ``diameter_mm`` is given the
     diameter is fixed (only the shape is fitted — e.g. the sphere on the paper's real
-    4.5 mm aperture); otherwise it is a free variable found by multistart."""
+    4.5 mm aperture); otherwise it is a free variable found by multistart. Pass an empty
+    list as ``trace`` to receive the winning start's ``[D, *coeffs]`` iterate path (for
+    animating the fit)."""
     r = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
     u = r / (D_PHYS_MM / 2 * 1e-3)
     basis = np.stack([u ** (2 * (k + 1)) for k in range(n_terms)], 1)
@@ -135,17 +137,21 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None):
         starts, d_bound = [np.r_[d0, seed] for d0 in (3.0, 3.7, 4.5, 5.2)], D_BOUNDS
     else:
         starts, d_bound = [np.r_[diameter_mm, seed]], (diameter_mm, diameter_mm)
-    best = None
+    best, best_path = None, None
     for x0 in starts:
+        path = [np.array(x0, float)]  # record each accepted simplex iterate
         res = minimize(
             loss,
             x0,
             method="Nelder-Mead",
             bounds=[d_bound] + [coeff_bounds] * n_terms,
             options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6},
+            callback=lambda xk: path.append(np.array(xk, float)),
         )
         if best is None or res.fun < best.fun:
-            best = res
+            best, best_path = res, path
+    if trace is not None:
+        trace[:] = best_path
     return float(best.x[0]), best.x[1:]
 
 
@@ -160,8 +166,9 @@ el_refr = RadialProfileTransducer(
     refine_factor=2,
 )
 D_sph, c_sph = optimize_cap(1, (0.0, 3.0))  # convex sphere, diameter free (multistart)
+asp_trace = []  # [D, *coeffs] at each Nelder-Mead iterate — animated below
 D_asp, c_asp = optimize_cap(
-    4, (-2.0, 2.0)
+    4, (-2.0, 2.0), trace=asp_trace
 )  # free even polynomial (size floats), may be non-convex
 el_sph = make_element(D_sph, c_sph)
 el_asp = make_element(D_asp, c_asp)
@@ -179,6 +186,35 @@ r_ref_mm = np.linspace(0.0, D_PHYS_MM / 2, 200)
 z_ref_um = physical_sag(r_ref_mm * 1e-3) * 1e6
 z_ref_um -= z_ref_um.max()
 
+
+def animate_fit(trace, gif_path, n_frames=24):
+    """Stitch the aspheric fit's iterates into a GIF, one `visualize_element` per frame.
+
+    Each frame shows the current cap's surface profile, directivity vs the bell, mesh and
+    xz field, so the viewer watches the surface deform toward the target directivity."""
+    from PIL import Image  # ships with matplotlib — no extra dependency
+
+    steps = np.unique(np.linspace(0, len(trace) - 1, n_frames).astype(int))
+    frames, tmp = [], FIG_FOLDER / "_frame.png"
+    for i in steps:
+        el = make_element(trace[i][0], trace[i][1:])
+        ha = half_angle_deg(directivity_db(el))
+        fig = visualize_element(
+            el,
+            c_m_s=C0,
+            reference=(ANGLE, reference_db),
+            reference_profile=(r_ref_mm, z_ref_um),
+            title=f"aspheric fit — step {i} (D={trace[i][0]:.2f} mm, −6 dB {ha:.0f}°)",
+            save_path=str(tmp),
+        )
+        plt.close(fig)
+        frames.append(Image.open(tmp).convert("RGB").resize((1280, 291)))
+    tmp.unlink()
+    frames[0].save(
+        gif_path, save_all=True, append_images=frames[1:], duration=300, loop=0
+    )
+
+
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
 for el, title, tag in models:
@@ -193,5 +229,9 @@ for el, title, tag in models:
     )
     if SAVE_FIG:
         print(f"  Saved: {save_path}")
-if not SAVE_FIG:
+if SAVE_FIG:
+    gif_path = str(FIG_FOLDER / "ex23_optimization.gif")
+    animate_fit(asp_trace, gif_path)
+    print(f"  Saved: {gif_path}  ({len(asp_trace)} iterates)")
+else:
     plt.show()

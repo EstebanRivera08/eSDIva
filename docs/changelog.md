@@ -39,7 +39,8 @@ All notable changes to eSDIva are documented here.
   profile `z(r)`, directivity, mesh, xz plane) from one monochromatic emission;
   `reference`/`reference_profile` overlay a target (dotted) against the found (red).
 - **Example 23** — model a diverging multilens element as a rigid cap, comparing a
-  refractive-doublet, a spherical `r²`, and a free aspheric fit with `scipy.optimize`.
+  refractive-doublet, a spherical `r²`, and a free aspheric fit with `scipy.optimize`;
+  includes an animated GIF of the aspheric fit converging toward the target directivity.
 - **`normalize_patch_size`** parameter on `ConcaveCircularTransducer` and
   `ConvexCircularTransducer` (cartesian method only, default `False`).
   When `True`, patch `wu`/`wv` are set to the arc-length parameter step

@@ -86,3 +86,13 @@ the paper's real multilens removes it entirely.
 ![Refractive doublet](assets/ex23_refraction.png)
 ![Spherical cap r²](assets/ex23_spherical.png)
 ![Free aspheric](assets/ex23_aspheric.png)
+
+---
+
+## Watching the fit converge
+
+Each Nelder–Mead iterate of the free-aspheric fit is rendered with the same four panels,
+so the surface visibly deforms as the directivity closes on the bell — the central dimple
+forming and the shoulder pulling in over the run.
+
+![Aspheric fit evolution](assets/ex23_optimization.gif)
