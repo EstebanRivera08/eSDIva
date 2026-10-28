@@ -13,12 +13,12 @@ def visualize_element(
     fs: float = 100e6,
     max_angle_deg: float = 70.0,
     arc_mm: float = 35.0,
-    axial_max_mm: float = 80.0,
     xz_half_width_mm: float = 30.0,
     xz_depth_mm: float = 60.0,
     dx_mm: float = 0.5,
     db_floor: float = -40.0,
     reference: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    reference_profile: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     title: Optional[str] = None,
     save_path: Optional[str] = None,
     off_screen: bool = True,
@@ -26,24 +26,24 @@ def visualize_element(
     """Four-panel diagnostic of a mono-element transducer's monochromatic field.
 
     Runs a single monochromatic :class:`esdiva.emission.Emission` at the element's
-    centre frequency and lays out: (1) the patch mesh, (2) the ``|P|`` directivity
-    (dB) on an arc, (3) the normalised on-axis ``|P|`` vs depth, (4) the ``xz``
-    pressure plane (dB). All fields share the same Emission, so the panels agree.
+    centre frequency and lays out, left to right: (1) the surface profile ``z(r)``
+    read from the element's own patches, (2) the ``|P|`` directivity (dB) on an arc,
+    (3) the patch mesh, (4) the ``xz`` pressure plane (dB). In panels (1) and (2) the
+    found curve is drawn solid red and an optional reference dotted black, so a fitted
+    surface/beam can be compared against its target at a glance.
 
     Parameters
     ----------
     transducer : esdiva.transducers.TransducerBase
         A single-element transducer (circular, radial-profile, ...).
     c_m_s : float, default: 1540.0
-        Sound speed in m/s (sets the wavelength and the near-field marker).
+        Sound speed in m/s (sets the wavelength).
     fs : float, default: 1e8
         Sampling frequency passed to the Emission.
     max_angle_deg : float, default: 70.0
         Half-span of the directivity arc.
     arc_mm : float, default: 35.0
         Radius of the directivity arc in mm.
-    axial_max_mm : float, default: 80.0
-        Depth span of the on-axis profile in mm.
     xz_half_width_mm : float, default: 30.0
         Half-width (x) of the xz plane in mm.
     xz_depth_mm : float, default: 60.0
@@ -53,7 +53,9 @@ def visualize_element(
     db_floor : float, default: -40.0
         Lower dB limit of the xz colour scale.
     reference : tuple of (ndarray, ndarray), optional
-        ``(angle_deg, directivity_db)`` target overlaid on the directivity panel.
+        ``(angle_deg, directivity_db)`` target overlaid dotted on the directivity panel.
+    reference_profile : tuple of (ndarray, ndarray), optional
+        ``(r_mm, z_um)`` reference surface overlaid dotted on the profile panel.
     title : str, optional
         Figure suptitle.
     save_path : str, optional
@@ -72,6 +74,13 @@ def visualize_element(
 
     sim = Emission(transducer, fs=fs, c=c_m_s, monochromatic=True, verbose=False)
 
+    # Surface profile z(r) read straight off the patch centres (apex pinned to z=0).
+    centres = np.array(transducer.sub_quad_verts).mean(axis=1)  # (M, 3)
+    r_mm = np.hypot(centres[:, 0], centres[:, 1]) * 1e3
+    z_um = centres[:, 2] * 1e6
+    order = np.argsort(r_mm)
+    r_mm, z_um = r_mm[order], z_um[order] - z_um.max()
+
     # Directivity on an arc at constant radius, peak-normalised.
     angle = np.linspace(-max_angle_deg, max_angle_deg, 361)
     th = np.deg2rad(angle)
@@ -81,12 +90,6 @@ def visualize_element(
     pos = angle >= 0
     below = np.where(dir_db[pos] <= -6.0)[0]
     half_angle = float(angle[pos][below[0]]) if below.size else float("nan")
-
-    # On-axis |P| vs depth, normalised.
-    z_axis = np.linspace(0.5, axial_max_mm, 400)
-    axis_pts = np.stack([np.zeros_like(z_axis), np.zeros_like(z_axis), z_axis], 1)
-    axial = np.abs(sim(axis_pts)[0]).squeeze()
-    axial /= axial.max()
 
     # xz pressure plane from one grid Emission (same machinery, shared conventions).
     grid = {
@@ -120,14 +123,20 @@ def visualize_element(
     pl.close()
 
     fig, ax = plt.subplots(1, 4, figsize=(22, 5))
-    ax[0].imshow(mesh_img)
-    ax[0].axis("off")
-    ax[0].set_title("element mesh")
+
+    if reference_profile is not None:
+        ax[0].plot(
+            reference_profile[0], reference_profile[1], "k:", lw=1.5, label="reference"
+        )
+    ax[0].plot(r_mm, z_um, "r", lw=2, label="found")
+    ax[0].set(xlabel="r (mm)", ylabel="z (µm)", title="surface profile z(r)")
+    ax[0].legend()
+    ax[0].grid(alpha=0.3)
 
     if reference is not None:
-        ax[1].plot(reference[0], reference[1], "k--", lw=1, label="reference")
-    ax[1].plot(angle, dir_db, "C0", lw=2, label=f"−6 dB at {half_angle:.0f}°")
-    ax[1].axhline(-6, color="r", ls=":")
+        ax[1].plot(reference[0], reference[1], "k:", lw=1.5, label="reference")
+    ax[1].plot(angle, dir_db, "r", lw=2, label=f"found (−6 dB at {half_angle:.0f}°)")
+    ax[1].axhline(-6, color="0.7", ls=":")
     ax[1].set(
         xlabel="angle (deg)",
         ylabel="dB",
@@ -137,19 +146,14 @@ def visualize_element(
     )
     ax[1].legend()
 
-    ax[2].plot(z_axis, axial, "C0", lw=2)
-    diameter_mm = getattr(transducer, "diameter", None)
-    if diameter_mm is not None:
-        lambda_mm = c_m_s / transducer.fc * 1e3
-        near_field = (diameter_mm * 1e3) ** 2 / (4 * lambda_mm)  # D²/4λ
-        ax[2].axvline(near_field, color="r", ls=":", label="near-field N = D²/4λ")
-        ax[2].legend()
-    ax[2].set(xlabel="z (mm)", ylabel="|P|", title="on-axis field")
-    ax[2].grid(alpha=0.3)
+    ax[2].imshow(mesh_img)
+    ax[2].axis("off")
+    ax[2].set_title("element mesh")
 
     im = ax[3].pcolormesh(
         x, z, plane, cmap="jet", shading="auto", vmin=db_floor, vmax=0
     )
+    diameter_mm = getattr(transducer, "diameter", None)
     if diameter_mm is not None:
         r = diameter_mm * 1e3 / 2
         ax[3].plot([-r, r], [0, 0], "w", lw=3)
