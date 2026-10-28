@@ -56,6 +56,143 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 
 # ---------------------------------------------------------------------------
+# Radial subdivision (polar ring tiling for any axisymmetric z(r))
+# ---------------------------------------------------------------------------
+
+
+def subdivide_radial(
+    sag: Callable[[np.ndarray], np.ndarray],
+    radius: float,
+    n_rings: int,
+    *,
+    normal_sign: float = 1.0,
+    ratio_big_patches: float = 0.8,
+    refine_factor: int = 3,
+    max_ring_turn_deg: float = 15.0,
+) -> dict:
+    """Tile an axisymmetric surface ``z(r)`` with flat rectangular patches.
+
+    Concentric rings split into near-square azimuthal patches. For a surface of
+    revolution the meridian tangent ``(cos, sin, z')`` and azimuth tangent
+    ``(-sin, cos, 0)`` are orthogonal, so every patch is an exact rectangle, the
+    outer ring is the exact rim (no staircase) and ``sum(wv) = 2*pi*r_c`` per ring
+    gives ~100% coverage. The refinement knobs thin the innermost (hub) rings.
+
+    Parameters
+    ----------
+    sag : callable
+        ``r_m (ndarray) -> z_m (ndarray)`` radial profile in metres, vectorised
+        over a 1-D array of radii. Tiled exactly as given (no z pinning):
+        convex ``z'(r) < 0``, concave ``z'(r) > 0``.
+    radius : float
+        Aperture radius in metres.
+    n_rings : int
+        Number of coarse rings from centre to rim.
+    normal_sign : float, default: 1.0
+        ``+1`` or ``-1`` to orient the outward normal into the medium.
+    ratio_big_patches : float, default: 0.8
+        Fraction of (outer) rings kept coarse; the innermost
+        ``round(n_rings * (1 - ratio_big_patches))`` rings are each split into
+        ``refine_factor`` thinner sub-rings.
+    refine_factor : int, default: 3
+        Sub-ring count for the refined innermost rings; ``1`` disables.
+    max_ring_turn_deg : float, default: 15.0
+        Warn when the meridian normal turns more than this between adjacent rings
+        (under-resolved curvature → chord gaps); asks for more rings.
+
+    Returns
+    -------
+    dict
+        Patch mosaic with keys ``corners``, ``centers``, ``normals``,
+        ``tangents_u``, ``tangents_v``, ``wu``, ``wv``, ``el_idx``, ``coverage``.
+    """
+    dr0 = radius / n_rings
+    n_coarse = max(1, round(n_rings * ratio_big_patches))
+    n_center = n_rings - n_coarse
+    schedule = []  # (r_c, dr) inner-to-outer
+    for i in range(n_rings):
+        if i < n_center and refine_factor > 1:
+            dr_fine = dr0 / refine_factor
+            for k in range(refine_factor):
+                schedule.append((i * dr0 + (k + 0.5) * dr_fine, dr_fine))
+        else:
+            schedule.append(((i + 0.5) * dr0, dr0))
+
+    corners, centers, normals, tu_l, tv_l, wu_l, wv_l = ([] for _ in range(7))
+
+    # Centre square plugs the hub the azimuthal rings leave open (z'(0)=0 -> flat).
+    s0 = schedule[0][1]
+    z0 = float(sag(np.array([0.0]))[0])
+    ex, ey = np.array([0.5 * s0, 0.0, 0.0]), np.array([0.0, 0.5 * s0, 0.0])
+    cen0 = np.array([0.0, 0.0, z0])
+    corners.append(np.array([cen0 - ex - ey, cen0 + ex - ey, cen0 + ex + ey, cen0 - ex + ey]))
+    centers.append(cen0)
+    normals.append(np.array([0.0, 0.0, normal_sign]))
+    tu_l.append(np.array([1.0, 0.0, 0.0]))
+    tv_l.append(np.array([0.0, 1.0, 0.0]))
+    wu_l.append(s0)
+    wv_l.append(s0)
+
+    slope_angles = []
+    for r_c, dr in schedule:
+        h = max(dr * 1e-3, 1e-9)
+        z_c = float(sag(np.array([r_c]))[0])
+        z_prime = float((sag(np.array([r_c + h]))[0] - sag(np.array([r_c - h]))[0]) / (2 * h))
+        slope_angles.append(np.arctan(z_prime))
+        wu = dr * np.hypot(1.0, z_prime)  # radial arc length
+        n_azi = max(1, round(2 * np.pi * r_c / wu))
+        dphi, wv = 2 * np.pi / n_azi, 2 * np.pi * r_c / n_azi
+        for j in range(n_azi):
+            phi = (j + 0.5) * dphi
+            cos_p, sin_p = np.cos(phi), np.sin(phi)
+            tu = np.array([cos_p, sin_p, z_prime])
+            tu /= np.linalg.norm(tu)
+            tv = np.array([-sin_p, cos_p, 0.0])
+            nrm = normal_sign * np.cross(tu, tv)
+            nrm /= np.linalg.norm(nrm)
+            cen = np.array([r_c * cos_p, r_c * sin_p, z_c])
+            hu, hv = 0.5 * wu * tu, 0.5 * wv * tv
+            corners.append(np.array([cen - hu - hv, cen + hu - hv, cen + hu + hv, cen - hu + hv]))
+            centers.append(cen)
+            normals.append(nrm)
+            tu_l.append(tu)
+            tv_l.append(tv)
+            wu_l.append(wu)
+            wv_l.append(wv)
+
+    turn_deg = (
+        float(np.degrees(np.max(np.abs(np.diff(slope_angles)))))
+        if len(slope_angles) > 1
+        else 0.0
+    )
+    if turn_deg > max_ring_turn_deg:
+        warnings.warn(
+            f"Radial profile under-resolved: meridian turns {turn_deg:.1f}° between "
+            f"rings (> {max_ring_turn_deg:.0f}). Flat patches chord coarsely across the "
+            "curvature. Increase n_rings (no_sub_diameter) or reduce the surface curvature.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    wu_arr, wv_arr = np.array(wu_l, np.float32), np.array(wv_l, np.float32)
+    rr = np.linspace(0.0, radius, 400)
+    area = float(np.trapezoid(2 * np.pi * rr * np.hypot(1.0, np.gradient(sag(rr), rr)), rr))
+    coverage = float(np.sum(wu_arr * wv_arr) / area)
+    print(f"  Patches: {len(centers)}  |  Coverage: {coverage * 100:.1f}%")
+    return {
+        "corners": corners,
+        "centers": np.array(centers),
+        "normals": np.array(normals),
+        "tangents_u": np.array(tu_l),
+        "tangents_v": np.array(tv_l),
+        "wu": wu_arr,
+        "wv": wv_arr,
+        "el_idx": [0] * len(centers),
+        "coverage": coverage,
+    }
+
+
+# ---------------------------------------------------------------------------
 # Spherical-cap subdivision (ring-based tiling)
 # ---------------------------------------------------------------------------
 
