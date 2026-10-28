@@ -16,7 +16,7 @@ builds three candidate caps and compares each against the paper's measured direc
    (Snell) model to one effective cap `z(r) = −(n₂−n₁)·(R−√(R²−r²))` (no optimization).
 2. **spherical cap (r²)** — a single convex term `z(r) = −λ·c₀·(r/R)²`, with `c₀` and
    the diameter tuned to the bell.
-3. **free aspheric** — three even-power terms `z(r) = −λ·Σ cₖ(r/R)^{2(k+1)}`, tuned
+3. **free aspheric** — four even-power terms `z(r) = −λ·Σ cₖ(r/R)^{2(k+1)}`, tuned
    freely (coefficients may go negative → a non-convex aspheric surface).
 
 [Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example23_optimize_radial_element.py)

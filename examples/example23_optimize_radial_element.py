@@ -12,7 +12,7 @@ bell crossing −6 dB at 33.17°):
    (Snell) model to one effective cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (no optimization).
 2. **spherical cap (r²)** — a single-term convex cap ``z(r) = −λ·c₀·(r/R)²``, with
    ``c₀`` and the diameter tuned to the bell.
-3. **free aspheric** — three even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, tuned
+3. **free aspheric** — four even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, tuned
    freely (coefficients may go negative, giving a non-convex aspheric surface).
 
 The surface is even in ``r`` (axisymmetric, apex pinned to z=0), so only even powers
@@ -147,14 +147,14 @@ el_refr = RadialProfileTransducer(
     refine_factor=2,
 )
 D_sph, c_sph = optimize_cap(1, (0.0, 3.0))  # strictly r², convex → unique physical cap
-D_asp, c_asp = optimize_cap(3, (-3.0, 3.0))  # free even polynomial, may be non-convex
+D_asp, c_asp = optimize_cap(4, (-3.0, 3.0))  # free even polynomial, may be non-convex
 el_sph = make_element(D_sph, c_sph)
 el_asp = make_element(D_asp, c_asp)
 
 models = [
     (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
     (el_sph, f"spherical cap r² (D={D_sph:.2f} mm)", "spherical"),
-    (el_asp, f"free aspheric, 3 terms (D={D_asp:.2f} mm)", "aspheric"),
+    (el_asp, f"free aspheric, 4 terms (D={D_asp:.2f} mm)", "aspheric"),
 ]
 for el, name, _tag in models:
     print(f"  {name:34s} -6 dB = {half_angle_deg(directivity_db(el)):.1f} deg")
