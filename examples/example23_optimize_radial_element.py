@@ -10,10 +10,10 @@ bell crossing −6 dB at 33.17°):
 
 1. **refractive doublet** — the paper's lens itself, collapsed through a refractive-index
    (Snell) model to one effective cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (no optimization).
-2. **spherical cap (r²)** — a single-term convex cap ``z(r) = −λ·c₀·(r/R)²``, with
-   ``c₀`` and the diameter tuned to the bell.
-3. **free aspheric** — four even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, tuned
-   freely (coefficients may go negative, giving a non-convex aspheric surface).
+2. **spherical cap (r²)** — a single-term convex cap ``z(r) = −λ·c₀·(r/R)²``, with ``c₀``
+   fitted on the paper's real 4.5 mm aperture (diameter fixed).
+3. **free aspheric** — four even-power terms ``z(r) = −λ·Σ c_k·(r/R)^{2(k+1)}``, fitted
+   freely including the diameter (coefficients may go negative → a non-convex aspheric).
 
 The surface is even in ``r`` (axisymmetric, apex pinned to z=0), so only even powers
 appear. Each cap is shown with `plotting.visualize_element`: surface profile and
@@ -39,7 +39,7 @@ C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 ANGLE = np.linspace(-60, 60, 241)
-FIT = np.abs(ANGLE) <= 50.0  # fit the bell over ±50°
+FIT = np.abs(ANGLE) <= 40.0  # fit the main lobe (±40°), where the bell shape matters
 D_BOUNDS = (2.5, 5.5)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
@@ -103,10 +103,13 @@ reference_db = np.clip(
 )
 
 
-def optimize_cap(n_terms, coeff_bounds):
-    """Fit ``n_terms`` even-power coefficients + diameter to the bell, seeded from the
-    physical cap. ``coeff_bounds`` of ``(0, +)`` forces a convex diverging cap;
-    allowing negatives lets the surface become a non-convex aspheric."""
+def optimize_cap(n_terms, coeff_bounds, diameter_mm=None):
+    """Fit ``n_terms`` even-power coefficients to the bell, seeded from the physical cap.
+
+    ``coeff_bounds`` of ``(0, +)`` forces a convex diverging cap; allowing negatives
+    lets the surface become a non-convex aspheric. If ``diameter_mm`` is given the
+    diameter is fixed (only the shape is fitted — e.g. the sphere on the paper's real
+    4.5 mm aperture); otherwise it is a free variable found by multistart."""
     r = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
     u = r / (D_PHYS_MM / 2 * 1e-3)
     basis = np.stack([u ** (2 * (k + 1)) for k in range(n_terms)], 1)
@@ -124,20 +127,30 @@ def optimize_cap(n_terms, coeff_bounds):
             np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2)
         )
 
-    # Bounds hold D and the coeffs in range directly; clipping inside the loss would
-    # instead flatten the objective past the edge and let the simplex drift there.
-    res = minimize(
-        loss,
-        np.r_[D_PHYS_MM, seed],
-        method="Nelder-Mead",
-        bounds=[D_BOUNDS] + [coeff_bounds] * n_terms,
-        options={"maxiter": 600, "xatol": 1e-4, "fatol": 1e-7},
-    )
-    return float(res.x[0]), res.x[1:]
+    # Multistart over the diameter: with a free diameter the loss vs D is multimodal
+    # (a narrow best basin plus a flat shelf at the large-D bound), so a single
+    # Nelder-Mead from one start can walk to the bound and is not reproducible. Restart
+    # from a few diameters and keep the lowest-MSE result. A fixed diameter needs one.
+    if diameter_mm is None:
+        starts, d_bound = [np.r_[d0, seed] for d0 in (3.0, 3.7, 4.5, 5.2)], D_BOUNDS
+    else:
+        starts, d_bound = [np.r_[diameter_mm, seed]], (diameter_mm, diameter_mm)
+    best = None
+    for x0 in starts:
+        res = minimize(
+            loss,
+            x0,
+            method="Nelder-Mead",
+            bounds=[d_bound] + [coeff_bounds] * n_terms,
+            options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-6},
+        )
+        if best is None or res.fun < best.fun:
+            best = res
+    return float(best.x[0]), best.x[1:]
 
 
 # Build the three candidate caps. The refractive doublet is the exact Snell sag (no fit);
-# the other two fit even-power coefficients + diameter to the bell.
+# the sphere fits one convex term at the paper aperture; the aspheric fits four terms + D.
 el_refr = RadialProfileTransducer(
     diameter_mm=D_PHYS_MM,
     surface_sag_m=physical_sag,
@@ -146,14 +159,18 @@ el_refr = RadialProfileTransducer(
     ratio_big_patches=0.7,
     refine_factor=2,
 )
-D_sph, c_sph = optimize_cap(1, (0.0, 3.0))  # strictly r², convex → unique physical cap
-D_asp, c_asp = optimize_cap(4, (-3.0, 3.0))  # free even polynomial, may be non-convex
+D_sph, c_sph = optimize_cap(
+    1, (0.0, 3.0), diameter_mm=D_PHYS_MM
+)  # sphere on the paper aperture
+D_asp, c_asp = optimize_cap(
+    4, (-2.0, 2.0)
+)  # free even polynomial (size floats), may be non-convex
 el_sph = make_element(D_sph, c_sph)
 el_asp = make_element(D_asp, c_asp)
 
 models = [
     (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
-    (el_sph, f"spherical cap r² (D={D_sph:.2f} mm)", "spherical"),
+    (el_sph, f"spherical cap r², D fixed to {D_sph:.2f} mm", "spherical"),
     (el_asp, f"free aspheric, 4 terms (D={D_asp:.2f} mm)", "aspheric"),
 ]
 for el, name, _tag in models:
