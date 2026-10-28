@@ -15,6 +15,8 @@ Notes
   transducer. Models transducers with acoustic refractive lenses.
 - ``FocusedCircularTransducer`` -- Circular-disk aperture with single-axis curvature
   (line focus).
+- ``RadialProfileTransducer`` -- Arbitrary axisymmetric surface ``z(r)`` (dome, bowl,
+  aspheric lens).
 
 **Composite arrays**:
 
@@ -56,6 +58,7 @@ from .fieldii_compat import (
 )
 from .linear import LinearArrayTransducer, ConvexArrayTransducer
 from .matrix import MatrixArrayTransducer
+from .radial import RadialProfileTransducer
 from .saved_transducers import Domino, Zeus_Matrix
 
 __all__ = [
@@ -70,6 +73,7 @@ __all__ = [
     "ConcaveCircularTransducer",
     "ConvexCircularTransducer",
     "FocusedCircularTransducer",
+    "RadialProfileTransducer",
     # Composite
     "CustomTransducer",
     # Field II import
