@@ -176,6 +176,12 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     Model a paper's diverging multilens element as a rigid cap: refractive doublet, strictly-convex, and free-aspheric fits compared with `scipy.optimize` and `visualize_element`.
 
+-   :lucide-grid-3x3: **[24. Multilens Matrix Point PSF](example24_multilens_matrix_psf.md)**
+
+    ---
+
+    Assemble the paper's 252-element (18×14) diverging-multilens matrix with `CustomTransducer`, focus on a point, and beamform the pulse-echo RF into a 3-D PSF with `das_volume`.
+
 </div>
 
 ---
@@ -184,6 +190,6 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
 | Examples | Requirements |
 |----------|-------------|
-| 1–11, 16–23 | Core eSDIva installation |
+| 1–11, 16–24 | Core eSDIva installation |
 | 12–13 | `brainglobe-atlasapi` (atlas data downloaded on first run) |
 | 14–15 | `Petri_dish.stl` placed in `examples/` |

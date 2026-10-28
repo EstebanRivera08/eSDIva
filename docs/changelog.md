@@ -41,6 +41,9 @@ All notable changes to eSDIva are documented here.
 - **Example 23** — model a diverging multilens element as a rigid cap, comparing a
   refractive-doublet, a strictly-convex, and a free-aspheric fit with `scipy.optimize`;
   includes an animated GIF of the aspheric fit converging toward the target directivity.
+- **Example 24** — assemble the paper's 252-element (18×14) diverging-multilens matrix
+  from the example-23 cap with `CustomTransducer`; focused point PSF via `pulse_echo_rf`
+  and `das_volume`.
 - **`normalize_patch_size`** parameter on `ConcaveCircularTransducer` and
   `ConvexCircularTransducer` (cartesian method only, default `False`).
   When `True`, patch `wu`/`wv` are set to the arc-length parameter step

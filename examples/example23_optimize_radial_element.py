@@ -155,37 +155,19 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
     return float(best.x[0]), best.x[1:]
 
 
-# Build the three candidate caps. The refractive doublet is the exact Snell sag (no fit);
-# the sphere fits one convex term + D (multistart); the aspheric fits four terms + D.
-el_refr = RadialProfileTransducer(
-    diameter_mm=D_PHYS_MM,
-    surface_sag_m=physical_sag,
-    frequency_Hz=FC,
-    no_sub_diameter=40,
-    ratio_big_patches=0.7,
-    refine_factor=2,
-)
-# Strictly convex: non-negative coeffs keep every term increasing outward, so the sag is
-# monotone (apex at the centre, no dip). Free aspheric: negatives allowed, so a central
-# dimple may form if it fits the bell better.
-D_cvx, c_cvx = optimize_cap(4, (0.0, 2.0))
-asp_trace = []  # [D, *coeffs] at each Nelder-Mead iterate — animated below
-D_asp, c_asp = optimize_cap(4, (-2.0, 2.0), trace=asp_trace)
-el_cvx = make_element(D_cvx, c_cvx)
-el_asp = make_element(D_asp, c_asp)
-
-models = [
-    (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
-    (el_cvx, f"strictly convex cap, 4 terms (D={D_cvx:.2f} mm)", "convex"),
-    (el_asp, f"free aspheric, 4 terms (D={D_asp:.2f} mm)", "aspheric"),
-]
-for el, name, _tag in models:
-    print(f"  {name:34s} -6 dB = {half_angle_deg(directivity_db(el)):.1f} deg")
-
 # Reference surface for the profile panels = the physical refraction cap.
 r_ref_mm = np.linspace(0.0, D_PHYS_MM / 2, 200)
 z_ref_um = physical_sag(r_ref_mm * 1e-3) * 1e6
 z_ref_um -= z_ref_um.max()
+
+
+def optimized_aspheric(no_sub_diameter=40):
+    """Fit and return this example's free-aspheric diverging cap (reused by example 24).
+
+    Runs the same ±40° bell fit as the script (four even terms, coefficients free so a
+    central dimple may form) and returns the built `RadialProfileTransducer`."""
+    D, c = optimize_cap(4, (-2.0, 2.0))
+    return make_element(D, c, no_sub_diameter=no_sub_diameter)
 
 
 def animate_fit(trace, gif_path, n_frames=24):
@@ -216,23 +198,49 @@ def animate_fit(trace, gif_path, n_frames=24):
     )
 
 
-if SAVE_FIG:
-    FIG_FOLDER.mkdir(exist_ok=True)
-for el, title, tag in models:
-    save_path = str(FIG_FOLDER / f"ex23_{tag}.png") if SAVE_FIG else None
-    visualize_element(
-        el,
-        c_m_s=C0,
-        reference=(ANGLE, reference_db),
-        reference_profile=(r_ref_mm, z_ref_um),
-        title=title,
-        save_path=save_path,
+if __name__ == "__main__":
+    # Build the three candidate caps. Refractive doublet = exact Snell sag (no fit);
+    # strictly convex = four non-negative terms (monotone, no dip); free aspheric = four
+    # terms with negatives allowed, so a central dimple may form if it fits the bell.
+    el_refr = RadialProfileTransducer(
+        diameter_mm=D_PHYS_MM,
+        surface_sag_m=physical_sag,
+        frequency_Hz=FC,
+        no_sub_diameter=40,
+        ratio_big_patches=0.7,
+        refine_factor=2,
     )
+    D_cvx, c_cvx = optimize_cap(4, (0.0, 2.0))
+    asp_trace = []  # [D, *coeffs] at each Nelder-Mead iterate — animated below
+    D_asp, c_asp = optimize_cap(4, (-2.0, 2.0), trace=asp_trace)
+    el_cvx = make_element(D_cvx, c_cvx)
+    el_asp = make_element(D_asp, c_asp)
+
+    models = [
+        (el_refr, "refractive doublet (D=4.50 mm)", "refraction"),
+        (el_cvx, f"strictly convex cap, 4 terms (D={D_cvx:.2f} mm)", "convex"),
+        (el_asp, f"free aspheric, 4 terms (D={D_asp:.2f} mm)", "aspheric"),
+    ]
+    for el, name, _tag in models:
+        print(f"  {name:34s} -6 dB = {half_angle_deg(directivity_db(el)):.1f} deg")
+
     if SAVE_FIG:
-        print(f"  Saved: {save_path}")
-if SAVE_FIG:
-    gif_path = str(FIG_FOLDER / "ex23_optimization.gif")
-    animate_fit(asp_trace, gif_path)
-    print(f"  Saved: {gif_path}  ({len(asp_trace)} iterates)")
-else:
-    plt.show()
+        FIG_FOLDER.mkdir(exist_ok=True)
+    for el, title, tag in models:
+        save_path = str(FIG_FOLDER / f"ex23_{tag}.png") if SAVE_FIG else None
+        visualize_element(
+            el,
+            c_m_s=C0,
+            reference=(ANGLE, reference_db),
+            reference_profile=(r_ref_mm, z_ref_um),
+            title=title,
+            save_path=save_path,
+        )
+        if SAVE_FIG:
+            print(f"  Saved: {save_path}")
+    if SAVE_FIG:
+        gif_path = str(FIG_FOLDER / "ex23_optimization.gif")
+        animate_fit(asp_trace, gif_path)
+        print(f"  Saved: {gif_path}  ({len(asp_trace)} iterates)")
+    else:
+        plt.show()
