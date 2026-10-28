@@ -1,14 +1,21 @@
 """
-Example 23: Optimize a radial-profile element for a target directivity.
+Example 23: Can one rigid curved cap mimic a diverging multilens element?
 
-Shapes the surface ``z(r)`` of a single `RadialProfileTransducer` so its emitted
-beam matches a target −6 dB half-angle. The profile is a polynomial sag
-``z(r) = −λ · Σ c_k (r/R)^{2(k+1)}``; `scipy.optimize` tunes the diameter and the
-coefficients to fit an ideal Bessel directivity, then `plotting.visualize_element`
-shows the mesh, directivity, on-axis field and xz plane of the result.
+The multi-lens array of Nardone et al. (Nat. Commun. 2025, s41467-025-64911-z)
+widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
+linear and homogeneous — no refraction — so the lens can only be modelled as a
+curved *rigid* cap whose surface sag reproduces the same aperture phase. Collapsing
+the paper's doublet through a refractive-index (Snell) model gives one effective
+diverging cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (R = 3.2 mm, n₂−n₁ ≈ 0.92).
+
+This script seeds `scipy.optimize` from that physical cap and tunes a polynomial sag
+``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` to the paper's measured directivity (−6 dB at
+33.17°), then shows with `plotting.visualize_element` how closely the cap matches.
+Seeding from the physical cap matters: a random start matches the far-field bell but
+lands on a non-physical (non-diverging) surface.
 
 Run with:
-    uv run examples/example23_optimize_radial_element.py
+    uv run python examples/example23_optimize_radial_element.py
 """
 
 import warnings
@@ -25,17 +32,46 @@ from esdiva.transducers import RadialProfileTransducer
 
 C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
-TARGET_HALF_DEG = 33.0
+TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 N_COEFFS = 10
 ANGLE = np.linspace(-70, 70, 281)
 FIT = np.abs(ANGLE) <= 45.0
+Z_AXIS = np.linspace(0.5, 60, 300)  # on-axis sampling for the diverging penalty
+
+# Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
+# epoxy c=2570 then silicone c=1015 → index contrast n₂−n₁ = c0/c₂ − c0/c₁).
+R_LENS_M = 3.2e-3
+N_CONTRAST = C0 / 1015.0 - C0 / 2570.0
+D_PHYS_MM = 4.5  # the paper's piezo element size
+
+
+def physical_sag(r):
+    """Effective rigid-cap sag ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (metres) of the lens."""
+    rr = np.asarray(r, float)
+    return -N_CONTRAST * (R_LENS_M - np.sqrt(np.clip(R_LENS_M**2 - rr**2, 0.0, None)))
 
 
 def sag_of(coeffs, diameter_mm):
     """Radial sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (metres) for a given diameter."""
     r_ap, c = diameter_mm / 2 * 1e-3, np.asarray(coeffs, float)
-    return lambda r: -LAMBDA_MM * 1e-3 * sum(
-        c[k] * np.clip(np.asarray(r, float) / r_ap, 0, 1) ** (2 * (k + 1)) for k in range(len(c))
+    return (
+        lambda r: -LAMBDA_MM
+        * 1e-3
+        * sum(
+            c[k] * np.clip(np.asarray(r, float) / r_ap, 0, 1) ** (2 * (k + 1))
+            for k in range(len(c))
+        )
+    )
+
+
+def make_element(diameter_mm, coeffs, no_sub_diameter):
+    return RadialProfileTransducer(
+        diameter_mm=diameter_mm,
+        surface_sag_m=sag_of(coeffs, diameter_mm),
+        frequency_Hz=FC,
+        no_sub_diameter=no_sub_diameter,
+        ratio_big_patches=0.7,
+        refine_factor=2,
     )
 
 
@@ -43,43 +79,88 @@ def directivity_db(element):
     """Emitted ``|P|`` (dB, peak-normalised) on a 35 mm arc over ``ANGLE``."""
     th = np.deg2rad(ANGLE)
     pts = np.stack([35.0 * np.sin(th), np.zeros_like(th), 35.0 * np.cos(th)], 1)
-    p = np.abs(Emission(element, fs=100e6, c=C0, monochromatic=True, verbose=False)(pts)[0]).squeeze()
+    p = np.abs(
+        Emission(element, fs=100e6, c=C0, monochromatic=True, verbose=False)(pts)[0]
+    ).squeeze()
     return 20 * np.log10(p / p.max())
 
 
-# Ideal bell: an unapodised disc directivity ``2·J1(x)/x`` scaled to the target.
+def axial_norm(element):
+    """On-axis ``|P|`` vs ``Z_AXIS``, peak-normalised (flat/rising = diverging)."""
+    pts = np.stack([np.zeros_like(Z_AXIS), np.zeros_like(Z_AXIS), Z_AXIS], 1)
+    p = np.abs(
+        Emission(element, fs=100e6, c=C0, monochromatic=True, verbose=False)(pts)[0]
+    ).squeeze()
+    return p / p.max()
+
+
+def half_angle_deg(dir_db):
+    pos = ANGLE >= 0
+    below = np.where(dir_db[pos] <= -6.0)[0]
+    return float(ANGLE[pos][below[0]]) if below.size else float("nan")
+
+
+# Target: unapodised-disc directivity ``2·J1(x)/x`` scaled to the paper half-angle.
 beta = 2.21536 / np.sin(np.deg2rad(TARGET_HALF_DEG))
 x = np.where(np.abs(ANGLE) < 1e-6, 1e-6, beta * np.sin(np.deg2rad(ANGLE)))
-reference_db = np.clip(20 * np.log10(np.clip(np.abs(2 * j1(x) / x), 1e-6, None)), -20, None)
+reference_db = np.clip(
+    20 * np.log10(np.clip(np.abs(2 * j1(x) / x), 1e-6, None)), -20, None
+)
+
+# Physical seed: fit the paper's effective cap to the polynomial basis.
+r_seed = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
+u_seed = r_seed / (D_PHYS_MM / 2 * 1e-3)
+basis = np.stack([u_seed ** (2 * (k + 1)) for k in range(N_COEFFS)], 1)
+c_seed = np.linalg.lstsq(basis, -physical_sag(r_seed) / (LAMBDA_MM * 1e-3), rcond=None)[
+    0
+]
 
 
 def loss(p):
     diameter_mm = float(np.clip(p[0], 2.5, 6.0))
-    with warnings.catch_warnings():  # coarse trial profiles are expected to under-resolve
+    with (
+        warnings.catch_warnings()
+    ):  # coarse trial profiles are expected to under-resolve
         warnings.simplefilter("ignore")
-        el = RadialProfileTransducer(
-            diameter_mm=diameter_mm, surface_sag_m=sag_of(np.clip(p[1:], -2, 2), diameter_mm),
-            frequency_Hz=FC, no_sub_diameter=16,
-        )
-        dir_db = directivity_db(el)
-    return float(np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2))
+        el = make_element(diameter_mm, np.clip(p[1:], -2, 2), no_sub_diameter=26)
+        dir_db, ax = directivity_db(el), axial_norm(el)
+    shape = float(np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2))
+    # Keep the cap diverging: penalise any on-axis climb past the near field.
+    far = Z_AXIS[:-1] > diameter_mm**2 / (4 * LAMBDA_MM)
+    focus = float(np.clip(np.diff(ax)[far], 0, None).sum())
+    return shape + 2.0 * focus
 
 
-p0 = np.r_[4.0, np.full(N_COEFFS, 0.1)]
-res = minimize(loss, p0, method="Nelder-Mead",
-               options={"maxiter": 200, "xatol": 1e-3, "fatol": 1e-4})
+res = minimize(
+    loss,
+    np.r_[D_PHYS_MM, c_seed],
+    method="Nelder-Mead",
+    options={"maxiter": 400, "xatol": 1e-3, "fatol": 1e-5},
+)
 D = float(np.clip(res.x[0], 2.5, 6.0))
 coeffs = np.clip(res.x[1:], -2, 2)
-print(f"D = {D:.3f} mm, coeffs = {np.array2string(coeffs, precision=3)}")
 
-el = RadialProfileTransducer(
-    diameter_mm=D, surface_sag_m=sag_of(coeffs, D), frequency_Hz=FC, no_sub_diameter=30,
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    seed_half = half_angle_deg(directivity_db(make_element(D_PHYS_MM, c_seed, 40)))
+el = make_element(D, coeffs, no_sub_diameter=40)
+opt_half = half_angle_deg(directivity_db(el))
+print(f"physical seed: D = {D_PHYS_MM:.2f} mm, -6 dB = {seed_half:.1f} deg")
+print(
+    f"optimized:     D = {D:.3f} mm, -6 dB = {opt_half:.1f} deg  (target {TARGET_HALF_DEG} deg)"
 )
+print(f"coeffs = {np.array2string(coeffs, precision=3)}")
+
 save_path = str(FIG_FOLDER / "ex23_optimized_element.png") if SAVE_FIG else None
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
-fig = visualize_element(el, c_m_s=C0, reference=(ANGLE, reference_db),
-                        title=f"optimized radial element (D = {D:.2f} mm)", save_path=save_path)
+fig = visualize_element(
+    el,
+    c_m_s=C0,
+    reference=(ANGLE, reference_db),
+    title=f"multilens cap vs paper directivity (D = {D:.2f} mm)",
+    save_path=save_path,
+)
 if SAVE_FIG:
     print(f"  Saved: {save_path}")
 else:
