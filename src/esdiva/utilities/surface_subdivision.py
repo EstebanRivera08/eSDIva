@@ -11,9 +11,20 @@ The key physical requirement is that every patch must be a genuine rectangle
 remains valid.  On a curved surface this is achieved by constructing each
 patch as a rectangle in the **local tangent plane** at the patch centre.
 
+Two tilers, opposite refinement:
+
+- :func:`subdivide_cartesian` tiles a cartesian ``(u, v)`` grid and refines the
+  **border** (``border_refine``), because the straight grid can only approximate a
+  curved/round rim by subdividing the boundary cells; it shears on a doubly-curved
+  cap.
+- :func:`subdivide_radial` tiles concentric rings of an axisymmetric ``z(r)`` and
+  refines the **centre** (``ratio_big_patches``/``refine_factor``), because the
+  azimuthal rings converge at the hub where patches would otherwise overlap; its rim
+  is exact (no staircase) with no shear.
+
 Notes
 -----
-The module uses a uniform Cartesian parameter-space grid.  Each patch is
+The cartesian tiler uses a uniform Cartesian parameter-space grid.  Each patch is
 constructed in the local tangent plane with arc-length extents, so it
 correctly represents the physical size on the curved surface.
 
@@ -76,7 +87,9 @@ def subdivide_radial(
     revolution the meridian tangent ``(cos, sin, z')`` and azimuth tangent
     ``(-sin, cos, 0)`` are orthogonal, so every patch is an exact rectangle, the
     outer ring is the exact rim (no staircase) and ``sum(wv) = 2*pi*r_c`` per ring
-    gives ~100% coverage. The refinement knobs thin the innermost (hub) rings.
+    gives ~100% coverage. Refinement thins the innermost (hub) rings — the opposite
+    of the cartesian tiler, which refines the rim — because the azimuthal rings
+    converge toward the centre where coarse patches would overlap.
 
     Parameters
     ----------
@@ -93,9 +106,9 @@ def subdivide_radial(
     ratio_big_patches : float, default: 0.8
         Fraction of (outer) rings kept coarse; the innermost
         ``round(n_rings * (1 - ratio_big_patches))`` rings are each split into
-        ``refine_factor`` thinner sub-rings.
+        ``refine_factor`` thinner sub-rings to shrink the overlap-prone hub patches.
     refine_factor : int, default: 3
-        Sub-ring count for the refined innermost rings; ``1`` disables.
+        Sub-ring count for the refined innermost (hub) rings; ``1`` disables.
     max_ring_turn_deg : float, default: 15.0
         Warn when the meridian normal turns more than this between adjacent rings
         (under-resolved curvature → chord gaps); asks for more rings.
