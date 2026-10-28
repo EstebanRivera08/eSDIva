@@ -8,11 +8,14 @@ curved *rigid* cap whose surface sag reproduces the same aperture phase. Collaps
 the paper's doublet through a refractive-index (Snell) model gives one effective
 diverging cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (R = 3.2 mm, n₂−n₁ ≈ 0.92).
 
-This script seeds `scipy.optimize` from that physical cap and tunes a polynomial sag
-``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` to the paper's measured directivity (−6 dB at
-33.17°), then shows with `plotting.visualize_element` how closely the cap matches.
-Seeding from the physical cap matters: a random start matches the far-field bell but
-lands on a non-physical (non-diverging) surface.
+This script seeds `scipy.optimize` from that physical cap and tunes the even-power
+coefficients of an axisymmetric sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (plus the
+diameter) to the paper's measured directivity (−6 dB at 33.17°), then shows with
+`plotting.visualize_element` how closely the cap matches. Matching the main lobe alone
+is under-determined — a central-dimple aspheric fits it as well as a smooth cap — so the
+coefficients are held **non-negative**, which keeps the surface a convex diverging cap
+(apex at r=0) and makes the recovered surface unique and physical rather than an artefact
+of the optimizer.
 
 Run with:
     uv run python examples/example23_optimize_radial_element.py
@@ -34,9 +37,13 @@ C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 N_COEFFS = 4  # fit-MSE plateaus by ~4 even-power terms; higher ones are near-collinear
-ANGLE = np.linspace(-70, 70, 281)
-FIT = np.abs(ANGLE) <= 40.0  # fit the main lobe (±40°), where the bell shape matters
-D_BOUNDS, COEF_BOUNDS = (2.5, 6.0), (-2.0, 2.0)
+ANGLE = np.linspace(-60, 60, 241)
+FIT = np.abs(ANGLE) <= 50.0  # fit the bell over ±50°
+# Non-negative coefficients keep every u^{2(k+1)} term increasing, so z(r) decreases
+# monotonically from the centre: a convex *diverging* cap (apex at r=0). This makes the
+# inverse problem well-posed — without it a central-dimple aspheric fits the same main
+# lobe just as well, so the recovered surface would depend on the optimizer, not physics.
+D_BOUNDS, COEF_BOUNDS = (2.5, 5.5), (0.0, 3.0)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
 # epoxy c=2570 then silicone c=1015 → index contrast n₂−n₁ = c0/c₂ − c0/c₁).
@@ -109,9 +116,11 @@ reference_db = np.clip(
 r_seed = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
 u_seed = r_seed / (D_PHYS_MM / 2 * 1e-3)
 basis = np.stack([u_seed ** (2 * (k + 1)) for k in range(N_COEFFS)], 1)
-c_seed = np.linalg.lstsq(basis, -physical_sag(r_seed) / (LAMBDA_MM * 1e-3), rcond=None)[
-    0
-]
+c_seed = np.clip(
+    np.linalg.lstsq(basis, -physical_sag(r_seed) / (LAMBDA_MM * 1e-3), rcond=None)[0],
+    0.0,
+    None,
+)  # the physical cap is already convex (coeffs ≥ 0); clip guarantees a feasible start
 
 
 def loss(p):
