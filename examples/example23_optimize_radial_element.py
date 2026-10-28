@@ -35,7 +35,7 @@ LAMBDA_MM = C0 / FC * 1e3
 TARGET_HALF_DEG = 33.17  # paper's measured −6 dB half-angle with the lens
 N_COEFFS = 10
 ANGLE = np.linspace(-70, 70, 281)
-FIT = np.abs(ANGLE) <= 45.0
+FIT = np.abs(ANGLE) <= 50.0  # fit the whole bell over ±50°, not just the half-angle
 Z_AXIS = np.linspace(0.5, 60, 300)  # on-axis sampling for the diverging penalty
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
@@ -100,6 +100,13 @@ def half_angle_deg(dir_db):
     return float(ANGLE[pos][below[0]]) if below.size else float("nan")
 
 
+def profile_mm(coeffs, diameter_mm, n=200):
+    """Surface profile ``(r, z)`` in mm, apex pinned to z=0 as the simulator tiles it."""
+    r_mm = np.linspace(0.0, diameter_mm / 2, n)
+    z_mm = sag_of(coeffs, diameter_mm)(r_mm * 1e-3) * 1e3
+    return r_mm, z_mm - z_mm.max()
+
+
 # Target: unapodised-disc directivity ``2·J1(x)/x`` scaled to the paper half-angle.
 beta = 2.21536 / np.sin(np.deg2rad(TARGET_HALF_DEG))
 x = np.where(np.abs(ANGLE) < 1e-6, 1e-6, beta * np.sin(np.deg2rad(ANGLE)))
@@ -151,9 +158,24 @@ print(
 )
 print(f"coeffs = {np.array2string(coeffs, precision=3)}")
 
-save_path = str(FIG_FOLDER / "ex23_optimized_element.png") if SAVE_FIG else None
 if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
+
+# Profile check: how the surface changed from the physical seed to the optimum.
+rs_mm, zs_mm = profile_mm(c_seed, D_PHYS_MM)
+ro_mm, zo_mm = profile_mm(coeffs, D)
+fig_p, axp = plt.subplots(figsize=(6, 4))
+axp.plot(rs_mm, zs_mm * 1e3, "k--", lw=2, label=f"physical seed (D={D_PHYS_MM:.1f} mm)")
+axp.plot(ro_mm, zo_mm * 1e3, "C0", lw=2, label=f"optimized (D={D:.2f} mm)")
+axp.set(xlabel="r (mm)", ylabel="z (µm)", title="radial surface profile z(r)")
+axp.legend()
+axp.grid(alpha=0.3)
+fig_p.tight_layout()
+if SAVE_FIG:
+    fig_p.savefig(FIG_FOLDER / "ex23_profiles.png", dpi=130)
+    print(f"  Saved: {FIG_FOLDER / 'ex23_profiles.png'}")
+
+save_path = str(FIG_FOLDER / "ex23_optimized_element.png") if SAVE_FIG else None
 fig = visualize_element(
     el,
     c_m_s=C0,
