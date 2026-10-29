@@ -19,6 +19,7 @@ def visualize_element(
     db_floor: float = -40.0,
     reference: Optional[Tuple[np.ndarray, np.ndarray]] = None,
     reference_profile: Optional[Tuple[np.ndarray, np.ndarray]] = None,
+    profile_ylim: Optional[Tuple[float, float]] = None,
     title: Optional[str] = None,
     save_path: Optional[str] = None,
     off_screen: bool = True,
@@ -56,6 +57,9 @@ def visualize_element(
         ``(angle_deg, directivity_db)`` target overlaid dotted on the directivity panel.
     reference_profile : tuple of (ndarray, ndarray), optional
         ``(r_mm, z_um)`` reference surface overlaid dotted on the profile panel.
+    profile_ylim : tuple of (float, float), optional
+        Fixed ``(z_min, z_max)`` limits (µm) for the profile panel. Pin it to stop the
+        axis rescaling between frames when animating a fit, so only the curve moves.
     title : str, optional
         Figure suptitle.
     save_path : str, optional
@@ -130,6 +134,8 @@ def visualize_element(
         )
     ax[0].plot(r_mm, z_um, "r", lw=2, label="found")
     ax[0].set(xlabel="r (mm)", ylabel="z (µm)", title="surface profile z(r)")
+    if profile_ylim is not None:
+        ax[0].set_ylim(profile_ylim)
     ax[0].legend()
     ax[0].grid(alpha=0.3)
 

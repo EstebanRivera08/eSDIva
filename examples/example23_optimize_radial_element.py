@@ -170,11 +170,13 @@ def optimized_aspheric(no_sub_diameter=40):
     return make_element(D, c, no_sub_diameter=no_sub_diameter)
 
 
-def animate_fit(trace, gif_path, n_frames=24):
+def animate_fit(trace, gif_path, n_frames=60):
     """Stitch the aspheric fit's iterates into a GIF, one `visualize_element` per frame.
 
     Each frame shows the current cap's surface profile, directivity vs the bell, mesh and
-    xz field, so the viewer watches the surface deform toward the target directivity."""
+    xz field, so the viewer watches the surface deform toward the target directivity. The
+    profile panel's y-axis is pinned (0 to −1000 µm, the full sag depth) so only the curve
+    moves between frames rather than the axis rescaling."""
     from PIL import Image  # ships with matplotlib — no extra dependency
 
     steps = np.unique(np.linspace(0, len(trace) - 1, n_frames).astype(int))
@@ -187,6 +189,7 @@ def animate_fit(trace, gif_path, n_frames=24):
             c_m_s=C0,
             reference=(ANGLE, reference_db),
             reference_profile=(r_ref_mm, z_ref_um),
+            profile_ylim=(-1000.0, 50.0),
             title=f"aspheric fit — step {i} (D={trace[i][0]:.2f} mm, −6 dB {ha:.0f}°)",
             save_path=str(tmp),
         )
@@ -194,7 +197,7 @@ def animate_fit(trace, gif_path, n_frames=24):
         frames.append(Image.open(tmp).convert("RGB").resize((1280, 291)))
     tmp.unlink()
     frames[0].save(
-        gif_path, save_all=True, append_images=frames[1:], duration=300, loop=0
+        gif_path, save_all=True, append_images=frames[1:], duration=150, loop=0
     )
 
 
