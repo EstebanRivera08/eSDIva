@@ -180,7 +180,7 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     ---
 
-    Assemble the paper's 252-element (18×14) diverging-multilens matrix with `CustomTransducer`, focus on a point, and beamform the pulse-echo RF into a 3-D PSF with `das_volume`.
+    Assemble the paper's 252-element (18×14) diverging-multilens matrix with `CustomTransducer`, fire its 16-source diverging sequence, and render the compounded 3-D PSF (Fig. 2b style — grayscale, dB, sigmoid opacity) with `das_volume`.
 
 </div>
 
