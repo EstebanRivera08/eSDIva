@@ -53,7 +53,7 @@ DEPTHS_MM = [30.0, 45.0, 60.0]  # paper's three scatterer depths
 NO_SUB = 20  # patches per element diameter: 10 under-resolves the cap directivity
 # (-6 dB half-angle 28 deg vs the paper's 33 deg); 20 recovers it. 252 caps x 16 TX is
 # heavy, so this is the smallest subdivision that keeps the element physically faithful.
-DB_FLOOR = -40.0  # display floor (grating lobes sit near -22 dB in the paper)
+DB_FLOOR = -30.0  # display floor of the 2D map panels (grating lobes sit near -22 dB)
 
 # One diverging cap, reused from example 23 (the free-aspheric fit), then tiled.
 element = optimized_aspheric(no_sub_diameter=NO_SUB)
@@ -206,8 +206,8 @@ def fine_plane(depth_mm, datum_z_mm):
         t_offset_s=datum_offset_s(datum_z_mm),
     )
     fenv = np.abs(hilbert(fvol, axis=2))
-    # Clip to -60 dB (below the -40 dB maps) so the lateral profile plot resolves the
-    # full side/grating-lobe ladder down to its -59 dB axis; widths/lobe levels unaffected.
+    # Clip to -60 dB (below the -30 dB maps) so the lateral profile plot resolves the
+    # full side/grating-lobe ladder down to its -50 dB axis; widths/lobe levels unaffected.
     fdb = 20 * np.log10(np.clip(fenv / fenv.max(), 10 ** (-60.0 / 20), None))
     return fax["x_mm"], fax["z_mm"], fdb[:, 0, :]
 
@@ -279,9 +279,7 @@ iz_mid = int(np.argmin(np.abs(z_mm - DEPTHS_MM[1])))
 # axis pointing DOWN, the ultrasound depth convention, so the probe is at the top and the
 # three targets below it. Rendered twice: once with the probe mesh overlaid (its 252 caps
 # at z=0, above the box) and once with the volume alone.
-RENDER_FLOOR = (
-    -35.0
-)  # display window for the volume render (tighter than the -40 dB data)
+RENDER_FLOOR = -30.0  # display window for the volume render
 import pyvista as pv  # noqa: E402 — deferred so a headless import failure is obvious
 
 img = pv.ImageData(
@@ -354,7 +352,7 @@ ax[1].set(
     ylabel="dB",
     title="lateral PSF vs depth",
     xlim=(-50, 50),
-    ylim=(-59, 0),
+    ylim=(-50, 0),
 )
 ax[1].legend(loc="upper right")
 m1 = ax[2].pcolormesh(
