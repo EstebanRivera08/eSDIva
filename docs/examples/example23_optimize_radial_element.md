@@ -4,7 +4,7 @@ icon: lucide/target
 
 # Example 23: A Diverging Multilens Element as a Rigid Cap
 
-The multi-lens array of Nardone et al. (*Nat. Commun.* 2025, s41467-025-64911-z)
+The multi-lens array of Haidour et al. (*Nat. Commun.* 2025, s41467-025-64911-z)
 widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
 linear and homogeneous — **no refraction** — so the lens can only be modelled as a
 curved **rigid cap** whose surface sag reproduces the same aperture phase. This example
@@ -80,9 +80,9 @@ res = minimize(loss, x0, method="Nelder-Mead",
 
 ## The three caps
 
-Each is shown with the same four panels: **surface profile** `z(r)` and **directivity**
-(found solid-red vs reference dotted-black), the patch **mesh**, and the **xz** pressure
-plane. The refractive doublet reaches ~30°; both fitted caps reach ~34° but by different
+Each is shown as a 2×2 panel: top row **surface profile** `z(r)` and **directivity**
+(found solid-red vs reference dotted-black), bottom row the patch **mesh** (3-D render)
+and the **xz** pressure plane. The refractive doublet reaches ~30°; both fitted caps reach ~34° but by different
 shapes — the **strictly convex** cap (D≈4.5 mm) stays monotone, while the **free aspheric**
 (D≈3.8 mm) develops a shallow central dimple that pulls the shoulder in a little tighter.
 Neither fully removes the ±45° shoulder (spherical aberration) that the paper's real
@@ -97,7 +97,7 @@ reshape the lens's two-material refraction.
 
 ## Watching the fit converge
 
-Each Nelder–Mead iterate of the free-aspheric fit is rendered with the same four panels,
+Each Nelder–Mead iterate of the free-aspheric fit is rendered with the same 2×2 panel,
 so the surface visibly deforms as the directivity closes on the bell — the central dimple
 forming and the shoulder pulling in over the run.
 
