@@ -180,7 +180,7 @@ Output figures are controlled by `examples/config.py`. Set `FIG_FOLDER` to choos
 
     ---
 
-    Assemble the paper's 252-element (18×14) diverging-multilens matrix with `CustomTransducer`, fire its central-4×4 16-source diverging sequence onto three depth targets, beamform on the full receive aperture referenced to each lens's `virtual_source_m`, and render the depth-resolved 3-D PSF (Fig. 2 style — grayscale, dB, sigmoid opacity) with `das_volume`.
+    Assemble the paper's 252-element (18×14) diverging-multilens matrix with `CustomTransducer`, fire its central-4×4 16-source diverging sequence onto three depth targets, beamform on the full receive aperture referenced to each lens's `virtual_source_m`, and render the depth-resolved 3-D PSF (Fig. 2 style — grayscale, dB, linear opacity) with `das_volume`.
 
 </div>
 

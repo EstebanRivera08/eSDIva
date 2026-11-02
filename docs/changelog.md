@@ -48,7 +48,7 @@ All notable changes to eSDIva are documented here.
   from the example-23 cap with `CustomTransducer`; reproduce its depth-resolved Fig. 2
   point PSF (three targets, full-aperture receive) with the central-4×4 16-source
   diverging sequence (`sequence_rf` + `das_volume`), referencing the beamformer to each
-  lens's `virtual_source_m`, and a grayscale, sigmoid-opacity dB volume render.
+  lens's `virtual_source_m`, and a grayscale, linear-opacity dB volume render.
 - **`normalize_patch_size`** parameter on `ConcaveCircularTransducer` and
   `ConvexCircularTransducer` (cartesian method only, default `False`).
   When `True`, patch `wu`/`wv` are set to the arc-length parameter step
@@ -60,6 +60,10 @@ All notable changes to eSDIva are documented here.
 
 ### Changed
 
+- **`RadialProfileTransducer` surface callable is now millimetres** — the constructor
+  argument `surface_sag_m` (metres in/out) became **`surface_sag_mm`** (`r_mm -> z_mm`),
+  matching the mm convention of `diameter_mm` on the same constructor. The callable is
+  converted to SI internally. **Breaking:** pass a mm profile and drop the `1e-3` factors.
 - **`subdivide_parametric_surface` renamed to `subdivide_cartesian`** (and now
   warns when the surface tangents shear from orthogonal). `subdivide_spherical_cap`
   removed — the curved circular transducers tile via `subdivide_radial`.

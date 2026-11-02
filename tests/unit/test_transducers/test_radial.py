@@ -10,20 +10,24 @@ from esdiva.transducers import (
 )
 from esdiva.utilities import subdivide_radial
 
-R = 3e-3  # radius of curvature for the spherical test caps
+R_MM = (
+    3.0  # radius of curvature for the spherical test caps (mm, transducer convention)
+)
+R = R_MM * 1e-3  # same, in metres (virtual_source_m and subdivide_radial are SI)
 
 
-def CONVEX(r):
-    return np.sqrt(np.clip(R**2 - np.asarray(r, float) ** 2, 0.0, None)) - R
+# Sag callables are mm->mm (the RadialProfileTransducer user convention).
+def CONVEX(r_mm):
+    return np.sqrt(np.clip(R_MM**2 - np.asarray(r_mm, float) ** 2, 0.0, None)) - R_MM
 
 
-def CONCAVE(r):
-    return R - np.sqrt(np.clip(R**2 - np.asarray(r, float) ** 2, 0.0, None))
+def CONCAVE(r_mm):
+    return R_MM - np.sqrt(np.clip(R_MM**2 - np.asarray(r_mm, float) ** 2, 0.0, None))
 
 
-def ASPHERIC(r):
-    u = np.asarray(r, float) / 2e-3
-    return -8e-4 * u**2 - 3e-4 * u**4
+def ASPHERIC(r_mm):
+    u = np.asarray(r_mm, float) / 2.0  # aperture radius 2 mm
+    return -0.8 * u**2 - 0.3 * u**4
 
 
 def _max_corner_angle_dev(element):
@@ -46,13 +50,16 @@ def _max_corner_angle_dev(element):
 
 @pytest.mark.parametrize("sag", [CONVEX, CONCAVE, ASPHERIC])
 def test_patches_are_exact_rectangles(sag):
-    el = RadialProfileTransducer(diameter_mm=4.0, surface_sag_m=sag, no_sub_diameter=20)
+    el = RadialProfileTransducer(
+        diameter_mm=4.0, surface_sag_mm=sag, no_sub_diameter=20
+    )
     assert _max_corner_angle_dev(el) < 1e-6
 
 
 @pytest.mark.parametrize("sag", [CONVEX, CONCAVE])
 def test_coverage_near_unity(sag):
-    frames = subdivide_radial(sag, 2e-3, 12)
+    # subdivide_radial is the SI tiler; wrap the mm sag callable to m->m.
+    frames = subdivide_radial(lambda r_m: sag(r_m * 1e3) * 1e-3, 2e-3, 12)
     assert 0.98 <= frames["coverage"] <= 1.02
 
 
@@ -64,7 +71,7 @@ def test_flat_piston_matches_analytic_jinc():
     diameter_mm, fc, c = 10.0, 1e6, 1540.0
     el = RadialProfileTransducer(
         diameter_mm=diameter_mm,
-        surface_sag_m=lambda r: np.zeros_like(np.asarray(r, float)),
+        surface_sag_mm=lambda r_mm: np.zeros_like(np.asarray(r_mm, float)),
         frequency_Hz=fc,
         no_sub_diameter=24,
     )
@@ -95,7 +102,7 @@ def test_virtual_source_recovers_sphere_centre():
     }
     for profile, expect_z in cases.items():
         el = RadialProfileTransducer(
-            diameter_mm=4.0, surface_sag_m=profile, no_sub_diameter=20
+            diameter_mm=4.0, surface_sag_mm=profile, no_sub_diameter=20
         )
         vs = el.virtual_source_m
         np.testing.assert_allclose(vs[:2], 0.0, atol=1e-12)  # on-axis
@@ -106,7 +113,7 @@ def test_virtual_source_flat_is_aperture_plane():
     # A flat piston has no curvature → the virtual source collapses to z=0.
     el = RadialProfileTransducer(
         diameter_mm=4.0,
-        surface_sag_m=lambda r: np.zeros_like(np.asarray(r, float)),
+        surface_sag_mm=lambda r_mm: np.zeros_like(np.asarray(r_mm, float)),
         no_sub_diameter=20,
     )
     np.testing.assert_array_equal(el.virtual_source_m, [0.0, 0.0, 0.0])

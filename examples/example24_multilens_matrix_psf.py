@@ -13,7 +13,7 @@ element echoes are then compounded coherently on receive to synthesise a focus e
 The decisive modelling detail is where each lens element sits for the beamformer. A rigid
 diverging cap has its apex at z = 0 and its rim recessed to z < 0, but it radiates a
 spherical wave whose centre of curvature — the element's VIRTUAL ACOUSTIC SOURCE — lies
-BEHIND the aperture (here about -3.5 mm). `RadialProfileTransducer.virtual_source_m`
+BEHIND the aperture (here about -1.8 mm). `RadialProfileTransducer.virtual_source_m`
 returns that point. Referencing the delay-and-sum to the aperture plane (z = 0) instead
 mis-times every echo by the lens's own curvature and defocuses the 16 compounded transmits,
 widening the main lobe. This example references BOTH the transmit virtual source and the
@@ -112,7 +112,11 @@ def make_events(datum_z_mm):
             {
                 "delays": np.zeros(n_el, dtype=np.float32),
                 "apodization": apod,
-                "virtual_source_mm": [positions_mm[e, 0], positions_mm[e, 1], datum_z_mm],
+                "virtual_source_mm": [
+                    positions_mm[e, 0],
+                    positions_mm[e, 1],
+                    datum_z_mm,
+                ],
             }
         )
     return events
@@ -240,19 +244,22 @@ for z in DEPTHS_MM:
 print("\nVirtual-source datum, per depth:")
 for z in DEPTHS_MM:
     lat, axi, gl = metrics[z]
-    print(f"  z={z:>4.0f} mm: lateral {lat:.2f} mm, axial {axi:.2f} mm, lobe {gl:.1f} dB")
+    print(
+        f"  z={z:>4.0f} mm: lateral {lat:.2f} mm, axial {axi:.2f} mm, lobe {gl:.1f} dB"
+    )
 print("  (paper: 1.06 mm lateral, grating lobes -22.4 dB)")
 
-# Render volume: the paper's 104 x 70 mm lateral box, framed around the three targets. Cost
-# is dominated by this volume (voxels x RX channels x events), so 1 mm voxels keep it ~1 s:
-# the ray-cast renderer interpolates them smooth.
+# Render volume: the paper's 104 x 70 mm lateral box, framed around the three targets. The
+# main lobe is ~1 mm, so 1 mm voxels render it ~1 voxel wide (blocky — the ray-cast mapper
+# can only interpolate between the samples it is given). 0.5 mm voxels put 2-3 samples across
+# the lobe so it renders smooth; cost (voxels x RX channels x events) rises ~8x, to ~8 s.
 grid_mm = {
     "x_extent": [-52, 52],
     "y_extent": [-35, 35],
     "z_extent": [20, 70],
-    "dx": 1.0,
-    "dy": 1.0,
-    "dz": 1.0,
+    "dx": 0.5,
+    "dy": 0.5,
+    "dz": 0.5,
 }
 vol, axes = das_volume(
     rf,
@@ -271,8 +278,8 @@ x_mm, y_mm, z_mm = axes["x_mm"], axes["y_mm"], axes["z_mm"]
 iy0 = int(np.argmin(np.abs(y_mm - 0.0)))
 iz_mid = int(np.argmin(np.abs(z_mm - DEPTHS_MM[1])))
 
-# Fig. 2-style render: grayscale, dB, volume-rendered with a sigmoid opacity transfer
-# function so the lobes are opaque and the -40 dB background fades to transparent. Dark
+# Fig. 2-style render: grayscale, dB, volume-rendered with a LINEAR opacity transfer
+# function (opacity rises linearly from transparent at -40 dB to opaque at 0 dB). Dark
 # theme (black background, white box/ruler/colorbar) with the z axis pointing DOWN, the
 # ultrasound depth convention, so the probe is at the top and the three targets below it.
 import pyvista as pv  # noqa: E402 — deferred so a headless import failure is obvious
@@ -289,7 +296,7 @@ pl.add_volume(
     img,
     scalars="dB",
     cmap="gray",
-    opacity="sigmoid",
+    opacity="linear",
     clim=[DB_FLOOR, 0.0],
     mapper="smart",
     scalar_bar_args={"title": "dB", "color": "white"},  # colorbar text white on black
@@ -326,7 +333,13 @@ ax[1].set(
 )
 ax[1].legend(loc="upper right")
 m1 = ax[2].pcolormesh(
-    x_mm, y_mm, db[:, :, iz_mid].T, cmap="gray", shading="gouraud", vmin=DB_FLOOR, vmax=0
+    x_mm,
+    y_mm,
+    db[:, :, iz_mid].T,
+    cmap="gray",
+    shading="gouraud",
+    vmin=DB_FLOOR,
+    vmax=0,
 )
 ax[2].set(
     xlabel="x (mm)", ylabel="y (mm)", title=f"xy slice at z = {DEPTHS_MM[1]:.0f} mm"

@@ -23,8 +23,9 @@ class RadialProfileTransducer(TransducerBase):
     ----------
     diameter_mm : float
         Aperture diameter in millimetres.
-    surface_sag_m : callable
-        ``r_m (ndarray) -> z_m (ndarray)`` radial profile in metres.
+    surface_sag_mm : callable
+        ``r_mm (ndarray) -> z_mm (ndarray)`` radial profile, in millimetres
+        (same mm convention as ``diameter_mm``). Converted to SI internally.
     frequency_Hz : float, default: 1e6
         Centre frequency in Hz.
     no_sub_diameter : int, default: 40
@@ -43,7 +44,7 @@ class RadialProfileTransducer(TransducerBase):
         self,
         *,
         diameter_mm: float,
-        surface_sag_m: Callable[[np.ndarray], np.ndarray],
+        surface_sag_mm: Callable[[np.ndarray], np.ndarray],
         frequency_Hz: float = 1e6,
         no_sub_diameter: int = 40,
         method: str = "radial",
@@ -60,9 +61,14 @@ class RadialProfileTransducer(TransducerBase):
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
 
+        # The user profile is mm->mm (package convention); wrap it into the internal
+        # SI callable r_m->z_m the tilers and virtual_source_m expect.
+        def _sag_m(r_m, _f=surface_sag_mm):
+            return np.asarray(_f(np.asarray(r_m, float) * 1e3), float) * 1e-3
+
         # Pin the highest point of the profile to z=0; the rest recedes to z<0.
-        z_peak = float(np.max(surface_sag_m(np.linspace(0.0, self.radius, 512))))
-        self._sag = lambda r, _s=surface_sag_m, _z0=z_peak: _s(r) - _z0
+        z_peak = float(np.max(_sag_m(np.linspace(0.0, self.radius, 512))))
+        self._sag = lambda r, _s=_sag_m, _z0=z_peak: _s(r) - _z0
 
         self.no_sub_diameter = self.no_sub_x = self.no_sub_y = no_sub_diameter
         self.method = method

@@ -43,23 +43,22 @@ D_BOUNDS = (3.0, 5.5)
 
 # Paper's doublet collapsed to one effective diverging cap (both faces R = 3.2 mm,
 # epoxy c=2570 then silicone c=1015 → index contrast n₂−n₁ = c0/c₂ − c0/c₁).
-R_LENS_M = 3.2e-3
+R_LENS_MM = 3.2  # doublet radius of curvature (mm)
 N_CONTRAST = C0 / 1015.0 - C0 / 2570.0
 D_PHYS_MM = 4.5  # the paper's piezo element size
 
 
-def physical_sag(r):
-    """Effective rigid-cap sag ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (metres) of the lens."""
-    rr = np.asarray(r, float)
-    return -N_CONTRAST * (R_LENS_M - np.sqrt(np.clip(R_LENS_M**2 - rr**2, 0.0, None)))
+def physical_sag(r_mm):
+    """Effective rigid-cap sag ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (mm) of the lens."""
+    rr = np.asarray(r_mm, float)
+    return -N_CONTRAST * (R_LENS_MM - np.sqrt(np.clip(R_LENS_MM**2 - rr**2, 0.0, None)))
 
 
 def sag_of(coeffs, diameter_mm):
-    """Radial sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (metres) for a given diameter."""
-    r_ap, c = diameter_mm / 2 * 1e-3, np.asarray(coeffs, float)
+    """Radial sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (mm) for a given diameter."""
+    r_ap, c = diameter_mm / 2, np.asarray(coeffs, float)
     return lambda r: (
         -LAMBDA_MM
-        * 1e-3
         * sum(
             c[k] * np.clip(np.asarray(r, float) / r_ap, 0, 1) ** (2 * (k + 1))
             for k in range(len(c))
@@ -70,7 +69,7 @@ def sag_of(coeffs, diameter_mm):
 def make_element(diameter_mm, coeffs, no_sub_diameter=40):
     return RadialProfileTransducer(
         diameter_mm=diameter_mm,
-        surface_sag_m=sag_of(coeffs, diameter_mm),
+        surface_sag_mm=sag_of(coeffs, diameter_mm),
         frequency_Hz=FC,
         no_sub_diameter=no_sub_diameter,
         ratio_big_patches=0.7,
@@ -111,11 +110,11 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
     4.5 mm aperture); otherwise it is a free variable found by multistart. Pass an empty
     list as ``trace`` to receive the winning start's ``[D, *coeffs]`` iterate path (for
     animating the fit)."""
-    r = np.linspace(0.0, D_PHYS_MM / 2 * 1e-3, 400)
-    u = r / (D_PHYS_MM / 2 * 1e-3)
+    r_mm = np.linspace(0.0, D_PHYS_MM / 2, 400)
+    u = r_mm / (D_PHYS_MM / 2)
     basis = np.stack([u ** (2 * (k + 1)) for k in range(n_terms)], 1)
     seed = np.clip(
-        np.linalg.lstsq(basis, -physical_sag(r) / (LAMBDA_MM * 1e-3), rcond=None)[0],
+        np.linalg.lstsq(basis, -physical_sag(r_mm) / LAMBDA_MM, rcond=None)[0],
         coeff_bounds[0],
         coeff_bounds[1],
     )
@@ -156,7 +155,7 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
 
 # Reference surface for the profile panels = the physical refraction cap.
 r_ref_mm = np.linspace(0.0, D_PHYS_MM / 2, 200)
-z_ref_um = physical_sag(r_ref_mm * 1e-3) * 1e6
+z_ref_um = physical_sag(r_ref_mm) * 1e3  # mm -> µm
 z_ref_um -= z_ref_um.max()
 
 
@@ -206,7 +205,7 @@ if __name__ == "__main__":
     # terms with negatives allowed, so a central dimple may form if it fits the bell.
     el_refr = RadialProfileTransducer(
         diameter_mm=D_PHYS_MM,
-        surface_sag_m=physical_sag,
+        surface_sag_mm=physical_sag,
         frequency_Hz=FC,
         no_sub_diameter=40,
         ratio_big_patches=0.7,
