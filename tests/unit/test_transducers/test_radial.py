@@ -84,6 +84,34 @@ def test_flat_piston_matches_analytic_jinc():
     assert abs(measured - analytic) < 1.5
 
 
+def test_virtual_source_recovers_sphere_centre():
+    # A spherical cap radiates from its centre of curvature. CONVEX is a diverging
+    # cap (apex at z=0, centre BEHIND at z=−R); CONCAVE is a bowl pinned at its rim
+    # (apex the rim, centre IN FRONT at z=+R−sag). The circle fit must recover both.
+    sag = R - np.sqrt(R**2 - (2e-3) ** 2)  # rim sagitta of the 4 mm concave cap
+    cases = {
+        CONVEX: -R,  # diverging: virtual source behind the aperture
+        CONCAVE: R - sag,  # converging: focus in front, shifted by the rim pin
+    }
+    for profile, expect_z in cases.items():
+        el = RadialProfileTransducer(
+            diameter_mm=4.0, surface_sag_m=profile, no_sub_diameter=20
+        )
+        vs = el.virtual_source_m
+        np.testing.assert_allclose(vs[:2], 0.0, atol=1e-12)  # on-axis
+        np.testing.assert_allclose(vs[2], expect_z, rtol=1e-3)
+
+
+def test_virtual_source_flat_is_aperture_plane():
+    # A flat piston has no curvature → the virtual source collapses to z=0.
+    el = RadialProfileTransducer(
+        diameter_mm=4.0,
+        surface_sag_m=lambda r: np.zeros_like(np.asarray(r, float)),
+        no_sub_diameter=20,
+    )
+    np.testing.assert_array_equal(el.virtual_source_m, [0.0, 0.0, 0.0])
+
+
 def test_method_radial_rename():
     # "radial" is the new ring method; "spherical" was removed (no deprecation shim).
     ConvexCircularTransducer(

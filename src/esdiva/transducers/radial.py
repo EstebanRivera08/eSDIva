@@ -115,6 +115,45 @@ class RadialProfileTransducer(TransducerBase):
         assert self._sub_patch_frames is not None
         return self._sub_patch_frames
 
+    @property
+    def virtual_source_m(self) -> np.ndarray:
+        """Acoustic centre the cap radiates from — the point to reference delays to.
+
+        A rigid axisymmetric cap launches a spherical wave whose centre of curvature
+        matches the surface: by Huygens every surface point emits in phase, so the
+        initial wavefront *is* the cap's shape. That centre of curvature is the
+        element's "virtual source" — the point a delay-and-sum beamformer must place
+        this element at, instead of the aperture plane. For a diverging cap (apex
+        forward at ``z = 0``, surface receding) it lies BEHIND the aperture at
+        ``z < 0``; for a converging bowl it is the geometric focus in front at
+        ``z > 0``. Using ``z = 0`` instead would mis-time every echo by the lens's
+        own curvature and defocus a compounded reconstruction.
+
+        The centre is a least-squares fit of the stored profile ``z(r)`` over
+        ``r ∈ [0, radius]`` to an on-axis circle ``r² + (z − z_c)² = R_c²``. Expanded,
+        ``r² + z² = 2·z_c·z + (R_c² − z_c²)`` is linear in ``z_c`` (slope against
+        ``z``), so a plain least-squares line recovers the centre ``z_c`` — the radius
+        of curvature is ``|z_c|``. By axisymmetry the source is on the axis, so only z
+        is non-trivial (``x = y = 0``). A flat piston has no curvature; its centre
+        collapses to the aperture plane ``(0, 0, 0)``.
+
+        Returns
+        -------
+        (3,) numpy.ndarray
+            Virtual-source position ``[0, 0, z_vs]`` in metres. ``z_vs`` is signed:
+            negative behind the aperture (diverging cap), positive in front
+            (converging bowl), zero for a flat piston.
+        """
+        r = np.linspace(0.0, self.radius, 256)
+        z = np.asarray(self._sag(r), dtype=float)
+        if float(np.ptp(z)) < 1e-12 * self.radius:  # flat piston: no curvature
+            return np.array([0.0, 0.0, 0.0])
+        # r²+z² = 2·z_c·z + (R_c²−z_c²): slope against z (col 0) is 2·z_c.
+        coeff, *_ = np.linalg.lstsq(
+            np.column_stack([z, np.ones_like(z)]), r * r + z * z, rcond=None
+        )
+        return np.array([0.0, 0.0, float(coeff[0]) / 2.0])
+
     def __repr__(self) -> str:
         return (
             f"RadialProfileTransducer(diameter={self.diameter * 1e3:.2f} mm, "
