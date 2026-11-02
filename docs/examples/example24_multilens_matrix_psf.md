@@ -17,7 +17,7 @@ everywhere. This example reproduces it with
 [`CustomTransducer`][esdiva.transducers.CustomTransducer] (252 copies of the example-23
 free-aspheric cap), fires the 16-source sequence at three point targets, delay-and-sums the
 compounded echoes into a 3-D volume, and renders it the way the paper does — grayscale, in
-dB, with a linear opacity transfer function.
+dB, with a sigmoid opacity transfer function over a −30 dB display window.
 
 [Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example24_multilens_matrix_psf.py)
 
@@ -88,9 +88,10 @@ evidence that the lens curvature — not the array aperture — set the earlier 
 ## The Fig. 2-style volume render
 
 The beamformed volume is envelope-detected along depth, log-compressed to dB, and
-volume-rendered with PyVista using a **grayscale** colormap, a **linear** opacity transfer
-function (opacity rising from transparent at −40 dB to opaque at 0 dB), and the **`"smart"`**
-volume mapper (ray-cast). A dark theme (black background, **all text white** — ruler,
+volume-rendered with PyVista using a **grayscale** colormap, a **sigmoid** opacity transfer
+function over a **−30 dB** display window (lobes opaque, the −30 dB background transparent),
+and the **`"smart"`** volume mapper (ray-cast). A dark theme (black background, **all text
+white** — ruler,
 colorbar, box, axes) with the z axis pointing **down** (`camera.up = (0, 0, −1)`, the
 ultrasound depth convention) puts the probe at the top and the three targets below. The
 render box is the paper's **104 × 70 mm** lateral phantom, framed over the 20–70 mm depth

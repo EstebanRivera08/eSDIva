@@ -214,7 +214,9 @@ def fine_plane(depth_mm, datum_z_mm):
         t_offset_s=datum_offset_s(datum_z_mm),
     )
     fenv = np.abs(hilbert(fvol, axis=2))
-    fdb = 20 * np.log10(np.clip(fenv / fenv.max(), 10 ** (DB_FLOOR / 20), None))
+    # Clip to -60 dB (below the -40 dB maps) so the lateral profile plot resolves the
+    # full side/grating-lobe ladder down to its -59 dB axis; widths/lobe levels unaffected.
+    fdb = 20 * np.log10(np.clip(fenv / fenv.max(), 10 ** (-60.0 / 20), None))
     return fax["x_mm"], fax["z_mm"], fdb[:, 0, :]
 
 
@@ -251,14 +253,15 @@ print("  (paper: 1.06 mm lateral, grating lobes -22.4 dB)")
 
 # Render volume: the paper's 104 x 70 mm lateral box, framed around the three targets. The
 # main lobe is ~1 mm, so 1 mm voxels render it ~1 voxel wide (blocky — the ray-cast mapper
-# can only interpolate between the samples it is given). 0.5 mm voxels put 2-3 samples across
-# the lobe so it renders smooth; cost (voxels x RX channels x events) rises ~8x, to ~8 s.
+# can only interpolate between the samples it is given). 0.5 mm in x/z puts 2-3 samples across
+# the lobe so it renders smooth; elevation (y) stays 1 mm since the spots sit at y~0, so the
+# cost (voxels x RX channels x events) is ~4x the 1 mm grid, not 8x.
 grid_mm = {
     "x_extent": [-52, 52],
     "y_extent": [-35, 35],
     "z_extent": [20, 70],
     "dx": 0.5,
-    "dy": 0.5,
+    "dy": 1.0,  # elevation kept coarse: the spots sit at y~0, so halve the voxel count
     "dz": 0.5,
 }
 vol, axes = das_volume(
@@ -278,10 +281,11 @@ x_mm, y_mm, z_mm = axes["x_mm"], axes["y_mm"], axes["z_mm"]
 iy0 = int(np.argmin(np.abs(y_mm - 0.0)))
 iz_mid = int(np.argmin(np.abs(z_mm - DEPTHS_MM[1])))
 
-# Fig. 2-style render: grayscale, dB, volume-rendered with a LINEAR opacity transfer
-# function (opacity rises linearly from transparent at -40 dB to opaque at 0 dB). Dark
-# theme (black background, white box/ruler/colorbar) with the z axis pointing DOWN, the
+# Fig. 2-style render: grayscale, dB, volume-rendered with a SIGMOID opacity transfer
+# function over a -30 dB display window (lobes opaque, the -30 dB background transparent).
+# Dark theme (black background, white box/ruler/colorbar) with the z axis pointing DOWN, the
 # ultrasound depth convention, so the probe is at the top and the three targets below it.
+RENDER_FLOOR = -30.0  # display window for the volume render (tighter than the -40 dB data)
 import pyvista as pv  # noqa: E402 — deferred so a headless import failure is obvious
 
 img = pv.ImageData(
@@ -296,13 +300,15 @@ pl.add_volume(
     img,
     scalars="dB",
     cmap="gray",
-    opacity="linear",
-    clim=[DB_FLOOR, 0.0],
+    opacity="sigmoid",
+    clim=[RENDER_FLOOR, 0.0],
     mapper="smart",
     scalar_bar_args={"title": "dB", "color": "white"},  # colorbar text white on black
 )
 pl.add_mesh(img.outline(), color="white", line_width=2)
-pl.show_grid(xtitle="x (mm)", ytitle="y (mm)", ztitle="z (mm)", color="white")
+pl.show_grid(
+    xtitle="x (mm)", ytitle="y (mm)", ztitle="z (mm)", color="white", n_zlabels=4
+)
 pl.add_axes(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)")
 pl.camera_position = "yz"
 pl.camera.azimuth = 35
@@ -328,8 +334,8 @@ ax[1].set(
     xlabel="x (mm)",
     ylabel="dB",
     title="lateral PSF vs depth",
-    xlim=(-25, 25),
-    ylim=(DB_FLOOR, 2),
+    xlim=(-50, 50),
+    ylim=(-59, 0),
 )
 ax[1].legend(loc="upper right")
 m1 = ax[2].pcolormesh(
