@@ -63,7 +63,7 @@ Run any example with `uv run examples/<script>.py`.
 | 21 | `example21_3Dphantom_volume/` | Full volumetric case study: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics. See its `README.md` (incl. "Design notes & pitfalls"). |
 | 22 | `example22_flow_doppler/` | Ultrafast compound Doppler, replicating Bercoff 2011: three acquisitions on one moving phantom compare conventional focused colour Doppler with plane-wave compounding. Uses moving scatterers in `sequence_rf`. See its `README.md`. |
 | 23 | `example23_optimize_radial_element.py` | Model a diverging multilens element as a rigid cap: refractive doublet vs strictly-convex vs free-aspheric fits (`scipy.optimize`), each shown with `visualize_element`. |
-| 24 | `example24_multilens_matrix_psf.py` | Assemble the paper's 252-element (18×14) diverging-multilens matrix from the example-23 cap with `CustomTransducer`; reproduce its depth-resolved Fig. 2 PSF (3 targets, full-aperture receive) with the central-4×4 16-source diverging sequence (`sequence_rf` + `das_volume`), referencing the beamformer to each lens's `virtual_source_m`, and a grayscale/sigmoid-opacity dB volume render. |
+| 24 | `example24_multilens_matrix_psf.py` | Assemble the paper's 252-element (18×14) diverging-multilens matrix from the example-23 cap with `CustomTransducer`; reproduce its depth-resolved Fig. 2 PSF (3 targets, full-aperture receive) with the central-4×4 16-source diverging sequence (`sequence_rf` + `das_volume`), referencing the beamformer to each lens's `virtual_source_m`, and a grayscale/linear-opacity dB volume render. |
 
 ---
 

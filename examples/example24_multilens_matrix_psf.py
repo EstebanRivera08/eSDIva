@@ -156,14 +156,6 @@ scat_amp = np.ones(len(DEPTHS_MM), dtype=np.float32)
 
 sim = Reception(tx, rx, fs=FS, c=C0, verbose=False)
 
-# Preview the geometry before the heavy run (headless screenshot when saving figures).
-setup_path = str(FIG_FOLDER / "ex24_setup.png") if SAVE_FIG else None
-if SAVE_FIG:
-    FIG_FOLDER.mkdir(exist_ok=True)
-plotter = sim.show(scat_mm, scat_amp, off_screen=SAVE_FIG, save_path=setup_path)
-if not SAVE_FIG:
-    plotter.show()
-
 print(f"Simulating {N_SOURCES}-source diverging sequence ({n_el} RX each) ...")
 # The RF is independent of the beamforming datum (the simulation uses delays/apodization,
 # not the virtual source), so it is computed once and re-beamformed for each datum below.
@@ -281,11 +273,15 @@ x_mm, y_mm, z_mm = axes["x_mm"], axes["y_mm"], axes["z_mm"]
 iy0 = int(np.argmin(np.abs(y_mm - 0.0)))
 iz_mid = int(np.argmin(np.abs(z_mm - DEPTHS_MM[1])))
 
-# Fig. 2-style render: grayscale, dB, volume-rendered with a SIGMOID opacity transfer
-# function over a -30 dB display window (lobes opaque, the -30 dB background transparent).
-# Dark theme (black background, white box/ruler/colorbar) with the z axis pointing DOWN, the
-# ultrasound depth convention, so the probe is at the top and the three targets below it.
-RENDER_FLOOR = -30.0  # display window for the volume render (tighter than the -40 dB data)
+# Fig. 2-style render: grayscale, dB, volume-rendered with a LINEAR opacity transfer
+# function over a -30 dB display window (opacity ramps linearly from transparent at -30 dB
+# to opaque at 0 dB). Dark theme (black background, white box/ruler/colorbar) with the z
+# axis pointing DOWN, the ultrasound depth convention, so the probe is at the top and the
+# three targets below it. Rendered twice: once with the probe mesh overlaid (its 252 caps
+# at z=0, above the box) and once with the volume alone.
+RENDER_FLOOR = (
+    -35.0
+)  # display window for the volume render (tighter than the -40 dB data)
 import pyvista as pv  # noqa: E402 — deferred so a headless import failure is obvious
 
 img = pv.ImageData(
@@ -294,26 +290,49 @@ img = pv.ImageData(
     origin=(float(x_mm[0]), float(y_mm[0]), float(z_mm[0])),
 )
 img["dB"] = db.flatten(order="F")  # ImageData point data is x-fastest (Fortran order)
-pl = pv.Plotter(off_screen=SAVE_FIG, window_size=(900, 800))
-pl.set_background("black")
-pl.add_volume(
-    img,
-    scalars="dB",
-    cmap="gray",
-    opacity="sigmoid",
-    clim=[RENDER_FLOOR, 0.0],
-    mapper="smart",
-    scalar_bar_args={"title": "dB", "color": "white"},  # colorbar text white on black
-)
-pl.add_mesh(img.outline(), color="white", line_width=2)
-pl.show_grid(
-    xtitle="x (mm)", ytitle="y (mm)", ztitle="z (mm)", color="white", n_zlabels=4
-)
-pl.add_axes(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)")
-pl.camera_position = "yz"
-pl.camera.azimuth = 35
-pl.camera.elevation = 20
-pl.camera.up = (0.0, 0.0, -1.0)  # z points down (depth), probe at top
+
+
+def render_psf(with_probe):
+    """Build the PSF volume plotter; with_probe overlays the 252-cap probe mesh at z=0.
+
+    The probe mesh keeps its default per-element Apodization colouring (cmap "cool") and is
+    self-lit (ambient=1) so it reads cleanly on the black background instead of being shaded
+    dark by the scene lighting."""
+    pl = pv.Plotter(off_screen=SAVE_FIG, window_size=(900, 800))
+    pl.set_background("black")
+    pl.add_volume(
+        img,
+        scalars="dB",
+        cmap="gray",
+        opacity="linear",
+        clim=[RENDER_FLOOR, 0.0],
+        mapper="smart",
+        scalar_bar_args={
+            "title": "dB",
+            "color": "white",
+        },  # colorbar text white on black
+    )
+    pl.add_mesh(img.outline(), color="white", line_width=2)
+    if with_probe:
+        pl.add_mesh(
+            tx.get_mesh(),
+            scalars="Apodization",
+            cmap="cool",
+            clim=(0.0, 1.0),  # fixed 0..1 so uniform apod=1 maps to the cmap's pink end
+            ambient=1.0,
+            show_scalar_bar=False,
+        )
+    pl.show_grid(
+        xtitle="x (mm)", ytitle="y (mm)", ztitle="z (mm)", color="white", n_zlabels=4
+    )
+    pl.add_axes(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)")
+    pl.camera_position = "yz"
+    pl.camera.azimuth = 35
+    pl.camera.elevation = 20
+    pl.camera.up = (0.0, 0.0, -1.0)  # z points down (depth), probe at top
+    pl.reset_camera()  # refit so the z=0 probe (above the box) stays in frame
+    return pl
+
 
 # Quantitative view: the xz slice through the three targets, the lateral PSF profiles at
 # each depth (with the -6 dB resolution), and the xy grating-lobe star at the mid target.
@@ -355,13 +374,20 @@ fig.colorbar(m1, ax=ax[2], label="dB")
 fig.tight_layout()
 
 if SAVE_FIG:
-    render_path = str(FIG_FOLDER / "ex24_matrix_psf.png")
-    pl.screenshot(render_path)
-    pl.close()
+    FIG_FOLDER.mkdir(exist_ok=True)
+    for name, with_probe in (
+        ("ex24_matrix_psf", False),
+        ("ex24_matrix_psf_probe", True),
+    ):
+        pl = render_psf(with_probe)
+        render_path = str(FIG_FOLDER / f"{name}.png")
+        pl.screenshot(render_path)
+        pl.close()
+        print(f"  Saved: {render_path}")
     slices_path = str(FIG_FOLDER / "ex24_psf_slices.png")
     fig.savefig(slices_path, dpi=130)
-    print(f"  Saved: {render_path}")
     print(f"  Saved: {slices_path}")
 else:
-    pl.show()
+    render_psf(True).show()
+    render_psf(False).show()
     plt.show()

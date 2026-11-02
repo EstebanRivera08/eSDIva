@@ -17,7 +17,7 @@ everywhere. This example reproduces it with
 [`CustomTransducer`][esdiva.transducers.CustomTransducer] (252 copies of the example-23
 free-aspheric cap), fires the 16-source sequence at three point targets, delay-and-sums the
 compounded echoes into a 3-D volume, and renders it the way the paper does — grayscale, in
-dB, with a sigmoid opacity transfer function over a −30 dB display window.
+dB, with a linear opacity transfer function over a −35 dB display window.
 
 [Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example24_multilens_matrix_psf.py)
 
@@ -41,8 +41,6 @@ rx = CustomTransducer([element] * 252, positions_mm, frequency_Hz=1e6)
 
 TX and RX are separate copies of the same geometry. Both apertures get a 2-cycle 1 MHz
 impulse response (bare drive) so the pulse-echo spectrum is band-limited.
-
-![Setup preview](assets/ex24_setup.png)
 
 ---
 
@@ -88,16 +86,18 @@ evidence that the lens curvature — not the array aperture — set the earlier 
 ## The Fig. 2-style volume render
 
 The beamformed volume is envelope-detected along depth, log-compressed to dB, and
-volume-rendered with PyVista using a **grayscale** colormap, a **sigmoid** opacity transfer
-function over a **−30 dB** display window (lobes opaque, the −30 dB background transparent),
-and the **`"smart"`** volume mapper (ray-cast). A dark theme (black background, **all text
-white** — ruler,
+volume-rendered with PyVista using a **grayscale** colormap, a **linear** opacity transfer
+function over a **−35 dB** display window (opacity ramps linearly from transparent at
+−35 dB to opaque at 0 dB), and the **`"smart"`** volume mapper (ray-cast). A dark theme
+(black background, **all text white** — ruler,
 colorbar, box, axes) with the z axis pointing **down** (`camera.up = (0, 0, −1)`, the
 ultrasound depth convention) puts the probe at the top and the three targets below. The
 render box is the paper's **104 × 70 mm** lateral phantom, framed over the 20–70 mm depth
 range on a **0.5 mm** grid — the main lobe is ~1 mm, so 1 mm voxels render it ~1 voxel wide
 (blocky), while 0.5 mm puts 2–3 samples across it so the spots render smooth; the main lobes
-are measured separately on fine 0.1 mm planes through each target.
+are measured separately on fine 0.1 mm planes through each target. The volume is rendered
+twice — once with the 252-cap probe mesh overlaid above the box (`tx.get_mesh()`, coloured
+by per-element apodization and self-lit with `ambient=1`) and once with the volume alone.
 
 ![Point PSF volume render](assets/ex24_matrix_psf.png)
 
