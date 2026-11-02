@@ -27,11 +27,12 @@ def visualize_element(
     """Four-panel diagnostic of a mono-element transducer's monochromatic field.
 
     Runs a single monochromatic :class:`esdiva.emission.Emission` at the element's
-    centre frequency and lays out, left to right: (1) the surface profile ``z(r)``
-    read from the element's own patches, (2) the ``|P|`` directivity (dB) on an arc,
-    (3) the patch mesh, (4) the ``xz`` pressure plane (dB). In panels (1) and (2) the
-    found curve is drawn solid red and an optional reference dotted black, so a fitted
-    surface/beam can be compared against its target at a glance.
+    centre frequency and lays out a 2×2 grid: the top row is (1) the surface profile
+    ``z(r)`` read from the element's own patches and (2) the ``|P|`` directivity (dB)
+    on an arc; the bottom row is (3) the patch mesh (3-D render) and (4) the ``xz``
+    pressure plane (dB). In panels (1) and (2) the found curve is drawn solid red and
+    an optional reference dotted black, so a fitted surface/beam can be compared
+    against its target at a glance.
 
     Parameters
     ----------
@@ -126,46 +127,47 @@ def visualize_element(
     mesh_img = pl.screenshot(return_img=True)
     pl.close()
 
-    fig, ax = plt.subplots(1, 4, figsize=(22, 5))
+    # 2×2 grid: top row profile + directivity, bottom row 3-D mesh + xz field.
+    fig, ax = plt.subplots(2, 2, figsize=(12, 10))
 
     if reference_profile is not None:
-        ax[0].plot(
+        ax[0, 0].plot(
             reference_profile[0], reference_profile[1], "k:", lw=1.5, label="reference"
         )
-    ax[0].plot(r_mm, z_um, "r", lw=2, label="found")
-    ax[0].set(xlabel="r (mm)", ylabel="z (µm)", title="surface profile z(r)")
+    ax[0, 0].plot(r_mm, z_um, "r", lw=2, label="found")
+    ax[0, 0].set(xlabel="r (mm)", ylabel="z (µm)", title="surface profile z(r)")
     if profile_ylim is not None:
-        ax[0].set_ylim(profile_ylim)
-    ax[0].legend()
-    ax[0].grid(alpha=0.3)
+        ax[0, 0].set_ylim(profile_ylim)
+    ax[0, 0].legend()
+    ax[0, 0].grid(alpha=0.3)
 
     if reference is not None:
-        ax[1].plot(reference[0], reference[1], "k:", lw=1.5, label="reference")
-    ax[1].plot(angle, dir_db, "r", lw=2, label=f"found (−6 dB at {half_angle:.0f}°)")
-    ax[1].axhline(-6, color="0.7", ls=":")
-    ax[1].set(
+        ax[0, 1].plot(reference[0], reference[1], "k:", lw=1.5, label="reference")
+    ax[0, 1].plot(angle, dir_db, "r", lw=2, label=f"found (−6 dB at {half_angle:.0f}°)")
+    ax[0, 1].axhline(-6, color="0.7", ls=":")
+    ax[0, 1].set(
         xlabel="angle (deg)",
         ylabel="dB",
         ylim=(-20, 1),
         xlim=(-max_angle_deg, max_angle_deg),
         title="directivity",
     )
-    ax[1].legend()
+    ax[0, 1].legend()
 
-    ax[2].imshow(mesh_img)
-    ax[2].axis("off")
-    ax[2].set_title("element mesh")
+    ax[1, 0].imshow(mesh_img)
+    ax[1, 0].axis("off")
+    ax[1, 0].set_title("element mesh")
 
-    im = ax[3].pcolormesh(
+    im = ax[1, 1].pcolormesh(
         x, z, plane, cmap="jet", shading="auto", vmin=db_floor, vmax=0
     )
     diameter_mm = getattr(transducer, "diameter", None)
     if diameter_mm is not None:
         r = diameter_mm * 1e3 / 2
-        ax[3].plot([-r, r], [0, 0], "w", lw=3)
-    ax[3].set(xlabel="x (mm)", ylabel="z (mm)", title="xz field (dB)")
-    ax[3].invert_yaxis()
-    fig.colorbar(im, ax=ax[3], label="|P| (dB)")
+        ax[1, 1].plot([-r, r], [0, 0], "w", lw=3)
+    ax[1, 1].set(xlabel="x (mm)", ylabel="z (mm)", title="xz field (dB)")
+    ax[1, 1].invert_yaxis()
+    fig.colorbar(im, ax=ax[1, 1], label="|P| (dB)")
 
     if title:
         fig.suptitle(title)

@@ -1,7 +1,7 @@
 """
 Example 23: Three ways to mimic a diverging multilens element with a rigid cap.
 
-The multi-lens array of Nardone et al. (Nat. Commun. 2025, s41467-025-64911-z)
+The multi-lens array of Haidour et al. (Nat. Commun. 2025, s41467-025-64911-z)
 widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
 linear and homogeneous — no refraction — so the lens can only be modelled as a curved
 *rigid* cap whose surface sag reproduces the same aperture phase. This example builds
@@ -28,12 +28,11 @@ import warnings
 import matplotlib.pyplot as plt
 import numpy as np
 from config import FIG_FOLDER, SAVE_FIG
-from scipy.optimize import minimize
-from scipy.special import j1
-
 from esdiva import Emission
 from esdiva.plotting import visualize_element
 from esdiva.transducers import RadialProfileTransducer
+from scipy.optimize import minimize
+from scipy.special import j1
 
 C0, FC = 1540.0, 1e6
 LAMBDA_MM = C0 / FC * 1e3
@@ -58,8 +57,8 @@ def physical_sag(r):
 def sag_of(coeffs, diameter_mm):
     """Radial sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (metres) for a given diameter."""
     r_ap, c = diameter_mm / 2 * 1e-3, np.asarray(coeffs, float)
-    return (
-        lambda r: -LAMBDA_MM
+    return lambda r: (
+        -LAMBDA_MM
         * 1e-3
         * sum(
             c[k] * np.clip(np.asarray(r, float) / r_ap, 0, 1) ** (2 * (k + 1))
@@ -131,7 +130,7 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
 
     # Multistart over the diameter: with a free diameter the loss vs D is multimodal
     # (a narrow best basin plus a flat shelf at the large-D bound), so a single
-    # Nelder-Mead from one start can walk to the bound and is not reproducible. Restart
+    # one start can walk to the bound and is not reproducible. Restart
     # from a few diameters and keep the lowest-MSE result. A fixed diameter needs one.
     if diameter_mm is None:
         starts, d_bound = [np.r_[d0, seed] for d0 in (3.0, 3.7, 4.5, 5.2)], D_BOUNDS
@@ -194,7 +193,7 @@ def animate_fit(trace, gif_path, n_frames=60):
             save_path=str(tmp),
         )
         plt.close(fig)
-        frames.append(Image.open(tmp).convert("RGB").resize((1280, 291)))
+        frames.append(Image.open(tmp).convert("RGB").resize((900, 760)))
     tmp.unlink()
     frames[0].save(
         gif_path, save_all=True, append_images=frames[1:], duration=150, loop=0
