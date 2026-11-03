@@ -50,12 +50,10 @@ def _add_volume_box(plotter, x_mm, y_mm, z_mm, color="black"):
     """Wireframe cube marking the extent of the beamformed volume."""
     box = pv.Box(bounds=(x_mm[0], x_mm[-1], y_mm[0], y_mm[-1], z_mm[0], z_mm[-1]))
     plotter.add_mesh(box, style="wireframe", color=color, line_width=scale)
-    del box
 
 
 SCALE = 4
 SVG_FIG = False  # save vector graphics (SVG) instead of PNG (docs embed PNG)
-# SAVE_FIG = True
 DB_RANGE = 30
 # Volume ray-casting cost scales with voxel count; the full grid (~1 M+ voxels)
 # is stepped down for the semi-transparent render only (slices stay full-res).
@@ -256,7 +254,6 @@ for j, (title, cut, ext, xl, yl, orig, plane) in enumerate(cuts):
     )
     axs[1, j].set(title=f"image · {title}", xlabel=xl, ylabel=yl)
     _mark_wires(axs[0, j], plane)
-    # _mark_wires(axs[1, j], plane)
 # One shared dB colorbar (the image row); the phantom row is a 0–2 truth map,
 # so a single dB bar to the right is enough to read the whole figure.
 fig.colorbar(
@@ -282,6 +279,3 @@ if SAVE_FIG:
     print(f"saved {FIG_DIR / f'ex21_{SCENARIO}_slices.{ext}'}")
 else:
     plt.show()
-
-
-del plotter, igrid, sl, vol_mesh

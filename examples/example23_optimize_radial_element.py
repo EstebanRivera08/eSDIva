@@ -1,23 +1,17 @@
 """
 Example 23: Three ways to mimic a diverging multilens element with a rigid cap.
 
-The multi-lens array of Haidour et al. (Nat. Commun. 2025, s41467-025-64911-z)
-widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
-linear and homogeneous — no refraction — so the lens can only be modelled as a curved
-*rigid* cap whose surface sag reproduces the same aperture phase. This example builds
-and compares three candidate caps against the paper's measured directivity (a Bessel
-bell crossing −6 dB at 33.17°):
+The multilens array of Haidour et al. (Nat. Commun. 2025, s41467-025-64911-z) widens each
+element's beam with a diverging epoxy/silicone doublet lens. eSDIva is linear and
+homogeneous — no refraction — so the lens is modelled as a rigid curved cap whose surface
+sag reproduces the same aperture phase. Three candidate caps are fitted to the paper's
+measured directivity (a Bessel bell crossing −6 dB at 33.17°):
 
-1. **refractive doublet** — the paper's lens itself, collapsed through a refractive-index
-   (Snell) model to one effective cap ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (no optimization).
-2. **strictly convex cap** — four even-power terms with **non-negative** coefficients, so
-   the sag is monotone (apex at the centre, no dip) — the best purely convex rigid cap.
-3. **free aspheric** — the same four terms but coefficients free to go negative, so a
-   central dimple may form if it sharpens the agreement with the bell.
+1. **refractive doublet** — the lens's own Snell sag ``z(r) = −(n₂−n₁)·(R−√(R²−r²))``, no fit.
+2. **strictly convex cap** — four even-power terms, coefficients ≥ 0 (monotone, no dip).
+3. **free aspheric** — same terms, coefficients free (a central dimple may form if it fits).
 
-The surface is even in ``r`` (axisymmetric, apex pinned to z=0), so only even powers
-appear. Each cap is shown with `plotting.visualize_element`: surface profile and
-directivity (found solid-red vs reference dotted-black), mesh, and xz field.
+Each cap is shown with `plotting.visualize_element` (profile, directivity, mesh, xz field).
 
 Run with:
     uv run python examples/example23_optimize_radial_element.py
@@ -49,13 +43,13 @@ D_PHYS_MM = 4.5  # the paper's piezo element size
 
 
 def physical_sag(r_mm):
-    """Effective rigid-cap sag ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (mm) of the lens."""
+    """Lens Snell sag ``z(r) = −(n₂−n₁)·(R−√(R²−r²))`` (mm)."""
     rr = np.asarray(r_mm, float)
     return -N_CONTRAST * (R_LENS_MM - np.sqrt(np.clip(R_LENS_MM**2 - rr**2, 0.0, None)))
 
 
 def sag_of(coeffs, diameter_mm):
-    """Radial sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (mm) for a given diameter."""
+    """Even-power sag ``z(r) = −λ·Σ c_k (r/R)^{2(k+1)}`` (mm)."""
     r_ap, c = diameter_mm / 2, np.asarray(coeffs, float)
     return lambda r: (
         -LAMBDA_MM
@@ -78,7 +72,7 @@ def make_element(diameter_mm, coeffs, no_sub_diameter=40):
 
 
 def directivity_db(element):
-    """Emitted ``|P|`` (dB, peak-normalised) on a 35 mm arc over ``ANGLE``."""
+    """Emitted ``|P|`` (dB, peak-normalised) on a 35 mm arc vs ``ANGLE``."""
     th = np.deg2rad(ANGLE)
     pts = np.stack([35.0 * np.sin(th), np.zeros_like(th), 35.0 * np.cos(th)], 1)
     p = np.abs(
@@ -104,12 +98,10 @@ reference_db = np.clip(
 def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
     """Fit ``n_terms`` even-power coefficients to the bell, seeded from the physical cap.
 
-    ``coeff_bounds`` of ``(0, +)`` forces a convex diverging cap; allowing negatives
-    lets the surface become a non-convex aspheric. If ``diameter_mm`` is given the
-    diameter is fixed (only the shape is fitted — e.g. the sphere on the paper's real
-    4.5 mm aperture); otherwise it is a free variable found by multistart. Pass an empty
-    list as ``trace`` to receive the winning start's ``[D, *coeffs]`` iterate path (for
-    animating the fit)."""
+    ``coeff_bounds`` ``(0, +)`` forces a convex cap; allowing negatives gives a non-convex
+    aspheric. ``diameter_mm`` given → diameter fixed (shape only); else it is a free
+    variable found by multistart. Pass an empty list as ``trace`` to receive the winning
+    start's ``[D, *coeffs]`` iterate path (for the GIF)."""
     r_mm = np.linspace(0.0, D_PHYS_MM / 2, 400)
     u = r_mm / (D_PHYS_MM / 2)
     basis = np.stack([u ** (2 * (k + 1)) for k in range(n_terms)], 1)
@@ -127,10 +119,8 @@ def optimize_cap(n_terms, coeff_bounds, diameter_mm=None, trace=None):
             np.mean((np.clip(dir_db, -20, None)[FIT] - reference_db[FIT]) ** 2)
         )
 
-    # Multistart over the diameter: with a free diameter the loss vs D is multimodal
-    # (a narrow best basin plus a flat shelf at the large-D bound), so a single
-    # one start can walk to the bound and is not reproducible. Restart
-    # from a few diameters and keep the lowest-MSE result. A fixed diameter needs one.
+    # Free diameter: loss vs D is multimodal (one best basin + a flat shelf at the large-D
+    # bound), so restart from a few diameters and keep the lowest MSE. Fixed D needs one.
     if diameter_mm is None:
         starts, d_bound = [np.r_[d0, seed] for d0 in (3.0, 3.7, 4.5, 5.2)], D_BOUNDS
     else:
@@ -160,10 +150,7 @@ z_ref_um -= z_ref_um.max()
 
 
 def optimized_aspheric(no_sub_diameter=40):
-    """Fit and return this example's free-aspheric diverging cap (reused by example 24).
-
-    Runs the same ±40° bell fit as the script (four even terms, coefficients free so a
-    central dimple may form) and returns the built `RadialProfileTransducer`."""
+    """Fit and return the free-aspheric diverging cap (model 3; reused by example 24)."""
     D, c = optimize_cap(4, (-2.0, 2.0))
     return make_element(D, c, no_sub_diameter=no_sub_diameter)
 
@@ -171,10 +158,8 @@ def optimized_aspheric(no_sub_diameter=40):
 def animate_fit(trace, gif_path, n_frames=60):
     """Stitch the aspheric fit's iterates into a GIF, one `visualize_element` per frame.
 
-    Each frame shows the current cap's surface profile, directivity vs the bell, mesh and
-    xz field, so the viewer watches the surface deform toward the target directivity. The
-    profile panel's y-axis is pinned (0 to −1000 µm, the full sag depth) so only the curve
-    moves between frames rather than the axis rescaling."""
+    The viewer watches the surface deform toward the target bell. The profile y-axis is
+    pinned (0 to −1000 µm) so only the curve moves, not the axis."""
     from PIL import Image  # ships with matplotlib — no extra dependency
 
     steps = np.unique(np.linspace(0, len(trace) - 1, n_frames).astype(int))
@@ -200,9 +185,7 @@ def animate_fit(trace, gif_path, n_frames=60):
 
 
 if __name__ == "__main__":
-    # Build the three candidate caps. Refractive doublet = exact Snell sag (no fit);
-    # strictly convex = four non-negative terms (monotone, no dip); free aspheric = four
-    # terms with negatives allowed, so a central dimple may form if it fits the bell.
+    # Three candidate caps: Snell sag (no fit), convex (terms ≥ 0), aspheric (terms free).
     el_refr = RadialProfileTransducer(
         diameter_mm=D_PHYS_MM,
         surface_sag_mm=physical_sag,

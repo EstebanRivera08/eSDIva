@@ -1,21 +1,14 @@
 """
 Doppler processing chain — demodulate, wall-filter, estimate.
 
-eSDIva simulates the RF and beamforms it; turning an ensemble of beamformed
-frames into a velocity is signal processing, not acoustics, so it lives here in
-the example rather than in the package. The three functions are the conventional
-processing chain and are named for it, so the steps map onto what any ultrasound
-processing toolbox calls them:
+Turning an ensemble of beamformed frames into a velocity is signal processing,
+not acoustics, so it lives in the example, not the package. The three functions
+carry the conventional names and signatures, so code written against another
+toolbox transfers with the argument order intact:
 
     beamformed RF  ->  rf2iq  ->  wfilt  ->  iq2doppler  ->  velocity
 
-The names are the conventional ones, and so are the signatures: `rf2iq(RF, Fs,
-Fc)` demodulates to I/Q and estimates `Fc` itself when it is omitted, `wfilt`
-removes the clutter, `iq2doppler` returns velocity and power. Code written
-against another toolbox transfers with the argument order intact.
-
-Each one is a few lines. Read them: there is nothing hidden, and every
-assumption a Doppler number rests on is visible in this file.
+Each is a few lines — every assumption a Doppler number rests on is visible here.
 
 WHAT EACH INTERMEDIATE OBJECT IS
 --------------------------------

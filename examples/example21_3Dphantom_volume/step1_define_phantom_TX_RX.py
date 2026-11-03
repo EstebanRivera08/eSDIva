@@ -1,58 +1,38 @@
 """
-Step 1 — define the scenario: probe (TX = RX), phantom, and transmit sequence.
+Step 1 — define the scenario: probe (TX = RX), phantom, transmit sequence.
 
-Everything the acquisition (step 2) and the beamforming (step 3) need is
-declared here ONCE, per scenario. Pick the scenario below (or set the
-``SCENARIO`` environment variable) and run the steps in order:
+Everything steps 2-3 need is declared here ONCE. Pick a scenario below (or set
+the ``SCENARIO`` env var):
 
-    SCENARIO = "zeus5"    ZeUS 55x55, 3025 ch, driven at 5 MHz (pitch 0.97λ:
-                          no grating lobes; ~0.3 mm PSF). The flagship run.
-    SCENARIO = "zeus10"   Same ZeUS probe at its 10 MHz centre frequency:
-                          pitch 2λ → the echo field is spatially ALIASED and
-                          the image is clutter-limited. Kept as the
-                          cautionary counterpart (expensive: ~8 h).
-    SCENARIO = "vermon"   Vermon-type 32x32, 1024 ch, 3 MHz — the research
-                          probe of the 4-D ultrafast literature, on the
-                          IDENTICAL phantom (~0.8 mm PSF; minutes to run —
-                          the fast end-to-end pipeline test).
+    "zeus5"   ZeUS 55x55, 3025 ch, 5 MHz (pitch 0.97λ: no grating lobes,
+              ~0.3 mm PSF). The flagship run.
+    "zeus10"  Same probe at 10 MHz: pitch 2λ → the echo field is ALIASED and
+              the image is clutter-limited. The cautionary counterpart (~8 h).
+    "vermon"  Vermon-type 32x32, 1024 ch, 3 MHz — the 4-D ultrafast research
+              probe, ~0.8 mm PSF, minutes to run (the fast pipeline test).
 
-All three scenarios image the SAME phantom (identical volume, targets and
-seed — the "contrast ladder"): a vertical column with a x4 hyperechoic
-sphere (elevation-offset: absent at y=0, present in the +y slice — the proof
-the volume is genuinely 3-D), an anechoic cyst at the volume mid-depth (the
-compound transmit-focus peak) and a x4 tube below it; a second x4 tube
-column on the other side; and dim PSF wires (amplitude 4 ≈ +10 dB over
-speckle) on the clear lane between the columns — three lateral (along y) at
-fixed depths plus a column of point beads (along z at y=0) crossing them, so
-the lateral PSF is read at a ladder of depths. Only what the physics
-dictates changes per scenario: the scatterer COUNT (the resolution cell
-(λz/D)²·pulse/2 shrinks with frequency and aperture) and the virtual-source
+All three image the SAME seeded phantom (the "contrast ladder"): a x4
+hyperechoic sphere offset to y=+2 (absent at y=0 — proof the volume is 3-D),
+an anechoic cyst at mid-depth with a x4 tube below it, a second x4 tube
+column, and dim PSF wires (amp 4 ≈ +10 dB over speckle) on the clear lane —
+three along y at fixed depths plus a column of beads along z, so the PSF is
+read at a ladder of depths. Only the physics-driven quantities change per
+scenario: scatterer COUNT (resolution cell (λz/D)²·pulse/2) and virtual-source
 layout (coverage + steep-wavefront rules).
 
-The transmit basis is diverging waves (DW): each event delays the elements
-as if the wavefront came from a virtual point source BEHIND the array, so
-one shot insonifies the whole volume; compounding a few tens of tilted
-sources synthesizes transmit focus everywhere. The virtual-source layouts
-obey the coverage rule (a DW only insonifies the cone from the source
-through the aperture edges) and each probe's steep-wavefront tolerance.
+Transmit basis: diverging waves (DW), each delayed as if from a virtual point
+source BEHIND the array, so one shot insonifies the whole volume; compounding
+tilted sources synthesises transmit focus everywhere. Layouts obey the coverage
+rule (a DW insonifies only the cone through the aperture edges) and each probe's
+steep-wavefront tolerance.
 
-THE IMPULSE RESPONSE — essential, not optional
-----------------------------------------------
-The pulse-echo chain of a physical probe is ``e ⊛ h_e ⊛ h_r``: the electric
-drive ``e`` is band-passed TWICE through the piezo impulse responses of the
-transmitting and receiving elements. The probe builders below therefore set
-``impulse_response`` on every transducer (a 2-cycle burst at ``fc``, Field II
-practice), and the Reception class folds ``exc ⊛ ir_tx ⊛ ir_rx`` in the
-frequency domain. Omitting the impulse responses models ideal BROADBAND
-elements: the low-frequency tails of the aperture (diffraction) impulse
-responses then dominate the received spectrum — measured on a point target
-the spectral centroid fell 3.0 → 1.86 MHz, widening the lateral PSF by 60 %
-and raising the near-in sidelobe skirt from −22 to −10 dB; that skirt was
-the dominant clutter source in every early campaign.
-
-One caveat: the RFDataset checkpoint fingerprint covers the excitation but
-NOT the impulse responses — if you change the pulse model, delete the RF
-folder yourself (the resume cannot detect the change).
+Every probe sets ``impulse_response`` (2-cycle burst at ``fc``): a physical
+probe band-passes the drive twice, ``e ⊛ h_tx ⊛ h_rx``. Omitting it models
+ideal broadband elements whose aperture-diffraction tails dominate the spectrum
+— centroid falls 3.0 → 1.86 MHz, PSF +60 %, sidelobe skirt −22 → −10 dB (the
+main early-campaign clutter). CAVEAT: the RF checkpoint fingerprint covers the
+excitation but NOT the impulse responses — change the pulse model, delete the
+RF folder yourself.
 
 Run with:
     uv run examples/example21_3Dphantom_volume/step1_define_phantom_TX_RX.py
@@ -70,9 +50,7 @@ from config import FIG_FOLDER
 
 from esdiva.transducers import MatrixArrayTransducer
 
-# Default scenario: vermon — the fastest acquisition, so the whole pipeline
-# (steps 1-3 + visualizers) regenerates the documentation figures in minutes.
-SCENARIO = os.environ.get("SCENARIO", "zeus10")
+SCENARIO = os.environ.get("SCENARIO", "zeus10")  # "vermon" is the fast test run
 
 # --- Medium / sampling (shared by all scenarios) -------------------------------
 C = 1540.0  # speed of sound (m/s)
@@ -104,14 +82,10 @@ def make_zeus(fc: float = 5e6):
     0.29 mm square elements, 0.30 mm pitch, 16.49 mm aperture; one patch per
     element (a 0.29 mm face is far inside the far-field patch limit
     ``w << sqrt(4·l·c/f)`` ≈ 7 mm at the shallowest target). Every element
-    transmits and receives — the regime where the spectral pulse-echo kernel
-    is fastest (one batched call builds all 3025 receive spectra) and where
-    Field II needs ~20x longer per event.
-
-    The piezo ``impulse_response`` (2-cycle burst at ``fc``) is set on the
-    probe — essential: without it the elements are ideally broadband and the
-    aperture impulse-response tails dominate the received spectrum (PSF +60 %,
-    sidelobe skirt −22 → −10 dB).
+    transmits and receives — the regime where the spectral pulse-echo kernel is
+    fastest (one batched call builds all 3025 receive spectra). The piezo
+    ``impulse_response`` (2-cycle burst at ``fc``) is essential: omitting it
+    lets the aperture-diffraction tails dominate the spectrum (PSF +60 %).
 
     Returns
     -------
@@ -141,10 +115,7 @@ def make_vermon(fc: float = 3e6):
     echo field is properly sampled — and the small 9.6 mm aperture gives a
     ~0.8 mm PSF at the phantom's 15 mm mid-depth. The physical probe has
     three dead rows; modelled contiguous (the gaps mainly raise far
-    sidelobes slightly).
-
-    The piezo ``impulse_response`` (2-cycle burst at ``fc``) is set on the
-    probe — essential, see `make_zeus`.
+    sidelobes slightly). Sets the essential piezo ``impulse_response`` too.
 
     Returns
     -------

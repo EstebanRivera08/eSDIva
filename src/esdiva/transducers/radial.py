@@ -123,25 +123,20 @@ class RadialProfileTransducer(TransducerBase):
 
     @property
     def virtual_source_m(self) -> np.ndarray:
-        """Acoustic centre the cap radiates from — the point to reference delays to.
+        """Acoustic centre the cap radiates from — where a beamformer references delays.
 
-        A rigid axisymmetric cap launches a spherical wave whose centre of curvature
-        matches the surface: by Huygens every surface point emits in phase, so the
-        initial wavefront *is* the cap's shape. That centre of curvature is the
-        element's "virtual source" — the point a delay-and-sum beamformer must place
-        this element at, instead of the aperture plane. For a diverging cap (apex
-        forward at ``z = 0``, surface receding) it lies BEHIND the aperture at
-        ``z < 0``; for a converging bowl it is the geometric focus in front at
-        ``z > 0``. Using ``z = 0`` instead would mis-time every echo by the lens's
-        own curvature and defocus a compounded reconstruction.
+        **No field is simulated.** A rigid cap moves as one surface, so by Huygens every
+        point emits in phase at ``t = 0`` and the initial wavefront *is* the surface. A
+        spherical surface thus radiates from its own centre of curvature — the "virtual
+        source" a delay-and-sum must place the element at, not the aperture plane. Diverging
+        cap (apex at ``z = 0``, surface receding) → source BEHIND at ``z < 0``; converging
+        bowl → focus in front at ``z > 0``. Using ``z = 0`` mis-times every echo by the
+        cap's curvature and defocuses a compounded reconstruction.
 
-        The centre is a least-squares fit of the stored profile ``z(r)`` over
-        ``r ∈ [0, radius]`` to an on-axis circle ``r² + (z − z_c)² = R_c²``. Expanded,
-        ``r² + z² = 2·z_c·z + (R_c² − z_c²)`` is linear in ``z_c`` (slope against
-        ``z``), so a plain least-squares line recovers the centre ``z_c`` — the radius
-        of curvature is ``|z_c|``. By axisymmetry the source is on the axis, so only z
-        is non-trivial (``x = y = 0``). A flat piston has no curvature; its centre
-        collapses to the aperture plane ``(0, 0, 0)``.
+        Found by least-squares fitting the stored ``z(r)`` to an on-axis circle: expanding
+        ``r² + (z − z_c)² = R_c²`` to ``r² + z² = 2·z_c·z + const`` is linear in ``z_c``,
+        so one line fit recovers the centre (exact for a sphere, best-fit for an aspheric).
+        On-axis by symmetry (``x = y = 0``); a flat piston collapses to ``(0, 0, 0)``.
 
         Returns
         -------
@@ -154,7 +149,9 @@ class RadialProfileTransducer(TransducerBase):
         z = np.asarray(self._sag(r), dtype=float)
         if float(np.ptp(z)) < 1e-12 * self.radius:  # flat piston: no curvature
             return np.array([0.0, 0.0, 0.0])
-        # r²+z² = 2·z_c·z + (R_c²−z_c²): slope against z (col 0) is 2·z_c.
+        # Geometric centre; that it is the acoustically right datum is confirmed by
+        # sweeping it in a pulse-echo PSF (the lobe tightens vs the aperture plane).
+        # r²+z² = 2·z_c·z + const: slope against z (col 0) is 2·z_c.
         coeff, *_ = np.linalg.lstsq(
             np.column_stack([z, np.ones_like(z)]), r * r + z * z, rcond=None
         )

@@ -2,34 +2,19 @@
 Step 2 — acquire the three sequences.
 
 Each arm is one `sequence_rf` call over a moving phantom, checkpointed to its own
-folder. The three share a phantom definition, a probe, a pulse and a Doppler PRF;
-they differ only in how the emissions are spent.
+folder. The three share phantom, probe, pulse and Doppler PRF; they differ only
+in how the emissions are spent (A conventional, B ultrafast, C long-ensemble).
 
-    A  conventional   N_LINES x E_SHORT   one focused transmit per line
-    B  ultrafast      N_ANGLES x E_SHORT  compounded plane waves
-    C  sensitivity    N_ANGLES x E_LONG   A's budget, spent on ensemble
+THE ONE SUBTLETY: each arm moves the blood at its OWN rate, so the phantom is
+rebuilt per arm. The compounded arms fire all `N_ANGLES` angles back to back, so
+consecutive emissions are `1/(N_ANGLES·PRF_doppler)` apart; the conventional arm
+sends one beam per slow-time sample (`1/PRF_doppler` apart) and orders events
+LINE-MAJOR (a whole packet on one line, then the next). Get this wrong and every
+velocity in one arm scales by `N_ANGLES` — a bookkeeping error dressed as physics.
 
-THE ONE SUBTLETY: EACH ARM MOVES THE BLOOD AT ITS OWN RATE
------------------------------------------------------------
-The phantom is rebuilt per arm because "one emission" means different things.
-The compounded arms fire all `N_ANGLES` angles of a frame back to back at the
-emission PRF, so consecutive emissions are `1/(N_ANGLES·PRF_doppler)` apart.
-The conventional arm sends one beam per slow-time sample, so its consecutive
-emissions are `1/PRF_doppler` apart — and its events are ordered LINE-MAJOR
-(a whole packet on one line, then the next), which is how a scanner dwells on a
-line long enough to measure its velocity.
-
-Getting this wrong would silently scale every velocity in one arm by `N_ANGLES`,
-and the comparison would look like a physics result instead of a bookkeeping
-error.
-
-WHY `sequence_rf` AND NOT A HAND-WRITTEN LOOP
----------------------------------------------
-The same RF is reachable by calling `pulse_echo_rf` once per emission and
-stacking — identical physics. What the loop cannot give you is checkpointing (a
-crash costs one emission, not the run), a config fingerprint that refuses to mix
-two different flows into one store, and `t0_per_event` for the beamformer. With
-~1560 emissions here, that matters.
+`sequence_rf` over a hand loop buys checkpointing (a crash costs one emission), a
+config fingerprint that refuses to mix two flows into one store, and
+`t0_per_event` for the beamformer — which matters at ~1560 emissions.
 
 Run with:
     uv run examples/example22_flow_doppler/step2_acquire_RF.py

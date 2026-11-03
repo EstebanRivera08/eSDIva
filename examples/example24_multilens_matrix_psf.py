@@ -1,35 +1,25 @@
 """
 Example 24: depth-resolved 3-D point PSF of the diverging-multilens matrix (Fig. 2).
 
-Example 23 fitted a single rigid cap to the diverging multilens element of Haidour et al.
-(Nat. Commun. 2025, s41467-025-64911-z). That paper builds a large 3-D imaging probe by
-tiling 252 of these elements on an 18x14 grid at 5.48 mm pitch, driven at 1 MHz, and
-characterises its point-spread function versus depth (their Fig. 2 / Supplementary Fig. 2).
-The sequence is a SYNTHETIC-APERTURE acquisition: the 16 elements of the central 4x4 block
-each fire one diverging wave in turn, and EVERY element of the whole probe receives, with
-uniform unit apodization (a fixed full aperture, not a focused F-number). The 16 single-
-element echoes are then compounded coherently on receive to synthesise a focus everywhere.
+The paper of Haidour et al. (Nat. Commun. 2025, s41467-025-64911-z) tiles 252 of
+example 23's diverging caps on an 18x14 grid at 5.48 mm pitch, 1 MHz, and characterises
+its PSF versus depth (their Fig. 2). The sequence is SYNTHETIC-APERTURE: the 16 elements of
+the central 4x4 block each fire one diverging wave, EVERY element receives with uniform unit
+apodization (fixed full aperture, no F-number), and the 16 echoes are compounded on receive.
 
-The decisive modelling detail is where each lens element sits for the beamformer. A rigid
-diverging cap has its apex at z = 0 and its rim recessed to z < 0, but it radiates a
-spherical wave whose centre of curvature — the element's VIRTUAL ACOUSTIC SOURCE — lies
-BEHIND the aperture (here about -1.8 mm). `RadialProfileTransducer.virtual_source_m`
-returns that point. Referencing the delay-and-sum to the aperture plane (z = 0) instead
-mis-times every echo by the lens's own curvature and defocuses the 16 compounded transmits,
-widening the main lobe. This example references BOTH the transmit virtual source and the
-receive element position to that measured virtual-source depth, and removes the constant
-`2|z_vs|/c` round-trip pedestal it introduces with `t_offset_s` so the targets still
-beamform to their true depth. A small sweep over {aperture plane, rim, virtual source}
-prints the resulting main-lobe width, so the choice is evidenced by the simulated field
-rather than asserted.
+The decisive detail is where each cap sits for the beamformer. A rigid diverging cap
+radiates from its centre of curvature — the VIRTUAL SOURCE, here ~-1.8 mm BEHIND the aperture
+— not the z = 0 plane. `virtual_source_m` returns it from the cap geometry alone (no field
+simulated). Beamforming from z = 0 instead mis-times every echo by the cap's curvature and
+defocuses the compound. Both TX source and RX element are referenced to that depth, and the
+constant `2|z_vs|/c` round-trip pedestal it adds is removed with `t_offset_s`. A sweep over
+{z = 0, rim, virtual source} prints the main-lobe width — the field proof that the geometric
+datum is the right one.
 
-The phantom follows the paper: three point scatterers at 30, 45 and 60 mm depth, at the
-centre of a 104 x 70 x 100 mm (x,y,z) volume, so the PSF is measured as a function of depth.
-The 5.48 mm pitch is 3.6 lambda at 1 MHz, far above lambda/2, so grating lobes are a real,
-expected feature of this sparse multilens design, not a simulation artefact.
+Phantom (paper): three points at 30, 45, 60 mm depth in a 104 x 70 x 100 mm box. The 5.48 mm
+pitch is 3.6 lambda, far above lambda/2, so the grating lobes are real, not an artefact.
 
-252 curved caps x 16 transmits is heavy; if it is too slow, lower `NO_SUB`, coarsen the
-render grid, or preview the geometry with `sim.show()` before the simulation.
+252 caps x 16 transmits is heavy — lower `NO_SUB` or coarsen the grid if too slow.
 
 Run with:
     uv run python examples/example24_multilens_matrix_psf.py
@@ -50,9 +40,8 @@ C0, FC, FS = 1540.0, 1e6, 50e6
 N_X, N_Y, PITCH_MM = 18, 14, 5.48  # paper's 18x14 matrix on a 5.48 mm grid
 N_SOURCES = 16  # the central 4x4 block, one diverging transmit each
 DEPTHS_MM = [30.0, 45.0, 60.0]  # paper's three scatterer depths
-NO_SUB = 20  # patches per element diameter: 10 under-resolves the cap directivity
-# (-6 dB half-angle 28 deg vs the paper's 33 deg); 20 recovers it. 252 caps x 16 TX is
-# heavy, so this is the smallest subdivision that keeps the element physically faithful.
+NO_SUB = 20  # patches per diameter: 10 under-resolves the cap directivity (-6 dB 28 vs
+# 33 deg); 20 recovers it. Smallest subdivision that keeps the cap faithful (252x16 is heavy).
 DB_FLOOR = -30.0  # display floor of the 2D map panels (grating lobes sit near -22 dB)
 
 # One diverging cap, reused from example 23 (the free-aspheric fit), then tiled.
@@ -67,43 +56,38 @@ print(
     f"{N_X * PITCH_MM:.0f} x {N_Y * PITCH_MM:.0f} mm, {FC / 1e6:.0f} MHz"
 )
 
-# Lens virtual-source depth (mm, signed; negative = behind the aperture). The cap radiates
-# from its centre of curvature, not the z=0 plane, and the beamformer must reference the
-# delays there. Also keep the rim depth for the datum sweep below.
+# Cap virtual source (mm, signed; <0 = behind the aperture) — the beamforming datum.
+# Keep the rim depth too, for the datum sweep below.
 Z_VS_MM = float(element.virtual_source_m[2]) * 1e3
 rim_mm = float(
     np.array(element.sub_quad_verts).mean(axis=1)[:, 2].min() * 1e3
 )  # deepest patch centre
 print(f"Lens virtual source z = {Z_VS_MM:.2f} mm (rim at {rim_mm:.2f} mm)")
 
-# Separate TX and RX arrays (same geometry): each event drives ONE TX element (one-hot
-# apodization) while every RX element records. sequence_rf applies the event's TX weights,
-# so TX and RX must be distinct objects or the one-hot would also gate the receive traces.
+# Separate TX and RX (same geometry): each event drives ONE TX element (one-hot apod) while
+# all RX record. sequence_rf applies the TX weights, so TX/RX must be distinct objects or the
+# one-hot would gate the receive traces too.
 tx = CustomTransducer([element] * n_el, positions_mm, frequency_Hz=FC)
 rx = CustomTransducer([element] * n_el, positions_mm, frequency_Hz=FC)
 
-# Transmit and receive impulse responses: a 2-cycle 1 MHz burst (bare drive, no explicit
-# derivative — the band-limited pulse carries the pulse-echo shaping). Skipping these would
-# widen the PSF and raise sidelobe clutter.
+# TX/RX impulse responses: a 2-cycle 1 MHz burst (bare drive — the band-limited pulse
+# carries the pulse-echo shaping). Skipping them widens the PSF and raises sidelobes.
 t_ir = np.arange(0, 2 / FC, 1 / FS)
 burst = (np.sin(2 * np.pi * FC * t_ir) * np.hanning(len(t_ir))).astype(np.float32)
 tx.impulse_response = burst
 rx.impulse_response = burst
 tx.excitation = burst
 
-# The 16 central elements = the middle 4x4 block. On an 18x14 grid the 16 centres nearest
-# the axis ARE exactly that block: its farthest corner is 2.12 pitches out, the next element
-# beyond is 2.55 pitches, so the nearest-16 selection cannot leak outside the 4x4.
+# The 16 axis-nearest elements ARE the middle 4x4 block: its far corner is 2.12 pitches out,
+# the next element 2.55, so the nearest-16 cannot leak outside the block.
 central = np.argsort(np.hypot(positions_mm[:, 0], positions_mm[:, 1]))[:N_SOURCES]
 
 
 def make_events(datum_z_mm):
-    """16 one-hot diverging transmits, each referenced to the element's acoustic datum.
+    """16 one-hot diverging transmits, each beamformed from `datum_z_mm` behind the element.
 
-    A single small element radiates a spherical wave; `virtual_source_mm` places that
-    wave's origin at `datum_z_mm` behind the element (the lens virtual source), so DAS
-    models the transmit curvature correctly. `delays`/`apodization` drive the simulation
-    (one element at a time); the virtual source is read only by the beamformer."""
+    `virtual_source_mm` sets the transmit wave origin (read only by DAS); `delays`/
+    `apodization` drive the simulation, one element at a time."""
     events = []
     for e in central:
         apod = np.zeros(n_el, dtype=np.float32)
@@ -123,11 +107,10 @@ def make_events(datum_z_mm):
 
 
 def bf_geom(datum_z_mm):
-    """Receive geometry whose element centres sit at the acoustic datum `datum_z_mm`.
+    """Receive geometry with element centres at the datum `datum_z_mm`.
 
-    das_volume reads only `element_centers`, so a lightweight shim lets the beamformer
-    place the elements at the lens virtual source without disturbing the simulated
-    `tx`/`rx`, whose patch geometry must stay physical."""
+    das_volume reads only `element_centers`, so this shim moves the RX datum without touching
+    the simulated `tx`/`rx`, whose patch geometry must stay physical."""
     el = positions_mm.copy()
     el[:, 2] = datum_z_mm
     return types.SimpleNamespace(element_centers=el * 1e-3)
@@ -136,18 +119,15 @@ def bf_geom(datum_z_mm):
 def datum_offset_s(datum_z_mm):
     """Remove the constant round-trip pedestal of a datum behind the surface.
 
-    Placing both TX source and RX element at `z_vs < 0` lengthens every path by |z_vs|
-    per leg relative to the z=0 surface the RF time axis is referenced to. That 2|z_vs|/c
-    pedestal is the same for every element, so subtracting it here restores the true
-    depth while keeping the (correct) lens curvature in the lateral focusing."""
+    A datum at `z_vs < 0` lengthens every path by |z_vs| per leg vs the z=0 RF reference —
+    a 2|z_vs|/c pedestal, equal for all elements. Subtracting it restores the true depth
+    while keeping the (correct) cap curvature in the lateral focusing."""
     return -2.0 * abs(datum_z_mm) * 1e-3 / C0
 
 
-# Receive on the WHOLE probe with uniform unit apodization (the paper's sequence): a fixed
-# full aperture, every element every event. das_volume gates elements beyond z/(2*fnum) of
-# the voxel, so fnum = 0.2 (aperture half-width >= 75 mm at the 30 mm target, beyond the
-# 58.6 mm array corner) keeps every element in at every depth. RECT weighting: no focused
-# F-number taper, the broad element directivity sets the effective aperture.
+# Receive on the WHOLE probe, uniform unit apod (paper's sequence). das_volume gates elements
+# past z/(2*fnum) of the voxel, so fnum 0.2 (half-width >= 75 mm at 30 mm > the 58.6 mm array
+# corner) keeps every element in at every depth. RECT: no F-number taper — cap directivity sets it.
 RX_APOD, FNUM = "rect", 0.2
 
 # Three unit point targets at the paper's depths, on the axis.
@@ -181,11 +161,9 @@ def fwhm_6db(axis_mm, line_db):
 
 
 def fine_plane(depth_mm, datum_z_mm):
-    """Envelope (dB) of a fine 0.1 mm xz plane through one target, for a given datum.
+    """Envelope dB of a fine 0.1 mm xz plane through one target → (x_mm, z_mm, image Nx,Nz).
 
-    Returns the lateral axis (mm), the axial axis (mm) and the dB image (Nx, Nz). The
-    main lobe is ~1 mm, far below the render grid, so resolution is read on this fine
-    grid, which also carries the full grating-lobe ladder out to +-50 mm."""
+    The ~1 mm lobe is far below the render grid, so widths are read here, not off the render."""
     fine = {
         "x_extent": [-50, 50],
         "y_extent": [0.0, 0.1],
@@ -206,15 +184,13 @@ def fine_plane(depth_mm, datum_z_mm):
         t_offset_s=datum_offset_s(datum_z_mm),
     )
     fenv = np.abs(hilbert(fvol, axis=2))
-    # Clip to -60 dB (below the -30 dB maps) so the lateral profile plot resolves the
-    # full side/grating-lobe ladder down to its -50 dB axis; widths/lobe levels unaffected.
+    # Clip at -60 dB (below the -50 dB profile axis) so the full grating ladder resolves.
     fdb = 20 * np.log10(np.clip(fenv / fenv.max(), 10 ** (-60.0 / 20), None))
     return fax["x_mm"], fax["z_mm"], fdb[:, 0, :]
 
 
-# Datum sweep: lateral -6 dB width at each depth for the aperture plane, the rim, and the
-# virtual source. The virtual-source datum should give the tightest lobe if the lens
-# curvature is what defocuses the compound; reported, not assumed.
+# Datum sweep (the field proof): lateral -6 dB width per depth for {z=0, rim, virtual source}.
+# If cap curvature is what defocuses the compound, z_vs gives the tightest lobe. Reported, not assumed.
 print("\nLateral -6 dB width (mm) vs beamforming datum:")
 print(f"  {'depth':>6} | {'z=0':>7} | {'rim':>7} | {'virt.src':>8}")
 for z in DEPTHS_MM:
@@ -243,11 +219,8 @@ for z in DEPTHS_MM:
     )
 print("  (paper: 1.06 mm lateral, grating lobes -22.4 dB)")
 
-# Render volume: the paper's 104 x 70 mm lateral box, framed around the three targets. The
-# main lobe is ~1 mm, so 1 mm voxels render it ~1 voxel wide (blocky — the ray-cast mapper
-# can only interpolate between the samples it is given). 0.5 mm in x/z puts 2-3 samples across
-# the lobe so it renders smooth; elevation (y) stays 1 mm since the spots sit at y~0, so the
-# cost (voxels x RX channels x events) is ~4x the 1 mm grid, not 8x.
+# Render volume over the paper's 104 x 70 mm box. 0.5 mm in x/z puts 2-3 samples across the
+# ~1 mm lobe (smooth, not blocky); elevation stays 1 mm since the spots sit at y~0 (~4x cost, not 8x).
 grid_mm = {
     "x_extent": [-52, 52],
     "y_extent": [-35, 35],
@@ -273,12 +246,8 @@ x_mm, y_mm, z_mm = axes["x_mm"], axes["y_mm"], axes["z_mm"]
 iy0 = int(np.argmin(np.abs(y_mm - 0.0)))
 iz_mid = int(np.argmin(np.abs(z_mm - DEPTHS_MM[1])))
 
-# Fig. 2-style render: grayscale, dB, volume-rendered with a LINEAR opacity transfer
-# function over a -30 dB display window (opacity ramps linearly from transparent at -30 dB
-# to opaque at 0 dB). Dark theme (black background, white box/ruler/colorbar) with the z
-# axis pointing DOWN, the ultrasound depth convention, so the probe is at the top and the
-# three targets below it. Rendered twice: once with the probe mesh overlaid (its 252 caps
-# at z=0, above the box) and once with the volume alone.
+# Fig. 2-style render: grayscale dB, LINEAR opacity over a -30 dB window, z pointing DOWN
+# (depth, probe on top). Rendered twice — with the 252-cap probe mesh overlaid, and alone.
 RENDER_FLOOR = -30.0  # display window for the volume render
 import pyvista as pv  # noqa: E402 — deferred so a headless import failure is obvious
 
@@ -293,9 +262,8 @@ img["dB"] = db.flatten(order="F")  # ImageData point data is x-fastest (Fortran 
 def render_psf(with_probe):
     """Build the PSF volume plotter; with_probe overlays the 252-cap probe mesh at z=0.
 
-    The probe mesh keeps its default per-element Apodization colouring (cmap "cool") and is
-    self-lit (ambient=1) so it reads cleanly on the black background instead of being shaded
-    dark by the scene lighting."""
+    The probe is coloured by apodization (cmap "cool") and self-lit (ambient=1) so it reads
+    cleanly on black rather than being shaded dark."""
     pl = pv.Plotter(off_screen=SAVE_FIG, window_size=(900, 800))
     pl.set_background("black")
     pl.add_volume(
@@ -323,7 +291,9 @@ def render_psf(with_probe):
     pl.show_grid(
         xtitle="x (mm)", ytitle="y (mm)", ztitle="z (mm)", color="white", n_zlabels=4
     )
-    pl.add_axes(xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)")
+    pl.add_axes(
+        xlabel="x (mm)", ylabel="y (mm)", zlabel="z (mm)", color="white"
+    )  # label text white on black
     pl.camera_position = "yz"
     pl.camera.azimuth = 35
     pl.camera.elevation = 20

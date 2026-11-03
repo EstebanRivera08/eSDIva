@@ -1,13 +1,12 @@
 """Preview the selected scenario's phantom BEFORE spending simulation hours.
 
-Left/middle: echogenicity truth at y=0 (tubes + wire positions marked) and at
-the sphere's elevation. Right: C-plane at the tier depth. Then two 3-D scenes:
+Left/middle: echogenicity truth at y=0 (tubes + wires marked) and at the
+sphere's elevation. Right: C-plane at the tier depth. Then two 3-D scenes:
 
-1. the setup — probe drawn in the transmit colour + scatterer cloud (faded by
-   amplitude) + the virtual sources (same first view as
-   ``visualize_beamformed_volume``), to check the acquisition geometry;
-     "shapes" → the true target geometry as translucent solids (cyan =
-                anechoic void, gold = x4 hyperechoic, red = the PSF wires).
+1. setup — probe + scatterer cloud (faded by amplitude) + virtual sources, to
+   check the acquisition geometry.
+2. shapes — the true target geometry as translucent solids (cyan = anechoic
+   void, gold = x4 hyperechoic, red = PSF wires).
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
     uv run examples/example21_3Dphantom_volume/preview_phantom.py
@@ -36,8 +35,6 @@ from step1_define_phantom_TX_RX import (
 from esdiva.plotting.plotting_pyvista import add_transducer_mesh
 from esdiva.reception import Reception
 
-# "bmode"  = phantom truth as a gray volume (sigmoid opacity, whole volume).
-# "shapes" = the target geometry drawn as translucent solids.
 SAVE_FIG = True
 SCALE = 5
 # High-resolution screenshots: scale window size + fonts by SCALE when saving.
@@ -80,9 +77,6 @@ for ax, iy, title in [
     for zw in SC["wire_z"]:
         ax.plot(SC["wire_x"], zw, "r+", ms=12, mew=2)
     ax.set(title=title, xlabel="x (mm)", ylabel="z (mm)")
-# The axial wire (along z at y=0) crosses the lateral wires: dotted line in
-# the y=0 panel only.
-# axs[0].axvline(SC["wire_x"], color="r", lw=0.8, ls=":")
 axs[2].imshow(
     truth[:, :, iz0].T,
     origin="lower",
@@ -92,7 +86,6 @@ axs[2].imshow(
     extent=[x[0], x[-1], y[0], y[-1]],
     aspect="equal",
 )
-# axs[2].plot(SC["wire_x"], 0, "r+", ms=12, mew=2)
 axs[2].axvline(SC["wire_x"], color="r", lw=0.6, ls=":")
 axs[2].set(title=f"C-plane z = {SC['tier_z']:g} mm", xlabel="x (mm)", ylabel="y (mm)")
 fig.suptitle(f"'{SCENARIO}' contrast-ladder phantom (wires marked red)")
@@ -171,15 +164,8 @@ plotter.add_mesh(
     line_width=scale,
 )
 
-# The true target geometry as translucent solids over a faint scatterer
-# cloud: cyan = anechoic void, gold = x4 hyperechoic, red = the PSF wires.
-# plotter.add_mesh(
-#     pv.PolyData(pos),
-#     color="white",
-#     point_size=1.5 * scale,
-#     opacity=0.06,
-#     show_scalar_bar=False,
-# )
+# The true target geometry as translucent solids: cyan = anechoic void,
+# gold = x4 hyperechoic, red = the PSF wires.
 y_len = np.ptp(VOLUME["y_extent"])
 for (cx, cz), r, gain in SC["tubes"]:
     cyl = pv.Cylinder(center=(cx, 0, cz), direction=(0, 1, 0), radius=r, height=y_len)
@@ -213,7 +199,6 @@ camera_position = [
 plotter.show_grid(
     xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)", font_size=10 * scale
 )
-# plotter.camera_position = "yz"
 plotter.camera.azimuth = 35
 plotter.camera.elevation = -20
 plotter.camera.up = (0.0, 0.0, -1.0)  # ty: ignore[unresolved-attribute]
@@ -224,5 +209,3 @@ if SAVE_FIG:
 else:
     plotter.show()
     print(plotter.camera_position)
-
-del plotter, cyl
