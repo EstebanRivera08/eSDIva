@@ -90,6 +90,8 @@ nav = [
     { "20. Speckle Phantom B-mode" = "examples/example20_phantom_simulation.md" },
     { "21. Volumetric Case Study" = "examples/example21_rca_volume.md" },
     { "22. Ultrafast Compound Doppler" = "examples/example22_flow_doppler.md" },
+    { "23. Diverging Multilens as a Rigid Cap" = "examples/example23_optimize_radial_element.md" },
+    { "24. Multilens Matrix Point PSF" = "examples/example24_multilens_matrix_psf.md" },
   ]},
   { "Contributing" = "contributing.md" },
 ]

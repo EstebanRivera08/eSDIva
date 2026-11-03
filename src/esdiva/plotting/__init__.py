@@ -1,5 +1,6 @@
 """Plotting module for 2D and 3D pressure field visualization."""
 
+from .element import visualize_element
 from .export_utils import (
     save_matplotlib_animation,
     save_pyvista_movie,
@@ -42,6 +43,8 @@ __all__ = [
     "PLANE_META",
     "PlaneSpec",
     "parse_planes",
+    # Element diagnostic
+    "visualize_element",
     # 2D matplotlib plotting functions
     "plot2D_planes",
     "plot2D_pressure_plane",

@@ -24,10 +24,7 @@ from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
-from esdiva.utilities.surface_subdivision import (
-    subdivide_parametric_surface,
-    subdivide_spherical_cap,
-)
+from esdiva.utilities.surface_subdivision import subdivide_cartesian, subdivide_radial
 
 from . import validators
 from .base import TransducerBase
@@ -144,9 +141,8 @@ def _tile_disk(
 def _shift_frames_z(frames: Dict, dz: float) -> None:
     """Translate all patch corners and centers along z by ``dz`` (in place).
 
-    Used to relocate the spherical-cap z-origin from the rim (as produced by
-    :func:`subdivide_spherical_cap`) to the apex, matching the Field II /
-    datasheet convention where the surface apex sits at ``z = 0``.
+    Sets the surface datum — e.g. moves a rim-referenced cap so its apex sits at
+    ``z = 0`` (the Field II / datasheet convention).
     """
     for corner in frames["corners"]:
         corner[:, 2] += dz
@@ -285,15 +281,14 @@ class ConcaveCircularTransducer(TransducerBase):
         (the aperture radius).  ``focus_mm = D/2`` = hemisphere.
     no_sub_diameter : int
         Target number of patches across the diameter.
-    method : {'cartesian', 'spherical'}
+    method : {'cartesian', 'radial'}
         ``'cartesian'`` (default) uses the arc-length reparameterised Cartesian
-        grid via :func:`subdivide_parametric_surface` — good for shallow bowls.
-        ``'spherical'`` uses ring-based spherical-coordinate tiling via
-        :func:`subdivide_spherical_cap` — preferred at high curvature or for
-        hemispheres.
+        grid via :func:`subdivide_cartesian` — good for shallow bowls.
+        ``'radial'`` uses ring-based tiling via :func:`subdivide_radial` —
+        preferred at high curvature or for hemispheres (no shear, exact rim).
     ratio_big_patches : float
         Fraction of the surface covered by coarse patches (0–1).  The
-        remaining region is refined.  For spherical method, controls inner
+        remaining region is refined.  For the radial method, controls inner
         ring refinement; for cartesian, controls border refinement.
         Default ``0.85``.
     refine_factor : int
@@ -333,8 +328,8 @@ class ConcaveCircularTransducer(TransducerBase):
                 f"curvature) and must be >= the aperture radius "
                 f"({diameter_mm / 2:.2f} mm).  Use focus_mm = D/2 for a hemisphere."
             )
-        if method not in ("spherical", "cartesian"):
-            raise ValueError("method must be 'spherical' or 'cartesian'.")
+        if method not in ("radial", "cartesian"):
+            raise ValueError("method must be 'radial' or 'cartesian'.")
 
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
@@ -381,7 +376,7 @@ class ConcaveCircularTransducer(TransducerBase):
             print(
                 f"  High curvature (theta_max={np.rad2deg(self._theta_max):.1f}°): "
                 "patch sizes scale with the local Jacobian near the rim. "
-                "Use method='spherical' or normalize_patch_size=True for uniform patches."
+                "Use method='radial' or normalize_patch_size=True for uniform patches."
             )
 
     def _compute_element_centers(self) -> np.ndarray:
@@ -392,19 +387,19 @@ class ConcaveCircularTransducer(TransducerBase):
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
         """Subdivide the spherical cap using the chosen method."""
-        if self.method == "spherical":
-            frames = subdivide_spherical_cap(
-                self.radius_of_curvature,
-                self._theta_max,
+        if self.method == "radial":
+            R = self.radius_of_curvature
+
+            def sag(r):  # apex at z=0, rim at z=+sag (bowl opening toward +z)
+                return R - np.sqrt(np.clip(R * R - r * r, 0.0, None))
+
+            frames = subdivide_radial(
+                sag,
+                self.radius,
                 self._n_rings,
-                concave=True,
-                normal_sign=1.0,
                 ratio_big_patches=self.ratio_big_patches,
                 refine_factor=self.refine_factor,
             )
-            # subdivide_spherical_cap puts the rim at z=0 (pole at z=-sag).
-            # Shift so the apex sits at z=0 (rim at z=+sag), matching Field II.
-            _shift_frames_z(frames, self._sag)
         else:
             R = self.radius_of_curvature
             R_ap = self.radius
@@ -435,7 +430,7 @@ class ConcaveCircularTransducer(TransducerBase):
                 y = R * np.sin(sy / R)
                 return x * x + y * y <= R_accept * R_accept
 
-            frames = subdivide_parametric_surface(
+            frames = subdivide_cartesian(
                 surface_fn,
                 u_range=(-s_max, s_max),
                 v_range=(-s_max, s_max),
@@ -500,8 +495,8 @@ class ConvexCircularTransducer(TransducerBase):
         (the aperture radius).  ``focus_mm = D/2`` = hemisphere.
     no_sub_diameter : int
         Target number of patches across the diameter.
-    method : {'cartesian', 'spherical'}
-        ``'cartesian'`` (default) or ``'spherical'`` (preferred at high curvature).
+    method : {'cartesian', 'radial'}
+        ``'cartesian'`` (default) or ``'radial'`` (preferred at high curvature).
     ratio_big_patches : float
         Fraction of surface with coarse patches.  Default ``0.85``.
     refine_factor : int
@@ -540,8 +535,8 @@ class ConvexCircularTransducer(TransducerBase):
                 f"curvature) and must be >= the aperture radius "
                 f"({diameter_mm / 2:.2f} mm).  Use focus_mm = D/2 for a hemisphere."
             )
-        if method not in ("spherical", "cartesian"):
-            raise ValueError("method must be 'spherical' or 'cartesian'.")
+        if method not in ("radial", "cartesian"):
+            raise ValueError("method must be 'radial' or 'cartesian'.")
 
         self.diameter = diameter_mm * 1e-3
         self.radius = self.diameter / 2
@@ -585,7 +580,7 @@ class ConvexCircularTransducer(TransducerBase):
             print(
                 f"  High curvature (theta_max={np.rad2deg(self._theta_max):.1f}°): "
                 "patch sizes scale with the local Jacobian near the rim. "
-                "Use method='spherical' or normalize_patch_size=True for uniform patches."
+                "Use method='radial' or normalize_patch_size=True for uniform patches."
             )
 
     def _compute_element_centers(self) -> np.ndarray:
@@ -596,19 +591,19 @@ class ConvexCircularTransducer(TransducerBase):
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
         """Subdivide the convex dome using the chosen method."""
-        if self.method == "spherical":
-            frames = subdivide_spherical_cap(
-                self.radius_of_curvature,
-                self._theta_max,
+        if self.method == "radial":
+            R = self.radius_of_curvature
+
+            def sag(r):  # apex at z=0, rim at z=-sag (dome bulging toward +z)
+                return np.sqrt(np.clip(R * R - r * r, 0.0, None)) - R
+
+            frames = subdivide_radial(
+                sag,
+                self.radius,
                 self._n_rings,
-                concave=False,
-                normal_sign=1.0,
                 ratio_big_patches=self.ratio_big_patches,
                 refine_factor=self.refine_factor,
             )
-            # subdivide_spherical_cap puts the rim at z=0 (apex at z=+sag).
-            # Shift so the apex sits at z=0 (rim at z=-sag), matching Field II.
-            _shift_frames_z(frames, -self._sag)
         else:
             R = self.radius_of_curvature
             R_ap = self.radius
@@ -639,7 +634,7 @@ class ConvexCircularTransducer(TransducerBase):
                 y = R * np.sin(sy / R)
                 return x * x + y * y <= R_accept * R_accept
 
-            frames = subdivide_parametric_surface(
+            frames = subdivide_cartesian(
                 surface_fn,
                 u_range=(-s_max, s_max),
                 v_range=(-s_max, s_max),
@@ -807,7 +802,7 @@ class FocusedCircularTransducer(TransducerBase):
         deepest point at z = -sag. Built with the centre line at z = 0 and then
         shifted by -sag.
 
-        Uses :func:`subdivide_parametric_surface` so each patch has arc-length
+        Uses :func:`subdivide_cartesian` so each patch has arc-length
         extents and tangents tangent to the cylindrical surface.
         Frames are stored in ``_sub_patch_frames`` as a side-effect.
         """
@@ -825,7 +820,7 @@ class FocusedCircularTransducer(TransducerBase):
         R_inner = rbp * R_ap
         R_accept = 1.005 * R_ap
 
-        frames = subdivide_parametric_surface(
+        frames = subdivide_cartesian(
             surface_fn,
             u_range=(-R_ap, R_ap),
             v_range=(-R_ap, R_ap),

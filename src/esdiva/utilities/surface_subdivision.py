@@ -11,9 +11,20 @@ The key physical requirement is that every patch must be a genuine rectangle
 remains valid.  On a curved surface this is achieved by constructing each
 patch as a rectangle in the **local tangent plane** at the patch centre.
 
+Two tilers, opposite refinement:
+
+- :func:`subdivide_cartesian` tiles a cartesian ``(u, v)`` grid and refines the
+  **border** (``border_refine``), because the straight grid can only approximate a
+  curved/round rim by subdividing the boundary cells; it shears on a doubly-curved
+  cap.
+- :func:`subdivide_radial` tiles concentric rings of an axisymmetric ``z(r)`` and
+  refines the **centre** (``ratio_big_patches``/``refine_factor``), because the
+  azimuthal rings converge at the hub where patches would otherwise overlap; its rim
+  is exact (no staircase) with no shear.
+
 Notes
 -----
-The module uses a uniform Cartesian parameter-space grid.  Each patch is
+The cartesian tiler uses a uniform Cartesian parameter-space grid.  Each patch is
 constructed in the local tangent plane with arc-length extents, so it
 correctly represents the physical size on the curved surface.
 
@@ -56,190 +67,153 @@ from typing import Callable, List, Optional, Tuple
 import numpy as np
 
 # ---------------------------------------------------------------------------
-# Spherical-cap subdivision (ring-based tiling)
+# Radial subdivision (polar ring tiling for any axisymmetric z(r))
 # ---------------------------------------------------------------------------
 
 
-def subdivide_spherical_cap(
-    R: float,
-    theta_max: float,
+def subdivide_radial(
+    sag: Callable[[np.ndarray], np.ndarray],
+    radius: float,
     n_rings: int,
     *,
-    concave: bool = True,
     normal_sign: float = 1.0,
-    ratio_big_patches: float = 0.85,
+    ratio_big_patches: float = 0.8,
     refine_factor: int = 3,
+    max_ring_turn_deg: float = 15.0,
 ) -> dict:
-    """Tile a spherical cap with flat rectangular patches on concentric rings.
+    """Tile an axisymmetric surface ``z(r)`` with flat rectangular patches.
 
-    Each ring at polar angle ``θ_i`` contains a variable number of azimuthal
-    patches chosen so that every patch is approximately square (arc-length
-    aspect ratio ≈ 1).  This avoids the Cartesian-parameterisation singularity
-    ``∂z/∂x → ∞`` that occurs near the rim of deep bowls.
+    Concentric rings split into near-square azimuthal patches. For a surface of
+    revolution the meridian tangent ``(cos, sin, z')`` and azimuth tangent
+    ``(-sin, cos, 0)`` are orthogonal, so every patch is an exact rectangle, the
+    outer ring is the exact rim (no staircase) and ``sum(wv) = 2*pi*r_c`` per ring
+    gives ~100% coverage. Refinement thins the innermost (hub) rings — the opposite
+    of the cartesian tiler, which refines the rim — because the azimuthal rings
+    converge toward the centre where coarse patches would overlap.
 
     Parameters
     ----------
-    R : float
-        Sphere radius in metres.
-    theta_max : float
-        Half-angle from pole to rim in radians.  ``theta_max = π/2`` gives a
-        full hemisphere.
+    sag : callable
+        ``r_m (ndarray) -> z_m (ndarray)`` radial profile in metres, vectorised
+        over a 1-D array of radii. Tiled exactly as given (no z pinning):
+        convex ``z'(r) < 0``, concave ``z'(r) > 0``.
+    radius : float
+        Aperture radius in metres.
     n_rings : int
-        Number of concentric rings from pole to rim.
-    concave : bool
-        If ``True`` (default), the bowl opens toward +z (pole at z = -sag, rim at
-        z = 0).  If ``False``, the dome bulges toward +z (apex at z = +sag,
-        rim at z = 0).
-    normal_sign : float
-        Multiplier for the outward normal.  Default ``+1.0``.
-    ratio_big_patches : float
-        Fraction of rings (from the outer rim inward) that use coarse
-        resolution.  The remaining innermost rings are each replaced by
-        ``refine_factor`` thinner sub-rings, reducing patch overlap at the
-        pole.  ``1.0`` disables refinement.  Default ``0.85``.
-    refine_factor : int
-        Each refined inner ring is replaced by this many thinner sub-rings.
-        Default ``3``.
-
-    Notes
-    -----
-    Z-convention: rim is always at z = 0.
-    Concave bowl: pole at z = -sag (below rim), opens toward +z.
-    Convex dome: apex at z = +sag (above rim).
+        Number of coarse rings from centre to rim.
+    normal_sign : float, default: 1.0
+        ``+1`` or ``-1`` to orient the outward normal into the medium.
+    ratio_big_patches : float, default: 0.8
+        Fraction of (outer) rings kept coarse; the innermost
+        ``round(n_rings * (1 - ratio_big_patches))`` rings are each split into
+        ``refine_factor`` thinner sub-rings to shrink the overlap-prone hub patches.
+    refine_factor : int, default: 3
+        Sub-ring count for the refined innermost (hub) rings; ``1`` disables.
+    max_ring_turn_deg : float, default: 15.0
+        Warn when the meridian normal turns more than this between adjacent rings
+        (under-resolved curvature → chord gaps); asks for more rings.
 
     Returns
     -------
     dict
-        Same keys as :func:`subdivide_parametric_surface`: ``corners``,
-        ``centers``, ``normals``, ``tangents_u``, ``tangents_v``, ``wu``,
-        ``wv``, ``el_idx``, ``coverage``.
+        Patch mosaic with keys ``corners``, ``centers``, ``normals``,
+        ``tangents_u``, ``tangents_v``, ``wu``, ``wv``, ``el_idx``, ``coverage``.
     """
-    sag = R * (1.0 - np.cos(theta_max))
-    dtheta = theta_max / n_rings
-
-    corners_list: List[np.ndarray] = []
-    centers_list: List[np.ndarray] = []
-    normals_list: List[np.ndarray] = []
-    tu_list: List[np.ndarray] = []
-    tv_list: List[np.ndarray] = []
-    wu_list: List[float] = []
-    wv_list: List[float] = []
-
-    # Build ring schedule: (theta_center, dtheta_ring) for each ring.
-    # Outer rings (coarse) + inner rings (refined near the pole).
+    dr0 = radius / n_rings
     n_coarse = max(1, round(n_rings * ratio_big_patches))
-    n_center = n_rings - n_coarse  # innermost rings to refine
-
-    ring_schedule: List[Tuple[float, float]] = []
+    n_center = n_rings - n_coarse
+    schedule = []  # (r_c, dr) inner-to-outer
     for i in range(n_rings):
         if i < n_center and refine_factor > 1:
-            # Refine this inner ring into refine_factor thinner sub-rings
-            dt_fine = dtheta / refine_factor
+            dr_fine = dr0 / refine_factor
             for k in range(refine_factor):
-                theta_c = i * dtheta + (k + 0.5) * dt_fine
-                ring_schedule.append((theta_c, dt_fine))
+                schedule.append((i * dr0 + (k + 0.5) * dr_fine, dr_fine))
         else:
-            ring_schedule.append(((i + 0.5) * dtheta, dtheta))
+            schedule.append(((i + 0.5) * dr0, dr0))
 
-    for theta_c, dt_ring in ring_schedule:
-        sin_tc = np.sin(theta_c)
-        cos_tc = np.cos(theta_c)
+    corners, centers, normals, tu_l, tv_l, wu_l, wv_l = ([] for _ in range(7))
 
-        # Number of azimuthal patches for near-square aspect ratio
-        n_azi = max(3, round(2.0 * np.pi * sin_tc / dt_ring))
-        dphi = 2.0 * np.pi / n_azi
-
-        # Arc-length patch extents
-        wu = R * dt_ring
-        wv = R * sin_tc * dphi
-
-        for j in range(n_azi):
-            phi_j = (j + 0.5) * dphi
-            cos_p = np.cos(phi_j)
-            sin_p = np.sin(phi_j)
-
-            # --- Surface position ---
-            x = R * sin_tc * cos_p
-            y = R * sin_tc * sin_p
-            if concave:
-                z = R * (np.cos(theta_max) - cos_tc)  # rim at z=0, pole at z=-sag
-            else:
-                z = sag - R * (1.0 - cos_tc)  # rim at z=0, apex at z=+sag
-            cen = np.array([x, y, z])
-
-            # --- Analytical tangent vectors (unit length) ---
-            if concave:
-                tu = np.array([cos_tc * cos_p, cos_tc * sin_p, sin_tc])
-            else:
-                tu = np.array([cos_tc * cos_p, cos_tc * sin_p, -sin_tc])
-            tv = np.array([-sin_p, cos_p, 0.0])
-
-            # Normal from cross product (already orthogonal)
-            n_vec = normal_sign * np.cross(tu, tv)
-            n_len = float(np.linalg.norm(n_vec))
-            n_vec = n_vec / max(n_len, 1e-30)
-
-            # --- Corners in tangent plane ---
-            wu_half = wu * 0.5
-            wv_half = wv * 0.5
-            c00 = cen - wu_half * tu - wv_half * tv
-            c10 = cen + wu_half * tu - wv_half * tv
-            c11 = cen + wu_half * tu + wv_half * tv
-            c01 = cen - wu_half * tu + wv_half * tv
-            corners_list.append(np.array([c00, c10, c11, c01], dtype=np.float64))
-
-            centers_list.append(cen)
-            normals_list.append(n_vec)
-            tu_list.append(tu)
-            tv_list.append(tv)
-            wu_list.append(wu)
-            wv_list.append(wv)
-
-    M = len(centers_list)
-
-    wu_arr = np.array(wu_list, dtype=np.float32)
-    wv_arr = np.array(wv_list, dtype=np.float32)
-    total_patch_area = float(np.sum(wu_arr * wv_arr)) if M > 0 else 0.0
-
-    # Exact theoretical area of the spherical cap
-    theoretical_area = 2.0 * np.pi * R * R * (1.0 - np.cos(theta_max))
-    coverage = total_patch_area / theoretical_area if theoretical_area > 0.0 else 0.0
-
-    # Overlap warning: check if any patch is too large relative to R
-    if M > 0:
-        max_wu = float(np.max(wu_arr))
-        max_wv = float(np.max(wv_arr))
-        max_ratio = max(max_wu, max_wv) / R
-        if max_ratio > 0.3:
-            warnings.warn(
-                f"Patch overlap detected near the pole (max patch/R ratio = "
-                f"{max_ratio:.2f}). To reduce overlap: increase no_sub, "
-                f"decrease ratio_big_patches, or increase refine_factor.",
-                UserWarning,
-                stacklevel=2,
-            )
-
-    print(
-        f"  Patches: {M}"
-        f"  |  Coverage: {coverage * 100:.1f}%"
-        f"  (patch area {total_patch_area * 1e6:.2f} mm²,"
-        f" theoretical {theoretical_area * 1e6:.2f} mm²)"
+    # Centre square plugs the hub the azimuthal rings leave open (z'(0)=0 -> flat).
+    s0 = schedule[0][1]
+    z0 = float(sag(np.array([0.0]))[0])
+    ex, ey = np.array([0.5 * s0, 0.0, 0.0]), np.array([0.0, 0.5 * s0, 0.0])
+    cen0 = np.array([0.0, 0.0, z0])
+    corners.append(
+        np.array([cen0 - ex - ey, cen0 + ex - ey, cen0 + ex + ey, cen0 - ex + ey])
     )
+    centers.append(cen0)
+    normals.append(np.array([0.0, 0.0, normal_sign]))
+    tu_l.append(np.array([1.0, 0.0, 0.0]))
+    tv_l.append(np.array([0.0, 1.0, 0.0]))
+    wu_l.append(s0)
+    wv_l.append(s0)
 
+    slope_angles = []
+    for r_c, dr in schedule:
+        h = max(dr * 1e-3, 1e-9)
+        z_c = float(sag(np.array([r_c]))[0])
+        z_prime = float(
+            (sag(np.array([r_c + h]))[0] - sag(np.array([r_c - h]))[0]) / (2 * h)
+        )
+        slope_angles.append(np.arctan(z_prime))
+        wu = dr * np.hypot(1.0, z_prime)  # radial arc length
+        n_azi = max(1, round(2 * np.pi * r_c / wu))
+        dphi, wv = 2 * np.pi / n_azi, 2 * np.pi * r_c / n_azi
+        for j in range(n_azi):
+            phi = (j + 0.5) * dphi
+            cos_p, sin_p = np.cos(phi), np.sin(phi)
+            tu = np.array([cos_p, sin_p, z_prime])
+            tu /= np.linalg.norm(tu)
+            tv = np.array([-sin_p, cos_p, 0.0])
+            nrm = normal_sign * np.cross(tu, tv)
+            nrm /= np.linalg.norm(nrm)
+            cen = np.array([r_c * cos_p, r_c * sin_p, z_c])
+            hu, hv = 0.5 * wu * tu, 0.5 * wv * tv
+            corners.append(
+                np.array([cen - hu - hv, cen + hu - hv, cen + hu + hv, cen - hu + hv])
+            )
+            centers.append(cen)
+            normals.append(nrm)
+            tu_l.append(tu)
+            tv_l.append(tv)
+            wu_l.append(wu)
+            wv_l.append(wv)
+
+    turn_deg = (
+        float(np.degrees(np.max(np.abs(np.diff(slope_angles)))))
+        if len(slope_angles) > 1
+        else 0.0
+    )
+    if turn_deg > max_ring_turn_deg:
+        warnings.warn(
+            f"Radial profile under-resolved: meridian turns {turn_deg:.1f}° between "
+            f"rings (> {max_ring_turn_deg:.0f}). Flat patches chord coarsely across the "
+            "curvature. Increase n_rings (no_sub_diameter) or reduce the surface curvature.",
+            UserWarning,
+            stacklevel=2,
+        )
+
+    wu_arr, wv_arr = np.array(wu_l, np.float32), np.array(wv_l, np.float32)
+    rr = np.linspace(0.0, radius, 400)
+    area = float(
+        np.trapezoid(2 * np.pi * rr * np.hypot(1.0, np.gradient(sag(rr), rr)), rr)
+    )
+    coverage = float(np.sum(wu_arr * wv_arr) / area)
+    print(f"  Patches: {len(centers)}  |  Coverage: {coverage * 100:.1f}%")
     return {
-        "corners": corners_list,
-        "centers": np.array(centers_list, dtype=np.float64),
-        "normals": np.array(normals_list, dtype=np.float64),
-        "tangents_u": np.array(tu_list, dtype=np.float64),
-        "tangents_v": np.array(tv_list, dtype=np.float64),
+        "corners": corners,
+        "centers": np.array(centers),
+        "normals": np.array(normals),
+        "tangents_u": np.array(tu_l),
+        "tangents_v": np.array(tv_l),
         "wu": wu_arr,
         "wv": wv_arr,
-        "el_idx": [0] * M,
+        "el_idx": [0] * len(centers),
         "coverage": coverage,
     }
 
 
-def subdivide_parametric_surface(
+def subdivide_cartesian(
     surface_fn: Callable[[float, float], np.ndarray],
     u_range: Tuple[float, float],
     v_range: Tuple[float, float],
@@ -251,13 +225,15 @@ def subdivide_parametric_surface(
     border_refine: int = 3,
     normal_sign: float = 1.0,
     normalize_patch_size: bool = False,
+    max_shear_deg: float = 5.0,
 ) -> dict:
-    """Subdivide a C1 parametric surface into flat rectangular patches.
+    """Tile a C1 surface on a cartesian (u, v) grid with flat rectangular patches.
 
-    Each patch is a genuine flat rectangle in the local tangent plane at the
-    patch centre.  Patch dimensions ``(wu, wv)`` represent the physical width
-    and height of that piston element in metres; they are used directly by the
-    SIR kernels (``sir_temporal`` / ``sir_spectral``).
+    Each patch is a flat rectangle in the local tangent plane at the patch centre;
+    ``(wu, wv)`` are its physical width and height in metres, used directly by the
+    SIR kernels. Right for flat / mildly curved / single-axis geometries. On a
+    doubly-curved cap the cell frames tilt and the round rim staircases — use
+    :func:`subdivide_radial` for an axisymmetric cap instead.
 
     Parameters
     ----------
@@ -296,6 +272,10 @@ def subdivide_parametric_surface(
         (the parameter-space step), ignoring the local Jacobian stretch factor.
         For arc-length parameterisations (where ``u`` is already in metres) this
         produces uniform patches across the aperture.  Default ``False``.
+    max_shear_deg : float
+        Warn when the surface tangents ``∂r/∂u``, ``∂r/∂v`` depart from orthogonal
+        by more than this (the cartesian grid shears on a doubly-curved cap).
+        Default ``5.0``.
 
     Returns
     -------
@@ -327,8 +307,10 @@ def subdivide_parametric_surface(
     tv_list: List[np.ndarray] = []
     wu_list: List[float] = []
     wv_list: List[float] = []
+    max_shear = 0.0  # worst tangent non-orthogonality (deg), for the shear warning
 
     def _add_patch(uc: float, vc: float, ddu: float, ddv: float) -> None:
+        nonlocal max_shear
         # --- centre on the curved surface ---
         cen = surface_fn(uc, vc)
 
@@ -337,6 +319,13 @@ def subdivide_parametric_surface(
         eps_v = ddv * 0.001
         drdu = (surface_fn(uc + eps_u, vc) - surface_fn(uc - eps_u, vc)) / (2.0 * eps_u)
         drdv = (surface_fn(uc, vc + eps_v) - surface_fn(uc, vc - eps_v)) / (2.0 * eps_v)
+
+        cos_uv = float(np.dot(drdu, drdv)) / (
+            np.linalg.norm(drdu) * np.linalg.norm(drdv) + 1e-30
+        )
+        max_shear = max(
+            max_shear, abs(90.0 - np.degrees(np.arccos(np.clip(cos_uv, -1, 1))))
+        )
 
         # Limit maximum tangent length to avoid extreme patch overlap at singularities.
         len_u = float(np.linalg.norm(drdu))
@@ -441,6 +430,15 @@ def subdivide_parametric_surface(
                             _add_patch(suc, svc, sdu, sdv)
 
     M = len(centers_list)
+
+    if max_shear > max_shear_deg:
+        warnings.warn(
+            f"Cartesian patches shear {max_shear:.1f}° from orthogonal (> "
+            f"{max_shear_deg:.0f}): the surface is too curved for the (u, v) grid. "
+            "Use subdivide_radial for an axisymmetric cap.",
+            UserWarning,
+            stacklevel=2,
+        )
 
     # ------------------------------------------------------------------
     # Coverage statistics

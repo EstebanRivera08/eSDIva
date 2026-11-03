@@ -1,101 +1,56 @@
 """
 Step 1 — define the Bercoff compound-Doppler experiment.
 
-This example reproduces the central comparison of ultrafast compound Doppler
-imaging (Bercoff et al., IEEE TUFFC 58(1):134-147, 2011): a colour-flow image
-built from a few TILTED PLANE WAVES, coherently summed, delivers the same
-Doppler performance as conventional line-by-line focused Doppler while spending
-far fewer emissions - 8x fewer in the geometry set up here.
+Reproduces the central comparison of ultrafast compound Doppler (Bercoff et al.,
+IEEE TUFFC 58(1):134-147, 2011): a colour-flow image from a few TILTED PLANE
+WAVES, coherently summed, matches conventional line-by-line focused Doppler for
+far fewer emissions — 8x fewer here. Everything steps 2-4 need is declared HERE;
+run it directly to preview the setup in 3-D.
 
-Everything steps 2-4 need is declared HERE, once. Nothing is simulated in this
-file; run it directly and it previews the setup in 3-D.
-
-THE CLAIM BEING TESTED
-----------------------
-Conventional colour Doppler scans the box one focused line at a time, and each
-line needs its own ensemble ("packet") of E emissions to measure a velocity. The
-cost is therefore `N_lines x E`. Ultrafast compounding insonifies the WHOLE box
-with every emission, so one ensemble of E compound frames images everything at
-once, costing `N_angles x E`. The saving is the ratio `N_lines / N_angles`,
-reported as 10-15x for a typical colour box of ~100 lines with ~9 angles.
-
-Three acquisitions on ONE phantom make the comparison, all sharing the same
-Doppler PRF, ensemble estimator and velocity scale:
+THE CLAIM. Conventional Doppler scans one focused line at a time, each line
+needing its own ensemble ("packet") of E emissions → cost `N_lines·E`. Ultrafast
+compounding insonifies the whole box every emission → one ensemble images
+everything, cost `N_angles·E`. The saving is `N_lines/N_angles` (10-15x for a
+~100-line box at ~9 angles). Three acquisitions on ONE phantom, same Doppler PRF,
+estimator and velocity scale:
 
     A  conventional   N_LINES x E_SHORT   focused transmits (the reference)
     B  ultrafast      N_ANGLES x E_SHORT  compounded plane waves (the speed claim)
-    C  sensitivity    N_ANGLES x E_LONG   same emission budget as A, spent on a
-                                          ~10x longer ensemble instead
+    C  sensitivity    N_ANGLES x E_LONG   A's emission budget on a longer ensemble
 
-A and B test "same performance, far fewer emissions". C tests the paper's second
-option: keep the acquisition time and buy sensitivity instead of speed.
+A vs B tests "same performance, fewer emissions"; C tests the paper's other
+option — keep the time, buy sensitivity instead of speed.
 
-THE DESIGN RULE, AND HOW IT CONSTRAINS THIS SEQUENCE
-----------------------------------------------------
-The number of angles you can afford is set by
+THE DESIGN RULE. `N_angles = PRF_max / PRF_doppler`, where `PRF_max = c/(2·z_max)`
+is the depth limit (cannot fire until the last echo is back) and `PRF_doppler`
+is the slow-time rate the velocity scale needs. At `z_max = 22.5 mm`,
+`PRF_max = 34.2 kHz`, so 9 angles cap the Doppler PRF at 3.7 kHz. Compounding is
+paid for in velocity range.
 
-    N_angles = PRF_max / PRF_doppler
+THE PROBE. 3 MHz linear array, 64 elements on half-λ pitch, 14 mm elevation
+aperture with a lens focused on the vessel. Elevation is the axis the image
+cannot show and where Doppler quietly goes wrong — a voxel averages out-of-plane
+blood that is slower, flattening the profile. The lens pins the elevation slice
+to 0.59 mm against a 3 mm lumen, so the colour map reports flow, not beam. Note
+`elevation_focus_mm` is the lens RADIUS OF CURVATURE, not the focal depth (rim =
+z=0 datum → line focus one sagitta = 1.46 mm shallower); the probe is asked
+(`elevation_focus_depth_mm`), not assumed.
 
-where `PRF_max = c / (2·z_max)` is the depth limit — you cannot fire again until
-the last echo is back — and `PRF_doppler` is the slow-time rate you need for the
-velocity scale. That rule is not decoration here: at `z_max = 21 mm`,
-`PRF_max = 34.2 kHz`, so nine angles cap the Doppler PRF at 3.7 kHz, and with it
-the unambiguous velocity. Compounding is never free; it is always paid for in
-velocity range.
+SIZING. The bill is (scatterers·emissions) and is wavelength-invariant — line
+spacing, resolution cell and speckle density all scale with λ together. So
+counts are set from the MEASURED cell `CELL_MM3` (5 blood scatterers/cell, 1.5
+tissue), not picked by eye; under-sample and the flow map turns moth-eaten. 72
+lines, not a clinical ~100: both bill terms grow with box width, so this box
+shows 8.0x where a 100-line one shows 10-15x — same mechanism, shorter lever.
 
-THE PROBE, AND WHY EVERY DIMENSION IS TIED TO THE WAVELENGTH
-------------------------------------------------------------
-A 3 MHz linear array: 64 elements on a half-wavelength pitch, a 14 mm elevation
-aperture, and an acoustic lens focused on the vessel.
-
-Elevation is the direction the image cannot show, and it is where a Doppler study
-quietly goes wrong: a voxel collects blood from above and below the imaging plane
-too, where the vessel is narrower and the flow slower, so the measured profile
-comes back flattened. The lens puts the elevation slice at 0.59 mm against a 3 mm
-lumen, so what the colour map reports is the flow, not the beam.
-
-`elevation_focus_mm` is the lens RADIUS OF CURVATURE, not the focal depth: the rim
-is the z = 0 datum, so the line focus lands one sagitta shallower. At 3 MHz that
-sagitta is 1.46 mm - nearly three wavelengths - so the difference is not a detail.
-`step1` asks the probe (`elevation_focus_depth_mm`) instead of assuming.
-
-SIZING: WHAT ACTUALLY COSTS, AND WHAT IS FREE
-----------------------------------------------
-The bill is (scatterers x emissions), and lowering the frequency does not reduce
-it: line spacing, resolution cell and speckle density all scale with the
-wavelength together, so the required scatterer count is the same at 3 MHz as at
-12 MHz. What costs is the DIMENSIONLESS design - how many lines, how many
-scatterers per resolution cell, and how many wavelengths across the vessel is.
-
-So the counts here are set from the MEASURED resolution cell (`CELL_MM3`), not
-from a total picked by eye: 5 blood scatterers per cell and 1.5 for tissue. Get
-that wrong and the phantom is under-sampled, at which point the flow map turns
-moth-eaten and every texture statistic is an artefact of the random draw - the
-count alone never tells you, because it only means something next to the cell.
-
-The box is 80 lines rather than a clinical ~100 because both terms of the bill
-grow with it: a wider box needs more lines AND a longer vessel to cross it. The
-reported speed-up is N_lines/N_angles by construction, so this box shows 8.0x
-where a 100-line one shows 10-15x. Same mechanism, slightly shorter lever.
-
-WHAT DOPPLER ACTUALLY MEASURES
-------------------------------
-Not a frequency shift inside one echo — the PHASE an echo gains from one
-emission to the next, because the blood moved `v/PRF` in between. A scatterer
-receding by `dz` lengthens the round trip by `2·dz`, turning the echo phase by
-`4·pi·f·dz/c`. Stacking those increments over an ensemble is every Doppler
-estimator there is.
-
-`sequence_rf` reproduces exactly that: one scatterer cloud PER EMISSION,
-`(N_events, N_scat, 3)`, so each transmit sees the medium where it truly is.
-eSDIva has no slow-time clock, so the trajectory is ours to write — here
-`pos = pos0 + v·(m/PRF)` in `blood_at()`. Scatterers are frozen WITHIN each
-emission, so the RF carries the inter-emission phase a Doppler estimator reads,
-not an intra-pulse frequency shift; that is the same modelling boundary Field II
-works within.
-
-Only the AXIAL velocity component is visible, which is why the vessel is tilted
-`THETA_DEG` from the beam and the truth to recover is `V_PEAK·cos(THETA)`.
+WHAT DOPPLER MEASURES. Not a shift inside one echo — the PHASE an echo gains
+emission to emission as blood moves `v/PRF` between them (receding `dz` → round
+trip `+2·dz` → phase `+4π·f·dz/c`). `sequence_rf` reproduces that with one cloud
+PER EMISSION `(N_events, N_scat, 3)`; eSDIva has no slow-time clock, so the
+trajectory is ours — `pos = pos0 + v·(m/PRF)` in `blood_at()`. Scatterers are
+frozen WITHIN an emission (the Field II modelling boundary), so the RF carries
+the inter-emission phase, not an intra-pulse shift. Only the AXIAL component is
+visible, hence the vessel is tilted `THETA_DEG` and the truth is `V_PEAK·cos θ`.
 
 Run with:
     uv run examples/example22_flow_doppler/step1_define_flow_phantom.py
@@ -151,32 +106,20 @@ BOX_X_MM = 9.225  # half-width of the imaged colour box
 BOX_Z_MM = (10.5, 21.5)
 Z_MAX_MM = 22.5  # deepest scatterer — this sets PRF_max
 
-# Conventional: one focused line per lateral position, spaced about lambda/2,
-# which is the density a scanner actually uses. 96 lines is the ~100-line colour
-# box the paper compares against - and at 3 MHz that box is physically 24.6 mm
-# wide, because line spacing is set by the wavelength. Lower frequency does not
-# make the comparison cheaper: the same LINE COUNT needs a bigger scene, and the
-# scatterer count grows with it.
-# 72 lines rather than the ~100 of a clinical colour box. The cost of this
-# comparison is (scatterers x emissions) and BOTH grow with the box - a wider box
-# needs more lines AND a longer vessel to cross it - so the box is the single
-# most expensive choice here. The speed-up the paper reports is N_lines/N_angles
-# by construction: 8.0x at this width, 10-15x for a clinical one.
+# One focused line per lateral position, spaced ~lambda/2 (the density a scanner
+# uses). 72 rather than a clinical ~100: both bill terms (scatterers x emissions)
+# grow with box width, so the speed-up is 8.0x here vs 10-15x clinically.
 N_LINES = 72
 DX_MM = 2 * BOX_X_MM / N_LINES  # 0.256 mm, about lambda/2
 Z_FOCUS_MM = 16.0  # transmit focus, at the vessel depth
 
-# Ultrafast: 9 tilted plane waves, the number reported to match conventional
-# resolution and sensitivity. At 0.47 lambda pitch the grating-lobe condition
-# sin(theta) < lambda/pitch - 1 is satisfied at EVERY angle, so the +/-5 degree
-# span here is chosen to match the paper rather than forced by the array.
+# 9 tilted plane waves — the number reported to match conventional resolution.
 N_ANGLES = 9
-# Span set by the APERTURE, not by habit: coherent compounding sharpens the
-# synthesised transmit focus only until the tilt span matches the aperture's own
-# half-angle (25.6 deg at the vessel here), then it saturates. Measured on a
-# point target: +/-5 deg gives a 1.90 mm lateral PSF, +/-10 -> 1.70, +/-15 ->
-# 1.50, +/-20 -> 1.20, +/-26 -> 1.20. The half-wavelength pitch is what allows
-# it - the grating-lobe condition sin(theta) < lambda/pitch - 1 never binds.
+# Span set by the APERTURE: compounding sharpens the synthesised focus only until
+# the tilt span reaches the aperture half-angle (25.6 deg here), then saturates.
+# Measured PSF: +/-5 deg -> 1.90 mm, +/-10 -> 1.70, +/-15 -> 1.50, +/-20 -> 1.20,
+# +/-26 -> 1.20. The half-lambda pitch keeps the grating-lobe condition
+# sin(theta) < lambda/pitch - 1 from ever binding.
 ANGLES_DEG = np.linspace(-20.0, 20.0, N_ANGLES)
 
 E_SHORT = 8  # ensemble length for arms A and B (a conventional packet)
@@ -212,13 +155,9 @@ VESSEL_CENTER_MM = np.array([0.0, 0.0, 16.0])
 VESSEL_RADIUS_MM = 2.0
 VESSEL_LENGTH_MM = 24.0
 
-# MEASURED resolution cell, not the lambda*F# estimate. The analytic formula
-# under-predicted it by 1.5x here, and a scatterer count is meaningless except
-# relative to the cell, so the cell is measured on a point target instead:
-# -6 dB widths of 1.25 mm lateral (9-angle compound), 0.61 mm elevation and
-# 0.32 mm axial. The elevation figure matches lambda*z/H to 3 %, which is what a
-# FOCUSED elevation aperture should do - the same formula was refuted for an
-# unfocused one.
+# MEASURED resolution cell (-6 dB point-target widths), not the lambda*F#
+# estimate — the analytic formula under-predicted it 1.5x, and a scatterer count
+# only means something relative to the cell.
 CELL_LAT_MM = 1.25  # 9-angle compound; a single focused transmit gives 0.70
 CELL_ELEV_MM = 0.61  # matches lambda*z/H to 3 % - a FOCUSED elevation aperture
 CELL_AX_MM = 0.32

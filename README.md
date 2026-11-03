@@ -53,7 +53,15 @@ The SIR is available through **two kernels that feed emission and reception alik
 </tr>
 <tr>
 <td width="50%"><img src="docs/examples/assets/ex13_rat_brain_zones.png" width="100%" alt="Atlas-registered targeting"><br><sub><b>Atlas-registered targeting</b> — rat brain, free-field beam (no skull in the acoustic model)</sub></td>
-<td width="50%"><img src="docs/examples/assets/ex21_zeus10_volume_3d.png" width="100%" alt="3-D B-mode volume"><br><sub><b>3-D B-mode volume</b> — Zeus matrix, fast RF + DAS</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex15_stl_simulation.png" width="100%" alt="STL mesh overlaid on a 3-D field"><br><sub><b>STL mesh overlay</b> — drop any `.stl` component into the 3-D render</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/examples/assets/ex21_zeus10_phantom_cloud.png" width="100%" alt="Phantom scatterer cloud"><br><sub><b>Phantom design</b> — scatterer cloud laid out before the run</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex21_zeus10_volume_3d.png" width="100%" alt="3-D B-mode volume"><br><sub><b>Simulated phantom</b> — 3-D B-mode volume, Zeus matrix, fast RF + DAS</sub></td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/examples/assets/ex23_optimization.gif" width="100%" alt="Radial-profile optimization"><br><sub><b>Radial-profile optimization</b> — fit a curved cap to a target directivity</sub></td>
+<td width="50%"><img src="docs/examples/assets/ex24_matrix_psf_probe.png" width="100%" alt="Multilens matrix point PSF"><br><sub><b>Multilens matrix PSF</b> — optimized caps, beamformed from each element's virtual centre</sub></td>
 </tr>
 </table>
 

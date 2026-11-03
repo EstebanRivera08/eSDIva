@@ -2,41 +2,24 @@
 Step 3 — beamform all three arms and estimate velocity with ONE estimator.
 
 The comparison is only meaningful if nothing downstream of the transmit differs,
-so every arm goes through the identical chain: beamform -> `rf2iq` (analytic
-signal, then down-mix to baseband IQ) -> `wfilt` (clutter) -> `iq2doppler`
-(lag-one autocorrelation). The only thing that changes is how the transmit spent its
-emissions. Results are stored for step 4 to draw.
+so every arm runs the identical chain: beamform -> `rf2iq` (analytic signal, then
+down-mix to baseband IQ) -> `wfilt` (clutter) -> `iq2doppler` (lag-one
+autocorrelation). Only the transmit differs. Results are stored for step 4.
 
-HOW EACH ARM IS BEAMFORMED
---------------------------
-Conventional (A): each focused transmit illuminates ONE line, so its echoes are
-beamformed onto that line's voxel column only — reconstructing a whole image
-from one focused transmit would just be inventing data the transmit never
-insonified. The 8 emissions of a line's packet become that column's slow time.
+HOW EACH ARM IS BEAMFORMED. Conventional (A): each focused transmit lights ONE
+line, so its echoes beamform onto that line's voxel column only; its 8-emission
+packet is that column's slow time. Ultrafast (B, C): every emission lights the
+whole box, so the `N_ANGLES` angles of a frame are summed COHERENTLY by
+`das_volume` (that synthesises transmit focus everywhere) and each frame is one
+slow-time sample — compounding never crosses frames (that would average away the
+flow phase).
 
-Ultrafast (B, C): every emission insonifies the whole box, so the `N_ANGLES`
-angles of one frame are summed COHERENTLY by `das_volume` (that is what
-synthesises a transmit focus everywhere), and each compound frame is one
-slow-time sample. Compounding never crosses frames: that would average away the
-very phase that carries the flow.
-
-THE CENTRE FREQUENCY MUST BE MEASURED
--------------------------------------
-Every Doppler estimator converts phase to velocity with `v = c·PRF/(4π·f)·Δφ`,
-and `f` is the centre frequency of the RECEIVED echo, not the number printed on
-the probe. The two-way chain (drive x TX impulse response x RX impulse response,
-plus the aperture's own response) reshapes the spectrum, so the echo here centres
-near 2.45 MHz on a 3 MHz probe; assuming the nominal value biases every velocity
-by -18 %. Estimating the frequency instead of assuming it is the correction
-Loupas introduced over the classic Kasai estimator; the version here is a global
-simplification of that idea, measured from the data.
-
-It must be measured on the signal the ESTIMATOR processes. Delay-and-sum
-low-passes the data, so the beamformed signal is centred below the raw channel
-RF. On the earlier 5 MHz build of this example that gap was 4.27 against
-4.46 MHz, and using the channel figure biased every velocity low by 4.5 %;
-measuring on the beamformed lines removed it, taking a plug-flow control from
-0.955 to 0.998 of its known velocity.
+THE CENTRE FREQUENCY MUST BE MEASURED, on the signal the ESTIMATOR processes:
+`v = c·PRF/(4π·f)·Δφ`, and `f` is the centre of the RECEIVED, beamformed echo,
+not the probe's nominal rating. The two-way chain reshapes the spectrum to ~2.45
+MHz on a 3 MHz probe, and delay-and-sum low-passes it further; measuring on the
+channel RF biased a plug-flow control to 0.955 of truth where the beamformed
+lines give 0.998. (Loupas's correction over Kasai.)
 
 Run with:
     uv run examples/example22_flow_doppler/step3_doppler_processing.py
