@@ -158,13 +158,15 @@ def method_to_flag(method):
     """Map a SIR method name to the integer flag the kernel expects.
 
     ``"FST"`` → 0 (fully-sampled trapezoid: evaluate the continuous trapezoid SIR
-    at every time sample), ``"sdi"``/``"temporal"`` → 1 (sparse delta integration),
-    anything else (``"auto"``) → 2 (per-patch choice in the kernel).
+    at every time sample), ``"sdi"`` → 1 (sparse delta integration: place only the 4
+    corner deltas and double-integrate), ``"auto"``/``"temporal"`` → 2 (per-patch
+    choice — SDI for wide trapezoids, FST for narrow ones, the best-of-both default
+    for the time-domain path).
 
     Parameters
     ----------
     method : str
-        SIR method name: ``"FST"``, ``"sdi"``, ``"temporal"`` or ``"auto"``.
+        SIR method name: ``"FST"``, ``"sdi"``, ``"auto"`` or ``"temporal"``.
 
     Returns
     -------
@@ -173,9 +175,9 @@ def method_to_flag(method):
     """
     if method in ("FST", "fst"):
         return 0
-    if method in ("sdi", "SDI", "temporal"):
+    if method in ("sdi", "SDI"):
         return 1
-    return 2  # auto
+    return 2  # auto (and "temporal": the per-patch SDI/FST choice)
 
 
 # -------------------- Functions for pre calculations ---------------------------
