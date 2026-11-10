@@ -49,6 +49,7 @@ from esdiva.utilities.helper_functions import (
 )
 
 from ..attenuation import causal_attenuation_tf, compute_reception_distances
+from ..hsir import place_twoway_rf
 from .base import (
     ReceptionBase,
     _warn_if_rx_delays_apods_not_default,
@@ -94,15 +95,12 @@ class ReceptionConventional(ReceptionBase):
     excitation : numpy.ndarray or None, default None
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
     method : str, default "auto"
-        SIR computation method: ``"FST"``, ``"sdi"``, or ``"auto"``.
+        SIR-sampling kernel for the time-domain placement solver: ``"FST"`` (fully
+        sampled trapezoid), ``"sdi"`` (sparse corner deltas), or ``"auto"``.
     n_depth_bins : "auto" or int, default "auto"
-        Pulse-echo speed knob (result is unchanged). Scatterers at different depths
-        echo at different times, so one FFT over all of them must span the whole
-        depth range; grouping them into depth bins lets each bin use an FFT only as
-        long as its own arrival window — a big speedup at high scatterer counts.
-        Bins recombine sample-exactly on a shared time axis. ``"auto"`` picks the
-        count from the scatterer number and depth spread (~100 scatterers per bin);
-        an int forces it; ``1`` disables binning.
+        Deprecated and ignored. The lossless RF now uses time-domain placement, whose
+        per-scatterer window is already tight, so depth binning no longer applies. Kept
+        only so existing call sites do not break.
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -164,133 +162,76 @@ class ReceptionConventional(ReceptionBase):
         return time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx
 
     # ------------------------------------------------------------------
-    # Depth-binned fast path (Field II-style bounded windows)
+    # Time-domain placement (fst/sdi scattering solver)
     # ------------------------------------------------------------------
 
-    def _lattice_grid(self, pts, aperture, t0_global):
-        """SIR sample grid for ``pts`` on ``aperture`` snapped to the global lattice.
-
-        Returns ``(grid, n0, T)``: ``grid`` starts at ``t0_global + n0·dt`` so every
-        bin shares one lattice and per-bin results add at integer offset ``n0``.
-        """
-        dt = 1.0 / self.fs
-        _, t0, _, T = self._oneway_time_grid(pts, aperture)
-        # Snap the bin's start onto the global lattice; +1 sample covers the snap
-        # (the sub-sample remainder is < dt, so it never adds a second sample).
-        n0, t0_snap, _shift = self._snap_to_lattice(t0, t0_global, dt)
-        T += 1
-        grid = (t0_snap + np.arange(T) * dt).astype(np.float32)
-        return grid, n0, T
-
-    def _fast_rf_binned(
-        self, points_m, amps, rx_groups, n_out, method_flag, *, n_bins, downsampling
+    def _placement_rf(
+        self,
+        points_m,
+        amps,
+        rx_groups,
+        n_out,
+        method_flag,
+        *,
+        focused_sum,
+        downsampling,
     ):
-        """Pulse-echo RF, split into depth bins for short per-bin FFTs.
+        """Pulse-echo RF by placing each scatterer's short echo (lossless, summed).
 
-        Same physical result as the inline fast path (the full RF summed over
-        scatterers), but scatterers are grouped by depth so each bin spans a tight
-        arrival-time window and uses a smaller FFT. All bins share one global sample
-        lattice (`_lattice_grid`), so each bin's RF simply adds back at an integer sample
-        offset — no resampling. Used only when scatterers are summed
-        (``per_scatterer=False``) and attenuation is off.
+        Builds the two one-way SIRs with the chosen fst/sdi kernel, then for every
+        scatterer convolves their non-zero spans and the two-way pulse and adds the echo
+        at its own sample offset — no FFT over the depth window (`place_twoway_rf`). The
+        ``dt`` in ``scale`` turns the discrete SIR convolution back into the continuous one.
         """
         dt = 1.0 / self.fs
         inv_c = np.float32(1.0 / self.c)
         scale = np.float32(self.rho / (2.0 * self.c**2) * dt)
+        # Two-way pulse = exc ⊛ ir_tx ⊛ ir_rx (the physical ∂³ rides this band-limited
+        # chain); a bare delta when neither excitation nor impulse responses are set.
         exc = self._resolve_excitation()
-        ir_tx = getattr(self.tx, "impulse_response", None)
-        ir_rx = getattr(self.rx, "impulse_response", None)
-        L = len(exc) if exc is not None else 0
-        # Global lattice origin (also the reported t0); shared by every bin.
+        pulse = exc.astype(np.float64) if exc is not None else np.ones(1)
+        for ir in (
+            getattr(self.tx, "impulse_response", None),
+            getattr(self.rx, "impulse_response", None),
+        ):
+            if ir is not None:
+                pulse = np.convolve(pulse, np.asarray(ir, np.float64))
+        pulse = pulse.astype(np.float32)
+
         with self._timer("time_grid_s"):
-            t0_tx_g = self._oneway_time_grid(points_m, "tx")[1]
-            t0_rx_g = self._oneway_time_grid(points_m, "rx")[1]
-
-        def per_bin(idx):
-            pts, am = points_m[idx], amps[idx]
-            Pb = pts.shape[0]
-            with self._timer("time_grid_s"):
-                grid_t, n0t, Tt = self._lattice_grid(pts, "tx", t0_tx_g)
-                grid_r, n0r, Tr = self._lattice_grid(pts, "rx", t0_rx_g)
-            peTb = Tt + Tr - 1
-            nfft = _next_pow2(peTb + L)
-            with self._timer("fft_s"):
-                fft_v = (
-                    rfft(exc.astype(np.float64), n=nfft, workers=-1).astype(
-                        np.complex64
-                    )
-                    if exc is not None
-                    else 1
-                )
-                fft_ir = [
-                    rfft(np.asarray(ir, np.float64), n=nfft, workers=-1).astype(
-                        np.complex64
-                    )
-                    for ir in (ir_tx, ir_rx)
-                    if ir is not None
-                ]
-            h_tx, _ = self._timed_h_sir(
-                Pb,
-                self._tx_M,
-                Tt,
-                dt,
-                grid_t,
-                pts,
-                self._tx_centers,
-                self._tx_wx,
-                self._tx_wy,
-                inv_c,
-                self.fs,
-                self._tx_apod,
-                self._tx_delays,
-                method_flag,
-                self._tx_eu,
-                self._tx_ev,
-                soft_baffle=self.tx.baffle == "soft",
+            g_tx, t0_tx, _, T_tx, g_rx, t0_rx, T_rx = self._compute_sir_time_grids(
+                points_m
             )
-            with self._timer("fft_s"):
-                H_tx = rfft(h_tx, n=nfft, axis=1, workers=-1)
-            del h_tx
-            rf_bin = np.zeros((n_out, peTb), dtype=np.float32)
-            for e_rx in range(n_out):
-                rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_groups[e_rx]
-                h_rx_e, _ = self._timed_h_sir(
-                    Pb,
-                    rx_c.shape[0],
-                    Tr,
-                    dt,
-                    grid_r,
-                    pts,
-                    rx_c,
-                    rx_wx,
-                    rx_wy,
-                    inv_c,
-                    self.fs,
-                    rx_ap,
-                    rx_dl,
-                    method_flag,
-                    rx_eu,
-                    rx_ev,
-                    soft_baffle=self.rx.baffle == "soft",
-                )
-                with self._timer("fft_s"):
-                    H_rx_e = rfft(h_rx_e, n=nfft, axis=1, workers=-1)
-                    del h_rx_e
-                    H = (
-                        am @ (H_tx * H_rx_e)
-                    ) * fft_v  # sum scatterers, then exc filter
-                    for f in fft_ir:
-                        H *= f
-                    rf_bin[e_rx] = (irfft(H, n=nfft)[:peTb] * scale).astype(np.float32)
-            return rf_bin, n0t + n0r
+        P = points_m.shape[0]
+        pe_t0 = t0_tx + t0_rx
+        pe_T = T_tx + T_rx - 1 + pulse.shape[0] - 1  # two-way SIR span + pulse length
 
-        rf = self._accumulate_depth_bins(points_m, n_bins, per_bin)
-        if self.verbose:
-            print(
-                f"Reception [{n_bins} depth bins] computed ({self._fmt_time_log()})\n"
-            )
-        # Beam-axis t0 = global pe origin minus the TX focusing bulk (no RX focus here).
-        return self._finalize(rf, t0_tx_g + t0_rx_g, dt, False, downsampling)
+        # The SIR kernel records each point's exact written-sample support (k_lo, k_hi);
+        # the placement reads only that span, so SDI's numerical drift tail never enters.
+        h_tx, info_tx = self._timed_h_sir(
+            P, self._tx_M, T_tx, dt, g_tx, points_m, self._tx_centers, self._tx_wx,
+            self._tx_wy, inv_c, self.fs, self._tx_apod, self._tx_delays, method_flag,
+            self._tx_eu, self._tx_ev, soft_baffle=self.tx.baffle == "soft",
+        )  # fmt: skip
+        k_tx = (info_tx["k_lo"], info_tx["k_hi"])
+        rf = np.zeros((n_out, pe_T), dtype=np.float32)
+        for e_rx in range(n_out):
+            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_groups[e_rx]
+            h_rx_e, info_rx = self._timed_h_sir(
+                P, rx_c.shape[0], T_rx, dt, g_rx, points_m, rx_c, rx_wx, rx_wy, inv_c,
+                self.fs, rx_ap, rx_dl, method_flag, rx_eu, rx_ev,
+                soft_baffle=self.rx.baffle == "soft",
+            )  # fmt: skip
+            k_rx = (info_rx["k_lo"], info_rx["k_hi"])
+            with self._timer("fft_s"):  # the two-way convolution + splat cost
+                rf[e_rx] = (
+                    place_twoway_rf(h_tx, h_rx_e, k_tx, k_rx, pulse, amps, pe_T) * scale
+                )
+            del h_rx_e
+
+        if self.verbose and not focused_sum:
+            print(f"Reception [placement] computed ({self._fmt_time_log()})\n")
+        return self._finalize(rf, pe_t0, dt, focused_sum, downsampling)
 
     # ------------------------------------------------------------------
     # Public API
@@ -358,31 +299,20 @@ class ReceptionConventional(ReceptionBase):
                 f"Per-element excitation must have shape (L, E={n_tx}), got {exc.shape}."
             )
 
-        # Depth-binned fast path: per-element RF, no attenuation. Bounded per-bin
-        # time grids → smaller nfft → big speedup at high scatterer counts. Bin count
-        # from self.n_depth_bins ("auto" or int).
-        if (
-            not per_scatterer
-            and not focused_sum
-            and self.alpha0 is None
-            and not per_elem_exc
-        ):
-            n_bins = self.n_depth_bins
-            n_bins = (
-                self._auto_depth_bins(points_m, n_out)
-                if n_bins == "auto"
-                else int(n_bins)
+        # Lossless, global-excitation RF: evaluate the two-way convolution the time-domain
+        # way — build each one-way SIR with the chosen fst/sdi kernel, then place every
+        # scatterer's short echo at its own sample offset (no FFT over the depth window).
+        # Attenuation and per-element excitation stay on the frequency-domain path below.
+        if self.alpha0 is None and not per_scatterer and not per_elem_exc:
+            return self._placement_rf(
+                points_m,
+                amps,
+                rx_groups,
+                n_out,
+                method_flag,
+                focused_sum=focused_sum,
+                downsampling=downsampling,
             )
-            if n_bins > 1:
-                return self._fast_rf_binned(
-                    points_m,
-                    amps,
-                    rx_groups,
-                    n_out,
-                    method_flag,
-                    n_bins=n_bins,
-                    downsampling=downsampling,
-                )
 
         with self._timer("time_grid_s"):
             time_grid_tx, t0_tx, dt, T_tx, time_grid_rx, t0_rx, T_rx = (
