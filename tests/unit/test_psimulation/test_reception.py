@@ -468,6 +468,41 @@ class TestReceptionFormulations:
         a, b = out[0][..., :n], out[1][..., :n]
         assert np.abs(a - b).max() < 2e-2 * np.abs(b).max()
 
+    @pytest.mark.parametrize("method", ["fst", "sdi", "auto"])
+    @pytest.mark.parametrize("baffle", ["rigid", "soft"])
+    def test_placement_equals_fft_convolution(
+        self, simple_tx, simple_rx, method, baffle
+    ):
+        """Time-domain placement == dense SIRs FFT-convolved per scatterer, then summed."""
+        simple_tx.baffle = simple_rx.baffle = baffle
+        simple_tx.impulse_response = simple_rx.impulse_response = self._exc()
+        rng = np.random.default_rng(0)
+        pos = np.c_[rng.uniform(-3, 3, 50), np.zeros(50), rng.uniform(10, 30, 50)]
+        amp = rng.standard_normal(50).astype(np.float32)
+        sim = Reception(
+            simple_tx, simple_rx, fs=100e6, excitation=self._exc(), method=method,
+            verbose=False,
+        )  # fmt: skip
+        placed, c_placed = sim.pulse_echo_rf(pos, amp)
+        per_scat, c_fft = sim.pulse_echo_rf(pos, amp, per_scatterer=True)
+        summed = per_scat.sum(axis=0)
+        n = summed.shape[-1]
+        assert c_placed["t0"] == c_fft["t0"]
+        assert_allclose(placed[:, :n], summed, atol=1e-4 * np.abs(summed).max())
+
+    def test_focused_line_temporal_equals_spectral(self):
+        """A receive-focused line (one channel, scatterers split across threads)."""
+        tx, rx = self._big_tx(16), self._big_tx(16)
+        tx.impulse_response = rx.impulse_response = self._exc()
+        pts = np.c_[np.linspace(-2, 2, 40), np.zeros(40), np.linspace(15, 30, 40)]
+        lines = [
+            Reception(tx, rx, fs=100e6, excitation=self._exc(), method=m,
+                      verbose=False).scan_focusline([0, 0, 25], pts, np.ones(40))[0]
+            for m in ("fst", "spectral")
+        ]  # fmt: skip
+        n = min(line.shape[-1] for line in lines)
+        assert np.corrcoef(lines[0][:n], lines[1][:n])[0, 1] > 0.999
+
     def test_soft_baffle_lowers_off_axis_echo(self, simple_tx, simple_rx):
         pos = np.array([[8, 0, 10]], dtype=np.float32)  # ~39° off the normal
         rigid, _ = Reception(simple_tx, simple_rx, verbose=False).pulse_echo_rf(pos)

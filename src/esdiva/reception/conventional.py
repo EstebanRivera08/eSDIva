@@ -170,7 +170,6 @@ class ReceptionConventional(ReceptionBase):
         points_m,
         amps,
         rx_groups,
-        n_out,
         method_flag,
         *,
         focused_sum,
@@ -178,9 +177,10 @@ class ReceptionConventional(ReceptionBase):
     ):
         """Pulse-echo RF by placing each scatterer's short echo (lossless, summed).
 
-        Builds the two one-way SIRs with the chosen fst/sdi kernel, then for every
-        scatterer convolves their non-zero spans and the two-way pulse and adds the echo
-        at its own sample offset — no FFT over the depth window (`place_twoway_rf`). The
+        Builds the transmit SIR once with the chosen fst/sdi kernel; `place_twoway_rf`
+        then samples each receive channel's SIR per scatterer over its short support,
+        convolves the two spans and adds the echo at its own sample offset, and applies
+        the shared two-way pulse once per channel — no FFT over the depth window. The
         ``dt`` in ``scale`` turns the discrete SIR convolution back into the continuous one.
         """
         dt = 1.0 / self.fs
@@ -214,20 +214,14 @@ class ReceptionConventional(ReceptionBase):
             self._tx_eu, self._tx_ev, soft_baffle=self.tx.baffle == "soft",
         )  # fmt: skip
         k_tx = (info_tx["k_lo"], info_tx["k_hi"])
-        rf = np.zeros((n_out, pe_T), dtype=np.float32)
-        for e_rx in range(n_out):
-            rx_c, rx_wx, rx_wy, rx_ap, rx_dl, rx_eu, rx_ev = rx_groups[e_rx]
-            h_rx_e, info_rx = self._timed_h_sir(
-                P, rx_c.shape[0], T_rx, dt, g_rx, points_m, rx_c, rx_wx, rx_wy, inv_c,
-                self.fs, rx_ap, rx_dl, method_flag, rx_eu, rx_ev,
-                soft_baffle=self.rx.baffle == "soft",
-            )  # fmt: skip
-            k_rx = (info_rx["k_lo"], info_rx["k_hi"])
-            with self._timer("fft_s"):  # the two-way convolution + splat cost
-                rf[e_rx] = (
-                    place_twoway_rf(h_tx, h_rx_e, k_tx, k_rx, pulse, amps, pe_T) * scale
-                )
-            del h_rx_e
+        # Receive SIRs are sampled inside the placement kernel, so this one timer holds
+        # the receive SIR + two-way convolution + pulse cost.
+        with self._timer("fft_s"):
+            rf = place_twoway_rf(
+                h_tx, k_tx, points_m, amps, rx_groups, g_rx, self.fs, inv_c,
+                method_flag, self.rx.baffle == "soft", pulse, pe_T,
+            ) * scale  # fmt: skip
+        del h_tx
 
         if self.verbose and not focused_sum:
             print(f"Reception [placement] computed ({self._fmt_time_log()})\n")
@@ -308,7 +302,6 @@ class ReceptionConventional(ReceptionBase):
                 points_m,
                 amps,
                 rx_groups,
-                n_out,
                 method_flag,
                 focused_sum=focused_sum,
                 downsampling=downsampling,

@@ -5,10 +5,11 @@ field point, either fully sampled (FST) or as sparse corner deltas double-integr
 Its frequency-domain twin lives in `sir_spectral`.
 
 `place_twoway_rf` turns those sampled SIRs into a pulse-echo RF the time-domain way: a
-scatterer's echo is short, so it convolves the two one-way SIRs over their non-zero span,
-then the two-way pulse, and adds the result at the echo's own sample offset — no transform
-over the whole depth window. This is the fst-like time-domain scattering solver, as used
-by Field II; the name Field II is not repeated below.
+scatterer's echo is short, so it convolves the shared transmit SIR with each receive
+channel's SIR over their non-zero spans only and adds the result at the echo's own sample
+offset — no transform over the whole depth window. Each receive SIR is sampled on the fly
+into a short reused buffer (never a scatterers × time array), and the two-way pulse, being
+common to all scatterers, is convolved once per channel after the sum.
 """
 
 import warnings
@@ -439,97 +440,259 @@ def compute_h_sir(
 
 
 # ---------- pulse-echo RF by time-domain placement ----------
-@njit(parallel=True, fastmath=True, cache=True)
-def _place_twoway_rf(
-    h_tx, h_rx, k_lo_tx, k_hi_tx, k_lo_rx, k_hi_rx, pulse, amps, pe_T, n_threads
-):
-    """Accumulate one receive channel's pulse-echo RF by placing each scatterer's echo.
+@njit(inline="always")
+def _sample_rx_sir_span(
+    p, first_patch, end_patch, points, rx_centers, rx_wx, rx_wy, rx_frames, rx_apod,
+    rx_delays, time_grid, fs, dt, inv_c, method_flag, soft,
+    trapezoids, sample_ranges, h_rx_span, d2h_rx_span,
+):  # fmt: skip
+    """Receive SIR of one channel for scatterer ``p``, sampled over its support only.
 
-    A scatterer's echo occupies only a short window around its round-trip arrival, namely
-    the SIR support ``[k_lo, k_hi)`` the SIR kernel recorded per point. For scatterer p this
-    convolves its two one-way SIRs over those exact spans (``h_tx[p] ⊛ h_rx[p]``), then the
-    short two-way pulse ``exc ⊛ ir_tx ⊛ ir_rx``, and adds the amplitude-weighted result at
-    the integer sample where the echo starts — no transform over the whole depth. Using the
-    recorded support (not a magnitude threshold) keeps SDI's drift tail out exactly. Threads
-    own private row buffers (summed at the end), so the accumulation is race-free.
-    """
-    P = h_tx.shape[0]
-    Lp = pulse.shape[0]
-    buf = np.zeros((n_threads, pe_T), dtype=np.float32)
-    for ti in prange(n_threads):  # ty: ignore[not-iterable]
-        for p in range(ti * P // n_threads, (ti + 1) * P // n_threads):
-            a = amps[p]
-            if a == 0.0:
-                continue
-            a_tx, b_tx = k_lo_tx[p], k_hi_tx[p]
-            a_rx, b_rx = k_lo_rx[p], k_hi_rx[p]
-            if a_tx >= b_tx or a_rx >= b_rx:
-                continue
-            n_tx, n_rx = b_tx - a_tx, b_rx - a_rx
-            # Two-way SIR h_pe = h_tx ⊛ h_rx over the two recorded support spans.
-            h_pe = np.zeros(n_tx + n_rx - 1, dtype=np.float32)
-            for i in range(n_tx):
-                v = h_tx[p, a_tx + i]
-                if v == 0.0:
-                    continue
-                for j in range(n_rx):
-                    h_pe[i + j] += v * h_rx[p, a_rx + j]
-            # Convolve with the pulse and add at the echo's sample offset a_tx + a_rx.
-            off = a_tx + a_rx
-            for i in range(h_pe.shape[0]):
-                v = h_pe[i]
-                if v == 0.0:
-                    continue
-                av = a * v
-                base = off + i
-                for k in range(Lp):
-                    buf[ti, base + k] += av * pulse[k]
-    out = buf[0].copy()
-    for ti in range(1, n_threads):
-        out += buf[ti]
-    return out
-
-
-def place_twoway_rf(h_tx, h_rx, k_tx, k_rx, pulse, amps, pe_T):
-    """Pulse-echo RF of one receive channel by time-domain placement.
-
-    Resolves the thread count outside the cached kernel (so it never touches the Numba
-    runtime) and calls `_place_twoway_rf`, which does the per-scatterer short-convolution
-    and splat. The caller applies the ``ρ₀/2c₀²·dt`` scale.
-
-    Parameters
-    ----------
-    h_tx : (P, T) numpy.ndarray
-        Sampled transmit one-way SIR per scatterer, float32.
-    h_rx : (P, T) numpy.ndarray
-        Sampled receive one-way SIR per scatterer (this channel), float32.
-    k_tx : tuple[numpy.ndarray, numpy.ndarray]
-        Transmit support bounds ``(k_lo, k_hi)`` (first/last written sample per
-        scatterer, ``(P,)`` int), from `compute_h_sir`'s info dict.
-    k_rx : tuple[numpy.ndarray, numpy.ndarray]
-        Receive support bounds ``(k_lo, k_hi)``, same convention as ``k_tx``.
-    pulse : (L,) numpy.ndarray
-        Two-way pulse ``exc ⊛ ir_tx ⊛ ir_rx``, float32.
-    amps : (P,) numpy.ndarray
-        Scattering amplitude per scatterer, float32.
-    pe_T : int
-        Length of the output RF (two-way SIR span + pulse length).
+    Uses the same trapezoids, time lattice and FST/SDI/auto choice as
+    `compute_parallelized_sir_optimized`, but writes only the samples between the first
+    and the last one any patch of the channel touches: ``h_rx_span[:n_samples]`` holds
+    ``h_rx`` on samples ``[first_sample, first_sample + n_samples)``. The four scratch
+    arrays belong to the caller and are reused for every scatterer.
 
     Returns
     -------
-    (pe_T,) numpy.ndarray
-        Pulse-echo RF for this receive channel (unscaled), float32.
+    first_sample : int
+        Index of ``h_rx_span[0]`` on the receive time lattice.
+    n_samples : int
+        Support length (0 when the channel does not see the scatterer).
     """
-    nthr = max(1, min(get_num_threads(), h_tx.shape[0]))
+    n_time = time_grid.shape[0]
+    t_start = time_grid[0]
+    n_patches = end_patch - first_patch
+    sdi_threshold = 8.0 + 2.0 * (n_time / max(n_patches, 1))
+
+    # Trapezoid corners of every patch and the channel's overall sample support.
+    first_sample, end_sample = n_time, 0
+    for i in range(n_patches):
+        m = first_patch + i
+        sample_ranges[i, 1] = -1  # marks the patch as silent
+        dx = points[p, 0] - rx_centers[m, 0]
+        dy = points[p, 1] - rx_centers[m, 1]
+        dz = points[p, 2] - rx_centers[m, 2]
+        distance = np.sqrt(dx * dx + dy * dy + dz * dz)
+        inv_distance = np.float32(1.0) / distance
+        frame = rx_frames[m]
+        u_cos = (dx * frame[0] + dy * frame[1] + dz * frame[2]) * inv_distance
+        v_cos = (dx * frame[3] + dy * frame[4] + dz * frame[5]) * inv_distance
+        t1, t2, t3, t4, h_max = _compute_rectangle_SIR_params(
+            rx_wx[m], rx_wy[m], u_cos, v_cos, distance, inv_c, rx_apod[m],
+            rx_delays[m], dt,
+        )  # fmt: skip
+        if soft:
+            normal_cos = (
+                dx * (frame[1] * frame[5] - frame[2] * frame[4])
+                + dy * (frame[2] * frame[3] - frame[0] * frame[5])
+                + dz * (frame[0] * frame[4] - frame[1] * frame[3])
+            ) * inv_distance
+            h_max *= max(np.float32(0.0), normal_cos)
+        k_start = int(np.floor((t1 - t_start) * fs))
+        k_end = int(np.ceil((t4 - t_start) * fs) + 1)
+        if h_max < 1e-6 or k_end < 0 or k_start >= n_time:
+            continue
+        sample_ranges[i, 0] = k_start
+        sample_ranges[i, 1] = k_end
+        trapezoids[i, 0] = t1
+        trapezoids[i, 1] = t2
+        trapezoids[i, 2] = t3
+        trapezoids[i, 3] = t4
+        trapezoids[i, 4] = h_max
+        first_sample = min(first_sample, k_start)
+        end_sample = max(end_sample, k_end)
+    first_sample = max(0, first_sample)
+    n_samples = min(n_time, end_sample) - first_sample
+    if n_samples <= 0:
+        return first_sample, 0
+
+    # Sum the patch trapezoids: filled sample by sample (FST) or as corner deltas (SDI).
+    h_rx_span[:n_samples] = 0.0
+    d2h_rx_span[: n_samples + 2] = 0.0
+    for i in range(n_patches):
+        k_start, k_end = sample_ranges[i, 0], sample_ranges[i, 1]
+        if k_end < 0:
+            continue
+        t1, t2, t3, t4 = (
+            trapezoids[i, 0],
+            trapezoids[i, 1],
+            trapezoids[i, 2],
+            trapezoids[i, 3],
+        )
+        h_max = trapezoids[i, 4]
+        slope = h_max / (t2 - t1)
+        use_fst = method_flag == 0 or (
+            method_flag == 2 and k_end - k_start <= sdi_threshold
+        )
+        if use_fst:
+            for k in range(
+                max(k_start, first_sample), min(k_end, first_sample + n_samples)
+            ):
+                t = time_grid[k]
+                if t1 <= t < t2:
+                    h_rx_span[k - first_sample] += slope * (t - t1)
+                elif t2 <= t < t3:
+                    h_rx_span[k - first_sample] += h_max
+                elif t3 <= t < t4:
+                    h_rx_span[k - first_sample] += slope * (t4 - t)
+        else:
+            for t_corner, sign in ((t1, 1.0), (t2, -1.0), (t3, -1.0), (t4, 1.0)):
+                k_float = (t_corner - t_start) * fs + 1.0
+                k_floor = int(np.floor(k_float))
+                weight_ceil = k_float - k_floor
+                i_floor = k_floor - first_sample
+                if 0 <= i_floor < n_samples + 2:
+                    d2h_rx_span[i_floor] += np.float32(
+                        sign * slope * (1.0 - weight_ceil)
+                    )
+                if 0 <= i_floor + 1 < n_samples + 2:
+                    d2h_rx_span[i_floor + 1] += np.float32(sign * slope * weight_ceil)
+
+    # SDI: integrate the corner deltas twice (d²h → h); dt makes it the continuous integral.
+    dh, h = 0.0, 0.0
+    for k in range(n_samples):
+        dh += d2h_rx_span[k]
+        h += dh
+        h_rx_span[k] += h * dt
+    return first_sample, n_samples
+
+
+@njit(parallel=True, fastmath=True, cache=True)
+def _place_twoway_rf(
+    h_tx, tx_first_sample, tx_end_sample, points, amps, rx_centers, rx_wx, rx_wy,
+    rx_frames, rx_apod, rx_delays, channel_first_patch, rx_time_grid, fs, dt, inv_c,
+    method_flag, soft, pulse, n_out, n_chunks,
+):  # fmt: skip
+    """Pulse-echo RF of every receive channel by placing each scatterer's short echo.
+
+    For scatterer ``p`` the two-way SIR ``h_pe = h_tx ⊛ h_rx`` is non-zero only over the
+    sum of the two one-way supports, so it is formed there and added, weighted by the
+    scattering amplitude, at the sample where the echo starts — no transform over the
+    whole depth. ``h_tx`` (aperture-summed, focused) is shared by all channels and comes
+    precomputed; each channel's ``h_rx`` is sampled on the fly into a short reused buffer.
+    The two-way pulse ``exc ⊛ ir_tx ⊛ ir_rx`` is the same for every scatterer, so by
+    linearity it is convolved once per channel with ``Σ_p a_p·h_pe,p``.
+
+    The work is split in (channel × scatterer chunk) tiles so that a single channel (a
+    receive-focused line) still uses every thread. Each tile sums into its own float64
+    row: float32 drifts by ~1e-4 of the peak over 1e5 scatterers.
+    """
+    n_points = points.shape[0]
+    n_channels = channel_first_patch.shape[0] - 1
+    n_rx_time = rx_time_grid.shape[0]
+    n_twoway = h_tx.shape[1] + n_rx_time - 1
+    max_patches = np.max(np.diff(channel_first_patch))
+
+    # Sum the amplitude-weighted two-way SIRs, one row per (channel, scatterer chunk) tile.
+    twoway_sum = np.zeros((n_chunks * n_channels, n_twoway), dtype=np.float64)
+    for tile in prange(n_chunks * n_channels):  # ty: ignore[not-iterable]
+        channel, chunk = tile % n_channels, tile // n_channels
+        trapezoids = np.empty((max_patches, 5), dtype=np.float64)
+        sample_ranges = np.empty((max_patches, 2), dtype=np.int64)
+        h_rx_span = np.empty(n_rx_time + 2, dtype=np.float64)
+        d2h_rx_span = np.empty(n_rx_time + 2, dtype=np.float64)
+        for p in range(
+            chunk * n_points // n_chunks, (chunk + 1) * n_points // n_chunks
+        ):
+            tx_first, tx_end = tx_first_sample[p], tx_end_sample[p]
+            if amps[p] == 0.0 or tx_first >= tx_end:
+                continue
+            rx_first, n_rx = _sample_rx_sir_span(
+                p, channel_first_patch[channel], channel_first_patch[channel + 1],
+                points, rx_centers, rx_wx, rx_wy, rx_frames, rx_apod, rx_delays,
+                rx_time_grid, fs, dt, inv_c, method_flag, soft,
+                trapezoids, sample_ranges, h_rx_span, d2h_rx_span,
+            )  # fmt: skip
+            for i in range(tx_end - tx_first):
+                weighted_h_tx = amps[p] * h_tx[p, tx_first + i]
+                echo_sample = tx_first + rx_first + i
+                for j in range(n_rx):
+                    twoway_sum[tile, echo_sample + j] += weighted_h_tx * h_rx_span[j]
+
+    # Merge each channel's chunks, then convolve once with the two-way pulse.
+    rf = np.zeros((n_channels, n_out), dtype=np.float32)
+    for channel in prange(n_channels):  # ty: ignore[not-iterable]
+        for chunk in range(1, n_chunks):
+            twoway_sum[channel] += twoway_sum[chunk * n_channels + channel]
+        for i in range(n_twoway):
+            for k in range(pulse.shape[0]):
+                rf[channel, i + k] += twoway_sum[channel, i] * pulse[k]
+    return rf
+
+
+def place_twoway_rf(h_tx, k_tx, points, amps, rx_groups, rx_time_grid, fs, inv_c,
+                    method_flag, soft, pulse, n_out):  # fmt: skip
+    """Pulse-echo RF of all receive channels by time-domain placement.
+
+    Packs the receive channels' patches into contiguous arrays (one start offset per
+    channel), picks the tile count outside the cached kernel (so the kernel never queries
+    the Numba runtime) and calls `_place_twoway_rf`. The caller applies ``ρ₀/2c₀²·dt``.
+
+    Parameters
+    ----------
+    h_tx : (P, T_tx) numpy.ndarray
+        Sampled transmit one-way SIR per scatterer, float32.
+    k_tx : tuple[numpy.ndarray, numpy.ndarray]
+        Transmit support ``(k_lo, k_hi)`` per scatterer (first / one-past-last written
+        sample), from `compute_h_sir`'s info dict.
+    points : (P, 3) numpy.ndarray
+        Scatterer positions (metres).
+    amps : (P,) numpy.ndarray
+        Scattering amplitude per scatterer.
+    rx_groups : list[tuple]
+        Patch arrays ``(centers, wx, wy, apod, delays, eu, ev)`` of each receive channel:
+        one per element, or a single all-patch group for a receive-focused line.
+    rx_time_grid : (T_rx,) numpy.ndarray
+        Receive SIR time lattice (seconds).
+    fs : float
+        Sampling frequency (Hz).
+    inv_c : float
+        Inverse speed of sound (s/m).
+    method_flag : int
+        Receive SIR sampling: 0 FST, 1 SDI, 2 auto.
+    soft : bool
+        Soft baffle: weight each receive patch by ``max(0, n·u)``.
+    pulse : (L,) numpy.ndarray
+        Two-way pulse ``exc ⊛ ir_tx ⊛ ir_rx``.
+    n_out : int
+        Output length ``T_tx + T_rx - 1 + L - 1`` (samples).
+
+    Returns
+    -------
+    (E, n_out) numpy.ndarray
+        Unscaled pulse-echo RF per receive channel, float32.
+    """
+
+    # Stack every channel's patches into contiguous arrays, one start offset per channel.
+    centers, wx, wy, apod, delays, eu, ev = (
+        np.ascontiguousarray(np.concatenate(column), dtype=np.float32)
+        for column in zip(*rx_groups)
+    )
+    channel_first_patch = np.cumsum([0] + [group[0].shape[0] for group in rx_groups])
+    # Enough scatterer chunks per channel to keep every thread busy.
+    n_chunks = max(1, min(len(points), -(-2 * get_num_threads() // len(rx_groups))))
     return _place_twoway_rf(
         np.ascontiguousarray(h_tx, dtype=np.float32),
-        np.ascontiguousarray(h_rx, dtype=np.float32),
-        np.ascontiguousarray(k_tx[0], dtype=np.int32),
-        np.ascontiguousarray(k_tx[1], dtype=np.int32),
-        np.ascontiguousarray(k_rx[0], dtype=np.int32),
-        np.ascontiguousarray(k_rx[1], dtype=np.int32),
-        np.ascontiguousarray(pulse, dtype=np.float32),
+        np.ascontiguousarray(k_tx[0], dtype=np.int64),
+        np.ascontiguousarray(k_tx[1], dtype=np.int64),
+        np.ascontiguousarray(points, dtype=np.float32),
         np.ascontiguousarray(amps, dtype=np.float32),
-        int(pe_T),
-        nthr,
+        centers,
+        wx,
+        wy,
+        pack_tangents(eu, ev),
+        apod,
+        delays,
+        channel_first_patch.astype(np.int64),
+        np.ascontiguousarray(rx_time_grid),
+        float(fs),
+        1.0 / float(fs),
+        np.float32(inv_c),
+        int(method_flag),
+        bool(soft),
+        np.ascontiguousarray(pulse, dtype=np.float32),
+        int(n_out),
+        int(n_chunks),
     )
