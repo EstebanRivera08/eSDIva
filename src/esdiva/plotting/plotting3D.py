@@ -25,7 +25,7 @@ def plot3D_pressure_vol(
     *,
     db_scale=False,
     coords=None,
-    show_fig=True,
+    show_fig=False,
     save_path=None,
     file_name="3D_pressure_slices.mp4",
     scalars="Pressure",
@@ -152,7 +152,7 @@ def plot3D_pressure_vol(
         plotter.close()  # saved: free the off-screen render window
         print(f"\nPlot saved to: {save_path}")
 
-    elif show_fig:
+    if show_fig:
         plotter.show()
 
     return plotter

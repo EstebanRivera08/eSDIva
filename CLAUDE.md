@@ -164,8 +164,9 @@ practice that ∂³ is **baked into** the band-limited excitation + TX/RX impuls
 `hsir.compute_h_sir_spectrum` — per patch `A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}`,
 `rfft(h[n]) ≈ fs·H`; **no forward FFT, no I⁴, no dt clamp**, cost ∝ M, exact, band-limited
 bins only);
-**`temporal`** (= `sdi`) / **`fst`** / **`auto`** (sample both SIRs and FFT-convolve —
-delegates to `ReceptionConventional`; the string is its SIR-sampling kernel). Every method
+**`temporal`** (= `sdi`) / **`fst`** / **`auto`** (sample both SIRs; a lossless single-drive
+run places each echo in time with no transform, otherwise FFT-convolve — delegates to
+`ReceptionConventional`; the string is its SIR-sampling kernel). Every method
 supports global `(L,)` and per-element `(L, E)` excitation (spectral: `H_TX = Σ_t D_t·H_TX,t`,
 one drive spectrum per TX element inside the fused kernel), the soft baffle, and
 attenuation along the round trip TX centre → scatterer → RX element centre. Spectral is
@@ -175,6 +176,16 @@ runs the temporal path places each scatterer's short echo in time (`place_twoway
 SIR sampled per scatterer over its support, pulse convolved once per channel, float64
 sums) and is faster than spectral (2026-11-13, i7-13700H: Domino 128 el 100k scatterers
 3.9 s vs 89 s; 64 el deep focus 0.88 s vs 1.77 s).
+**Temporal and spectral are implementation-parallel ONLY on the frequency-domain path**
+(attenuation, per-element drive, or `per_scatterer` PSF): there both build the SIR spectrum
+and multiply, differing only in how `H` is obtained (closed form vs sampled h then FFT). The
+lossless single-drive temporal path deliberately diverges — it skips the transform and places
+each echo directly in time — which is why it wins there. Conversely, whenever a frequency
+transfer function is non-negotiable (attenuation `H_att(f)`, directivity `D(θ,f)`, dispersion,
+bandwidth, per-element drive spectra) the maths must enter Fourier space anyway, and spectral
+is then the natural, fastest choice: it already has the closed-form `H(ω)` (no forward FFT),
+applies each `H(f)` as one complex multiply per bin, and inverts once — the time-domain
+placement cannot carry an `H(f)` without transforming, forfeiting its advantage.
 **`ReceptionPaired`** (separate pedagogic class; `method="paired"` raises) — the two-way
 delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair, splats `w = I⁴ v_pe` per corner
 event: exact but cost ∝ M²·len(w), warns on construction. Field II shares the convention
