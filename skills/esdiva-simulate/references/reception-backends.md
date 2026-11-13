@@ -88,76 +88,82 @@ even though each echo fills only a sliver of it. **Most of that FFT is transform
 **Idea: exploit fact #1. Each echo is short, so do the convolution in the time domain over
 just its non-zero window, and drop it into the output at its own time offset.**
 
-For each scatterer:
-1. FST-fill its two short one-way SIRs (fast — the ×60 SIR speedup finally matters here,
-   because nothing downstream swamps it).
-2. Convolve the two **tight** supports directly in time (small × small).
-3. Convolve with the short pulse.
-4. **Add** the result into the receive channel at the integer sample where its echo starts.
+For each receive channel and each scatterer:
+1. Take the scatterer's transmit SIR (computed once for all channels, kept with its
+   non-zero support).
+2. Sample this channel's receive SIR **only over its own short support**, into a small
+   reused buffer — no scatterers × time receive array is ever built.
+3. Convolve the two **tight** supports directly in time (small × small) and **add** the
+   amplitude-weighted result into the channel at the sample where the echo starts.
 
-No FFT at all. No wasted work on zeros. This is exactly how Field II builds its RF
-(`calc_scat` places each short response at its `tstart`); Field II **Pro**'s ~20× speedup
-over open Field II is this same loop in multithreaded C.
+Then, once per channel, convolve the summed two-way SIR with the two-way pulse
+`exc ⊛ ir_tx ⊛ ir_rx`: the pulse is the same for every scatterer, so by linearity it does
+not need to be applied scatterer by scatterer. The sums are float64 (float32 drifts ~1e-4
+of the peak over 1e5 scatterers).
 
-- **Cost grows with: scatterer count × (transmit support width × receive support width).**
+No FFT at all and no wasted work on zeros. This mirrors the structure Jensen describes for
+the multi-threaded Field II (IUS 2014): short per-scatterer signals, pre-allocated buffers
+reused from cache, work split over threads. Field II's source is not public, so the exact
+order of its convolutions is not known; the equivalence is in structure, not code.
+
+What made the difference (measured, Domino 128 el, 10 000 scatterers, FST): the former
+version built a full scatterers × time receive SIR per element (~1.7 s), convolved the
+pulse per scatterer (~0.9 s) and allocated a buffer per scatterer (~0.6 s of the
+convolution) — 3.3 s total, now 0.39 s.
+
+- **Cost grows with: channels × scatterers × (transmit support × receive support).**
   It does **not** grow with acquisition depth — a scatterer deep in the volume is as cheap
   as a shallow one.
-- **Fastest when** each echo's support is *tight* (scatterers near the transmit focus,
-  shallow geometry, fine subdivision at high frequency where the other methods' FFT/bin
-  costs balloon).
-- **Slower when** the transmit support is *wide* (deep focus or unfocused/steered
-  transmit spreads arrivals over a long window), because the direct `support × support`
-  convolution then does a lot of multiplies per scatterer — that is the regime where
-  `spectral` wins instead.
+- Wide transmit supports (deep focus, steered/unfocused transmit) cost more multiplies per
+  scatterer, but in the measured deep-focus case below it still beats `spectral`.
+- Lossless, single global drive only. Attenuation and per-element drives fall back to the
+  conventional FFT path.
 
 ---
 
-## Which is fastest? It depends on the echo width — measured, not guessed
+## Which is fastest? Measured, not guessed
 
-Two measured regimes on this machine, both with pulse-echo correlation 1.0000 against the
-validated conventional RF (so all three are the same signal):
+Measured on one machine (Intel i7-13700H, 14 cores), correlation ≥ 0.99999 against
+`spectral` in every case. Re-measure on your own machine before sizing a long run.
 
 **Domino linear array, 128 elements, 12.5 MHz, focus 8 mm, scatterers at 5–11 mm**
 (tight echoes, fine subdivision, high frequency):
 
-| scatterers | open Field II | conventional (fst) | spectral | temporal splat |
-|-----------:|--------------:|-------------------:|---------:|---------------:|
-| 100        | 0.088 s       | 0.088 s            | 0.041 s  | **0.030 s**    |
-| 1 000      | 0.842 s       | 0.663 s            | 0.277 s  | **0.165 s**    |
-| 10 000     | 8.53 s        | 6.30 s             | 2.56 s   | **1.12 s**     |
-
-Here the splat wins: ~2.3× over spectral, ~5.6× over conventional, ~7.6× over open Field II.
+| scatterers | spectral | temporal (fst), former | temporal (fst) |
+|-----------:|---------:|-----------------------:|---------------:|
+| 10 000     | 9.4 s    | 3.3 s                  | **0.39 s**     |
+| 100 000    | 89 s     | 26.7 s                 | **3.9 s**      |
 
 **64-element array, 5 MHz, focus 30 mm, 5 000 scatterers over 10–50 mm**
 (wide echoes, deep focus):
 
-| spectral | temporal splat |
-|---------:|---------------:|
-| **0.59 s** | 0.93 s       |
+| spectral | fst | sdi | auto |
+|---------:|----:|----:|-----:|
+| 1.77 s | 0.88 s | **0.83 s** | 0.88 s |
 
-Here spectral wins, because the deep focus makes each transmit support wide and the splat's
-`support × support` convolution expensive.
+**Zeus 55 × 55 matrix, 10 MHz, 1 000 scatterers**: temporal (fst) 58.9 s → 5.0 s with the
+current kernel.
 
-**The discriminator is echo-support width**, set by focus depth and transmit steering:
-
-- **Tight support** (near focus, shallow, unsteered) → **temporal splat** wins.
-- **Wide support** (deep focus, steered/unfocused, diverging waves) → **spectral** wins.
-- **Conventional (FFT over the full window)** is almost never the fastest — its FFT length
-  is tied to depth, not echo width. It stays as the exact cross-check and the backend that
-  already supports every option.
+- **Lossless, global drive** → **temporal** (`fst`/`sdi`/`auto`) was fastest in every
+  measured case.
+- **Attenuation or per-element drives** → **`spectral`** (temporal falls back to the
+  full-window FFT there).
+- **Conventional FFT over the full window** is never the fastest; it stays as the exact
+  cross-check and as the fallback for those options.
 
 ### Why "make the SIR 60× faster" did *not* speed up conventional
 
 Because conventional is **FFT-bound, not SIR-bound**: in a 64-element run the SIR kernel was
 ~1.6 % of the wall and the full-window FFT was ~98 %. Speeding up 1.6 % of the work can't
-move the total (Amdahl's law). The temporal splat is the backend that *removes* the FFT, so
+move the total (Amdahl's law). Temporal placement is the backend that *removes* the FFT, so
 it is the only one where the fast SIR kernel actually decides the runtime.
 
 ---
 
 ## One-line picker
 
-- Default / mixed / deep / steered → **`spectral`**.
-- Shallow phantom near focus, high frequency, many scatterers → **temporal**
-  (`method="temporal"`/`"fst"`/`"sdi"`).
-- Need a byte-for-byte reference or every exotic option → **conventional** (`fst`/`sdi`).
+- Lossless, single global drive → **temporal** (`method="temporal"`/`"fst"`/`"sdi"`/`"auto"`).
+- Attenuation, per-element drives, or no measurement for your case → **`spectral`** (the
+  default).
+- Need a reference that supports every option → **conventional** (`fst`/`sdi` with
+  attenuation, or `per_scatterer=True`).

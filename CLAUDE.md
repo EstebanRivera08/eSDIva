@@ -169,8 +169,12 @@ delegates to `ReceptionConventional`; the string is its SIR-sampling kernel). Ev
 supports global `(L,)` and per-element `(L, E)` excitation (spectral: `H_TX = Σ_t D_t·H_TX,t`,
 one drive spectrum per TX element inside the fused kernel), the soft baffle, and
 attenuation along the round trip TX centre → scatterer → RX element centre. Spectral is
-the measured-fastest reception default in every case (64-el, 20k scatterers: 6× lossless,
-52× per-element, 105× attenuated — the conventional path loses depth bins there).
+the default and the fastest with attenuation or per-element drives (64-el, 20k scatterers:
+52× per-element, 105× attenuated vs the conventional FFT path). For lossless single-drive
+runs the temporal path places each scatterer's short echo in time (`place_twoway_rf`: RX
+SIR sampled per scatterer over its support, pulse convolved once per channel, float64
+sums) and is faster than spectral (2026-11-13, i7-13700H: Domino 128 el 100k scatterers
+3.9 s vs 89 s; 64 el deep focus 0.88 s vs 1.77 s).
 **`ReceptionPaired`** (separate pedagogic class; `method="paired"` raises) — the two-way
 delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair, splats `w = I⁴ v_pe` per corner
 event: exact but cost ∝ M²·len(w), warns on construction. Field II shares the convention

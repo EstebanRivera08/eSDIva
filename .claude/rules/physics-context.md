@@ -218,7 +218,8 @@ float32). `rfft(h[n]) ≈ fs·H(ω)` links the two sources (`hsir.compute_h_sir_
 - **Reception:** `rf ∝ irfft(fs·H_TX·H_RX·DFT(v)·IR_tx·IR_rx·H_att)` with
   `H_TX = Σ_t DFT(v_t)·H_TX,t` for per-element drives; `compute_twoway_spectrum_summed`
   fuses TX×RX over scatterers. `fs·H·H` equals conventional `dt·DFT(h)·DFT(h)`. Spectral
-  is the default (fastest in every measured case).
+  is the default (fastest with attenuation / per-element drives); lossless single-drive
+  temporal runs place each short echo in time instead and are faster there.
 - **Attenuation** is applied per path origin (TX centre, RX element centre, or element
   centre in emission) — never inside a kernel (attenuation.md).
 

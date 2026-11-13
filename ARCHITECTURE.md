@@ -118,15 +118,21 @@ sampled-convolution backend. `Reception` selects the formulation via `method=`
     ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**, exact. Per-element TX drives
     enter as `H_TX = Σ_t DFT(e_t)·H_TX,t`; attenuation per (scatterer, RX element) round
     trip. `compute_twoway_spectrum_summed` fuses TX×RX over scatterers for the summed RF.
-    Measured fastest in every case (64 el, 20k scatterers: 6× lossless, 52× per-element,
-    105× attenuated vs the conventional path).
-  - `temporal` (= `sdi`) / `fst` / `auto` — sampled two-way convolution `h_pe = h_tx ⊛ h_rx` (each SIR
-    built separately, convolved by FFT), delegated to `ReceptionConventional`. The string
-    is its SIR-sampling kernel (`fst` fully samples each trapezoid, `sdi` places sparse
-    corner deltas, `auto` chooses per grid). Depth-binned post-processing (see
-    [Pulse-Echo Post-Processing](#pulse-echo-post-processing--depth-binning)) makes this
-    path competitive for real arrays: cost ~`O(P·M + P·log nfft)`, beating Field II
-    `calc_scat_multi` for `N_scat ≥ 100` (e.g. 2× at `N_scat=10⁴`).
+    Fastest with attenuation or per-element drives (64 el, 20k scatterers: 52×
+    per-element, 105× attenuated vs the conventional FFT path).
+  - `temporal` (= `sdi`) / `fst` / `auto` — sampled two-way convolution `h_pe = h_tx ⊛ h_rx`,
+    delegated to `ReceptionConventional`. The string is its SIR-sampling kernel (`fst`
+    fully samples each trapezoid, `sdi` places sparse corner deltas, `auto` chooses per
+    patch). Lossless single-drive runs use time-domain placement
+    (`hsir.place_twoway_rf`): `h_tx` is sampled once with its per-scatterer support; per
+    (RX channel × scatterer chunk) tile, each channel's `h_rx` is sampled over its own short
+    support into a reused buffer, `a_p·h_tx ⊛ h_rx` is added at the echo's start sample
+    into a float64 row, and the shared pulse `exc ⊛ ir_tx ⊛ ir_rx` is convolved once per
+    channel. Cost ~`O(E·P·(M_rx + n_tx·n_rx))`, independent of depth. Measured 2026-11-13
+    (i7-13700H): Domino 128 el, 100k scatterers 26.7 s (former dense-RX-SIR version) →
+    3.9 s, spectral 89 s; 64 el deep focus 0.88 s vs spectral 1.77 s; Zeus 55×55, 1k
+    scatterers 58.9 → 5.0 s. Attenuation, per-element drives and `per_scatterer=True`
+    keep the full-window FFT convolution.
   - `ReceptionPaired` (separate class in `reception/paired.py`; `method="paired"` raises)
     — **pedagogic reference only** (warns on construction): forms the two-way delta train
     `Δδ_pe = D²h_tx ⊛ D²h_rx` over all TX/RX patch pairs (16 corner events per pair,

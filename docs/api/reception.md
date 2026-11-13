@@ -13,8 +13,9 @@ The single pulse-echo class. Its `method` selector chooses how the two-way SIR i
 evaluated — all methods give the same RF, they trade speed only:
 
 - `"spectral"` (default) — `H_TX·H_RX` from the closed-form SIR spectrum, in-band only.
-- `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sampled two-way SIR convolution (delegated to the
-  conventional `ReceptionConventional` backend; the string names its SIR-sampling kernel).
+- `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sampled two-way SIR convolution in time,
+  placed per scatterer at its echo arrival (delegated to the conventional
+  `ReceptionConventional` backend; the string names its SIR-sampling kernel).
 - `ReceptionPaired` — exact but slow pedagogic reference, a separate class (warns on construction).
 
 ::: esdiva.reception.Reception

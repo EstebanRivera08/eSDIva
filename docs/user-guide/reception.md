@@ -13,9 +13,12 @@ One class, `Reception`, does everything; its `method` selector picks how the two
 SIR is evaluated (speed only — all give the same RF):
 
 - **`"spectral"`** (default) — the two-way spectrum `H_TX·H_RX` from the closed-form
-  SIR spectrum, evaluated only on the pulse's band; fastest in every measured case.
-- **`"temporal"`** (= `"sdi"`) / **`"fst"`** / **`"auto"`** — conventional
-  Tupholme-Stepanishen sampled convolution.
+  SIR spectrum, evaluated only on the pulse's band; fastest with attenuation or
+  per-element drives.
+- **`"temporal"`** (= `"sdi"`) / **`"fst"`** / **`"auto"`** — sampled
+  Tupholme-Stepanishen SIRs, convolved in time over each scatterer's short echo support
+  and placed at its arrival sample (no FFT); fastest for lossless, single-drive runs.
+  With attenuation or per-element drives it falls back to a full-window FFT.
 - **`ReceptionPaired`** (separate class) — exact but slow pedagogic reference (warns on construction).
 
 Every method supports a global `(L,)` or per-element `(L, E)` excitation, a soft baffle
@@ -42,7 +45,7 @@ flowchart LR
     R --> M{method}
     M -->|spectral · default| SP["closed-form H_TX·H_RX<br/>in-band only · no FFT"]
     M -.->|ReceptionPaired · pedagogic| PA[16 corner deltas / pair<br/>splat drive]
-    M -->|temporal / fst / auto| CV[sample SIRs + FFT]
+    M -->|temporal / fst / auto| CV[sample SIRs<br/>place short echoes]
     SP --> API
     PA --> API
     CV --> API
