@@ -1,7 +1,7 @@
 """
 Example 16: Parametric Surface Subdivision
 
-Demonstrates ``esdiva.utilities.surface_subdivision.subdivide_parametric_surface``,
+Demonstrates ``esdiva.utilities.surface_subdivision.subdivide_cartesian``,
 the public utility that tiles any C1 parametric surface with flat tangent-plane
 rectangles for use by the SIR kernel.
 
@@ -18,7 +18,7 @@ Steps
 5. Visualise with PyVista: theoretical surface vs flat patch mosaic
 
 Run with:
-    uv run examples/example16_subdivide_parametric_surface.py
+    uv run examples/example16_subdivide_cartesian.py
 """
 
 import matplotlib.pyplot as plt
@@ -31,7 +31,7 @@ import pyvista as pv
 from config import FIG_FOLDER, SAVE_FIG, SCALE
 from mpl_toolkits.mplot3d.art3d import Poly3DCollection
 
-from esdiva.utilities.surface_subdivision import subdivide_parametric_surface
+from esdiva.utilities.surface_subdivision import subdivide_cartesian
 
 WIN_W, WIN_H = 500, 500
 THEME = "dark"
@@ -84,7 +84,7 @@ print("-" * 40)
 
 # border_refine = 3: cells cut by the aperture edge are subdivided 3×3 so
 # the patch mosaic follows the elliptical rim closely.
-frames = subdivide_parametric_surface(
+frames = subdivide_cartesian(
     ellipsoid_cap,
     u_range=(-R_ap, R_ap),
     v_range=(-R_ap, R_ap),
@@ -293,7 +293,7 @@ print("-" * 40)
 results = {}
 
 for nd in density_values:
-    f = subdivide_parametric_surface(
+    f = subdivide_cartesian(
         ellipsoid_cap,
         u_range=(-R_ap, R_ap),
         v_range=(-R_ap, R_ap),

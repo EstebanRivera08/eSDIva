@@ -107,16 +107,23 @@ For mono-element (all circular types):
 
 ## Surface Subdivision Methods
 
+Two tilers in `utilities/surface_subdivision.py`: `subdivide_cartesian` (any C1
+surface on a cartesian (u,v) grid — flat/mildly-curved/single-axis; warns on shear)
+and `subdivide_radial` (any axisymmetric `z(r)` on polar rings — no shear, exact
+rim; warns when the meridian under-resolves the curvature). `RadialProfileTransducer`
+wraps `subdivide_radial` for an arbitrary `z(r)` cap, pinning `max z(r)` to z=0.
+
 **ConcaveCircular / ConvexCircular** — `method` parameter:
-- `"cartesian"` (default): arc-length reparameterised grid (`subdivide_parametric_surface`)
-- `"spherical"`: ring-based tiling (`subdivide_spherical_cap`), preferred at high curvature or hemispheres
+- `"cartesian"` (default): arc-length reparameterised grid (`subdivide_cartesian`)
+- `"radial"`: ring-based tiling (`subdivide_radial`), preferred at high curvature or hemispheres
 
 **Shared parameters** (all 4 circular types):
-- `ratio_big_patches` (0-1, default 0.85): inner ring refinement (spherical) or border
+- `ratio_big_patches` (0-1, default 0.85): inner ring refinement (radial) or border
   refinement zone (cartesian/flat)
-- `refine_factor` (int, default 3): sub-rings (spherical) or subdivision factor (cartesian)
+- `refine_factor` (int, default 3): sub-rings (radial) or subdivision factor (cartesian)
 
-**Overlap warnings**: spherical warns if patch/R > 0.3; cartesian warns if coverage > 102%.
+**Overlap warnings**: radial warns if the meridian turns > 15°/ring; cartesian warns
+on tangent shear > 5° and if coverage > 102%.
 
 **`normalize_patch_size`** (bool, default False): sets wu/wv to arc-length step ignoring
 Jacobian stretch. Produces uniform patches. Critical for hemispheres (Jacobian diverges

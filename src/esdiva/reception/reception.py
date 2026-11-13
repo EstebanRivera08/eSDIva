@@ -25,18 +25,31 @@ The SDI ("sparse delta integration") development below is purely a fast way to e
 the RF equation under that assumption — it introduces NO new physics and is valid only
 where the far-field trapezoidal rectangular-patch SIR is.
 
-Evaluations of the SAME RF equation (``p_pe`` = one scatterer's bracket):
+Two ways to do the SAME convolution — and the choice is which domain the SIR is SPARSE
+in (``p_pe`` = one scatterer's bracket of the RF equation):
 
-    p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                          ← conventional (fst/sdi/auto)
-         = F⁻¹{ fs · H_TX(ω) · H_RX(ω) · V_pe(ω) }         ← spectral (default)
+    p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                          ← in TIME     ("temporal")
+         = F⁻¹{ fs · H_TX(ω) · H_RX(ω) · V_pe(ω) }         ← in FREQUENCY ("spectral", default)
 
-* ``fst`` / ``sdi`` / ``auto`` — sample each one-way SIR and FFT-convolve them; delegated
-  to `ReceptionConventional` (the string names its trapezoid-sampling kernel).
-* ``spectral`` — each one-way SIR spectrum H is closed form (`compute_h_sir_spectrum`: per
-  patch, area × two sincs × a delay phasor), so the two-way spectrum is the product
-  ``H_TX·H_RX`` evaluated only on the in-band bins of the excitation/IR chain. No time
-  sampling, no forward FFT, cost linear in the patch count, exact. ``fs`` converts the
-  continuous spectra to the sampled-signal scale (``rfft(h[n]) ≈ fs·H``).
+* ``temporal`` (= ``auto``; also ``fst`` / ``sdi`` to force one kernel) — convolve in
+  TIME, one scatterer at a time, delegated to `ReceptionConventional`. This is efficient
+  because a scatterer's echo is SHORT IN TIME: its SIR is non-zero only over a narrow
+  window around the round-trip arrival, so each convolution and the splat into the RF
+  touch just that span, never the whole depth. ``auto`` fills each SIR with SDI where the
+  patch trapezoid is wide and FST where narrow (best of both); ``fst``/``sdi`` pin the
+  kernel. Fastest when echoes are tight (near focus, shallow, unsteered).
+* ``spectral`` — convolve in FREQUENCY, all P scatterers at once as a ``[P, ω]`` matrix
+  (not per point). This is efficient because the SIR is SHORT IN FREQUENCY: each one-way
+  SIR spectrum H is closed form (`compute_h_sir_spectrum`: per patch, area × two sincs × a
+  delay phasor), band-limited by the excitation/IR chain, so the product ``H_TX·H_RX`` is
+  evaluated only on those few in-band bins. No time sampling, no forward FFT, cost linear
+  in the patch count, exact. ``fs`` converts the continuous spectra to the sampled-signal
+  scale (``rfft(h[n]) ≈ fs·H``). Fastest when echoes are wide (deep focus, steered,
+  diverging) — exactly where the time-domain window stops being short.
+
+So the two paths are DUALS: the echo is compact in time (temporal wins) OR the spectrum is
+compact in frequency (spectral wins); sparsity simply moves between the domains with the
+imaging geometry.
 
 The paired SDI form (16 corner deltas per patch pair, O(M²)) is the separate pedagogic
 class `ReceptionPaired`. All agree to correlation ~1.0 with each other and Field II.
@@ -72,7 +85,8 @@ from .base import (
 # conventional backend (that string is the SIR-sampling kernel it uses).
 _VALID_METHODS = ("spectral", "temporal", "fst", "sdi", "auto")
 
-# Values routed to the conventional `ReceptionConventional` delegate ("temporal" = "sdi").
+# Values routed to the conventional `ReceptionConventional` delegate ("temporal" = "auto":
+# the best-of-both per-patch SDI/FST choice for the time-domain placement path).
 _CONVENTIONAL_METHODS = ("temporal", "fst", "sdi", "auto")
 
 

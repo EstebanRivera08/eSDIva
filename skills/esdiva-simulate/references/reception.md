@@ -102,11 +102,17 @@ All backends compute the same physics; they differ in cost.
 
 - `"spectral"` (default) — `fs·H_TX·H_RX` from the closed-form SIR spectrum (per patch:
   area × two sincs × a delay phasor), no forward FFT, cost ∝ M (patches), exact,
-  band-limited bins only. Use this: measured fastest in every case (64 elements, 20k
-  scatterers: 6× lossless, 52× per-element drive, 105× attenuated).
-- `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sample both SIRs and FFT-convolve
-  (`ReceptionConventional`); the string names its SIR-sampling kernel. Same RF (≤ ~1 %);
-  use to cross-check `spectral`.
+  band-limited bins only. Fastest in most cases and for deep/steered geometries and
+  attenuated runs (64 elements, 20k scatterers: 6× lossless, 52× per-element, 105×
+  attenuated); the temporal solver below can beat it for tight shallow echoes.
+- `"temporal"` (= `"auto"`) / `"fst"` / `"sdi"` — the time-domain scattering solver
+  (`ReceptionConventional`): build both one-way SIRs with that sampling kernel, then place
+  each scatterer's short echo at its own sample offset — no FFT over the depth window.
+  `"auto"` fills each SIR with `sdi` (corner deltas) where the patch trapezoid is wide and
+  `fst` (fills the trapezoid) where narrow — best of both, so `"temporal"` maps to it;
+  pass `"fst"`/`"sdi"` to force one kernel. Fastest when echoes are tight (shallow, near
+  focus, high fc); attenuated or per-scatterer runs fall back to FFT convolution. Same RF
+  (corr ~1.0). See `reception-backends.md` for the full comparison.
 
 Every method supports a global `(L,)` or per-element `(L, E)` excitation (spectral forms
 `H_TX = Σ_t DFT(e_t)·H_TX,t`), `tx.baffle`/`rx.baffle = "soft"`, and attenuation along

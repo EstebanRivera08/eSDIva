@@ -55,13 +55,15 @@ Run any example with `uv run examples/<script>.py`.
 | 13 | `example13_txlinear_ratbrainzones.py` | Linear array focused on specific rat-brain zones (M1, S1-hl) using WHS atlas. |
 | 14 | `example14_importstl_petri_dish.py` | Import and visualise STL meshes — transformations, multiple objects, materials. |
 | 15 | `example15_monoelement_petridish.py` | Combine STL experimental setup (Petri dish) with acoustic simulation in 3-D scene. |
-| 16 | `example16_subdivide_parametric_surface.py` | Parametric surface subdivision utility demo using an ellipsoidal cap. |
+| 16 | `example16_subdivide_parametric_surface.py` | Cartesian surface subdivision (`subdivide_cartesian`) demo using an ellipsoidal cap. |
 | 17 | `example17_import_fieldii_transducer.py` | Import a Field II probe (`xdc_get(Th,'rect')` export) with `from_fieldii_rect_data`. |
 | 18 | `example18_customtransducer_3Dplanes.py` | Sparse spiral `CustomTransducer`, `transform()` repositioning, 3-D plane-slice visualization. |
 | 19 | `example19_dualprobe_reception_show.py` | Pitch-catch pulse-echo: RX array tilted with `transform()`; `sim.show()` 3-D preview. |
 | 20 | `example20_phantom_simulation.py` | Speckle phantom via `make_phantom()` (cyst + lesion), piezo impulse response set, focused B-mode with `scan_focusline()`. |
 | 21 | `example21_3Dphantom_volume/` | Full volumetric case study: shared phantom, diverging-wave sequence, checkpointed `sequence_rf` acquisition, `das_volume` IQ compounding, honest metrics. See its `README.md` (incl. "Design notes & pitfalls"). |
 | 22 | `example22_flow_doppler/` | Ultrafast compound Doppler, replicating Bercoff 2011: three acquisitions on one moving phantom compare conventional focused colour Doppler with plane-wave compounding. Uses moving scatterers in `sequence_rf`. See its `README.md`. |
+| 23 | `example23_optimize_radial_element.py` | Model a diverging multilens element as a rigid cap: refractive doublet vs strictly-convex vs free-aspheric fits (`scipy.optimize`), each shown with `visualize_element`. |
+| 24 | `example24_multilens_matrix_psf.py` | Assemble the paper's 252-element (18×14) diverging-multilens matrix from the example-23 cap with `CustomTransducer`; reproduce its depth-resolved Fig. 2 PSF (3 targets, full-aperture receive) with the central-4×4 16-source diverging sequence (`sequence_rf` + `das_volume`), referencing the beamformer to each lens's `virtual_source_m`, and a grayscale/linear-opacity dB volume render. |
 
 ---
 
