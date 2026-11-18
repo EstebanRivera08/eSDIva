@@ -69,23 +69,63 @@ rendering when they do.
 
 ## Composing your own 3-D scene
 
-The `add_*` helpers all take a shared `pyvista.Plotter`, so a scene is built
-incrementally and shown once:
+The `add_*` helpers all take a shared `pyvista.Plotter` (as the keyword `plotter=`)
+and never call `show()`, so a scene is built incrementally and shown once, last. The
+pressure helper takes a *mesh*, not `(p, coords)` — build it with `create_3Dvol_mesh`:
 
 ```python
 import pyvista as pv
-from esdiva.plotting import add_transducer_mesh, add_pressure_vol, add_stl_mesh, add_markers
+from esdiva.plotting import (
+    add_transducer_mesh, add_pressure_vol, add_stl_mesh, add_markers, create_3Dvol_mesh,
+)
 
 pl = pv.Plotter(notebook=True)          # backend decision happens HERE
-add_transducer_mesh(pl, tx)
-add_pressure_vol(pl, p, coords)
-add_stl_mesh(pl, "petri_dish.stl")
-add_markers(pl, targets_mm)
+mesh = create_3Dvol_mesh(p, coords["x"], coords["y"], coords["z"], scalars="Pressure")
+add_pressure_vol(mesh, plotter=pl)
+add_transducer_mesh(tx.get_mesh(), plotter=pl)
+add_stl_mesh("petri_dish.stl", plotter=pl)
+add_markers(targets_mm, plotter=pl)
 pl.show(jupyter_backend="static")
 ```
 
 The `notebook`/`jupyter_backend` decision belongs to the `Plotter` and its `show()`,
 exactly as in the table above.
+
+**The one-shot `plot3D_*` trap.** `plot3D_pressure_vol(..., show_fig=True)` calls
+`show()` internally, which on a desktop backend *closes* the render window — the plotter
+it returns is then spent and anything you add to it afterwards never appears. To overlay
+(a second field, the transducer, a marker), leave `show_fig=False` (the default), add
+with the `add_*` helpers above, and call `show()` yourself at the end.
+
+## Moving and compounding fields — `PressureField`
+
+The medium is homogeneous, so a computed field rotates and translates *with* the
+aperture that produced it. You do not re-simulate to view a steered or displaced probe —
+you move the result. `PressureField` (`from esdiva import PressureField`) wraps the
+`(p, coords)` an `Emission` returns and gives it that:
+
+```python
+from esdiva import PressureField
+
+pf = PressureField(p, coords)           # straight from Emission(...)(field)
+pf.transform(T).add_to(pl)              # same 4x4 (translation in mm) as tx.transform(T)
+```
+
+- **`transform(T)`** is deferred and chainable, and returns a *copy* (the field is
+  immutable), so one simulation can be placed at many poses without recomputing.
+- **`to_mesh()`** returns a `StructuredGrid` with the pose baked into explicit point
+  coordinates, so a steered field **tilts** correctly. (Raw `create_3Dvol_mesh` returns
+  `ImageData`, whose lazy direction matrix the contouring ignores — a rotated `ImageData`
+  only *shifts*. Pass `structured=True`, or just use `PressureField`, when the volume
+  will be reoriented.)
+- **`add_to(plotter)`** draws into a shared plotter (the overlay path); **`plot()`** is
+  the one-shot (new plotter, shows by default).
+- **`p1 + p2`** (or `PressureField.compound([...], onto=widest)`) compounds: resamples
+  onto the first field's grid and sums only where the volumes genuinely overlap — the
+  coherent sum of several steered or displaced emissions. Pass the widest field as the
+  canvas so no one's points fall outside it.
+- A transient `(Nt, …)` is a time series, not one thing in space: pick a frame with
+  `to_mesh(time_index=…)` before posing or compounding.
 
 ## When nothing appears
 
