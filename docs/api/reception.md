@@ -12,7 +12,9 @@ for the method taxonomy, PSF, and phantom recipes.
 The single pulse-echo class. Its `method` selector chooses how the two-way SIR is
 evaluated — all methods give the same RF, they trade speed only:
 
-- `"spectral"` (default) — `H_TX·H_RX` from the closed-form SIR spectrum, in-band only.
+- `None` (default) — pick the faster path per call: `"temporal"` for a lossless single-
+  drive summed RF, `"spectral"` with attenuation / per-element drive / per-scatterer PSF.
+- `"spectral"` — `H_TX·H_RX` from the closed-form SIR spectrum, in-band only.
 - `"temporal"` (= `"sdi"`) / `"fst"` / `"auto"` — sampled two-way SIR convolution in time,
   placed per scatterer at its echo arrival (delegated to the conventional
   `ReceptionConventional` backend; the string names its SIR-sampling kernel).

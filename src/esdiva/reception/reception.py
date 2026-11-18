@@ -29,7 +29,7 @@ Two ways to do the SAME convolution — and the choice is which domain the SIR i
 in (``p_pe`` = one scatterer's bracket of the RF equation):
 
     p_pe = v_pe ⊛ (h_tx ⊛ h_rx)                          ← in TIME     ("temporal")
-         = F⁻¹{ fs · H_TX(ω) · H_RX(ω) · V_pe(ω) }         ← in FREQUENCY ("spectral", default)
+         = F⁻¹{ fs · H_TX(ω) · H_RX(ω) · V_pe(ω) }         ← in FREQUENCY ("spectral")
 
 * ``temporal`` (= ``auto``; also ``fst`` / ``sdi`` to force one kernel) — convolve in
   TIME, one scatterer at a time, delegated to `ReceptionConventional`. This is efficient
@@ -97,13 +97,15 @@ class Reception(ReceptionBase):
     rectangular-patch SIR. All methods evaluate the same RF equation and agree to
     correlation ~1.0 with each other and with Field II; ``method`` trades speed only:
 
-    * ``"spectral"`` (default) — multiply the closed-form one-way SIR spectra
-      ``H_TX·H_RX`` on the in-band bins only. No forward FFT, cost linear in patches,
-      exact.
-    * ``"fst"`` / ``"sdi"`` / ``"auto"`` — sample ``h_tx``/``h_rx`` and convolve, delegated
-      to `ReceptionConventional`. The string names its SIR-sampling kernel: ``"fst"`` fully
-      samples each trapezoid, ``"sdi"`` places sparse corner deltas, ``"auto"`` lets the
-      delegate choose per grid.
+    * ``method=None`` (default) — pick per call: ``"temporal"`` for a lossless, single-
+      drive, summed RF (tight echoes, placed in time), ``"spectral"`` when a frequency
+      transfer function is unavoidable (attenuation, per-element drive, or the PSF).
+    * ``"spectral"`` — multiply the closed-form one-way SIR spectra ``H_TX·H_RX`` on the
+      in-band bins only. No forward FFT, cost linear in patches, exact.
+    * ``"temporal"`` = ``"fst"`` / ``"sdi"`` / ``"auto"`` — sample ``h_tx``/``h_rx`` and
+      convolve, delegated to `ReceptionConventional`. The string names its SIR-sampling
+      kernel: ``"fst"`` fully samples each trapezoid, ``"sdi"`` places sparse corner
+      deltas, ``"temporal"``/``"auto"`` lets the delegate choose per grid.
 
     The paired SDI form (O(M²), pedagogic) is the separate class `ReceptionPaired`.
 
@@ -127,10 +129,15 @@ class Reception(ReceptionBase):
         Attenuation power-law exponent.
     excitation : numpy.ndarray or None, default None
         TX excitation pulse ``(L,)``. If None, uses tx.excitation or delta.
-    method : str, default "spectral"
-        Pulse-echo formulation: ``"spectral"`` (default) / ``"fst"`` / ``"sdi"`` /
-        ``"auto"``. All produce the same RF; they trade speed only.
-        ``"fst"``/``"sdi"``/``"auto"`` delegate to `ReceptionConventional`.
+    method : str or None, default None
+        Pulse-echo formulation; all produce the same RF, trading speed only.
+        ``None`` (auto) picks the measured-faster path per call: ``"temporal"`` for a
+        lossless, single-drive, summed RF (its echoes are tight, so placing each in time
+        wins), ``"spectral"`` whenever a frequency transfer function is unavoidable
+        (attenuation, a per-element ``(L, E)`` drive, or the per-scatterer PSF). Pass a
+        value to force one: ``"spectral"`` (closed-form ``H(ω)``) or ``"temporal"`` =
+        ``"fst"`` / ``"sdi"`` / ``"auto"`` (sampled ``h`` then convolve, delegated to
+        `ReceptionConventional`; the string is its SIR-sampling kernel).
     n_depth_bins : "auto" or int, default "auto"
         Spectral speed knob. Scatterers are grouped into this many depth bins so each bin
         uses a short time window — a small ``nfft`` and hence few in-band frequency bins,
@@ -148,7 +155,7 @@ class Reception(ReceptionBase):
         "alpha0": ((float, type(None)), "Attenuation dB/(MHz^y cm) or None"),
         "freq_power": (float, "Attenuation exponent"),
         "excitation": ((np.ndarray, type(None)), "Excitation pulse or None"),
-        "method": (str, "Formulation: spectral/fst/sdi/auto"),
+        "method": ((str, type(None)), "Formulation: None(auto)/spectral/temporal/fst/sdi/auto"),
         "n_depth_bins": ((int, str), "Spectral depth bins: 'auto' or int"),
         "verbose": (bool, "Print diagnostics"),
     }
@@ -164,7 +171,7 @@ class Reception(ReceptionBase):
         alpha0=None,
         freq_power=1.0,
         excitation=None,
-        method="spectral",
+        method=None,
         n_depth_bins="auto",
         verbose=True,
     ):
@@ -187,6 +194,8 @@ class Reception(ReceptionBase):
 
     @staticmethod
     def _validate_method(method):
+        if method is None:  # auto: resolved per call by regime (see _resolve_method)
+            return None
         if method == "paired":
             raise ValueError(
                 "method='paired' moved to its own class: "
@@ -197,6 +206,24 @@ class Reception(ReceptionBase):
                 f"Unknown method {method!r}. Valid: {list(_VALID_METHODS)}"
             )
         return method
+
+    def _resolve_method(self, exc, per_scatterer):
+        """Pick the faster formulation when ``method`` is left as ``None`` (auto).
+
+        The two paths are exact duals (section header): the echo is compact in TIME or
+        the SIR spectrum is compact in FREQUENCY. A lossless, single-drive summed RF has
+        tight echoes, so placing each in time (``"temporal"``) beats building spectra.
+        But any frequency transfer function — attenuation ``H_att(f)``, a per-element
+        drive spectrum ``(L, E)``, or the per-scatterer PSF (no sum to collapse) — must
+        enter Fourier space regardless, where ``"spectral"`` already has the closed-form
+        ``H(ω)`` and one multiply per bin. An explicit ``method`` always overrides this.
+        """
+        if self.method is not None:
+            return self.method
+        per_element_drive = exc is not None and exc.ndim == 2
+        if self.alpha0 is None and not per_element_drive and not per_scatterer:
+            return "temporal"  # lossless single-drive summed RF: place echoes in time
+        return "spectral"  # a frequency transfer function is non-negotiable here
 
     def set(self, name, value):
         """Update a parameter at runtime, then invalidate the conventional delegate.
@@ -315,13 +342,13 @@ class Reception(ReceptionBase):
         if focused_sum and per_scatterer:
             raise ValueError("focused_sum and per_scatterer are mutually exclusive.")
         self._reset_time_log()
-        method = self.method
         exc = self._resolve_excitation()
         n_tx = int(self.tx.delays.shape[0])
         if exc is not None and exc.ndim == 2 and exc.shape[1] != n_tx:
             raise ValueError(
                 f"Per-element excitation must have shape (L, E={n_tx}), got {exc.shape}."
             )
+        method = self._resolve_method(exc, per_scatterer)
         self._last_method = method  # introspection hook (tests / diagnostics)
 
         if method in _CONVENTIONAL_METHODS:

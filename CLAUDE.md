@@ -160,7 +160,9 @@ signal carries the 3rd derivative of the excitation (`v_pe = ρ₀/2c₀² · E_
 practice that ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
 (`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither applies an explicit ∂³.
 `Reception` selects how `v_pe ⊛ (h_tx ⊛ h_rx)` is evaluated via `method=` (default
-`spectral`): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
+`None` = measured-fastest per call, like Emission: **`temporal`** for a lossless single-
+drive summed RF, **`spectral`** when a frequency transfer function is unavoidable —
+attenuation, per-element drive, or the `per_scatterer` PSF): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
 `hsir.compute_h_sir_spectrum` — per patch `A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}`,
 `rfft(h[n]) ≈ fs·H`; **no forward FFT, no I⁴, no dt clamp**, cost ∝ M, exact, band-limited
 bins only);
@@ -170,8 +172,9 @@ run places each echo in time with no transform, otherwise FFT-convolve — deleg
 supports global `(L,)` and per-element `(L, E)` excitation (spectral: `H_TX = Σ_t D_t·H_TX,t`,
 one drive spectrum per TX element inside the fused kernel), the soft baffle, and
 attenuation along the round trip TX centre → scatterer → RX element centre. Spectral is
-the default and the fastest with attenuation or per-element drives (64-el, 20k scatterers:
-52× per-element, 105× attenuated vs the conventional FFT path). For lossless single-drive
+the fastest with attenuation or per-element drives (64-el, 20k scatterers:
+52× per-element, 105× attenuated vs the conventional FFT path) — so `method=None` routes
+there for those. For lossless single-drive
 runs the temporal path places each scatterer's short echo in time (`place_twoway_rf`: RX
 SIR sampled per scatterer over its support, pulse convolved once per channel, float64
 sums) and is faster than spectral (2026-11-13, i7-13700H: Domino 128 el 100k scatterers

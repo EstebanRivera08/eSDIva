@@ -100,11 +100,15 @@ prefer it to lowering `fs`: the SIR needs the fine grid, the output does not.
 
 All backends compute the same physics; they differ in cost.
 
-- `"spectral"` (default) — `fs·H_TX·H_RX` from the closed-form SIR spectrum (per patch:
+- `None` (default) — auto: pick the measured-faster backend per call. `"temporal"` for a
+  lossless, single-drive, summed RF (tight echoes placed in time); `"spectral"` whenever a
+  frequency transfer function is unavoidable — attenuation, a per-element drive, or the
+  per-scatterer PSF. Pass an explicit `method` to force one.
+- `"spectral"` — `fs·H_TX·H_RX` from the closed-form SIR spectrum (per patch:
   area × two sincs × a delay phasor), no forward FFT, cost ∝ M (patches), exact,
-  band-limited bins only. Fastest in most cases and for deep/steered geometries and
-  attenuated runs (64 elements, 20k scatterers: 6× lossless, 52× per-element, 105×
-  attenuated); the temporal solver below can beat it for tight shallow echoes.
+  band-limited bins only. Fastest for deep/steered geometries, per-element and
+  attenuated runs (64 elements, 20k scatterers: 52× per-element, 105×
+  attenuated); the temporal solver below beats it for tight shallow echoes.
 - `"temporal"` (= `"auto"`) / `"fst"` / `"sdi"` — the time-domain scattering solver
   (`ReceptionConventional`): build both one-way SIRs with that sampling kernel, then place
   each scatterer's short echo at its own sample offset — no FFT over the depth window.

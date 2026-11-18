@@ -428,11 +428,27 @@ class TestReceptionFormulations:
             assert corr(v, ref) > 0.99, name
             assert abs(float(np.abs(v).max()) / pk_ref - 1) < 0.05, name
 
-    def test_default_method_is_spectral(self):
-        """The default (unspecified) method is the fast spectral core."""
+    def test_default_method_auto_picks_by_regime(self):
+        """method=None (default) picks temporal for a lossless single-drive summed RF,
+        and spectral when a frequency transfer function is unavoidable (attenuation,
+        per-element drive, or the per-scatterer PSF)."""
         exc = self._exc()
+        pts = np.array([[0, 0, 30]], dtype=np.float32)
+
+        # Lossless, single global drive, summed RF -> temporal (tight echoes in time).
         sim = Reception(self._big_tx(), self._big_tx(), excitation=exc, verbose=False)
-        sim.pulse_echo_rf(np.array([[0, 0, 30]], dtype=np.float32))
+        sim.pulse_echo_rf(pts)
+        assert sim._last_method == "temporal"
+
+        # Attenuation needs H_att(f) -> spectral.
+        att = Reception(
+            self._big_tx(), self._big_tx(), excitation=exc, alpha0=0.5, verbose=False
+        )
+        att.pulse_echo_rf(pts)
+        assert att._last_method == "spectral"
+
+        # Per-scatterer PSF (no sum to collapse) -> spectral.
+        sim.pulse_echo_rf(pts, per_scatterer=True)
         assert sim._last_method == "spectral"
 
     def test_auto_delegates_to_conventional(self):

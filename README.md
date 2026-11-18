@@ -32,7 +32,7 @@ The SIR is available through **two kernels that feed emission and reception alik
 
 - **Emission simulation** — The `Emission` class turns the SIR into acoustic pressure fields: monochromatic fields (pressure amplitude at exactly `fc`) and broadband transient fields (signed pressure in pascals), with global or per‑element excitation, attenuation, a soft or rigid baffle and user transfer functions.
 
-- **Pulse‑echo reception** — The `Reception` class simulates pulse‑echo RF from scatterers with the same two kernels (spectral by default, temporal on request) and the same options as emission — per‑element excitation, attenuation, baffle. Generates PSFs, focused B‑mode lines, plane‑wave / diverging‑wave event sequences, moving scatterers for flow and Doppler, and full‑matrix / synthetic‑aperture (FMC) acquisitions, with crash‑safe checkpointing of long runs.
+- **Pulse‑echo reception** — The `Reception` class simulates pulse‑echo RF from scatterers with the same two kernels (auto-selected per run — temporal for a lossless single-drive RF, spectral otherwise — or forced) and the same options as emission — per‑element excitation, attenuation, baffle. Generates PSFs, focused B‑mode lines, plane‑wave / diverging‑wave event sequences, moving scatterers for flow and Doppler, and full‑matrix / synthetic‑aperture (FMC) acquisitions, with crash‑safe checkpointing of long runs.
 
 - **Attenuation** — Causal power‑law (frequency‑dependent) attenuation with Kramers–Kronig dispersion referenced at the centre frequency, applied in both emission and reception along each propagation path, with either kernel. See the [attenuation guide](https://estebanrivera08.github.io/eSDIva/user-guide/attenuation/).
 
@@ -189,11 +189,11 @@ Both simulators take `method=`. The physics is identical — the far‑field tra
 
 ```python
 p, coords = diva.Emission(tx, excitation=pulse)(field_points)          # method=None: fastest for the mode
-rf, coords = diva.Reception(tx, rx, excitation=pulse).pulse_echo_rf(pos_mm, amp)  # spectral by default
+rf, coords = diva.Reception(tx, rx, excitation=pulse).pulse_echo_rf(pos_mm, amp)  # method=None: fastest per run
 p_t, _ = diva.Emission(tx, excitation=pulse, method="temporal")(field_points)     # pin a kernel
 ```
 
-`Emission(method=None)` picks the kernel measured fastest for the mode; `Reception` defaults to `"spectral"`, which was the faster in every measured case.
+`Emission(method=None)` and `Reception(method=None)` both pick the kernel measured fastest per run: for reception, temporal for a lossless single-drive summed RF, spectral when a frequency transfer function is unavoidable (attenuation, per-element drive, or the per-scatterer PSF).
 
 ---
 

@@ -111,8 +111,10 @@ common_t, [pxz_a, pyz_a] = align_to_common_time(
 
 One public reception class, `Reception`, with `ReceptionConventional` as its
 sampled-convolution backend. `Reception` selects the formulation via `method=`
-(default `spectral`):
-  - `spectral` (default) — the two-way spectrum `fs·H_TX·H_RX` from the closed-form SIR
+(default `None` = measured-fastest per call: `temporal` for a lossless single-drive summed
+RF, `spectral` when a frequency transfer function is unavoidable — attenuation, per-element
+drive, or the `per_scatterer` PSF):
+  - `spectral` — the two-way spectrum `fs·H_TX·H_RX` from the closed-form SIR
     spectrum (`hsir.compute_h_sir_spectrum`: per patch area × two sincs × delay phasor;
     **no forward FFT, no I⁴, no dt clamp**), evaluated on the in-band bins only. Cost
     ~`O(P·(M_tx+M_rx)·N_band)` — **linear in patch count**, exact. Per-element TX drives
@@ -184,7 +186,7 @@ tx.impulse_response = ir_pulse
 tx.excitation = excitation_pulse
 rx = tx.copy()
 rx.impulse_response = ir_pulse
-sim = Reception(tx, rx, fs=200e6, c=1540)   # default method="spectral"
+sim = Reception(tx, rx, fs=200e6, c=1540)   # default method=None: fastest per run
 
 scatterer_pos = np.array([[0, 0, 30], [1, 0, 35]])  # mm
 scatterer_amp = np.array([1.0, 0.5])
@@ -213,7 +215,7 @@ env, coords = sim.scan_focusline([0, 0, 30], scatterer_pos, scatterer_amp,
 - `alpha0=None` — attenuation in dB/(MHz^y·cm)
 - `freq_power=1.0` — power-law exponent y
 - `excitation=None` — TX excitation `(L,)` or per-element `(L, E)` float32 (or uses `tx.excitation`)
-- `method="spectral"` (`Reception`) — `spectral`/`temporal`/`fst`/`sdi`/`auto`
+- `method=None` (`Reception`) — `None` (auto: fastest per call) / `spectral` / `temporal` / `fst` / `sdi` / `auto`
 - `n_depth_bins="auto"` — depth bins for the summed-RF fast path (`"auto"` or int; `1` disables)
 - `verbose=True`
 
@@ -320,7 +322,7 @@ Emission.__call__(field_points_mm, method=None)
 ### Data Flow
 
 ```
-spectral (default), per RX element e_rx:
+spectral, per RX element e_rx:
   fs · H_TX(ω) · H_RX,e(ω) on the in-band bins   ← closed-form SIR spectra, NO forward FFT
      H_TX = Σ_t DFT(e_t)·H_TX,t   (one row for a global drive)
      (compute_twoway_spectrum_summed fuses TX×RX, summing over scatterers in one pass;

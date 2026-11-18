@@ -39,7 +39,7 @@ Those two facts are the entire story of why one backend beats another.
 
 ---
 
-## Backend 1 — `spectral` (the default)
+## Backend 1 — `spectral`
 
 **Idea: skip sampling the trapezoid entirely. Write its Fourier transform in closed form.**
 
@@ -162,8 +162,10 @@ it is the only one where the fast SIR kernel actually decides the runtime.
 
 ## One-line picker
 
+`method=None` (the default) already applies this picker automatically — set a `method`
+only to override it.
+
 - Lossless, single global drive → **temporal** (`method="temporal"`/`"fst"`/`"sdi"`/`"auto"`).
-- Attenuation, per-element drives, or no measurement for your case → **`spectral`** (the
-  default).
+- Attenuation, per-element drives, or the per-scatterer PSF → **`spectral`**.
 - Need a reference that supports every option → **conventional** (`fst`/`sdi` with
   attenuation, or `per_scatterer=True`).
