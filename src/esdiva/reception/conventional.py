@@ -457,7 +457,7 @@ class ReceptionConventional(ReceptionBase):
             if show
             else range(n_out)
         )
-        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # ETA + in-place progress only when the projected run exceeds ~5 s
         # (tqdm already shows progress in verbose mode).
         el_iter = _eta_progress(el_iter, n_out, label="RX elements", progress=not show)
 

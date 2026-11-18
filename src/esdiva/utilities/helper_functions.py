@@ -47,7 +47,7 @@ def wrap_tqdm(iterable, **kwargs):
         return iterable
 
 
-def announce_eta(unit_s, n_units, label, threshold_s=30.0, n_done=1):
+def announce_eta(unit_s, n_units, label, threshold_s=5.0, n_done=1):
     """Print an estimated total run time for a long loop of identical units.
 
     Extrapolates ``unit_s × n_units`` and, when that projection exceeds
@@ -67,7 +67,7 @@ def announce_eta(unit_s, n_units, label, threshold_s=30.0, n_done=1):
         Total number of identical units in the loop.
     label : str
         What one unit is, for the message (e.g. ``"batches"``, ``"RX elements"``).
-    threshold_s : float, default: 30.0
+    threshold_s : float, default: 5.0
         Minimum projected total (seconds) before anything is printed.
     n_done : int, default: 1
         Units already completed, for the expected finish time.
@@ -109,7 +109,7 @@ def eta_progress(iterable, n_total, *, label="batches", progress=True):
     excluded from the rate; after the second, the per-unit time of the iterations
     since the first is extrapolated to ``n_total`` via
     [announce_eta][esdiva.utilities.helper_functions.announce_eta]; short runs
-    (projected under 30 s) stay completely silent. For long runs, when
+    (projected under 5 s) stay completely silent. For long runs, when
     ``progress`` is True a single carriage-return line keeps the iteration
     count, elapsed time, and remaining-time estimate updated (set it False when
     a tqdm bar already displays progress).

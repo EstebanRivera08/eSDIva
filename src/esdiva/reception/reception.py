@@ -577,7 +577,7 @@ class Reception(ReceptionBase):
             if s["show"]
             else range(s["n_out"])
         )
-        # ETA + in-place progress only when the projected run exceeds ~30 s
+        # ETA + in-place progress only when the projected run exceeds ~5 s
         # (tqdm already shows progress in verbose mode).
         el_iter = _eta_progress(
             el_iter, s["n_out"], label="RX elements", progress=not s["show"]

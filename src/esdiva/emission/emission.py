@@ -83,8 +83,10 @@ class Emission(SimulationBase):
         Attenuation path origin: True → transducer centre (one path per point);
         False → each element's centre (per-element paths, accurate near field).
     method : str or None, default None
-        SIR source: ``"spectral"``, ``"temporal"`` (= ``"sdi"``), ``"fst"``, ``"auto"``;
-        None picks the faster for the mode (see the module docstring).
+        SIR source: ``"spectral"`` (closed-form ``H(ω)``), ``"temporal"`` (= ``"sdi"``),
+        ``"fst"``, ``"auto"`` (sampled ``h(t)`` then FFT). None picks the measured-faster
+        source for the mode — ``"spectral"`` for monochromatic or per-element/attenuated
+        runs (one FFT serves all elements), ``"temporal"`` for a single-group transient.
     verbose : bool, default True
         Print diagnostic information during simulation.
     """
@@ -376,7 +378,7 @@ class Emission(SimulationBase):
     def _bins(self, pts):
         """Field-point groups sorted by distance to the aperture (see `_POINTS_PER_BIN`).
 
-        Yielded through `eta_progress`: a run projected over 30 s announces its ETA and
+        Yielded through `eta_progress`: a run projected over 5 s announces its ETA and
         tracks progress, exactly as reception does over its receive elements.
         """
         centre = np.asarray(self.tx.element_centers, dtype=np.float64).mean(axis=0)

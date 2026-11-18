@@ -21,7 +21,7 @@ class TestEta:
         """A representative unit × units above the threshold prints the ETA."""
         assert announce_eta(0.5, 100, "bins", n_done=2)
         assert "Estimated run time ~50.0 s (100 bins)" in capsys.readouterr().out
-        assert not announce_eta(0.1, 100, "bins")  # 10 s: below threshold
+        assert not announce_eta(0.03, 100, "bins")  # 3 s: below the 5 s threshold
 
 
 class TestCreateSpatialGridFromDict:
