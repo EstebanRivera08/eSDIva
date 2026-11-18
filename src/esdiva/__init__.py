@@ -11,6 +11,7 @@ import esdiva.transducers as transducers
 import esdiva.utilities as utilities
 from esdiva.beamforming import DAS_focused_scanline, envelope_db
 from esdiva.emission import Emission
+from esdiva.fields import PressureField
 from esdiva.plotting import plot2D_pressure_slices
 from esdiva.reception import Reception, ReceptionConventional
 from esdiva.utilities import align_to_common_time, to_dB
@@ -43,6 +44,7 @@ def plot_pressure_planes(x, y, z, pressure_field, **kwargs):
 
 __all__ = [
     "Emission",
+    "PressureField",
     "Reception",
     "ReceptionConventional",
     "attenuation",

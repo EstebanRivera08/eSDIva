@@ -84,7 +84,9 @@ def _set_custom_style(plotter, *, scale=1.0, **kwargs):
 
 
 # -------------------- Plotting Functions --------------------
-def create_3Dvol_mesh(vol_matrix, x=None, y=None, z=None, *, scalars="Values"):
+def create_3Dvol_mesh(
+    vol_matrix, x=None, y=None, z=None, *, scalars="Values", structured=False
+):
     """Create a PyVista volume mesh from coordinate arrays and data.
 
     Parameters
@@ -96,11 +98,20 @@ def create_3Dvol_mesh(vol_matrix, x=None, y=None, z=None, *, scalars="Values"):
         indices are used with a default spacing of 1 mm.
     scalars : str, optional
         Name for the scalar data array. Default ``'Values'``.
+    structured : bool, optional
+        If True, return a `pyvista.StructuredGrid` instead of `ImageData`.
+        `ImageData` stores a rotation only as a lazy direction matrix, which
+        the downstream contouring ignores — so a rotated `ImageData` renders
+        as a shift, not a tilt. A `StructuredGrid` holds explicit point
+        coordinates, so `.rotate_*`/`.transform` hold. Use it whenever the
+        volume will be reoriented (e.g. steered to match a tilted aperture).
+        Default False.
 
     Returns
     -------
-    pyvista.ImageData
-        The volume mesh with attached scalar data.
+    pyvista.ImageData or pyvista.StructuredGrid
+        The volume mesh with attached scalar data (`StructuredGrid` when
+        `structured=True`).
     """
 
     if vol_matrix.ndim == 3:
@@ -140,6 +151,10 @@ def create_3Dvol_mesh(vol_matrix, x=None, y=None, z=None, *, scalars="Values"):
     pressure_vol.point_data[scalars] = vol_matrix.ravel(
         order="F"
     )  # VERY important: Fortran order
+    if structured:
+        # Bake the lazy direction matrix into explicit point coords so later
+        # rotations tilt the volume instead of merely shifting it.
+        pressure_vol = pressure_vol.cast_to_structured_grid()
     return pressure_vol
 
 

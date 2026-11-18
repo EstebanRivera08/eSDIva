@@ -61,7 +61,11 @@ def plot3D_pressure_vol(
         Coordinate dict with keys ``"x"``, ``"y"``, ``"z"``.  Overrides
         individual *x*, *y*, *z* when provided.
     show_fig : bool, optional
-        If True, call ``plotter.show()`` to display the figure. Default True.
+        If True, call ``plotter.show()`` before returning. Default False. On a
+        desktop backend ``show()`` closes the render window, so the returned
+        plotter is spent — to overlay more (another field, the transducer),
+        leave this False, add with `add_pressure_vol` / `PressureField.add_to`,
+        and call ``show()`` yourself last.
     save_path : str or Path, optional
         Path to save a screenshot (the plotter is closed after saving). If None, no
         file is written. Default None.
