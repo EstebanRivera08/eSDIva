@@ -120,12 +120,14 @@ pf.transform(T).add_to(pl)              # same 4x4 (translation in mm) as tx.tra
   will be reoriented.)
 - **`add_to(plotter)`** draws into a shared plotter (the overlay path); **`plot()`** is
   the one-shot (new plotter, shows by default).
-- **`p1 + p2`** (or `PressureField.compound([...], onto=widest)`) compounds: resamples
-  onto the first field's grid and sums only where the volumes genuinely overlap — the
-  coherent sum of several steered or displaced emissions. Pass the widest field as the
-  canvas so no one's points fall outside it.
+- **`resample(onto)`** puts a posed field on another's grid (zero where it doesn't
+  reach); the fields are then **linear** — **`a + b`**, **`a - b`**, **`2 * a`** act
+  point-by-point. Coherent sum of several steered emissions:
+  `sum(f.resample(canvas) for f in fields)`, with `canvas` an enclosing grid wide enough
+  that no field's points fall outside it. `a + b` on differently-posed fields resamples
+  `b` onto `a`'s grid for you.
 - A transient `(Nt, …)` is a time series, not one thing in space: pick a frame with
-  `to_mesh(time_index=…)` before posing or compounding.
+  `to_mesh(time_index=…)` before posing, resampling or summing.
 
 ## When nothing appears
 

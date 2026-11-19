@@ -38,9 +38,17 @@ from esdiva.plotting import add_transducer_mesh, add_pressure_vol, create_3Dvol_
 pl = pv.Plotter(notebook=False)                 # backend decision HERE
 mesh = create_3Dvol_mesh(p, coords["x"], coords["y"], coords["z"], scalars="Pressure")
 add_pressure_vol(mesh, plotter=pl)              # mesh first, plotter is keyword
-add_transducer_mesh(tx.get_mesh(), plotter=pl)
+add_transducer_mesh(tx.get_mesh(), plotter=pl)  # NO color= — paints each element by apodization
 pl.show()
 ```
+- **Do not pass `color=` to `add_transducer_mesh` by default.** Left uncolored it
+  paints each element by its apodization (the taper the user applied) and shows that
+  scalar bar — the physically meaningful default. Reach for a flat `color=` only for a
+  plain context/reference probe, and suppress its bar with `show_scalar_bar=False`.
+- Keep a **Pressure** colorbar on pressure plots and movies: `add_pressure_vol` shows
+  it by default; when overlaying many fields (or toggling actors in a movie) enable it
+  on exactly one actor (`show_scalar_bar=True, colorbar_title="Pressure"`) and `False`
+  on the rest — one shared bar, the scalar bar is renderer-level so it persists.
 `plot3D_pressure_vol(..., show_fig=True)` on a desktop backend **closes** the render
 window — the returned plotter is then spent and overlays do nothing. For overlays leave
 `show_fig=False` (the default) and call `show()` yourself, or use `PressureField.add_to`.
@@ -52,7 +60,7 @@ re-simulate a steered or displaced probe, move the result:
 from esdiva import PressureField
 pf = PressureField(p, coords)                   # (p, coords) straight from Emission
 pf.transform(T).add_to(pl)                      # same 4x4 (mm) you pass tx.transform
-total = pf_a + pf_b                             # compound: sum over overlap only
+total = pf_a + pf_b                             # sum over overlap (resamples b onto a)
 total.add_to(pl)
 ```
 - `to_mesh()` returns a `StructuredGrid` with the pose baked into explicit points, so it
@@ -60,8 +68,9 @@ total.add_to(pl)
   direction matrix the contouring ignores — a rotated `ImageData` only *shifts*. Pass
   `structured=True` (or use `PressureField`) when the volume will be reoriented.
 - `transform` is deferred and chainable; the field is immutable (returns a copy).
-- `compound`/`+` sums on the first field's grid over genuine overlap only — pass the
-  widest field as the canvas (`PressureField.compound([...], onto=wide)`).
+- `resample(onto)` puts a posed field on another's grid (zero outside its reach); fields
+  are then linear (`a + b`, `a - b`, `2 * a`). Coherent sum of many views:
+  `sum(f.resample(canvas) for f in fields)` with `canvas` a wide enough enclosing grid.
 - Transient `(Nt,…)`: pick a frame with `to_mesh(time_index=…)`; a whole series is not
   one thing in space.
 
