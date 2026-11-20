@@ -37,6 +37,10 @@ figures:
 regen-golden:
     uv run python tests/regression/test_golden.py
 
+# Regenerate the agent API map (skills/esdiva-simulate/references/api-map.md) after a public API change.
+api-map:
+    uv run python scripts/gen_api_map.py
+
 # Run all pre-commit hooks.
 pre-commit:
     $env:PYTHONUTF8 = "1"; uv run prek run --all-files

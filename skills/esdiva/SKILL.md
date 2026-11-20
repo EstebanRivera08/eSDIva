@@ -9,12 +9,20 @@ One job: read what the user actually wants and route it to the expert that does 
 best. Do not ask the user which specialist to use — decide and go. A request with two
 parts (explain the physics, then simulate it) routes in sequence.
 
+## Know the API before touching source
+
+Read `../esdiva-simulate/references/api-map.md` first (relative to this skill's
+folder): every public signature for emission, reception, transducers, plotting,
+beamforming and I/O, with a one-line purpose, its `file:line`, and a table of which
+module owns what. Answer API questions from it directly; open source only at the
+`file:line` it gives. When spawning an expert, tell it to read the map first too.
+
 ## Route
 
 | The request is about… | Route to |
 |---|---|
 | Building a transducer, running an emission field or pulse-echo RF, beamforming, feeding RF to a custom/USTB beamformer, writing the simulation script | **`esdiva-sim` agent** |
-| A figure appearing (desktop/notebook/headless), a 3-D PyVista scene, saving a still/movie, moving or compounding pressure volumes (`PressureField`), backend trouble | **`esdiva-plot` agent** |
+| A figure appearing (desktop/notebook/headless), a 3-D PyVista scene, saving a still/movie, moving or compounding pressure volumes (`Field`), backend trouble | **`esdiva-plot` agent** |
 | Why a result looks the way it does, fact-checking an SIR/SDI claim, method/sampling/`t0`, Field II equivalence, whether a study is in scope at all | **`esdiva-physics` agent** |
 
 **On Claude Code**: spawn the matching agent with the Agent tool

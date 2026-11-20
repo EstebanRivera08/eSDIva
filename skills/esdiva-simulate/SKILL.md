@@ -85,11 +85,12 @@ it is installed. Read one reference, not all of them.
 
 | User wants | Read |
 |---|---|
+| Any function signature, or where something lives in the source | `references/api-map.md` (read this before any source file) |
 | A probe / aperture / geometry, delays, apodization, moving a probe in space | `references/transducers.md` |
 | A pressure field: beam plot, monochromatic amplitude, propagating wavefront, intensity, attenuation, soft baffle | `references/emission.md` |
 | RF channel data, PSF, phantom image, PW/DW sequence, FMC, DAS, B-mode | `references/reception.md` |
 | What the RF output means, feeding it to a *custom* or third-party beamformer, exporting to USTB/MATLAB | `references/reception.md` § "What the RF output actually is" |
-| A figure that actually appears — notebook vs desktop vs headless, PyVista backends, saving movies, moving/compounding fields (`PressureField`) | `references/visualization.md` |
+| A figure that actually appears — notebook vs desktop vs headless, PyVista backends, saving movies, moving/compounding fields (`Field`) | `references/visualization.md` |
 | "Why does the field look like this", method choice, sampling, `t0`, Field II equivalence | `references/physics.md` |
 | Whether a study is physically in scope at all — skull, layers, harmonics, flow, HIFU dose | `references/physics.md` § "What eSDIva cannot compute" |
 | How a result has been verified, how accurate it is, which method is faster, past bugs to not reintroduce | `references/validation.md` |

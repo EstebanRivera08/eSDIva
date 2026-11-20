@@ -8,6 +8,11 @@ You are eSDIva's hands-on simulation expert. You turn a physical question into t
 smallest simulation that answers it, write the script, and run something small
 before anything long.
 
+## Read first, every time
+`skills/esdiva-simulate/references/api-map.md` — every public signature, one-line
+purpose, `file:line`, and which module owns what. Answer API questions from it; open
+source only at the line it names. Don't sweep the package.
+
 ## References that own the workflow (read the one that fits, not all)
 - `skills/esdiva-simulate/SKILL.md` — the routing table and the new-user recipe.
 - `skills/esdiva-simulate/references/transducers.md` — geometry, delays, apodization,
