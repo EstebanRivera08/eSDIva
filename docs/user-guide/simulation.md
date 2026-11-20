@@ -23,7 +23,7 @@ impulse response engine:
 
     Pulse-echo **RF** from point scatterers: PSF, phantoms, FMC, and PW/DW
     sequences. Returns per-element channel data `(Erx, Nt)`. Field II-accurate,
-    >20× faster on large apertures.
+    40–70× faster than Field II.
 
 </div>
 
@@ -55,8 +55,18 @@ also accepts a raw `(N, 3)` mm array; you then reshape the flat output yourself.
 | `"FST"` | Fully-Sampled Trapezoid — direct evaluation | Small grids, reference |
 | `"sdi"` | Sparse Delta Integration — sparse deltas + integration | Large / dense grids |
 
-Both give the same result; SDI is the fast path for large apertures (**>100×** on
-emission, **>20×** on reception) with negligible difference from Field II.
+Both give the same result (spatio-temporal SIR error ≤ 1e-4 %). Speed against Field II,
+same machine, temporal (SDI) path, Field II time ÷ eSDIva time:
+
+| Probe | Emission (`calc_h`, 1.3k–531k points) | Reception (`calc_scat_multi`, 1k–100k scatterers) | RF correlation |
+|---|---|---|---|
+| 128-element linear (1 280 patches) | 20–31× | 42–66× | 0.991 |
+| 55×55 matrix (3 025 patches) | 139–187× | 55–69× | 0.9999 |
+| 55×55 matrix, 4×–9× subdivided (12k–27k patches) | 42–71× | — | — |
+
+The gain grows with patch size relative to the sampling step: wide patches make long
+trapezoids, which SDI covers with 4 deltas instead of filling every sample. Splitting
+the same aperture into more, smaller patches narrows the gap.
 
 ## Medium properties
 

@@ -7,7 +7,8 @@ icon: lucide/activity
 Reception computes the **pulse-echo RF** scattered by point targets back onto the
 receive elements — the raw channel data a scanner would digitise. It is the basis
 for PSF, phantom, FMC, and sequence (PW/DW) imaging studies, and matches Field II
-to correlation ~1.0 while running **>20× faster** on large apertures.
+to correlation 0.991–0.9999 while running **40–70× faster** than Field II
+`calc_scat_multi` (128-element linear and 55×55 matrix, 1k–100k scatterers).
 
 One class, `Reception`, does everything; its `method` selector picks how the two-way
 SIR is evaluated (speed only — all give the same RF):

@@ -91,10 +91,10 @@ diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 !!! tip "Sparse Delta Integration — the core of eSDIva"
     The **SDI** method reformulates the spatial impulse response as a sparse train
     of Dirac deltas integrated in time or frequency, evaluated with **Numba-parallel
-    CPU kernels** (no GPU required). For large apertures this delivers
-    **>100× faster emission** and **>20× faster reception (RF)** than sample-by-sample
-    evaluation — with **negligible difference from Field II** — making full RF and
-    phantom simulations practical on a laptop.
+    CPU kernels** (no GPU required). Against Field II on the same machine it runs
+    **20–190× faster for emission** and **40–70× faster for reception (RF)** — with
+    **negligible difference from Field II** (RF correlation 0.991–0.9999) — making
+    full RF and phantom simulations practical on a laptop.
 
 <div class="grid cards" markdown>
 
@@ -102,8 +102,8 @@ diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 
     ---
 
-    Sparse Delta Integration in time **and** frequency domain. >100× emission and
-    >20× reception speedup on large apertures, Field II-accurate.
+    Sparse Delta Integration in time **and** frequency domain. 20–190× emission and
+    40–70× reception speedup over Field II, Field II-accurate.
 
 -   :lucide-cpu: **Numba-parallel, CPU-only**
 
