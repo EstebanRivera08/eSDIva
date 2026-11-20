@@ -74,7 +74,11 @@ and OpenCode all read them unchanged; the repo root doubles as a Claude Code plu
 transducers, emission, reception, visualization, physics + four `# %%`-celled
 templates) and `esdiva-contribute` (issue + small-PR workflow).
 `tests/integration/test_skill_templates.py` executes every template, so a public API
-change fails CI instead of a user's first session. Keep the references in sync when
+change fails CI instead of a user's first session.
+`skills/esdiva-simulate/references/api-map.md` is GENERATED (`just api-map` →
+`scripts/gen_api_map.py`): every public signature + `file:line` + a module-ownership
+table, read by the `/esdiva` skill and agents before any source. `tests/integration/test_api_map.py`
+fails when it is stale — rerun `just api-map` after a public API change. Keep the references in sync when
 a public API, convention or default changes — they are documentation users read
 without the code. Install matrix: `skills/README.md`. Root `AGENTS.md` points
 non-Claude agents at both this file and `skills/`.
@@ -91,7 +95,8 @@ non-Claude agents at both this file and `skills/`.
 6. **`src/esdiva/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
 7. **`src/esdiva/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
 8. **`src/esdiva/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW/multiplane (θx,θy)); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`. (Diverging waves use `das_volume` with `virtual_source_mm` z<0 — the former `das_dw_volume` was a redundant subset, removed.)
-9. **`src/esdiva/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
+9. **`src/esdiva/fields.py`** — `Field`: move (`transform`, same 4×4 as the probe) and combine any scalar volume (pressure, PSF, envelope) on a common grid. Recipe: `Field.canvas(grid_dict)` → `Field(vol, coords).transform(T)` → `.resample(canvas)` → `+ - * / **` point by point. Sum POWER (`** 2`) for views fired apart, signed pressure only for one coherent wavefront; `tx * rx` = two-way beam. Accepts `x_mm`-style beamformer axes. (Formerly `PressureField`, renamed without alias.)
+10. **`src/esdiva/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
 
 ### Key Design Patterns
 

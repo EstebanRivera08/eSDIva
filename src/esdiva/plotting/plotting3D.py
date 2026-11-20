@@ -64,7 +64,7 @@ def plot3D_pressure_vol(
         If True, call ``plotter.show()`` before returning. Default False. On a
         desktop backend ``show()`` closes the render window, so the returned
         plotter is spent — to overlay more (another field, the transducer),
-        leave this False, add with `add_pressure_vol` / `PressureField.add_to`,
+        leave this False, add with `add_pressure_vol` / `Field.add_to`,
         and call ``show()`` yourself last.
     save_path : str or Path, optional
         Path to save a screenshot (the plotter is closed after saving). If None, no
