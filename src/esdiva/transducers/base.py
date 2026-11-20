@@ -469,7 +469,7 @@ class TransducerBase(ABC):
         *,
         angle_steering_deg=None,
         c: Optional[float] = None,
-        inline: bool = True,
+        inplace: bool = True,
         plot: bool = False,
     ) -> np.ndarray:
         """
@@ -490,7 +490,7 @@ class TransducerBase(ABC):
             Mutually exclusive with ``focus_mm``.
         c : float, optional
             Speed of sound in m/s. Defaults to ``speed_of_sound_mps`` (1540).
-        inline : bool
+        inplace : bool
             If True (default) store result in ``self.delays``.
         plot : bool
             If True, display a delay plot after computation.
@@ -564,7 +564,7 @@ class TransducerBase(ABC):
             # Element with min projection fires first (zero delay); others compensate.
             delays = (d_proj - d_proj.min()) / c  # (E,) non-negative
 
-        if inline:
+        if inplace:
             self.delays = delays
         if plot:
             self.plot_delays(delays)
@@ -577,7 +577,7 @@ class TransducerBase(ABC):
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = None,
         plot: bool = False,
-        inline: bool = True,
+        inplace: bool = True,
     ) -> np.ndarray:
         """
         Return uniform full-aperture apodization (all ones).
@@ -599,7 +599,7 @@ class TransducerBase(ABC):
             Accepted for API consistency.
         plot : bool
             Accepted for API consistency.
-        inline : bool
+        inplace : bool
             If True (default), store result in ``self.apodization``.
 
         Returns
@@ -617,7 +617,7 @@ class TransducerBase(ABC):
             )
 
         apod = np.ones(self.n_elements, dtype=float)
-        if inline:
+        if inplace:
             self.apodization = apod
             self.apodization_type = "full"
         if plot:

@@ -193,7 +193,7 @@ class MatrixArrayTransducer(TransducerBase):
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = "circular",
         plot: bool = False,
-        inline: bool = True,
+        inplace: bool = True,
     ) -> np.ndarray:
         """
         Compute per-element 2-D apodization for focusing at ``focus_mm``.
@@ -222,7 +222,7 @@ class MatrixArrayTransducer(TransducerBase):
             Window shape.  Default is ``'circular'``.
         plot : bool
             Display the 2-D apodization map after computation.
-        inline : bool
+        inplace : bool
             Store result in ``self.apodization`` (default True).
 
         Returns
@@ -298,7 +298,7 @@ class MatrixArrayTransducer(TransducerBase):
         # Flatten in y-first (row-major) order to match element_centers ordering
         apod = apod_2d.T.flatten()
 
-        if inline:
+        if inplace:
             self.apodization = apod
             self.apodization_type = apodization_type
         if plot:
