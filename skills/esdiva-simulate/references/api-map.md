@@ -83,9 +83,9 @@ Shared state + public API for `Reception` and `ReceptionConventional`. `src/esdi
 
 ### `TransducerBase`
 
-Abstract base class for all transducer types. `src/esdiva/transducers/base.py:42`
+Abstract base class for all transducer types. `src/esdiva/transducers/base.py:41`
 
-- `TransducerBase() -> None` `src/esdiva/transducers/base.py:73`
+- `TransducerBase() -> None` `src/esdiva/transducers/base.py:72`
   - `.element_centers` (property) — 3-D element centre positions, shape ``(n_elements, 3)`` in metres.
   - `.elevation_lens_sag` (property) — SIGNED offset (m) of a cylindrical elevation lens surface at its centre.
   - `.sub_quad_verts` (property) — List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.
@@ -99,24 +99,24 @@ Abstract base class for all transducer types. `src/esdiva/transducers/base.py:42
   - `.impulse_response` (property) — Electromechanical impulse response of the transducer element.
   - `.baffle` (property) — Baffle around the aperture: ``"rigid"`` (default) or ``"soft"``.
   - `.excitation` (property) — Excitation pulse for this transducer.
-  - `.compute_delays(focus_mm=None, *, angle_steering_deg=None, c: Optional[float] = None, inplace: bool = True, plot: bool = False) -> numpy.ndarray` — Compute per-element time delays for electronic focusing or plane-wave steering. `src/esdiva/transducers/base.py:485`
-  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Return uniform full-aperture apodization (all ones). `src/esdiva/transducers/base.py:592`
-  - `.set_apodization(weights: numpy.ndarray) -> None` — Set per-element apodization weights directly. `src/esdiva/transducers/base.py:646`
-  - `.set_delays(delays: numpy.ndarray) -> None` — Set per-element delays directly (normalised so minimum = 0). `src/esdiva/transducers/base.py:656`
-  - `.set_impulse_response(ir: Optional[numpy.ndarray]) -> None` — Set the transducers impulse response. `src/esdiva/transducers/base.py:667`
-  - `.set_excitation(exc: Optional[numpy.ndarray]) -> None` — Set the transducers excitation pulse. `src/esdiva/transducers/base.py:678`
-  - `.get_mesh() -> pyvista.core.pointset.PolyData` — Build a PyVista surface mesh of the transducer. `src/esdiva/transducers/base.py:689`
-  - `.show(*, window_size: Tuple[int, int] = (800, 600), scalars: str = 'Apodization', notebook: bool = False, jupyter_backend: Optional[str] = None, colorbar_title: Optional[str] = None, **kwargs) -> None` — Interactive 3-D visualisation of the transducer surface. `src/esdiva/transducers/base.py:706`
-  - `.add_to_plotter(plotter: pyvista.plotting.plotter.Plotter, *, scalars: str = 'Apodization', colorbar_title: Optional[str] = None, shift_mm: Union[collections.abc.Buffer, numpy._typing._array_like._SupportsArray[numpy.dtype[Any]], numpy._typing._nested_sequence._NestedSequence[numpy._typing._array_like._SupportsArray[numpy.dtype[Any]]], bool, int, float, complex, str, bytes, numpy._typing._nested_sequence._NestedSequence[bool | int | float | complex | str | bytes], NoneType] = None, **kwargs) -> None` — Add the transducer surface, coloured by apodization or delays, to a scene. `src/esdiva/transducers/base.py:740`
-  - `.plot_apodization(apodization: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot apodization weights as a line/stem chart. `src/esdiva/transducers/base.py:819`
-  - `.plot_delays(delays: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot per-element delays in microseconds. `src/esdiva/transducers/base.py:870`
-  - `.plot_delays_apodization(figsize: Tuple[int, int] = (10, 4)) -> None` — Side-by-side delay and apodization plot. `src/esdiva/transducers/base.py:919`
-  - `.transform(T_matrix) -> None` — Rigidly move the aperture in space (rotation then translation). `src/esdiva/transducers/base.py:934`
-  - `.aim(position_mm, target_mm, roll_deg: float = 0.0) -> None` — Place the aperture at `position_mm` with its beam axis pointing at `target_mm`. `src/esdiva/transducers/base.py:999`
-  - `.clean() -> None` — Release cached geometry arrays to free memory. `src/esdiva/transducers/base.py:1033`
-  - `.copy() -> 'TransducerBase'` — Return a deep copy of this transducer, including all state and cached geometry. `src/esdiva/transducers/base.py:1042`
-  - `.get_state_dict() -> Dict[str, Any]` — Return a snapshot of the current apodization / delay state. `src/esdiva/transducers/base.py:1053`
-  - `.set_state_dict(state: Dict[str, Any]) -> None` — Restore apodization / delay state from a dictionary. `src/esdiva/transducers/base.py:1068`
+  - `.compute_delays(focus_mm=None, *, angle_steering_deg=None, c: Optional[float] = None, inplace: bool = True, plot: bool = False) -> numpy.ndarray` — Compute per-element time delays for electronic focusing or plane-wave steering. `src/esdiva/transducers/base.py:484`
+  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Return uniform full-aperture apodization (all ones). `src/esdiva/transducers/base.py:591`
+  - `.set_apodization(weights: numpy.ndarray) -> None` — Set per-element apodization weights directly. `src/esdiva/transducers/base.py:645`
+  - `.set_delays(delays: numpy.ndarray) -> None` — Set per-element delays directly (normalised so minimum = 0). `src/esdiva/transducers/base.py:655`
+  - `.set_impulse_response(ir: Optional[numpy.ndarray]) -> None` — Set the transducers impulse response. `src/esdiva/transducers/base.py:666`
+  - `.set_excitation(exc: Optional[numpy.ndarray]) -> None` — Set the transducers excitation pulse. `src/esdiva/transducers/base.py:677`
+  - `.get_mesh() -> pyvista.core.pointset.PolyData` — Build a PyVista surface mesh of the transducer. `src/esdiva/transducers/base.py:688`
+  - `.show(*, window_size: Tuple[int, int] = (800, 600), scalars: str = 'Apodization', notebook: bool = False, jupyter_backend: Optional[str] = None, colorbar_title: Optional[str] = None, **kwargs) -> None` — Interactive 3-D visualisation of the transducer surface. `src/esdiva/transducers/base.py:705`
+  - `.add_to_plotter(plotter: pyvista.plotting.plotter.Plotter, *, scalars: str = 'Apodization', colorbar_title: Optional[str] = None, shift_mm: Optional[numpy.ndarray] = None, **kwargs) -> None` — Add the transducer surface, coloured by apodization or delays, to a scene. `src/esdiva/transducers/base.py:739`
+  - `.plot_apodization(apodization: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot apodization weights as a line/stem chart. `src/esdiva/transducers/base.py:818`
+  - `.plot_delays(delays: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot per-element delays in microseconds. `src/esdiva/transducers/base.py:869`
+  - `.plot_delays_apodization(figsize: Tuple[int, int] = (10, 4)) -> None` — Side-by-side delay and apodization plot. `src/esdiva/transducers/base.py:918`
+  - `.transform(T_matrix) -> None` — Rigidly move the aperture in space (rotation then translation). `src/esdiva/transducers/base.py:933`
+  - `.aim(position_mm, target_mm, roll_deg: float = 0.0) -> None` — Place the aperture at `position_mm` with its beam axis pointing at `target_mm`. `src/esdiva/transducers/base.py:998`
+  - `.clean() -> None` — Release cached geometry arrays to free memory. `src/esdiva/transducers/base.py:1032`
+  - `.copy() -> 'TransducerBase'` — Return a deep copy of this transducer, including all state and cached geometry. `src/esdiva/transducers/base.py:1041`
+  - `.get_state_dict() -> Dict[str, Any]` — Return a snapshot of the current apodization / delay state. `src/esdiva/transducers/base.py:1052`
+  - `.set_state_dict(state: Dict[str, Any]) -> None` — Restore apodization / delay state from a dictionary. `src/esdiva/transducers/base.py:1067`
 
 ### `LinearArrayTransducer`
 

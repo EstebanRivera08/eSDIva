@@ -15,7 +15,6 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
-import numpy.typing as npt
 import pyvista as pv
 
 from . import geometry_utils, validators
@@ -743,7 +742,7 @@ class TransducerBase(ABC):
         *,
         scalars: str = "Apodization",
         colorbar_title: Optional[str] = None,
-        shift_mm: Optional[npt.ArrayLike] = None,
+        shift_mm: Optional[np.ndarray] = None,
         **kwargs,
     ) -> None:
         """
