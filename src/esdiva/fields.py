@@ -451,7 +451,7 @@ def _self_check():
     assert np.isclose(moved.sum(), data.size), (
         f"want {data.size} ones, got {moved.sum()}"
     )
-    both = sum(f.resample(canvas) for f in (field, field.transform(shift)))
+    both = field.resample(canvas) + field.transform(shift).resample(canvas)
     assert np.isclose(both.data.max(), 2.0), "canvas sum lost the overlap"
 
     # A rotated view must stay bounded and finite (trilinear interpolates 0..1).
