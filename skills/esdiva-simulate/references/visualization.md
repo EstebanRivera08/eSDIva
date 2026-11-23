@@ -129,8 +129,8 @@ Rules that decide whether the result is right:
   every canvas point; `resample` returns **0** where it doesn't reach, which reads as a
   real dropout. Coverage mask of a pose: `Field(np.ones_like(vol), coords).transform(T).resample(canvas).data > 0.999`.
 - Grid step ≤ λ/3: `resample` is trilinear; on a λ/3 grid moved-vs-re-simulated agrees to
-  ~2 % of peak beyond the near field (example 25).
-- Runnable demo of all four cases: `examples/example25_field_canvas.py`.
+  ~2 % of peak beyond the near field (5 MHz linear array tilted 15°).
+- Runnable demo (transient xAM arithmetic + moving a sheet): `examples/advanced/rca_xam_sound_sheet.py`.
 
 Details:
 - **`transform(T)`** is deferred and chainable, and returns a *copy* (the field is

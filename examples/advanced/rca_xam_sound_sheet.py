@@ -1,148 +1,181 @@
 """
-Example 25: move and combine simulated volumes on one canvas with `Field`.
+Advanced — A cross-amplitude-modulation (xAM) sound sheet from a row-column probe.
 
-The medium is homogeneous, so a beam simulated once can be moved with its probe
-instead of re-simulated. `Field` wraps any ``(data, coords)`` volume — a pressure
-field, a beamformed PSF, an envelope — and the recommended steps are always the same:
+Nonlinear sound-sheet microscopy (Heiles et al., Science 2025) images microbubbles
+and gas vesicles in a thin "sound sheet" swept through a volume by a row-column
+addressed (RCA) probe. Its transmit sequence is built only from linear pressure
+fields and arithmetic on them, which is exactly what `Field` does:
 
-1. wrap each result:            ``Field(p, coords)``
-2. pose it with the probe's 4x4: ``.transform(T)``
-3. build one common grid:        ``Field.canvas(grid)`` (the same dict `Emission` takes)
-4. bring every view onto it:     ``.resample(canvas)``
-5. combine point by point:       ``a + b``, ``a - b``, ``a * b``, ``sum(views)``
+1. An RCA keeps 2N channels instead of N² by crossing N long "column" bars with N
+   "row" bars on one face (`RowColumnAddressedTransducer`). Here the columns fire.
+2. A sub-aperture is split in two halves that emit plane waves tilted toward each
+   other at +alpha and -alpha (an "X-wave"). They cross along the bisector plane.
+3. xAM fires three pulses: TX1 both halves, TX2 the left half only, TX3 the right
+   half only. Tissue scatters linearly, so its echoes obey TX1 - TX2 - TX3 = 0 and
+   cancel. A bubble's echo also grows with the SQUARE of the local pressure, so
+   (p_L + p_R)² - p_L² - p_R² = 2·p_L·p_R survives — and only where BOTH plane-wave
+   pulses are present at the same instant: a thin sheet around the bisector.
 
-Three cases, each a question a researcher actually asks:
+eSDIva simulates the three LINEAR pressure fields. The quadratic step is a MODEL of
+the bubble response (the leading nonlinear term), applied point by point with
+`Field` arithmetic — no nonlinear propagation is simulated. Maps are RMS over time
+(√⟨·²⟩): sampled above Nyquist, the time-integrated energy is exact even when the
+peak of a 2f product would fall between samples.
 
-A. Compound three tilted views. The probe fires at -15, 0, +15 deg at different times,
-   so the views add INCOHERENTLY: sum intensities |P|^2, not amplitudes.
-B. Check that moving a field equals re-simulating the moved probe — a difference
-   map (moved - resimulated) that should be ~0 up to interpolation error.
-C. Two-way CW beam. In pulse-echo the transmit and receive apertures act in
-   sequence, so the two-way amplitude response is the PRODUCT |P_tx| * |P_rx|:
-   narrower main lobe and lower sidelobes than either one alone.
+Then the sheet is swept the way the paper does it, by sliding the sub-aperture.
+The medium is homogeneous and the bars identical, so a slid aperture radiates the
+same field translated: `Field.transform` moves the simulated sheet instead of
+re-simulating it.
 
-Monochromatic XZ planes keep it to a few seconds. A PSF from `das_volume` drops in
-the same way: ``Field(envelope, axes)`` (its ``x_mm``/``y_mm``/``z_mm`` axes are read
-as-is).
+Probe and sequence follow the paper's order of magnitude (pitch ≈ lambda at
+15.6 MHz, 2-cycle bursts, alpha ≈ 20°); the sub-aperture size is chosen for a
+quick run.
 
 Run with:
-    uv run python examples/example25_field_canvas.py
+    uv run examples/advanced/rca_xam_sound_sheet.py
 """
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 from config import FIG_FOLDER, SAVE_FIG
 from esdiva import Emission, Field
-from esdiva.transducers import LinearArrayTransducer
-from esdiva.utilities import to_dB
+from esdiva.transducers import RowColumnAddressedTransducer
+from esdiva.utilities import to_dB, tone_burst
 
-FC = 5e6
-FOCUS_MM = [0, 0, 30]
+C, FC, FS = 1540.0, 15.6e6, 100e6
+ALPHA_DEG = 20.0
+N_HALF = 24  # elements per half-aperture
+SHIFT = 8  # offset of the sub-aperture from the array centre, in elements
+
+rca = RowColumnAddressedTransducer(
+    n_elements=64,
+    element_width_mm=0.09,
+    kerf_mm=0.01,  # pitch 0.1 mm ≈ lambda (0.099 mm)
+    no_sub_x=1,
+    no_sub_y=32,  # 6.4 mm bars cut into 0.2 mm patches (far field from ~1 mm)
+    frequency_Hz=FC,
+)
+cols = rca.columns
+x_el = cols.element_centers[:, 0]
+
+burst = tone_burst(FC, n_cycles=2, fs=FS)
+
+# XZ plane through the bar centres (y = 0). dx = 0.02 mm resolves a ~0.1 mm sheet
+# and makes the slid aperture (8 x 0.1 mm) an exact number of grid steps.
+grid = {
+    "x_extent": [-2, 2],
+    "y_extent": [0, 0],
+    "z_extent": [0.5, 8],
+    "dx": 0.02,
+    "dy": 0,
+    "dz": 0.05,
+}
 
 
-def rot_y(deg):
-    """4x4 rotation about the elevation (y) axis through the probe face centre."""
-    c, s = np.cos(np.deg2rad(deg)), np.sin(np.deg2rad(deg))
+def xwave(first):
+    """Delays and half-aperture masks of an X-wave from elements first..first+2N-1.
+
+    Each half is a plane wave tilted toward the bisector (delay ∝ the element's
+    projection on the propagation direction, x·sin(±alpha)/c). The halves are
+    mirror images, so their wavefronts meet ON the bisector together.
+    """
+    left = np.zeros(cols.n_elements, bool)
+    right = np.zeros(cols.n_elements, bool)
+    left[first : first + N_HALF] = True
+    right[first + N_HALF : first + 2 * N_HALF] = True
+    s = np.sin(np.deg2rad(ALPHA_DEG))
+    delays = np.zeros(cols.n_elements)
+    delays[left] = x_el[left] * s / C  # left half steers toward +x
+    delays[right] = -x_el[right] * s / C  # right half steers toward -x
+    delays[left] -= delays[left].min()
+    delays[right] -= delays[right].min()
+    return delays, left, right
+
+
+def emit(delays, mask):
+    """Signed transient pressure of the elements in ``mask`` as a `Field`.
+
+    Delays are the same for every pulse of one X-wave and only the apodization
+    changes, so all pulses share one time axis and subtract sample by sample.
+    """
+    cols.delays = delays
+    cols.apodization = mask.astype(float)
+    p, coords = Emission(cols, fs=FS, c=C, excitation=burst, verbose=False)(grid)
+    return Field(p, coords)
+
+
+def rms(field):
+    """RMS over time of a transient `Field` → one (Nx, 1, Nz) map."""
+    return Field(np.sqrt(np.mean(field.data**2, axis=0)), field.coords)
+
+
+# ── xAM: three linear pulses, combined point by point ─────────────────────────
+first = (cols.n_elements - 2 * N_HALF) // 2 - SHIFT // 2
+delays, left, right = xwave(first)
+tx1 = emit(delays, left | right)  # both halves
+tx2 = emit(delays, left)
+tx3 = emit(delays, right)
+assert tx1.coords["t0"] == tx2.coords["t0"] == tx3.coords["t0"]
+
+linear_residual = tx1 - tx2 - tx3  # tissue: cancels by superposition
+xam = tx1**2 - tx2**2 - tx3**2  # quadratic scatterer: 2·p_L·p_R survives
+res = np.abs(linear_residual.data).max() / np.abs(tx1.data).max()
+print(f"linear residual TX1-TX2-TX3: {res:.1e} of peak (float32 round-off)")
+
+lin_map, xam_map = rms(tx1), rms(xam)
+x, z = lin_map.coords["x"], lin_map.coords["z"]
+x_mid = 0.5 * (x_el[first + N_HALF - 1] + x_el[first + N_HALF]) * 1e3  # bisector, mm
+
+
+off = np.abs(x - x_mid) > 0.6  # outside the crossing zone at mid depth
+iz = np.argmin(np.abs(z - 3.0))
+lin_off, xam_off = (
+    20 * np.log10(m.data[off, 0, iz].max() / m.data[:, 0, iz].max())
+    for m in (lin_map, xam_map)
+)
+print(
+    f"off-sheet peak at 3 mm (|x - bisector| > 0.6 mm): linear {lin_off:.1f} dB, "
+    f"xAM {xam_off:.1f} dB"
+)
+
+# ── Sweep the sheet: move it instead of re-simulating the slid aperture ───────
+
+
+def shift_x(mm):
     T = np.eye(4)
-    T[[0, 0, 2, 2], [0, 2, 0, 2]] = [c, s, -s, c]
+    T[0, 3] = mm
     return T
 
 
-def make_probe(FoverD=4.0):
-    probe = LinearArrayTransducer(
-        n_elements=32,
-        element_width_mm=0.25,
-        element_height_mm=5.0,
-        kerf_mm=0.05,
-        no_sub_x=2,
-        no_sub_y=4,
-        frequency_Hz=FC,
-    )
-    probe.compute_delays(focus_mm=FOCUS_MM)
-    probe.compute_apodization(focus_mm=FOCUS_MM, FoverD=FoverD)
-    return probe
-
-
-# One XZ plane (y = 0): rotations about y keep every view in this plane.
-grid = {
-    "x_extent": [-15, 15],
-    "y_extent": [0, 0],
-    "z_extent": [2, 45],
-    "dx": 0.1,
-    "dy": 0,
-    "dz": 0.1,
-}
-canvas = Field.canvas(grid)
-# Simulate the source WIDER than the canvas: a tilted view must still cover every
-# canvas point, or resample leaves zeros where the rotated grid does not reach.
-source_grid = {**grid, "x_extent": [-25, 25], "z_extent": [0.1, 50]}
-
-tx = make_probe()
-p, coords = Emission(tx, monochromatic=True)(source_grid)  # |P(r, fc)| in Pa
-beam = Field(p, coords)
-
-# A. Incoherent compounding of three tilted views (intensity adds).
-views = [
-    Field(p**2, coords, scalars="Intensity").transform(rot_y(a)) for a in (-15, 0, 15)
-]
-compound = sum(v.resample(canvas) for v in views)
-
-# B. Moved field vs re-simulated moved probe.
-moved_probe = make_probe()
-moved_probe.transform(rot_y(15))
-p_resim, c_resim = Emission(moved_probe, monochromatic=True)(grid)
-diff = beam.transform(rot_y(15)).resample(canvas) - Field(p_resim, c_resim)
-# Compare only where the moved field has data: resampling a field of ones gives
-# its coverage mask (canvas points behind the source grid's aperture plane get 0).
-covered = Field(np.ones_like(p), coords).transform(rot_y(15)).resample(canvas)
-err = np.where(covered.data > 0.999, np.abs(diff.data), np.nan) / p_resim.max()
-far = canvas.coords["z"] > 5.0
-# Residual = trilinear interpolation on a 0.1 mm (~lambda/3) grid: small in the
-# beam, larger in the rapidly oscillating near field; refine dx/dz to shrink it.
-print(
-    f"B. max |moved - resimulated|: {np.nanmax(err[..., far]):.2%} of peak beyond "
-    f"5 mm, {np.nanmax(err[..., ~far]):.2%} in the near field"
-)
-
-# C. Two-way beam: TX (F/4, 7.5 mm aperture) times RX (full 9.6 mm aperture), both
-# focused at 30 mm, on the canvas grid.
-tx_c = beam.resample(canvas)
-rx = make_probe(FoverD=1.0)
-p_rx, _ = Emission(rx, monochromatic=True)(grid)
-two_way = tx_c * Field(p_rx, canvas.coords)
-
-
-def width_mm(data, z_mm=30.0):
-    """-6 dB lateral width of an amplitude plane (Nx, 1, Nz) at depth z."""
-    x_mm, z_axis = canvas.coords["x"], canvas.coords["z"]
-    iz = np.argmin(np.abs(z_axis - z_mm))
-    prof = data[:, 0, iz] / data[:, 0, iz].max()
-    return np.ptp(x_mm[prof >= 0.5])
-
-
-# The two-way response IS the product: its -6 dB lobe is narrower than either alone.
-print(
-    f"C. -6 dB width at 30 mm: TX {width_mm(tx_c.data):.2f} mm, RX {width_mm(p_rx):.2f} mm, "
-    f"two-way {width_mm(two_way.data):.2f} mm"
+# Sliding sweep, 4 elements per step. Sheets are fired apart, so they add as POWER.
+sweep = sum(
+    (xam_map**2).transform(shift_x(k * 4 * rca.pitch_mm)).resample(xam_map)
+    for k in range(-3, 4)
 )
 
 # ── Figure ────────────────────────────────────────────────────────────────────
-x, z = canvas.coords["x"], canvas.coords["z"]
 ext = [x[0], x[-1], z[-1], z[0]]
 panels = [
-    ("Single view |P| (dB)", to_dB(tx_c.data[:, 0, :]), (-40, 0)),
-    ("A. 3-view intensity compound (dB)", to_dB(compound.data[:, 0, :]) / 2, (-40, 0)),
-    ("B. |moved − resimulated| (% peak)", 100 * err[:, 0, :], (0, 3)),
-    ("C. two-way |P_tx|·|P_rx| (dB)", to_dB(two_way.data[:, 0, :]), (-60, 0)),
+    ("Linear TX1, RMS |p| (dB)", to_dB(lin_map.data[:, 0, :])),
+    ("xAM 2·p_L·p_R, RMS (dB)", to_dB(xam_map.data[:, 0, :])),
+    ("xAM sheet swept, 7 positions (dB)", to_dB(sweep.data[:, 0, :]) / 2),
 ]
-fig, axes = plt.subplots(1, 4, figsize=(16, 4.5), constrained_layout=True)
-for ax, (title, img, (lo, hi)) in zip(axes, panels):
-    cmap = "viridis" if title.startswith("B") else "inferno"
-    im = ax.imshow(img.T, extent=ext, aspect="equal", cmap=cmap, vmin=lo, vmax=hi)
+fig, axes = plt.subplots(1, 4, figsize=(17, 4.5), constrained_layout=True)
+for ax, (title, img) in zip(axes, panels):
+    im = ax.imshow(img.T, extent=ext, aspect="auto", cmap="inferno", vmin=-30, vmax=0)
     ax.set(title=title, xlabel="x (mm)", ylabel="z (mm)")
     fig.colorbar(im, ax=ax, shrink=0.8)
+for m, label in ((lin_map, "linear TX1"), (xam_map, "xAM")):
+    axes[3].plot(x, to_dB(m.data[:, 0, iz]), label=label)
+axes[3].set(
+    title="Lateral profile at z = 3 mm", xlabel="x (mm)", ylabel="dB", ylim=(-40, 1)
+)
+axes[3].legend()
+axes[3].grid(alpha=0.3)
 
 if SAVE_FIG:
-    fig.savefig(FIG_FOLDER / "example25_field_canvas.png", dpi=150)
+    FIG_FOLDER.mkdir(parents=True, exist_ok=True)
+    fig.savefig(FIG_FOLDER / "rca_xam_sound_sheet.png", dpi=150)
 else:
     plt.show()

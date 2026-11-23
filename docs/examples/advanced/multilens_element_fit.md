@@ -2,7 +2,7 @@
 icon: lucide/target
 ---
 
-# Example 23: A Diverging Multilens Element as a Rigid Cap
+# Advanced — A Diverging Multilens Element as a Rigid Cap
 
 The multi-lens array of Haidour et al. (*Nat. Commun.* 2025, s41467-025-64911-z)
 widens each element's beam with a diverging epoxy/silicone doublet lens. eSDIva is
@@ -20,7 +20,7 @@ builds three candidate caps and compares each against the paper's measured direc
 3. **free aspheric** — the same four terms but coefficients free to go negative, so a
    central dimple may form if it sharpens the agreement with the bell.
 
-[Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example23_optimize_radial_element.py)
+[Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/advanced/multilens_element_fit.py)
 
 ---
 
@@ -89,9 +89,9 @@ Neither fully removes the ±45° shoulder (spherical aberration) that the paper'
 multilens suppresses — a single rigid cap trades aperture phase for beam width, it cannot
 reshape the lens's two-material refraction.
 
-![Refractive doublet](assets/ex23_refraction.png)
-![Strictly convex cap](assets/ex23_convex.png)
-![Free aspheric](assets/ex23_aspheric.png)
+![Refractive doublet](../assets/ex23_refraction.png)
+![Strictly convex cap](../assets/ex23_convex.png)
+![Free aspheric](../assets/ex23_aspheric.png)
 
 ---
 
@@ -101,4 +101,4 @@ Each Nelder–Mead iterate of the free-aspheric fit is rendered with the same 2�
 so the surface visibly deforms as the directivity closes on the bell — the central dimple
 forming and the shoulder pulling in over the run.
 
-![Aspheric fit evolution](assets/ex23_optimization.gif)
+![Aspheric fit evolution](../assets/ex23_optimization.gif)

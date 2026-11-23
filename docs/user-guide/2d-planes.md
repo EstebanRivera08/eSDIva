@@ -4,7 +4,7 @@ icon: lucide/chart-area
 
 # 2D Planes
 
-The Matplotlib backend produces static 2-D pressure plots suitable for publications and quick inspection. See [Mono-element Fields](../examples/example02_monoelements_monochromatic_CW.md) for working code.
+The Matplotlib backend produces static 2-D pressure plots suitable for publications and quick inspection. See [Mono-element Fields](../examples/learn/02_piston_and_bowl_cw.md) for working code.
 
 ### Monochromatic fields
 

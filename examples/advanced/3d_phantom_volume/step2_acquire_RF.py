@@ -23,7 +23,7 @@ simulation event by event:
   change the pulse model, delete ``out/<scenario>/RF`` yourself.
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
+    uv run examples/advanced/3d_phantom_volume/step2_acquire_RF.py
 """
 
 import sys

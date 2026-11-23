@@ -14,10 +14,10 @@ velocity in one arm scales by `N_ANGLES` — a bookkeeping error dressed as phys
 
 `sequence_rf` over a hand loop buys checkpointing (a crash costs one emission), a
 config fingerprint that refuses to mix two flows into one store, and
-`t0_per_event` for the beamformer — which matters at ~1560 emissions.
+`t0_per_event` for the beamformer — which matters at 936 emissions.
 
 Run with:
-    uv run examples/example22_flow_doppler/step2_acquire_RF.py
+    uv run examples/advanced/flow_doppler/step2_acquire_RF.py
 """
 
 import time

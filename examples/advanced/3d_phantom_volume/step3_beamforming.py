@@ -35,7 +35,7 @@ phantom-truth vs image slices in ``figures/<scenario>/``.
 Re-run freely: beamforming never touches the RF checkpoints.
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_3Dphantom_volume/step3_beamforming.py
+    uv run examples/advanced/3d_phantom_volume/step3_beamforming.py
 """
 
 import json
@@ -48,7 +48,7 @@ import numpy as np
 from scipy.ndimage import gaussian_filter1d
 from scipy.signal import hilbert
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
+sys.path.insert(0, str(Path(__file__).parents[1]))  # advanced/, for config.py.
 sys.path.insert(0, str(Path(__file__).parent))
 from step1_define_phantom_TX_RX import (
     C,

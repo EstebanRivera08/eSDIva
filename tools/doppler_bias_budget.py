@@ -53,10 +53,17 @@ WHAT THIS SCRIPT ALREADY ESTABLISHED (so it is not re-derived by hand):
   must be slow enough that decimation stays unambiguous.
 
 Run with:
-    uv run examples/example22_flow_doppler/bias_budget.py
+    uv run tools/doppler_bias_budget.py
 """
 
+import sys
+from pathlib import Path
+
 import numpy as np
+
+sys.path.insert(
+    0, str(Path(__file__).parents[1] / "examples" / "advanced" / "flow_doppler")
+)
 from doppler_tools import echo_center_frequency, iq2doppler, rf2iq, wfilt
 from step1_define_flow_phantom import (
     ARMS,

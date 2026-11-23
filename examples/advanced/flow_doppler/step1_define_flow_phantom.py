@@ -31,14 +31,14 @@ THE PROBE. 3 MHz linear array, 64 elements on half-λ pitch, 14 mm elevation
 aperture with a lens focused on the vessel. Elevation is the axis the image
 cannot show and where Doppler quietly goes wrong — a voxel averages out-of-plane
 blood that is slower, flattening the profile. The lens pins the elevation slice
-to 0.59 mm against a 3 mm lumen, so the colour map reports flow, not beam. Note
+to 0.61 mm against a 4 mm lumen, so the colour map reports flow, not beam. Note
 `elevation_focus_mm` is the lens RADIUS OF CURVATURE, not the focal depth (rim =
 z=0 datum → line focus one sagitta = 1.46 mm shallower); the probe is asked
 (`elevation_focus_depth_mm`), not assumed.
 
 SIZING. The bill is (scatterers·emissions) and is wavelength-invariant — line
 spacing, resolution cell and speckle density all scale with λ together. So
-counts are set from the MEASURED cell `CELL_MM3` (5 blood scatterers/cell, 1.5
+counts are set from the MEASURED cell `CELL_MM3` (5 blood scatterers/cell, 1.2
 tissue), not picked by eye; under-sample and the flow map turns moth-eaten. 72
 lines, not a clinical ~100: both bill terms grow with box width, so this box
 shows 8.0x where a 100-line one shows 10-15x — same mechanism, shorter lever.
@@ -53,7 +53,7 @@ the inter-emission phase, not an intra-pulse shift. Only the AXIAL component is
 visible, hence the vessel is tilted `THETA_DEG` and the truth is `V_PEAK·cos θ`.
 
 Run with:
-    uv run examples/example22_flow_doppler/step1_define_flow_phantom.py
+    uv run examples/advanced/flow_doppler/step1_define_flow_phantom.py
 (previews the phantom; normally imported by steps 2-4).
 """
 
@@ -62,7 +62,7 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
+sys.path.insert(0, str(Path(__file__).parents[1]))  # advanced/, for config.py.
 from config import FIG_FOLDER, SAVE_FIG  # noqa: E402
 
 from esdiva.reception import Reception  # noqa: E402
@@ -350,7 +350,7 @@ def build_phantom(n_emissions, prf_emission, profile="poiseuille"):
     profile : {'poiseuille', 'plug'}, default 'poiseuille'
         Velocity profile across the lumen. ``'poiseuille'`` is the physical
         parabola; ``'plug'`` puts every scatterer at `V_PEAK` and exists as the
-        control in `bias_budget.py`, where removing the velocity gradient is
+        control in `tools/doppler_bias_budget.py`, where removing the velocity gradient is
         what separates PSF smoothing from an outright scale error.
 
     Returns

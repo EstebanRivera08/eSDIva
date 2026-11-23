@@ -2,9 +2,9 @@
 icon: lucide/grid-3x3
 ---
 
-# Example 24: Depth-Resolved Multilens Matrix Point PSF
+# Advanced — Depth-Resolved Multilens Matrix Point PSF
 
-[Example 23](example23_optimize_radial_element.md) fitted a single rigid cap to the
+[The multilens element fit](multilens_element_fit.md) fitted a single rigid cap to the
 diverging multilens element of Haidour et al. (*Nat. Commun.* 2025, s41467-025-64911-z).
 The paper builds a large 3-D imaging probe by tiling **252** of these elements on an
 **18×14** grid at **5.48 mm** pitch, driven at **1 MHz**, and characterises its
@@ -19,18 +19,18 @@ free-aspheric cap), fires the 16-source sequence at three point targets, delay-a
 compounded echoes into a 3-D volume, and renders it the way the paper does — grayscale, in
 dB, with a linear opacity transfer function over a −30 dB display window.
 
-[Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example24_multilens_matrix_psf.py)
+[Source on GitHub](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/advanced/multilens_matrix_psf.py)
 
 ---
 
 ## Assembling the matrix
 
-The diverging cap is reused straight from example 23 (same fit), so a change to the lens
+The diverging cap is reused straight from the multilens element fit (same fit), so a change to the lens
 there flows through here. 252 curved caps × 16 transmits is heavy — keep `NO_SUB`
 modest, and preview the geometry with `sim.show()` before the simulation.
 
 ```python
-from example23_optimize_radial_element import optimized_aspheric
+from multilens_element_fit import optimized_aspheric
 from esdiva.transducers import CustomTransducer
 
 element = optimized_aspheric(no_sub_diameter=20)  # one diverging cap
@@ -99,12 +99,12 @@ are measured separately on fine 0.1 mm planes through each target. The volume is
 twice — once with the 252-cap probe mesh overlaid above the box (`tx.get_mesh()`, coloured
 by per-element apodization and self-lit with `ambient=1`) and once with the volume alone.
 
-![Point PSF volume render](assets/ex24_matrix_psf.png)
+![Point PSF volume render](../assets/ex24_matrix_psf.png)
 
 Three panels give the quantitative view: the xz slice through the three targets, the lateral
 PSF profiles at each depth with the **−6 dB** resolution marked, and the xy grating-lobe star.
 
-![PSF slices](assets/ex24_psf_slices.png)
+![PSF slices](../assets/ex24_psf_slices.png)
 
 ### How close is this to the paper?
 

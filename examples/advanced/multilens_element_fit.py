@@ -14,13 +14,15 @@ measured directivity (a Bessel bell crossing −6 dB at 33.17°):
 Each cap is shown with `plotting.visualize_element` (profile, directivity, mesh, xz field).
 
 Run with:
-    uv run python examples/example23_optimize_radial_element.py
+    uv run examples/advanced/multilens_element_fit.py
 """
 
 import warnings
 
 import matplotlib.pyplot as plt
 import numpy as np
+from pathlib import Path
+
 from config import FIG_FOLDER, SAVE_FIG
 from esdiva import Emission
 from esdiva.plotting import visualize_element
@@ -150,8 +152,17 @@ z_ref_um -= z_ref_um.max()
 
 
 def optimized_aspheric(no_sub_diameter=40):
-    """Fit and return the free-aspheric diverging cap (model 3; reused by example 24)."""
-    D, c = optimize_cap(4, (-2.0, 2.0))
+    """Return the free-aspheric diverging cap (model 3; reused by multilens_matrix_psf).
+
+    The fit takes minutes, so its result (diameter + profile coefficients) is cached
+    in `out/aspheric_fit.npz`; delete that file to refit."""
+    cache = Path(__file__).parent / "out" / "aspheric_fit.npz"
+    if cache.exists():
+        D, c = float(np.load(cache)["D"]), np.load(cache)["c"]
+    else:
+        D, c = optimize_cap(4, (-2.0, 2.0))
+        cache.parent.mkdir(exist_ok=True)
+        np.savez(cache, D=D, c=c)
     return make_element(D, c, no_sub_diameter=no_sub_diameter)
 
 

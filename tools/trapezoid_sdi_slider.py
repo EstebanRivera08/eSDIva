@@ -1,3 +1,9 @@
+"""Interactive trapezoid SIR: direct sampling (FST) vs SDI corner deltas, with sliders.
+
+Static, beginner version: `examples/learn/12_why_sdi.py`. Slider ranges keep the
+trapezoid inside the 11-sample window (wider ranges index outside the arrays).
+"""
+
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib.widgets import Slider
@@ -303,11 +309,11 @@ if __name__ == "__main__":
     area = 2
     l_c = 3
     Dt1 = 2
-    Dt2 = 5
+    Dt2 = 3
     shift = 1.5
-    range_Dt1 = (0.5, 5.0)
-    range_Dt2 = (0.5, 5.0)
-    range_shift = (-2.0, 2.0)
+    range_Dt1 = (0.5, 3.0)
+    range_Dt2 = (0.5, 3.0)
+    range_shift = (-0.5, 1.5)
 
     plot_trapezoid_methods(
         area, l_c, Dt1, Dt2, shift, range_Dt1, range_Dt2, range_shift

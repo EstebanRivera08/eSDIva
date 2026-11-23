@@ -27,8 +27,10 @@ from esdiva.plotting import add_regions_mesh, add_transducer_mesh, add_pressure_
 # 1. Load named structures (downloads the atlas on first use).
 atlas = BG_Atlas("allen_mouse_25um", region_names=["root", "CTX", "TH"])
 
-# 2. Register atlas space → transducer frame (4×4 homogeneous, translation in mm).
-atlas.transform(T_matrix=T_matrix, inplace=True)
+# 2. Place the brain under the probe: scale to mm (mouse lambda-bregma ~5 mm),
+#    flip z so the dorsal surface faces the probe, top of the brain 9 mm deep.
+atlas.place_under_probe(scale_mm=5.0, gap_mm=9.0)
+#    (Any other registration: atlas.transform(T_matrix=T, inplace=True), 4×4, mm.)
 
 # 3. One scene: anatomy + probe geometry + focused pressure field.
 pl = pv.Plotter()
@@ -46,9 +48,9 @@ pl = add_pressure_vol(pressure_vol, plotter=pl, contour_levels=8)
 pl.show()
 ```
 
-Full working simulations: [Mouse Brain Atlas](../examples/example12_txconcave_mousebrain.md)
+Full working simulations: [Mouse Brain Atlas](../examples/applications/brain_atlas_targeting.md)
 (a concave transducer focused into a mouse brain) and
-[Rat Brain Targeting](../examples/example13_txlinear_ratbrainzones.md)
+[Rat Brain Targeting](../examples/applications/brain_atlas_targeting.md)
 (a linear array steered onto named rat-brain zones).
 
 | | |

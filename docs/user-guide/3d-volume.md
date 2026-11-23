@@ -4,7 +4,7 @@ icon: lucide/box
 
 # 3D Volume
 
-The PyVista backend renders the full 3-D pressure volume as isosurfaces, enabling interactive exploration of the focal region. See the [Multi-element 3-D example](../examples/example03_multielements_monochromatic_CW.md) for working code.
+The PyVista backend renders the full 3-D pressure volume as isosurfaces, enabling interactive exploration of the focal region. See the [Multi-element 3-D example](../examples/learn/03_array_focusing_cw.md) for working code.
 
 ```python
 from esdiva.plotting import plot3D_pressure_vol

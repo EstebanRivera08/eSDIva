@@ -14,6 +14,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import esdiva.transducers as transducers
+from esdiva.utilities import tone_burst
 from esdiva.reception import Reception
 from esdiva.beamforming import envelope_db
 
@@ -48,8 +49,7 @@ tx.compute_apodization(focus_mm=FOCUS_MM, FoverD=2.0, apodization_type="hanning"
 # both (2-cycle burst at fc) and driving with the bare excitation is what makes the
 # PSF realistic: without them the aperture's diffraction tails dominate the spectrum
 # and the PSF comes out roughly 60 % too wide.
-t_pulse = np.arange(0.0, 2 / FC, 1.0 / FS)
-burst = (np.sin(2 * np.pi * FC * t_pulse) * np.hanning(len(t_pulse))).astype(np.float32)
+burst = tone_burst(FC, n_cycles=2, fs=FS)  # Hann-windowed sine at FC.
 excitation = burst.copy()
 tx.impulse_response = burst
 rx.impulse_response = burst

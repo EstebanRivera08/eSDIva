@@ -58,7 +58,8 @@ covered = Field(np.ones_like(vol), coords).transform(T).resample(canvas).data > 
 
 **Sample at λ/3 or finer.** `resample` interpolates trilinearly. On a λ/3 grid a moved
 field matches the re-simulated moved probe to ~2 % of peak beyond the near field
-(example 25, case B); refine the grid to shrink it.
+(32-element 5 MHz array tilted 15°); refine the grid to shrink it. A pure
+translation by a whole number of grid steps is exact (xAM sound-sheet study: 2.5e-6 of peak).
 
 ## A PSF on a common canvas
 
@@ -83,4 +84,4 @@ db = 10 * np.log10(power.data / power.data.max())
   field **tilts** (a plain `create_3Dvol_mesh` `ImageData` would only shift).
 - Transient `(Nt, …)` data: pick a frame with `time_index=` before posing or combining.
 
-See [Example 25](../examples/example25_field_canvas.md) for all four cases run end to end.
+[Example 25](../examples/advanced/rca_xam_sound_sheet.md) uses `Field` arithmetic on transient fields to build a cross-amplitude-modulation sound sheet, and moves the sheet instead of re-simulating it.

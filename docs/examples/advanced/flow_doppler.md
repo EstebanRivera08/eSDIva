@@ -2,7 +2,7 @@
 icon: lucide/waves
 ---
 
-# Example 22: Ultrafast Compound Doppler
+# Advanced — Ultrafast Compound Doppler
 
 A controlled replication of **ultrafast compound Doppler imaging** — Bercoff,
 Montaldo, Loupas, Savery, Mézière, Fink & Tanter, *IEEE Trans. Ultrason.
@@ -36,8 +36,8 @@ only the transmit differs.
 
 ## Output
 
-![Three sequences compared](assets/ex22_bercoff_arms.png)
-![The trade](assets/ex22_bercoff_tradeoff.png)
+![Three sequences compared](../assets/ex22_bercoff_arms.png)
+![The trade](../assets/ex22_bercoff_tradeoff.png)
 
 Each row is one sequence: the B-mode it reconstructed, its colour Doppler map on
 a shared velocity scale, and its power Doppler.
@@ -45,7 +45,7 @@ a shared velocity scale, and its power Doppler.
 ### The flow, frame by frame
 
 <video controls muted loop playsinline preload="metadata" style="width:100%;max-width:560px;display:block;margin:0 auto">
-  <source src="../assets/ex22_video1_flow.mp4" type="video/mp4">
+  <source src="../../assets/ex22_video1_flow.mp4" type="video/mp4">
 </video>
 
 Blood is barely visible on the B-mode — that is the point, and why Doppler
@@ -55,23 +55,23 @@ across the tube is read from the map, not from the phantom's definition.
 ### What the transmit costs
 
 <video controls muted loop playsinline preload="metadata" style="width:100%;max-width:560px;display:block;margin:0 auto">
-  <source src="../assets/ex22_video2_sequences.mp4" type="video/mp4">
+  <source src="../../assets/ex22_video2_sequences.mp4" type="video/mp4">
 </video>
 
 Both panels are real beamformed output. The conventional scan builds its image
 one focused line at a time; the ultrafast one shows each tilted plane wave and
 their coherent sum, at nine emissions per frame against 72 lines.
 
-Rebuild both with `uv run examples/example22_flow_doppler/make_videos.py` once
+Rebuild both with `uv run tools/doppler_make_videos.py` once
 step 2's RF is on disk.
 
 ## Run it
 
 ```bash
-uv run examples/example22_flow_doppler/step1_define_flow_phantom.py   # preview
-uv run examples/example22_flow_doppler/step2_acquire_RF.py            # the long one
-uv run examples/example22_flow_doppler/step3_doppler_processing.py
-uv run examples/example22_flow_doppler/step4_visualize.py
+uv run examples/advanced/flow_doppler/step1_define_flow_phantom.py   # preview
+uv run examples/advanced/flow_doppler/step2_acquire_RF.py            # the long one
+uv run examples/advanced/flow_doppler/step3_doppler_processing.py
+uv run examples/advanced/flow_doppler/step4_visualize.py
 ```
 
 Step 3 asserts both of the paper's claims, so the example fails loudly if the
@@ -113,7 +113,7 @@ v_map, power = iq2doppler(wfilt(iq), PRF_DOPPLER, f_echo, c=C)
 The Doppler chain (`rf2iq`, `wfilt`, `iq2doppler`) lives in the example, not the
 package — eSDIva simulates the RF and beamforms it; turning an ensemble into a
 velocity is signal processing. See
-[Flow Simulation](../user-guide/flow-simulation.md).
+[Flow Simulation](../../user-guide/flow-simulation.md).
 
 ## Two things worth sizing before you run
 
@@ -123,10 +123,10 @@ The folder's own `README.md` carries the measurements and the error budget.
   vessel.** Too few per cell gives a moth-eaten flow map; a cell too large beside
   the lumen flattens the profile. Elevation is the axis that bites, since a linear
   array does not focus there electronically — an
-  [elevation lens](../user-guide/multi-elements.md#elevation-lens) is the fix.
+  [elevation lens](../../user-guide/multi-elements.md#elevation-lens) is the fix.
 - **Add receiver noise before any sensitivity claim.** eSDIva's RF is noiseless by
   design, so a longer ensemble has nothing to average down. Use
   `esdiva.utilities.add_noise` with one shared `reference` across the sequences
   being compared — noise belongs to the receiver, not the transmit scheme.
 
-[View the scripts on GitHub](https://github.com/EstebanRivera08/eSDIva/tree/main/examples/example22_flow_doppler)
+[View the scripts on GitHub](https://github.com/EstebanRivera08/eSDIva/tree/main/examples/advanced/flow_doppler)

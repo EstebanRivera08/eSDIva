@@ -27,4 +27,4 @@ p, coords = sim(field_points)
 - Comparing transducer geometries or subdivision settings.
 - Fast field preview before a full transient run.
 
-See [Example 3 — Multi-element 3-D](../examples/example03_multielements_monochromatic_CW.md).
+See [Example 3 — Multi-element 3-D](../examples/learn/03_array_focusing_cw.md).

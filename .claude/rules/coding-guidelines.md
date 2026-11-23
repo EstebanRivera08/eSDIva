@@ -47,7 +47,7 @@ early hypotheses quietly calcify into "facts". A wrong-but-confident causal clai
 the acoustics (blaming an artefact on grating lobes, on pitch, on a missing impulse
 response, ...) is worse than no answer: it steers a researcher into a physics
 misunderstanding that survives in reports, docs, and memory long after the session.
-(Precedent: example21's zeus10 image problems were confidently attributed to 2λ pitch
+(Precedent: the 3-D phantom case study's (`examples/advanced/3d_phantom_volume`) zeus10 image problems were confidently attributed to 2λ pitch
 and to the impulse-response handling; a later 10 MHz rerun falsified both.)
 
 Rules:

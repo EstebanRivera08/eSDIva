@@ -16,7 +16,7 @@ palette-optimised GIF. ffmpeg comes from the `imageio_ffmpeg` wheel already in
 the venv, so there is nothing to install.
 
 Run with:
-    uv run examples/example22_flow_doppler/make_videos.py
+    uv run tools/doppler_make_videos.py
 """
 
 import json
@@ -36,7 +36,9 @@ import numpy as np  # noqa: E402
 from matplotlib.animation import FFMpegWriter, FuncAnimation  # noqa: E402
 from scipy.signal import hilbert  # noqa: E402
 
-sys.path.insert(0, str(Path(__file__).parent))
+sys.path.insert(
+    0, str(Path(__file__).parents[1] / "examples" / "advanced" / "flow_doppler")
+)
 from step1_define_flow_phantom import (  # noqa: E402
     ANGLES_DEG,
     C,
@@ -66,7 +68,7 @@ DPI = 135
 W_PX, H_PX = 1080, 1350
 FIGSIZE = (W_PX / DPI, H_PX / DPI)  # 4:5 - the tallest
 # Instagram shows without cropping, and LinkedIn renders it unchanged.
-OUT = Path(__file__).parent / "out"
+OUT = Path(__file__).parents[1] / "examples" / "advanced" / "flow_doppler" / "out"
 
 INK, DIM, BG, ACCENT, COOL = "#f2f4f7", "#9aa4b2", "#0b0e13", "#ff7a45", "#3ba7ff"
 
@@ -321,7 +323,7 @@ def video_one():
     fig.text(
         0.115,
         0.026,
-        "eSDIva  ·  example 22  ·  flow & Doppler",
+        "eSDIva  ·  flow & Doppler",
         fontsize=11,
         color="#5b6472",
     )
@@ -526,7 +528,7 @@ def video_two():
     fig.text(
         0.115,
         0.026,
-        "eSDIva  ·  example 22  ·  flow & Doppler",
+        "eSDIva  ·  flow & Doppler",
         fontsize=11,
         color="#5b6472",
     )

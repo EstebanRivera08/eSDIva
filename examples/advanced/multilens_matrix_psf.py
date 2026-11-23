@@ -2,7 +2,7 @@
 Example 24: depth-resolved 3-D point PSF of the diverging-multilens matrix (Fig. 2).
 
 The paper of Haidour et al. (Nat. Commun. 2025, s41467-025-64911-z) tiles 252 of
-example 23's diverging caps on an 18x14 grid at 5.48 mm pitch, 1 MHz, and characterises
+the diverging caps of multilens_element_fit.py on an 18x14 grid at 5.48 mm pitch, 1 MHz, and characterises
 its PSF versus depth (their Fig. 2). The sequence is SYNTHETIC-APERTURE: the 16 elements of
 the central 4x4 block each fire one diverging wave, EVERY element receives with uniform unit
 apodization (fixed full aperture, no F-number), and the 16 echoes are compounded on receive.
@@ -22,18 +22,19 @@ pitch is 3.6 lambda, far above lambda/2, so the grating lobes are real, not an a
 252 caps x 16 transmits is heavy — lower `NO_SUB` or coarsen the grid if too slow.
 
 Run with:
-    uv run python examples/example24_multilens_matrix_psf.py
+    uv run examples/advanced/multilens_matrix_psf.py
 """
 
 import types
 
 import matplotlib.pyplot as plt
 import numpy as np
+
 from config import FIG_FOLDER, SAVE_FIG
 from esdiva.beamforming import das_volume
 from esdiva.reception import Reception
 from esdiva.transducers import CustomTransducer
-from example23_optimize_radial_element import optimized_aspheric
+from multilens_element_fit import optimized_aspheric
 from scipy.signal import hilbert
 
 C0, FC, FS = 1540.0, 1e6, 50e6
@@ -44,7 +45,7 @@ NO_SUB = 20  # patches per diameter: 10 under-resolves the cap directivity (-6 d
 # 33 deg); 20 recovers it. Smallest subdivision that keeps the cap faithful (252x16 is heavy).
 DB_FLOOR = -30.0  # display floor of the 2D map panels (grating lobes sit near -22 dB)
 
-# One diverging cap, reused from example 23 (the free-aspheric fit), then tiled.
+# One diverging cap, reused from multilens_element_fit.py (the free-aspheric fit), then tiled.
 element = optimized_aspheric(no_sub_diameter=NO_SUB)
 xs = (np.arange(N_X) - (N_X - 1) / 2) * PITCH_MM
 ys = (np.arange(N_Y) - (N_Y - 1) / 2) * PITCH_MM

@@ -57,4 +57,4 @@ rf, coords = sim.pulse_echo_rf(scatterer_pos_mm, scatterer_amp)   # deeper echoe
 Deeper echoes lose amplitude and high frequencies faster than shallow ones, so the echo
 spectrum shifts down with depth — the reason real scanners apply time-gain compensation.
 
-See [Example 11 — Attenuation](../examples/example11_lineararray_attenuations.md).
+See [Example 11 — Attenuation](../examples/learn/05_attenuation.md).

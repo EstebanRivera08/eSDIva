@@ -22,7 +22,7 @@ channel RF biased a plug-flow control to 0.955 of truth where the beamformed
 lines give 0.998. (Loupas's correction over Kasai.)
 
 Run with:
-    uv run examples/example22_flow_doppler/step3_doppler_processing.py
+    uv run examples/advanced/flow_doppler/step3_doppler_processing.py
 """
 
 import json

@@ -28,8 +28,6 @@ Helper scripts (same scenario switch):
   **before** spending simulation hours.
 - `visualize_beamformed_volume.py` — 3-D renders of the reconstructed volume
   (volume render, cut-planes, truth-vs-image slices).
-- `psf_grid.py` — 12 isolated point targets through the full sequence,
-  beamformed per sub-aperture: the pure PSF vs position and vs compounding.
 
 The beamformed volume is a **stored product** — visualization scripts read it,
 they never re-beamform:
@@ -43,14 +41,14 @@ out/<scenario>/metrics.json       # timings + contrast/SNR/PSF numbers
 ## Running it
 
 ```bash
-uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
-uv run examples/example21_3Dphantom_volume/step3_beamforming.py
+uv run examples/advanced/3d_phantom_volume/step2_acquire_RF.py
+uv run examples/advanced/3d_phantom_volume/step3_beamforming.py
 ```
 
 Pick the probe with the `SCENARIO` environment variable (or edit it in step 1):
 
 ```bash
-SCENARIO=vermon uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
+SCENARIO=vermon uv run examples/advanced/3d_phantom_volume/step2_acquire_RF.py
 ```
 
 Start with `vermon`: it images the same phantom in a few minutes and is the

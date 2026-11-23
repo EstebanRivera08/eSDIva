@@ -173,9 +173,9 @@ diva.plot2D_pressure_slices(p, coords=coords, db_scale=True, vmin=-40)
 From the project folder you can also run the bundled examples directly:
 
 ```bash
-uv run examples/example03_multielements_monochromatic_CW.py
-uv run examples/example04_lineararray_excitation_DW.py
-uv run examples/example01_transducer_gallery.py
+uv run examples/learn/03_array_focusing_cw.py
+uv run examples/learn/04_plane_vs_diverging_wave.py
+uv run examples/learn/01_transducers.py
 ```
 
 ### Two SIR kernels: temporal and spectral

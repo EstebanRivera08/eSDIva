@@ -21,7 +21,7 @@ from scipy.signal import hilbert
 import esdiva.transducers as transducers
 from esdiva.reception import Reception
 from esdiva.beamforming import das_volume
-from esdiva.utilities import make_phantom, to_dB
+from esdiva.utilities import make_phantom, to_dB, tone_burst
 
 C = 1540.0
 FC = 5e6
@@ -39,8 +39,7 @@ tx = transducers.LinearArrayTransducer(
 )
 rx = tx.copy()  # never share one object: receive weights are per channel
 
-t_pulse = np.arange(0.0, 2 / FC, 1.0 / FS)
-burst = (np.sin(2 * np.pi * FC * t_pulse) * np.hanning(len(t_pulse))).astype(np.float32)
+burst = tone_burst(FC, n_cycles=2, fs=FS)  # Hann-windowed sine at FC.
 excitation = burst.copy()
 tx.impulse_response = burst
 rx.impulse_response = burst

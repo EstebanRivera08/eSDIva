@@ -1,7 +1,7 @@
 % domino_fieldii.m
 % ---------------------------------------------------------------------------
 % Build the eSDIva "LinearArrayExample" probe in MATLAB Field II and save its
-% mathematical-element geometry, so example 17 can import it and check the
+% mathematical-element geometry, so examples/applications/import_fieldii_probe.py can import it and check the
 % imported aperture matches esdiva.transducers.LinearArrayExample() patch-for-patch.
 %
 % LinearArrayExample = 128-element elevation-focused linear array, 12.5 MHz:

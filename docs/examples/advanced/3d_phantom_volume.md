@@ -1,4 +1,4 @@
-# Example 21: Volumetric Imaging Case Study — Matrix Probe, DW Sequence
+# Advanced — Volumetric Imaging Case Study — Matrix Probe, DW Sequence
 
 A complete, checkpointed volumetric imaging pipeline in three steps: a shared
 contrast-ladder phantom (anechoic cyst, ×4 lesions, elevation sphere, PSF
@@ -22,17 +22,17 @@ volume — never re-beamforms).
 
 ## Output (vermon scenario)
 
-![Phantom + probe + virtual sources](assets/ex21_vermon_phantom_setup.png)
-![B-mode triptych](assets/ex21_vermon_bmode.png)
-![Phantom truth vs image](assets/ex21_vermon_slices_compare.png)
-![Volume render](assets/ex21_vermon_volume_3d.png)
-![MPR cut planes](assets/ex21_vermon_mpr_3d.png)
+![Phantom + probe + virtual sources](../assets/ex21_vermon_phantom_setup.png)
+![B-mode triptych](../assets/ex21_vermon_bmode.png)
+![Phantom truth vs image](../assets/ex21_vermon_slices_compare.png)
+![Volume render](../assets/ex21_vermon_volume_3d.png)
+![MPR cut planes](../assets/ex21_vermon_mpr_3d.png)
 
 ## Run it
 
 ```bash
-uv run examples/example21_3Dphantom_volume/step2_acquire_RF.py
-uv run examples/example21_3Dphantom_volume/step3_beamforming.py
+uv run examples/advanced/3d_phantom_volume/step2_acquire_RF.py
+uv run examples/advanced/3d_phantom_volume/step3_beamforming.py
 # pick another probe: SCENARIO=zeus5 (or zeus10) before the commands
 ```
 
@@ -41,5 +41,5 @@ uv run examples/example21_3Dphantom_volume/step3_beamforming.py
 Every design rule this case study cost us — impulse responses, virtual-source
 coverage, phantom density, wire brightness, honest metrics — is distilled in
 the example folder's
-[`README.md`](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/example21_3Dphantom_volume/README.md)
+[`README.md`](https://github.com/EstebanRivera08/eSDIva/blob/main/examples/advanced/3d_phantom_volume/README.md)
 under "Design notes & pitfalls".

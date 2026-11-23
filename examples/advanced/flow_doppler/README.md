@@ -56,12 +56,12 @@ N_angles = PRF_max / PRF_doppler        PRF_max = c / (2·z_max)
 ```
 
 `PRF_max` is the depth limit — you cannot fire again until the last echo is
-back. Here `z_max = 16.5 mm` gives `PRF_max = 46.7 kHz`, so nine angles cap the
-Doppler PRF at **5 kHz**, and with it the unambiguous velocity
-`v_nyquist = c·PRF_doppler/(4·f)` = 18.4 cm/s. Compounding is never free: it is
-always paid for out of the velocity range. That is why the vessel peaks at
-20 cm/s rather than something faster — the sequence was designed against the
-limit, not the other way round.
+back. Here `z_max = 22.5 mm` gives `PRF_max = 34.2 kHz`, so nine angles cap the
+Doppler PRF at **3.7 kHz**, and with it the unambiguous axial velocity
+`v_nyquist = c·PRF_doppler/(4·f)` = 47.5 cm/s. Compounding is never free: it is
+always paid for out of the velocity range. That is why the vessel's axial velocity
+peaks at 22.5 cm/s (45 cm/s along a vessel tilted 60°), under half the limit —
+the sequence was designed against the limit, not the other way round.
 
 ## The probe
 
@@ -256,7 +256,7 @@ The control must be slow enough that decimation stays unambiguous.
 | `step2_acquire_RF.py` | Three checkpointed `sequence_rf` runs → `out/RF_{A,B,C}/`. Estimates its own runtime first. |
 | `step3_doppler_processing.py` | Beamforms each sequence, runs the **identical** estimator on all three, asserts the paper's claims. |
 | `step4_visualize.py` | The comparison figures. Reads stored products; never re-beamforms. |
-| `bias_budget.py` | The plug-flow control and the measured error budget above. |
+| `tools/doppler_bias_budget.py` | The plug-flow control and the measured error budget above. |
 
 `doppler_tools.py` holds the processing chain — `rf2iq`, `wfilt`, `iq2doppler`,
 `doppler_spectrum` — named for the conventional chain so the steps map onto what
@@ -265,11 +265,11 @@ or clutter filter; these are a few lines of numpy each, kept in the open so ever
 assumption behind a velocity number is visible.
 
 ```bash
-uv run examples/example22_flow_doppler/step1_define_flow_phantom.py   # preview
-uv run examples/example22_flow_doppler/step2_acquire_RF.py            # the long one
-uv run examples/example22_flow_doppler/step3_doppler_processing.py
-uv run examples/example22_flow_doppler/step4_visualize.py
-uv run examples/example22_flow_doppler/bias_budget.py                 # optional
+uv run examples/advanced/flow_doppler/step1_define_flow_phantom.py   # preview
+uv run examples/advanced/flow_doppler/step2_acquire_RF.py            # the long one
+uv run examples/advanced/flow_doppler/step3_doppler_processing.py
+uv run examples/advanced/flow_doppler/step4_visualize.py
+uv run tools/doppler_bias_budget.py   # optional
 ```
 
 **Estimate the runtime on your own machine before starting.** Step 2 calls

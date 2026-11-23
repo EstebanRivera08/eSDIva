@@ -15,7 +15,7 @@ and the measured radial profile, which shows how far the point-spread function
 flattens the parabola.
 
 Run with:
-    uv run examples/example22_flow_doppler/step4_visualize.py
+    uv run examples/advanced/flow_doppler/step4_visualize.py
 """
 
 import json

@@ -63,7 +63,7 @@ for out of the velocity range. Compounding is never free.
 The simulator produces the RF; the beamformers turn it into frames. Turning an
 ensemble of frames into a velocity is signal processing, not acoustics, so
 **eSDIva ships no Doppler estimator and no clutter filter** — the
-[flow & Doppler example](../examples/example22_flow_doppler.md) writes both in a
+[flow & Doppler example](../examples/advanced/flow_doppler.md) writes both in a
 few lines of numpy each, kept in the open so every assumption behind a velocity
 number is visible:
 
@@ -114,6 +114,6 @@ profile across the vessel.
 
 | Figure | Study |
 |--------|-------|
-| ![Ultrafast compound Doppler](../examples/assets/ex22_bercoff_arms.png) | [Ultrafast compound Doppler](../examples/example22_flow_doppler.md) — a replication of Bercoff *et al.* (2011) against a known velocity field |
+| ![Ultrafast compound Doppler](../examples/assets/ex22_bercoff_arms.png) | [Ultrafast compound Doppler](../examples/advanced/flow_doppler.md) — a replication of Bercoff *et al.* (2011) against a known velocity field |
 
 Full signature: [API → Reception](../api/reception.md).

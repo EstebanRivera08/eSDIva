@@ -9,7 +9,7 @@ sphere's elevation. Right: C-plane at the tier depth. Then two 3-D scenes:
    void, gold = x4 hyperechoic, red = PSF wires).
 
 Run with (pick the scenario in step 1 or via the SCENARIO env var):
-    uv run examples/example21_3Dphantom_volume/preview_phantom.py
+    uv run examples/advanced/3d_phantom_volume/preview_phantom.py
 """
 
 import sys
@@ -19,7 +19,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pyvista as pv
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
+sys.path.insert(0, str(Path(__file__).parents[1]))  # advanced/, for config.py.
 sys.path.insert(0, str(Path(__file__).parent))
 from step1_define_phantom_TX_RX import (
     FIG_DIR,
@@ -32,11 +32,11 @@ from step1_define_phantom_TX_RX import (
     phantom_map,
 )
 
+from config import SAVE_FIG, SCALE
+
 from esdiva.plotting.plotting_pyvista import add_transducer_mesh
 from esdiva.reception import Reception
 
-SAVE_FIG = True
-SCALE = 5
 # High-resolution screenshots: scale window size + fonts by SCALE when saving.
 scale = SCALE if SAVE_FIG else 1
 FIG_DIR.mkdir(parents=True, exist_ok=True)

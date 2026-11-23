@@ -6,8 +6,7 @@ the ``SCENARIO`` env var):
 
     "zeus5"   ZeUS 55x55, 3025 ch, 5 MHz (pitch 0.97λ: no grating lobes,
               ~0.3 mm PSF). The flagship run.
-    "zeus10"  Same probe at 10 MHz: pitch 2λ → the echo field is ALIASED and
-              the image is clutter-limited. The cautionary counterpart (~8 h).
+    "zeus10"  Same probe at 10 MHz: pitch 2λ, a coarse-pitch stress case (~8 h).
     "vermon"  Vermon-type 32x32, 1024 ch, 3 MHz — the 4-D ultrafast research
               probe, ~0.8 mm PSF, minutes to run (the fast pipeline test).
 
@@ -35,7 +34,7 @@ excitation but NOT the impulse responses — change the pulse model, delete the
 RF folder yourself.
 
 Run with:
-    uv run examples/example21_3Dphantom_volume/step1_define_phantom_TX_RX.py
+    uv run examples/advanced/3d_phantom_volume/step1_define_phantom_TX_RX.py
 (prints the selected scenario; normally imported by steps 2 and 3).
 """
 
@@ -45,12 +44,12 @@ from pathlib import Path
 
 import numpy as np
 
-sys.path.insert(0, str(Path(__file__).parents[1]))
+sys.path.insert(0, str(Path(__file__).parents[1]))  # advanced/, for config.py.
 from config import FIG_FOLDER
 
 from esdiva.transducers import MatrixArrayTransducer
 
-SCENARIO = os.environ.get("SCENARIO", "zeus10")  # "vermon" is the fast test run
+SCENARIO = os.environ.get("SCENARIO", "vermon")  # Fast run first; zeus* take hours.
 
 # --- Medium / sampling (shared by all scenarios) -------------------------------
 C = 1540.0  # speed of sound (m/s)
@@ -366,12 +365,11 @@ SCENARIOS = {
         # out to r = 6 mm (16.7° tilt): 21 sources total, vs_mm[:9] comparable.
         "vs_mm": _base_ring(-20.0, [(4.0, 8, 0.0), (6.0, 4, 22.5)]),
     },
-    # The cautionary counterpart: at 10 MHz the same pitch is 2λ — the echo
-    # field is spatially aliased and every voxel collects faint coherent
-    # copies of speckle from elsewhere; the cyst fills with clutter no
-    # software can reject. 9 FAR sources (z=−40, r=4): at 2λ pitch every
-    # degree of local wavefront steepness feeds the aliasing, so tilt
-    # diversity must stay small. Expensive (~1.3 M scatterers, ~8 h).
+    # Same probe at 10 MHz: the 0.30 mm pitch is 2λ. Sampling theory predicts
+    # grating-lobe clutter above 1λ, but a rerun produced clean images, so
+    # treat pitch/λ as a number to check, not a verdict. 9 far sources
+    # (z=−40, r=4) keep the transmit tilts small. Expensive (~1.3 M
+    # scatterers, ~8 h).
     "zeus10": {
         **_ZEUS_LAYOUT,
         "fc": 10e6,

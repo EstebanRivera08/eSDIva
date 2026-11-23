@@ -125,9 +125,9 @@ scatterer cloud in 3-D — run it before a long simulation.
 
 | Figure | Study |
 |--------|-------|
-| ![Concave PSF](../examples/assets/ex06_concave_psf_comparison.png) | [PSF vs Field II](../examples/example06_concave_PSF.md) |
-| ![FMC](../examples/assets/ex08_reception_fmc.png) | [Full Matrix Capture](../examples/example08_synthetic_aperture_FMC.md) |
-| ![Phantom B-mode](../examples/assets/ex20_phantom_bmode.png) | [Speckle phantom](../examples/example20_phantom_simulation.md) |
+| ![Lateral PSF](../examples/assets/07_psf_1.png) | [Point spread function](../examples/learn/07_psf.md) |
+| ![FMC](../examples/assets/09_full_matrix_capture_1.png) | [Full Matrix Capture](../examples/learn/09_full_matrix_capture.md) |
+| ![Phantom B-mode](../examples/assets/10_speckle_phantom_2.png) | [Speckle phantom](../examples/learn/10_speckle_phantom.md) |
 
 ## Beamforming note
 
