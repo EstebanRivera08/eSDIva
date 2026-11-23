@@ -6,6 +6,8 @@ Notes
 
 - ``LinearArrayTransducer`` -- 1-D row of rectangular elements, optional elevation lens.
 - ``MatrixArrayTransducer`` -- 2-D grid of rectangular elements.
+- ``RowColumnAddressedTransducer`` -- RCA probe: N columns crossed with N rows
+  (two ``LinearArrayTransducer`` attributes, ``.columns`` and ``.rows``).
 
 **Mono-element transducers** (geometric focusing, no electronic delays):
 
@@ -17,6 +19,8 @@ Notes
   (line focus).
 - ``RadialProfileTransducer`` -- Arbitrary axisymmetric surface ``z(r)`` (dome, bowl,
   aspheric lens).
+- ``ElevationProfileTransducer`` -- Rectangular element curved along elevation by any
+  profile ``z(y)`` (the element of a lensed linear/convex/RCA array).
 
 **Composite arrays**:
 
@@ -50,6 +54,7 @@ from .circular import (
     FocusedCircularTransducer,
 )
 from .custom import CustomTransducer
+from .elevation import ElevationProfileTransducer
 from .fieldii_compat import (
     FieldIITransducer,
     from_fieldii_patch_arrays,
@@ -59,6 +64,7 @@ from .fieldii_compat import (
 from .linear import LinearArrayTransducer, ConvexArrayTransducer
 from .matrix import MatrixArrayTransducer
 from .radial import RadialProfileTransducer
+from .rca import RowColumnAddressedTransducer
 from .saved_transducers import LinearArrayExample, MatrixArrayExample
 
 __all__ = [
@@ -68,12 +74,14 @@ __all__ = [
     "LinearArrayTransducer",
     "ConvexArrayTransducer",
     "MatrixArrayTransducer",
+    "RowColumnAddressedTransducer",
     # Mono-element transducers
     "FlatCircularTransducer",
     "ConcaveCircularTransducer",
     "ConvexCircularTransducer",
     "FocusedCircularTransducer",
     "RadialProfileTransducer",
+    "ElevationProfileTransducer",
     # Composite
     "CustomTransducer",
     # Field II import

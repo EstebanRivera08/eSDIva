@@ -15,7 +15,7 @@ from scipy.signal import hilbert
 
 from esdiva.beamforming import das_rca_volume
 from esdiva.reception import Reception
-from esdiva.transducers import LinearArrayTransducer
+from esdiva.transducers import RowColumnAddressedTransducer
 
 C = 1540.0
 
@@ -126,29 +126,16 @@ def test_point_localized_end_to_end():
     """
     fc, fs = 3e6, 50e6
     n = 8
-    tx = LinearArrayTransducer(
+    # Columns transmit, the crossing rows receive.
+    rca = RowColumnAddressedTransducer(
         n_elements=n,
         element_width_mm=0.55,
-        element_height_mm=4.75,
         kerf_mm=0.05,
         no_sub_x=1,
         no_sub_y=8,
         frequency_Hz=fc,
     )
-    rx = LinearArrayTransducer(
-        n_elements=n,
-        element_width_mm=0.55,
-        element_height_mm=4.75,
-        kerf_mm=0.05,
-        no_sub_x=1,
-        no_sub_y=8,
-        frequency_Hz=fc,
-    )
-    # Rotate the RX array 90° about z: its elements become the "rows".
-    rot_z = np.array(
-        [[0.0, -1.0, 0.0, 0.0], [1.0, 0.0, 0.0, 0.0], [0, 0, 1, 0], [0, 0, 0, 1]]
-    )
-    rx.transform(rot_z)
+    tx, rx = rca.columns, rca.rows
 
     t = np.arange(0, 2 / fc, 1 / fs)
     exc = (np.sin(2 * np.pi * fc * t) * np.hanning(t.size)).astype(np.float32)
@@ -184,7 +171,7 @@ def test_point_localized_end_to_end():
         angles_deg=angles,
         tx_centers_mm=tx.element_centers * 1e3,
         rx_centers_mm=rx.element_centers * 1e3,
-        rx_length_mm=4.75,
+        rx_length_mm=rca.bar_length_mm,
         grid_mm=grid,
         c=C,
         fnum=0.7,

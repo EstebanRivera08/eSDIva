@@ -30,7 +30,9 @@ HEIGHT_MM = 4.0
 Z_TARGET_MM = 12.0
 
 
-def _probe(elevation_focus_mm):
+def _probe(lens):
+    """``lens``: signed arc radius (mm), a free profile ``y_mm -> z_mm``, or None."""
+    profile = lens if callable(lens) else None
     return LinearArrayTransducer(
         n_elements=N_EL,
         element_width_mm=0.25,
@@ -38,7 +40,8 @@ def _probe(elevation_focus_mm):
         kerf_mm=0.03,
         no_sub_x=1,
         no_sub_y=4,
-        elevation_focus_mm=elevation_focus_mm,
+        elevation_focus_mm=None if profile else lens,
+        elevation_profile_mm=profile,
         frequency_Hz=FC,
     )
 
@@ -90,7 +93,12 @@ TOL_MM = 0.25 * C / FC * 1e3
 
 @pytest.mark.parametrize(
     "elevation_focus_mm, label",
-    [(None, "flat"), (12.0, "concave"), (-12.0, "convex")],
+    [
+        (None, "flat"),
+        (12.0, "concave"),
+        (-12.0, "convex"),
+        (lambda y: y**2 / 24.0, "parabolic profile"),
+    ],
 )
 def test_point_target_lands_at_true_depth(elevation_focus_mm, label):
     measured = _measured_depth_mm(elevation_focus_mm)
