@@ -69,7 +69,11 @@ class ElevationProfileTransducer(TransducerBase):
 
     def _tile(self) -> Tuple[List[np.ndarray], float, float]:
         return geometry_utils.elevation_profile_quads(
-            self.elem_width, self.elem_height, self.no_sub_x, self.no_sub_y, self._elev_sag
+            self.elem_width,
+            self.elem_height,
+            self.no_sub_x,
+            self.no_sub_y,
+            self._elev_sag,
         )
 
     def _default_elevation_lens_sag(self) -> float:
