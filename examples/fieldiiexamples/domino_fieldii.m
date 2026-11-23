@@ -1,10 +1,10 @@
 % domino_fieldii.m
 % ---------------------------------------------------------------------------
-% Build the eSDIva "Domino" probe in MATLAB Field II and save its
+% Build the eSDIva "LinearArrayExample" probe in MATLAB Field II and save its
 % mathematical-element geometry, so example 17 can import it and check the
-% imported aperture matches esdiva.transducers.Domino() patch-for-patch.
+% imported aperture matches esdiva.transducers.LinearArrayExample() patch-for-patch.
 %
-% Domino = 128-element elevation-focused linear array, 12.5 MHz:
+% LinearArrayExample = 128-element elevation-focused linear array, 12.5 MHz:
 %   pitch 0.11 mm, element 0.108 x 1.5 mm, kerf 0.002 mm,
 %   elevation (cylindrical-lens) focus 8 mm, elevation subdivision 10.
 %

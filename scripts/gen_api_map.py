@@ -41,7 +41,7 @@ to the line given here. Units: public API in mm (`_mm`), internals SI.
 | `attenuation/attenuation.py` | causal power-law H_att(f), path distances | attenuation / dispersion |
 | `transducers/base.py` | `TransducerBase`: lazy geometry, delays, apodization, IR, `transform`, `copy`, mesh | anything every probe shares |
 | `transducers/{linear,matrix,circular,radial,custom,fieldii_compat}.py` | concrete probes and their geometry/apodization | one probe type's geometry |
-| `transducers/saved_transducers.py` | `Domino` (128-el linear), `Zeus_Matrix` (55×55) | ready-made probes |
+| `transducers/saved_transducers.py` | `LinearArrayExample` (128-el linear), `MatrixArrayExample` (55×55) | ready-made probes |
 | `fields.py` | `Field`: move (4×4 mm), resample, add fields | posing/compounding volumes |
 | `plotting/plotting2D.py` | Matplotlib slices, planes, transient animations | 2-D figures |
 | `plotting/plotting3D.py` | one-call PyVista volume/slice figures | quick 3-D figure |

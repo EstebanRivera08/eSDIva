@@ -19,8 +19,8 @@ Turn the physical question into the smallest simulation that answers it:
 1. **Ask what they want to see**, not what they want to call. Beam shape, wavefront,
    PSF, B-mode image, channel data for their own reconstruction — each maps to one
    template.
-2. **Start from a ready-made probe** (`transducers.Domino()`, 128-element linear;
-   `transducers.Zeus_Matrix()`, 55×55 matrix) unless they have specific element
+2. **Start from a ready-made probe** (`transducers.LinearArrayExample()`, 128-element linear;
+   `transducers.MatrixArrayExample()`, 55×55 matrix) unless they have specific element
    dimensions. Fewer numbers to get wrong on day one.
 3. **Copy a template, then edit it** — `templates/` holds four runnable starting
    points. Do not compose a script from scratch when one of them is 80 % of the way.

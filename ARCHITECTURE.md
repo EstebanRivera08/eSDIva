@@ -131,7 +131,7 @@ drive, or the `per_scatterer` PSF):
     support into a reused buffer, `a_p·h_tx ⊛ h_rx` is added at the echo's start sample
     into a float64 row, and the shared pulse `exc ⊛ ir_tx ⊛ ir_rx` is convolved once per
     channel. Cost ~`O(E·P·(M_rx + n_tx·n_rx))`, independent of depth. Measured 2026-11-13
-    (i7-13700H): Domino 128 el, 100k scatterers 26.7 s (former dense-RX-SIR version) →
+    (i7-13700H): LinearArrayExample 128 el, 100k scatterers 26.7 s (former dense-RX-SIR version) →
     3.9 s, spectral 89 s; 64 el deep focus 0.88 s vs spectral 1.77 s; Zeus 55×55, 1k
     scatterers 58.9 → 5.0 s. Attenuation, per-element drives and `per_scatterer=True`
     keep the full-window FFT convolution.
@@ -378,7 +378,7 @@ Override with the `n_depth_bins` constructor arg (or `sim.set("n_depth_bins", N)
 to tune for a different CPU or `N_scat ≫ 10⁴`. The optimum is machine-dependent but
 broad; binning off (`n_depth_bins=1`) recovers the single-grid path.
 
-Result (Domino linear, E=128, M=1280, vs Field II `calc_scat_multi` time): N=100
+Result (LinearArrayExample linear, E=128, M=1280, vs Field II `calc_scat_multi` time): N=100
 1.1×, N=1000 2.0×, N=10⁴ 2.1×. The 3 layers preserve the RF to ~4e-4 (binned vs
 unbinned) — within float/grid-snap tolerance. Attenuation, `per_scatterer`, and
 `focused_sum` keep the non-binned path (which is why the conventional path is 52–105× slower

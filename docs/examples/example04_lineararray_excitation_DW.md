@@ -30,7 +30,7 @@ import esdiva.transducers as transducers
 from esdiva.emission import Emission
 from esdiva.plotting import plot2D_pressure_slices
 
-tx = transducers.Domino()
+tx = transducers.LinearArrayExample()
 tx.compute_delays(focus_mm=[0, 0, -10])  # virtual focus behind the array
 
 # 2-cycle Hanning-windowed excitation at the probe centre frequency

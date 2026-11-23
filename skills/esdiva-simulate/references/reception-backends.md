@@ -106,7 +106,7 @@ the multi-threaded Field II (IUS 2014): short per-scatterer signals, pre-allocat
 reused from cache, work split over threads. Field II's source is not public, so the exact
 order of its convolutions is not known; the equivalence is in structure, not code.
 
-What made the difference (measured, Domino 128 el, 10 000 scatterers, FST): the former
+What made the difference (measured, LinearArrayExample 128 el, 10 000 scatterers, FST): the former
 version built a full scatterers × time receive SIR per element (~1.7 s), convolved the
 pulse per scatterer (~0.9 s) and allocated a buffer per scatterer (~0.6 s of the
 convolution) — 3.3 s total, now 0.39 s.
@@ -126,7 +126,7 @@ convolution) — 3.3 s total, now 0.39 s.
 Measured on one machine (Intel i7-13700H, 14 cores), correlation ≥ 0.99999 against
 `spectral` in every case. Re-measure on your own machine before sizing a long run.
 
-**Domino linear array, 128 elements, 12.5 MHz, focus 8 mm, scatterers at 5–11 mm**
+**LinearArrayExample linear array, 128 elements, 12.5 MHz, focus 8 mm, scatterers at 5–11 mm**
 (tight echoes, fine subdivision, high frequency):
 
 | scatterers | spectral | temporal (fst), former | temporal (fst) |

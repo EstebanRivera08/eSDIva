@@ -1,7 +1,7 @@
 """
 Example 17: Import a Field II Transducer and check it matches eSDIva
 
-Builds the native eSDIva ``Domino`` probe and the SAME probe exported from
+Builds the native eSDIva ``LinearArrayExample`` probe and the SAME probe exported from
 MATLAB Field II, then overlays the two apertures to confirm eSDIva imports
 Field II geometry patch-for-patch.
 
@@ -9,14 +9,14 @@ Generate the Field II export first (needs MATLAB + the Field II toolbox)::
 
     >> run examples/fieldiiexamples/domino_fieldii.m   % writes domino_fieldii.mat
 
-That script rebuilds the Domino probe with ``xdc_focused_array`` and saves
+That script rebuilds the LinearArrayExample probe with ``xdc_focused_array`` and saves
 ``rect = xdc_get(Th, 'rect')``.  This example loads it with
 ``from_fieldii_rect_data`` and compares the imported patch mosaic against
-``esdiva.transducers.Domino()``.
+``esdiva.transducers.LinearArrayExample()``.
 
 Steps
 -----
-1. Build the native eSDIva Domino probe
+1. Build the native eSDIva LinearArrayExample probe
 2. Load + import the Field II export (skipped with a hint if the .mat is absent)
 3. Compare the two patch mosaics numerically (sorted patch centres)
 4. Overlay both apertures in PyVista + simulate the imported probe's CW field
@@ -34,16 +34,16 @@ from config import FIG_FOLDER, SAVE_FIG
 
 from esdiva.emission import Emission
 from esdiva.plotting import plot2D_pressure_slices
-from esdiva.transducers import Domino, from_fieldii_rect_data
+from esdiva.transducers import LinearArrayExample, from_fieldii_rect_data
 from esdiva.utilities import explore_mat
 
 # ============================================================================
 # CONFIGURATION
 # ============================================================================
 MAT_FILE = Path(__file__).parent / "fieldiiexamples" / "domino_fieldii.mat"
-ELEVATION_FOCUS_MM = 8.0  # Domino cylindrical-lens focal length (Field II Rfocus)
+ELEVATION_FOCUS_MM = 8.0  # LinearArrayExample cylindrical-lens focal length (Field II Rfocus)
 
-# XZ plane for the CW field of the imported probe. Domino patches are 0.108 x
+# XZ plane for the CW field of the imported probe. LinearArrayExample patches are 0.108 x
 # 0.15 mm, so the far-field SIR is valid within a few mm — start the grid at 5.
 PLANE = {
     "x_extent": [-8, 8],
@@ -75,7 +75,7 @@ if SAVE_FIG:
 # ============================================================================
 # STEP 1: NATIVE ESDIVA DOMINO
 # ============================================================================
-native = Domino()
+native = LinearArrayExample()
 print(f"Native eSDIva : {native}")
 
 # ============================================================================
@@ -85,7 +85,7 @@ if not MAT_FILE.exists():
     print(
         f"\n{MAT_FILE.name} not found. Generate it in MATLAB first:\n"
         f"    >> run {MAT_FILE.parent / 'domino_fieldii.m'}\n"
-        "Showing the native Domino aperture only.\n"
+        "Showing the native LinearArrayExample aperture only.\n"
     )
     imported = None
 else:
@@ -110,9 +110,9 @@ else:
         max_diff_mm = np.abs(cn - ci).max() * 1e3
         print(f"\nMax patch-centre difference: {max_diff_mm:.4f} mm")
         assert max_diff_mm < 0.2, (
-            f"Imported aperture deviates {max_diff_mm:.3f} mm from native Domino."
+            f"Imported aperture deviates {max_diff_mm:.3f} mm from native LinearArrayExample."
         )
-        print("PASS: imported Field II aperture matches native Domino.")
+        print("PASS: imported Field II aperture matches native LinearArrayExample.")
 
 # ============================================================================
 # STEP 4: OVERLAY THE TWO APERTURES + SIMULATE THE IMPORTED CW FIELD
@@ -146,7 +146,7 @@ if imported is not None:
         coords=coords,
         db_scale=True,
         vmin=-40,
-        title="Imported Domino (Field II) — CW field",
+        title="Imported LinearArrayExample (Field II) — CW field",
         save_path=str(FIG_FOLDER) if SAVE_FIG else None,
         file_name="ex17_fieldii_import_cw.png",
     )

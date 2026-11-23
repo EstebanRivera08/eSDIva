@@ -155,7 +155,10 @@ class Reception(ReceptionBase):
         "alpha0": ((float, type(None)), "Attenuation dB/(MHz^y cm) or None"),
         "freq_power": (float, "Attenuation exponent"),
         "excitation": ((np.ndarray, type(None)), "Excitation pulse or None"),
-        "method": ((str, type(None)), "Formulation: None(auto)/spectral/temporal/fst/sdi/auto"),
+        "method": (
+            (str, type(None)),
+            "Formulation: None(auto)/spectral/temporal/fst/sdi/auto",
+        ),
         "n_depth_bins": ((int, str), "Spectral depth bins: 'auto' or int"),
         "verbose": (bool, "Print diagnostics"),
     }

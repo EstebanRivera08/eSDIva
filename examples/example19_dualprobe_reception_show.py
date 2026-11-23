@@ -64,13 +64,13 @@ tx.transform(aim_at_target(-PROBE_OFFSET_MM))
 # ============================================================================
 # STEP 2: RX PROBE — LINEAR ARRAY, RIGHT, FLIPPED + TILTED TOWARD THE MIDDLE
 # ============================================================================
-rx = transducers.Domino()
+rx = transducers.LinearArrayExample()
 
 # Hanning receive apodization over the full aperture, computed in the
 # canonical frame BEFORE the move (apodization is per-element state, the
 # rigid transform does not change it). Focus at the target distance.
 target_dist_mm = float(np.linalg.norm(TARGET_MM - [PROBE_OFFSET_MM, 0, 0]))
-aperture_mm = rx.n_elements * 0.11  # Domino pitch
+aperture_mm = rx.n_elements * 0.11  # LinearArrayExample pitch
 rx.compute_apodization(
     focus_mm=[0, 0, target_dist_mm],
     FoverD=target_dist_mm / aperture_mm,

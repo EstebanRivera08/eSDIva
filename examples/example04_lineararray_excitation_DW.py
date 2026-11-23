@@ -51,7 +51,7 @@ if SAVE_FIG:
 # ============================================================================
 # STEP 1: CREATE TRANSDUCER WITH DIVERGING-WAVE DELAYS
 # ============================================================================
-tx = transducers.Domino()
+tx = transducers.LinearArrayExample()
 # Virtual focus behind array creates a diverging spherical wavefront.
 tx.compute_delays(focus_mm=VIRTUAL_FOCUS_MM)
 tx.compute_apodization(focus_mm=VIRTUAL_FOCUS_MM, FoverD=1)

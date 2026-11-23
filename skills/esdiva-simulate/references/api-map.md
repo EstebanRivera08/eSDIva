@@ -21,7 +21,7 @@ to the line given here. Units: public API in mm (`_mm`), internals SI.
 | `attenuation/attenuation.py` | causal power-law H_att(f), path distances | attenuation / dispersion |
 | `transducers/base.py` | `TransducerBase`: lazy geometry, delays, apodization, IR, `transform`, `copy`, mesh | anything every probe shares |
 | `transducers/{linear,matrix,circular,radial,custom,fieldii_compat}.py` | concrete probes and their geometry/apodization | one probe type's geometry |
-| `transducers/saved_transducers.py` | `Domino` (128-el linear), `Zeus_Matrix` (55×55) | ready-made probes |
+| `transducers/saved_transducers.py` | `LinearArrayExample` (128-el linear), `MatrixArrayExample` (55×55) | ready-made probes |
 | `fields.py` | `Field`: move (4×4 mm), resample, add fields | posing/compounding volumes |
 | `plotting/plotting2D.py` | Matplotlib slices, planes, transient animations | 2-D figures |
 | `plotting/plotting3D.py` | one-call PyVista volume/slice figures | quick 3-D figure |
@@ -54,9 +54,9 @@ Compute emitted acoustic pressure fields (monochromatic or transient). `src/esdi
 
 Compute pulse-echo RF from point scatterers (Jensen's SIR scattering model). `src/esdiva/reception/reception.py:93`
 
-- `Reception(tx, rx, *, c=1540.0, rho=1.0, fs=100000000.0, alpha0=None, freq_power=1.0, excitation=None, method=None, n_depth_bins='auto', verbose=True)` `src/esdiva/reception/reception.py:163`
-  - `.set(name, value)` — Update a parameter at runtime, then invalidate the conventional delegate. `src/esdiva/reception/reception.py:228`
-  - `.pulse_echo_rf(scatterer_positions_mm, amplitudes=None, *, per_scatterer=False, downsampling=None, out_path=None, checkpoint_chunks=1)` — Pulse-echo RF from point scatterers. `src/esdiva/reception/reception.py:842`
+- `Reception(tx, rx, *, c=1540.0, rho=1.0, fs=100000000.0, alpha0=None, freq_power=1.0, excitation=None, method=None, n_depth_bins='auto', verbose=True)` `src/esdiva/reception/reception.py:166`
+  - `.set(name, value)` — Update a parameter at runtime, then invalidate the conventional delegate. `src/esdiva/reception/reception.py:231`
+  - `.pulse_echo_rf(scatterer_positions_mm, amplitudes=None, *, per_scatterer=False, downsampling=None, out_path=None, checkpoint_chunks=1)` — Pulse-echo RF from point scatterers. `src/esdiva/reception/reception.py:845`
 
 ### `ReceptionConventional`
 
@@ -190,8 +190,8 @@ Transducer built from Field II ``xdc_get`` patch data. `src/esdiva/transducers/f
 - `from_fieldii_xdc_data(data, *, frequency_hz: Optional[float] = None, elevation_focus_mm: Optional[float] = None) -> esdiva.transducers.fieldii_compat.FieldIITransducer` — Create a :class:`FieldIITransducer` from ``xdc_get(Th, 'all')`` output. `src/esdiva/transducers/fieldii_compat.py:171`
 - `from_fieldii_rect_data(rect, *, frequency_hz: float = 1000000.0, elevation_focus_mm: Optional[float] = None) -> esdiva.transducers.fieldii_compat.FieldIITransducer` — Create a :class:`FieldIITransducer` from ``xdc_get(Th, 'rect')`` output. `src/esdiva/transducers/fieldii_compat.py:296`
 - `from_fieldii_patch_arrays(centres, u_tangents, v_tangents, half_widths, half_heights, *, delays=None, apodization=None, frequency_hz: float = 1000000.0, half_widths_input: bool = True, elevation_focus_mm: Optional[float] = None) -> esdiva.transducers.fieldii_compat.FieldIITransducer` — Build a :class:`FieldIITransducer` from explicit patch arrays. `src/esdiva/transducers/fieldii_compat.py:383`
-- `Domino()` — Create a Domino transducer with specific parameters. `src/esdiva/transducers/saved_transducers.py:9`
-- `Zeus_Matrix(no_sub_x=2, no_sub_y=2)` — Create a Zeus Matrix transducer with specific parameters. `src/esdiva/transducers/saved_transducers.py:41`
+- `LinearArrayExample()` — Ready-made 128-element linear array at 12.5 MHz. `src/esdiva/transducers/saved_transducers.py:7`
+- `MatrixArrayExample(no_sub_x=2, no_sub_y=2)` — Ready-made 55 x 55 matrix array at 10 MHz for 3-D imaging. `src/esdiva/transducers/saved_transducers.py:40`
 
 ## Moving / compounding fields
 

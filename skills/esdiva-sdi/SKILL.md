@@ -49,8 +49,8 @@ Public architecture, enough to route and to answer "what does it do":
   spectral `sir_spectral`/`compute_h_sir_spectrum` (closed-form `H(ω)`), `sir_paired`
   (pedagogic corner-train convolution). Modify carefully.
 - `esdiva.transducers` — geometry: `LinearArrayTransducer`, convex, matrix, circular
-  piston/bowl, custom, Field II import; ready-made `Domino()` (128-el linear),
-  `Zeus_Matrix()` (55×55). Delays/apodization recompute per focus; `transform(T)` moves
+  piston/bowl, custom, Field II import; ready-made `LinearArrayExample()` (128-el linear),
+  `MatrixArrayExample()` (55×55). Delays/apodization recompute per focus; `transform(T)` moves
   geometry rigidly.
 - `esdiva.emission` — `Emission` (monochromatic `|P(fc)|` or transient signed Pa;
   global `(L,)` or per-element `(L,E)` drive; `method=None` picks the measured-fastest

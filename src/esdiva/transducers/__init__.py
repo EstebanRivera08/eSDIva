@@ -33,8 +33,8 @@ Notes
 
 **Pre-defined transducers**:
 
-- ``Domino`` -- 128-element linear array (clinical probe).
-- ``Zeus_Matrix`` -- 55x55 matrix array (research probe).
+- ``LinearArrayExample`` -- 128-element linear array (clinical probe).
+- ``MatrixArrayExample`` -- 55x55 matrix array (research probe).
 
 **Utilities**:
 
@@ -59,7 +59,7 @@ from .fieldii_compat import (
 from .linear import LinearArrayTransducer, ConvexArrayTransducer
 from .matrix import MatrixArrayTransducer
 from .radial import RadialProfileTransducer
-from .saved_transducers import Domino, Zeus_Matrix
+from .saved_transducers import LinearArrayExample, MatrixArrayExample
 
 __all__ = [
     # Base
@@ -82,8 +82,8 @@ __all__ = [
     "from_fieldii_rect_data",
     "from_fieldii_patch_arrays",
     # Pre-defined
-    "Domino",
-    "Zeus_Matrix",
+    "LinearArrayExample",
+    "MatrixArrayExample",
 ]
 
 

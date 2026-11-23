@@ -40,12 +40,12 @@ if SAVE_FIG:
 # STEP 1: TRANSDUCER SETUP
 # ============================================================================
 # TX: focused at FOCUS_MM
-tx = transducers.Domino()
+tx = transducers.LinearArrayExample()
 tx.compute_delays(focus_mm=FOCUS_MM)
 tx.compute_apodization(focus_mm=FOCUS_MM, FoverD=2.0)
 
 # RX: same geometry, no electronic focusing (receive on all elements)
-rx = transducers.Domino()
+rx = transducers.LinearArrayExample()
 
 print(f"TX/RX elements: {tx.n_elements}")
 print(f"TX focus: {FOCUS_MM} mm")

@@ -182,7 +182,7 @@ the fastest with attenuation or per-element drives (64-el, 20k scatterers:
 there for those. For lossless single-drive
 runs the temporal path places each scatterer's short echo in time (`place_twoway_rf`: RX
 SIR sampled per scatterer over its support, pulse convolved once per channel, float64
-sums) and is faster than spectral (2026-11-13, i7-13700H: Domino 128 el 100k scatterers
+sums) and is faster than spectral (2026-11-13, i7-13700H: LinearArrayExample 128 el 100k scatterers
 3.9 s vs 89 s; 64 el deep focus 0.88 s vs 1.77 s).
 **Temporal and spectral are implementation-parallel ONLY on the frequency-domain path**
 (attenuation, per-element drive, or `per_scatterer` PSF): there both build the SIR spectrum

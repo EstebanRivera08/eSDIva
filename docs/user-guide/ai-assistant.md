@@ -112,7 +112,7 @@ what `coords["t0"]` means, the skill is probably not loaded.
 
 ## What the skills instruct
 
-- Start from a ready-made probe (`Domino()`, `Zeus_Matrix()`) unless you give
+- Start from a ready-made probe (`LinearArrayExample()`, `MatrixArrayExample()`) unless you give
   element dimensions.
 - Run a coarse 2-D plane before anything expensive, and say what a long run costs
   before launching it.
