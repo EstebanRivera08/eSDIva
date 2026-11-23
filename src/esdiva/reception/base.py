@@ -794,7 +794,7 @@ class ReceptionBase(SimulationBase):
                 ztitle="Z (mm)",
             )
 
-        plotter.camera.up = (0, 0, -1)  # ty: ignore[unresolved-attribute]
+        plotter.camera.up = (0, 0, -1)
         if return_plotter:
             return plotter
         if save_path is not None:

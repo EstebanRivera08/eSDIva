@@ -24,7 +24,7 @@ from config import FIG_FOLDER, SAVE_FIG, SCALE
 
 from esdiva.emission import Emission
 from esdiva.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
-from esdiva.transducers import Domino, Zeus_Matrix
+from esdiva.transducers import LinearArrayExample, MatrixArrayExample
 
 RUN_LINEAR_ARRAY = True
 RUN_MATRIX_ARRAY = True
@@ -85,7 +85,7 @@ field_point_mm = {
 if RUN_LINEAR_ARRAY:
     print("\n--- Linear Array Transducer ---\n")
 
-    linear_probe = Domino()
+    linear_probe = LinearArrayExample()
     linear_probe.compute_delays(focus_mm=FOCUS_MM)
     linear_probe.compute_apodization(focus_mm=FOCUS_MM, FoverD=1)
     if not SAVE_FIG:
@@ -182,7 +182,7 @@ if RUN_LINEAR_ARRAY:
 if RUN_MATRIX_ARRAY:
     print("\n--- Matrix Array Transducer ---\n")
 
-    matrix_probe = Zeus_Matrix()
+    matrix_probe = MatrixArrayExample()
     matrix_probe.compute_delays(focus_mm=FOCUS_MM)
     matrix_probe.compute_apodization(focus_mm=FOCUS_MM, FoverD=FOVERD)
     if not SAVE_FIG:

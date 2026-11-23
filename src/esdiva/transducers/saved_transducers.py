@@ -3,16 +3,18 @@
 from .linear import LinearArrayTransducer
 from .matrix import MatrixArrayTransducer
 
-# -------------- Define the domino transducer --------------
 
+def LinearArrayExample():
+    """Ready-made 128-element linear array at 12.5 MHz.
 
-def Domino():
-    """Create a Domino transducer with specific parameters.
+    Pitch 0.11 mm (element 0.108 mm wide, 1.5 mm tall) with a cylindrical
+    elevation lens of radius 8 mm. Each element is split into 1 x 10 patches so
+    the curved lens is resolved in elevation. Use it for demos and quick checks.
 
     Returns
     -------
     LinearArrayTransducer
-        An instance of the Domino transducer.
+        The configured linear array.
     """
 
     # Create transducer with elevation focus
@@ -35,16 +37,25 @@ def Domino():
     )
 
 
-# -------------- Define the ZeUS transducer --------------
+def MatrixArrayExample(no_sub_x=2, no_sub_y=2):
+    """Ready-made 55 x 55 matrix array at 10 MHz for 3-D imaging.
 
+    Pitch 0.3 mm (element 0.29 x 0.29 mm), element directivity limited to 30 deg.
 
-def Zeus_Matrix():
-    """Create a Zeus Matrix transducer with specific parameters.
+    Parameters
+    ----------
+    no_sub_x : int, default: 2
+        Patch subdivisions per element along x (lateral). Each 0.29 mm element is
+        split into ``no_sub_x`` x ``no_sub_y`` rectangular patches for the SIR; 1
+        keeps the whole element as a single patch (useful for subdivision-convergence
+        or benchmark studies).
+    no_sub_y : int, default: 2
+        Patch subdivisions per element along y (elevation).
 
     Returns
     -------
     MatrixArrayTransducer
-        An instance of the Zeus Matrix transducer.
+        The configured matrix array.
     """
 
     # Create transducer with elevation focus
@@ -65,8 +76,8 @@ def Zeus_Matrix():
         element_height_mm=tx_elem_height_mm,
         kerf_x_mm=tx_kerf_x_mm,
         kerf_y_mm=tx_kerf_y_mm,
-        no_sub_x=2,
-        no_sub_y=2,
+        no_sub_x=no_sub_x,
+        no_sub_y=no_sub_y,
         frequency_Hz=tx_freq * 1e6,
         dir_angle_deg=directivity,
     )

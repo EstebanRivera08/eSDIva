@@ -133,8 +133,12 @@ def reception_focused_line():  # example09 (B-mode line envelope)
     tx, rx = _linear(32), _linear(32)
     tx.impulse_response = rx.impulse_response = _pulse()
     pts = np.array([[0, 0, 15], [0, 0, 25], [1, 0, 30]], np.float32)
-    sim = Reception(tx, rx, fs=FS, excitation=_pulse(), verbose=False)
-    return {"envelope": sim.scan_focusline([0, 0, 25], pts, np.ones(3), FoverD=2.0)[0]}
+    out = {}
+    for m in ("spectral", "sdi", "fst", "auto"):
+        sim = Reception(tx, rx, fs=FS, excitation=_pulse(), method=m, verbose=False)
+        env, co = sim.scan_focusline([0, 0, 25], pts, np.ones(3), FoverD=2.0)
+        out[m], out[f"{m}_t0"] = env, np.array(co["t0"])
+    return out
 
 
 SCENARIOS = {

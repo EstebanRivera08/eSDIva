@@ -1,7 +1,7 @@
 # Example 3: Multi-element Transducers — 3-D Visualisation
 
 Computes a monochromatic focused pressure field for both a linear array
-(Domino) and a matrix array (Zeus_Matrix), then renders the transducer
+(LinearArrayExample) and a matrix array (MatrixArrayExample), then renders the transducer
 geometry and pressure volume together in 3-D using PyVista.
 
 ## What you will learn
@@ -27,11 +27,11 @@ uv run examples/example03_multielements_monochromatic_CW.py
 ## Key code
 
 ```python
-from esdiva.transducers import Domino
+from esdiva.transducers import LinearArrayExample
 from esdiva.emission import Emission
 from esdiva.plotting import add_pressure_vol, add_transducer_mesh, create_3Dvol_mesh
 
-probe = Domino()
+probe = LinearArrayExample()
 probe.compute_delays(focus_mm=[-2, 0, 8])
 probe.compute_apodization(focus_mm=[-2, 0, 8], FoverD=1)
 

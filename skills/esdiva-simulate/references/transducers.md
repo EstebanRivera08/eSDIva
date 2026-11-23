@@ -26,8 +26,8 @@ import esdiva.transducers as transducers
 | `CustomTransducer` | any list of the above placed at arbitrary positions/normals (helmet, dual probe) | `elements`, `positions_mm`, `normals` |
 | `FieldIITransducer` | built from `xdc_get(Th, 'all')` patch data | via `from_fieldii_xdc_data` / `from_fieldii_rect_data` / `from_fieldii_patch_arrays` |
 
-Ready-made probes: `transducers.Domino()` (128-element linear) and
-`transducers.Zeus_Matrix()` (55×55 matrix). Use them for demos and quick checks
+Ready-made probes: `transducers.LinearArrayExample()` (128-element linear) and
+`transducers.MatrixArrayExample()` (55×55 matrix). Use them for demos and quick checks
 instead of retyping element dimensions.
 
 ```python

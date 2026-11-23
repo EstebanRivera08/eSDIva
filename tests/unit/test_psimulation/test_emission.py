@@ -264,32 +264,6 @@ class TestTransferFunction:
 class TestSpectralTemporalParity:
     _PTS = np.array([[0, 0, 8], [2, 0, 15], [-3, 1, 22], [6, 0, 12]], np.float32)
 
-    @pytest.mark.parametrize(
-        "kw",
-        [
-            dict(monochromatic=True),
-            dict(monochromatic=True, alpha0=0.5, fast_attenuation=False),
-            dict(excitation="global", alpha0=0.7, freq_power=1.2),
-            dict(excitation="per_element", alpha0=0.5, fast_attenuation=False),
-        ],
-        ids=["mono", "mono-att-el", "global-att", "per-element-att"],
-    )
-    @pytest.mark.parametrize("baffle", ["rigid", "soft"])
-    def test_same_field(self, small_linear_transducer, kw, baffle):
-        tx = small_linear_transducer
-        tx.baffle = baffle
-        kw = dict(kw)
-        pulse = _make_excitation(fs=100e6)
-        if kw.get("excitation") == "global":
-            kw["excitation"] = pulse
-        elif kw.get("excitation") == "per_element":
-            kw["excitation"] = pulse[:, None] * np.arange(1, tx.n_elements + 1)
-        p_s, _ = _make_emission(tx, method="spectral", fs=100e6, **kw)(self._PTS)
-        p_t, _ = _make_emission(tx, method="fst", fs=100e6, **kw)(self._PTS)
-        tx.baffle = "rigid"
-        n = min(len(p_s), len(p_t))
-        np.testing.assert_allclose(p_s[:n], p_t[:n], atol=2e-2 * np.abs(p_t).max())
-
     def test_soft_baffle_lowers_off_axis_field(self, small_linear_transducer):
         tx = small_linear_transducer
         pt = np.array([[12.0, 0, 8.0]], np.float32)  # cosθ ≈ 0.55

@@ -428,11 +428,27 @@ class TestReceptionFormulations:
             assert corr(v, ref) > 0.99, name
             assert abs(float(np.abs(v).max()) / pk_ref - 1) < 0.05, name
 
-    def test_default_method_is_spectral(self):
-        """The default (unspecified) method is the fast spectral core."""
+    def test_default_method_auto_picks_by_regime(self):
+        """method=None (default) picks temporal for a lossless single-drive summed RF,
+        and spectral when a frequency transfer function is unavoidable (attenuation,
+        per-element drive, or the per-scatterer PSF)."""
         exc = self._exc()
+        pts = np.array([[0, 0, 30]], dtype=np.float32)
+
+        # Lossless, single global drive, summed RF -> temporal (tight echoes in time).
         sim = Reception(self._big_tx(), self._big_tx(), excitation=exc, verbose=False)
-        sim.pulse_echo_rf(np.array([[0, 0, 30]], dtype=np.float32))
+        sim.pulse_echo_rf(pts)
+        assert sim._last_method == "temporal"
+
+        # Attenuation needs H_att(f) -> spectral.
+        att = Reception(
+            self._big_tx(), self._big_tx(), excitation=exc, alpha0=0.5, verbose=False
+        )
+        att.pulse_echo_rf(pts)
+        assert att._last_method == "spectral"
+
+        # Per-scatterer PSF (no sum to collapse) -> spectral.
+        sim.pulse_echo_rf(pts, per_scatterer=True)
         assert sim._last_method == "spectral"
 
     def test_auto_delegates_to_conventional(self):
@@ -444,29 +460,27 @@ class TestReceptionFormulations:
         )
         assert sim._last_method == "auto"
 
-    @pytest.mark.parametrize("drive", ["global", "per_element"])
-    @pytest.mark.parametrize("alpha0", [None, 0.5])
+    @pytest.mark.parametrize("method", ["fst", "sdi", "auto"])
     @pytest.mark.parametrize("baffle", ["rigid", "soft"])
-    def test_spectral_equals_temporal(
-        self, simple_tx, simple_rx, drive, alpha0, baffle
+    def test_placement_equals_fft_convolution(
+        self, simple_tx, simple_rx, method, baffle
     ):
-        """Same RF from the closed-form H and the sampled h(t), every feature combo."""
-        exc = self._exc()
-        if drive == "per_element":
-            exc = exc[:, None] * np.linspace(0.5, 1.5, simple_tx.n_elements)
+        """Time-domain placement == dense SIRs FFT-convolved per scatterer, then summed."""
         simple_tx.baffle = simple_rx.baffle = baffle
         simple_tx.impulse_response = simple_rx.impulse_response = self._exc()
-        pos = np.array([[0, 0, 18], [6, 0, 12], [-2, 0, 25]], dtype=np.float32)
-        out = [
-            Reception(
-                simple_tx, simple_rx, fs=100e6, excitation=exc, alpha0=alpha0,
-                method=m, n_depth_bins=1, verbose=False,
-            ).pulse_echo_rf(pos)[0]
-            for m in ("spectral", "temporal")
-        ]  # fmt: skip
-        n = min(o.shape[-1] for o in out)
-        a, b = out[0][..., :n], out[1][..., :n]
-        assert np.abs(a - b).max() < 2e-2 * np.abs(b).max()
+        rng = np.random.default_rng(0)
+        pos = np.c_[rng.uniform(-3, 3, 50), np.zeros(50), rng.uniform(10, 30, 50)]
+        amp = rng.standard_normal(50).astype(np.float32)
+        sim = Reception(
+            simple_tx, simple_rx, fs=100e6, excitation=self._exc(), method=method,
+            verbose=False,
+        )  # fmt: skip
+        placed, c_placed = sim.pulse_echo_rf(pos, amp)
+        per_scat, c_fft = sim.pulse_echo_rf(pos, amp, per_scatterer=True)
+        summed = per_scat.sum(axis=0)
+        n = summed.shape[-1]
+        assert c_placed["t0"] == c_fft["t0"]
+        assert_allclose(placed[:, :n], summed, atol=1e-4 * np.abs(summed).max())
 
     def test_soft_baffle_lowers_off_axis_echo(self, simple_tx, simple_rx):
         pos = np.array([[8, 0, 10]], dtype=np.float32)  # ~39° off the normal

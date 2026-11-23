@@ -7,15 +7,22 @@ icon: lucide/activity
 Reception computes the **pulse-echo RF** scattered by point targets back onto the
 receive elements — the raw channel data a scanner would digitise. It is the basis
 for PSF, phantom, FMC, and sequence (PW/DW) imaging studies, and matches Field II
-to correlation ~1.0 while running **>20× faster** on large apertures.
+to correlation 0.991–0.9999 while running **40–70× faster** than Field II
+`calc_scat_multi` (128-element linear and 55×55 matrix, 1k–100k scatterers).
 
 One class, `Reception`, does everything; its `method` selector picks how the two-way
 SIR is evaluated (speed only — all give the same RF):
 
-- **`"spectral"`** (default) — the two-way spectrum `H_TX·H_RX` from the closed-form
-  SIR spectrum, evaluated only on the pulse's band; fastest in every measured case.
-- **`"temporal"`** (= `"sdi"`) / **`"fst"`** / **`"auto"`** — conventional
-  Tupholme-Stepanishen sampled convolution.
+- **`None`** (default) — pick the measured-faster path per call: `"temporal"` for a
+  lossless, single-drive, summed RF, `"spectral"` when a frequency transfer function is
+  unavoidable (attenuation, a per-element drive, or the per-scatterer PSF).
+- **`"spectral"`** — the two-way spectrum `H_TX·H_RX` from the closed-form
+  SIR spectrum, evaluated only on the pulse's band; fastest with attenuation or
+  per-element drives.
+- **`"temporal"`** (= `"sdi"`) / **`"fst"`** / **`"auto"`** — sampled
+  Tupholme-Stepanishen SIRs, convolved in time over each scatterer's short echo support
+  and placed at its arrival sample (no FFT); fastest for lossless, single-drive runs.
+  With attenuation or per-element drives it falls back to a full-window FFT.
 - **`ReceptionPaired`** (separate class) — exact but slow pedagogic reference (warns on construction).
 
 Every method supports a global `(L,)` or per-element `(L, E)` excitation, a soft baffle
@@ -40,9 +47,9 @@ flowchart LR
     TX[TX transducer] --> R[Reception<br/>fs · c · method]
     RX[RX transducer] --> R
     R --> M{method}
-    M -->|spectral · default| SP["closed-form H_TX·H_RX<br/>in-band only · no FFT"]
+    M -->|spectral| SP["closed-form H_TX·H_RX<br/>in-band only · no FFT"]
     M -.->|ReceptionPaired · pedagogic| PA[16 corner deltas / pair<br/>splat drive]
-    M -->|temporal / fst / auto| CV[sample SIRs + FFT]
+    M -->|temporal / fst / auto| CV[sample SIRs<br/>place short echoes]
     SP --> API
     PA --> API
     CV --> API

@@ -52,7 +52,6 @@ from step1_define_flow_phantom import (  # noqa: E402
     RF_DIRS,
     THETA_DEG,
     VESSEL_CENTER_MM,
-    V_PEAK,
     compound_events,
     focused_events,
     line_positions_mm,
@@ -393,8 +392,8 @@ def video_one():
         im_f.set_data(fl_db[k].T)
 
         if f < acts[0]:
-            title.set_text("Blood is almost invisible")
-            sub.set_text("B-mode of a vessel tilted 60° to the beam")
+            title.set_text("B-mode")
+            sub.set_text(f"vessel tilted {THETA_DEG:.0f}° to the beam")
             im_f.set_alpha(np.zeros_like(fl_a[k].T))
             im_v.set_alpha(0.0)
             im_p.set_alpha(0.0)
@@ -410,7 +409,7 @@ def video_one():
         elif f < acts[2]:
             t = _ease((f - acts[1]) / (acts[2] - acts[1]))
             title.set_text("Colour Doppler — how fast")
-            sub.set_text(f"phase gained between emissions   ±{vlim:.0f} cm/s")
+            sub.set_text(f"velocity along the beam   ±{vlim:.0f} cm/s")
             im_b.set_alpha(0.15 + 0.85 * t)
             im_f.set_alpha(fl_a[k].T * (1.0 - t))
             im_v.set_alpha(t)
@@ -419,17 +418,14 @@ def video_one():
         elif f < acts[3]:
             t = _ease((f - acts[2]) / (acts[3] - acts[2]))
             title.set_text("Power Doppler — how much")
-            sub.set_text("flow energy instead of velocity; it cannot alias")
+            sub.set_text("flow strength instead of velocity")
             im_v.set_alpha(1.0 - t)
             im_p.set_alpha(t)
             _key("hot", "flow power (dB)", -20, 0)
         else:
             t = _ease(min((f - acts[3]) / (acts[4] - acts[3]), 1.0))
-            title.set_text("And the profile is right")
-            sub.set_text(
-                f"{V_PEAK * 100:.0f} cm/s peak at {THETA_DEG:.0f}°  —  "
-                f"the axis reads {m['arms']['C']['psf_core_ratio']:.2f}× truth"
-            )
+            title.set_text("Estimation of speed profile")
+            sub.set_text("measured vs true velocity along the beam")
             im_p.set_alpha(1.0 - 0.5 * t)
             im_v.set_alpha(0.5 * t)
             axc.set_visible(False)

@@ -29,10 +29,10 @@ import numpy as np
 import esdiva.transducers as transducers
 from esdiva.reception import Reception
 
-tx = transducers.Domino()
+tx = transducers.LinearArrayExample()
 tx.compute_delays(focus_mm=[0, 0, 20])
 
-rx = transducers.Domino()
+rx = transducers.LinearArrayExample()
 th = np.deg2rad(30)
 R = np.array([[np.cos(th), 0, np.sin(th)], [0, 1, 0], [-np.sin(th), 0, np.cos(th)]])
 T = np.eye(4)

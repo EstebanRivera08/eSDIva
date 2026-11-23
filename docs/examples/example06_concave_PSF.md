@@ -35,7 +35,7 @@ tx.impulse_response = pulse
 tx.excitation = pulse
 rx = tx.copy()
 
-sim = Reception(tx, rx, fs=100e6, c=1540)   # default method="spectral"
+sim = Reception(tx, rx, fs=100e6, c=1540)   # method=None auto-picks spectral for the PSF
 rf, coords = sim.pulse_echo_rf(scatterer_positions_mm, per_scatterer=True)
 # rf.shape = (N_scat, E_rx, Nt) — the PSF, one trace per lateral position
 ```

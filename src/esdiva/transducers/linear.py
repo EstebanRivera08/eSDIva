@@ -275,7 +275,7 @@ class LinearArrayTransducer(TransducerBase):
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = None,
         plot: bool = False,
-        inline: bool = True,
+        inplace: bool = True,
     ) -> np.ndarray:
         """
         Compute per-element apodization for focusing at ``focus_mm``.
@@ -294,7 +294,7 @@ class LinearArrayTransducer(TransducerBase):
             Window shape. ``None`` defaults to ``'rect'`` with a warning.
         plot : bool
             Display the result after computation.
-        inline : bool
+        inplace : bool
             Store result in ``self.apodization`` (default True).
 
         Returns
@@ -337,7 +337,7 @@ class LinearArrayTransducer(TransducerBase):
             apodization_type,
         )
 
-        if inline:
+        if inplace:
             self.apodization = apod
             self.apodization_type = apodization_type
 
@@ -596,7 +596,7 @@ class ConvexArrayTransducer(TransducerBase):
         FoverD: Optional[float] = None,
         apodization_type: Optional[str] = None,
         plot: bool = False,
-        inline: bool = True,
+        inplace: bool = True,
     ) -> np.ndarray:
         """Compute per-element apodization for the convex array.
 
@@ -610,7 +610,7 @@ class ConvexArrayTransducer(TransducerBase):
             Window shape. ``None`` defaults to ``'rect'``.
         plot : bool
             Display the result after computation.
-        inline : bool
+        inplace : bool
             Store result in ``self.apodization`` (default True).
 
         Returns
@@ -644,7 +644,7 @@ class ConvexArrayTransducer(TransducerBase):
             apodization_type,
         )
 
-        if inline:
+        if inplace:
             self.apodization = apod
             self.apodization_type = apodization_type
         if plot:

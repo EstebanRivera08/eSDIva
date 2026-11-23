@@ -26,7 +26,7 @@ from esdiva.plotting import plot2D_pressure_slices
 from esdiva.transducers import LinearArrayTransducer
 
 # ============================================================================
-# CONFIGURATION  (Domino-like 128-element probe at 10 MHz)
+# CONFIGURATION  (LinearArrayExample-like 128-element probe at 10 MHz)
 # ============================================================================
 FS = 100e6  # Hz
 FREQUENCY_HZ = 10e6
@@ -54,7 +54,7 @@ if SAVE_FIG:
     FIG_FOLDER.mkdir(exist_ok=True)
 
 # ============================================================================
-# STEP 1: TRANSDUCER (Domino-like 128-element array at 10 MHz)
+# STEP 1: TRANSDUCER (LinearArrayExample-like 128-element array at 10 MHz)
 # ============================================================================
 tx = LinearArrayTransducer(
     n_elements=128,

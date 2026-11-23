@@ -8,7 +8,7 @@ array transducer.
 Steps
 -----
 1. Load the rat brain atlas (``whs_sd_rat_39um``) and select target regions
-2. Create a Domino linear array and compute focused delays + apodization
+2. Create a LinearArrayExample linear array and compute focused delays + apodization
 3. Simulate the monochromatic pressure field near the focus
 4. Transform atlas into the transducer coordinate frame
 5. Render anatomy + transducer + pressure in a single 3-D scene
@@ -90,7 +90,7 @@ brain_atlas = BG_Atlas(ATLAS_NAME, region_names=REGION_NAMES)
 # ============================================================================
 print("Creating transducer and computing pressure field...")
 
-domino = Transducers.Domino()
+domino = Transducers.LinearArrayExample()
 domino.compute_delays(focus_mm=FOCUS_MM)
 domino.compute_apodization(focus_mm=FOCUS_MM, FoverD=FOVERD, apodization_type="rect")
 tx_mesh = domino.get_mesh()

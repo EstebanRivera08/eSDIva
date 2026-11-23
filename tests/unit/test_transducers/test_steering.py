@@ -133,13 +133,13 @@ class TestXzPlaneSteering:
         d_neg = linear_8elem.compute_delays(angle_steering_deg=-20.0)
         np.testing.assert_allclose(d_pos[::-1], d_neg, rtol=1e-8)
 
-    def test_inline_false_does_not_store(self, linear_8elem):
+    def test_inplace_false_does_not_store(self, linear_8elem):
         old_delays = linear_8elem.delays.copy()
-        linear_8elem.compute_delays(angle_steering_deg=20.0, inline=False)
+        linear_8elem.compute_delays(angle_steering_deg=20.0, inplace=False)
         np.testing.assert_array_equal(linear_8elem.delays, old_delays)
 
-    def test_inline_true_stores_delays(self, linear_8elem):
-        d = linear_8elem.compute_delays(angle_steering_deg=10.0, inline=True)
+    def test_inplace_true_stores_delays(self, linear_8elem):
+        d = linear_8elem.compute_delays(angle_steering_deg=10.0, inplace=True)
         np.testing.assert_array_equal(linear_8elem.delays, d)
 
     def test_scalar_and_tuple_equal_for_1d_steer(self, linear_8elem):

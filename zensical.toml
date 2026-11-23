@@ -47,6 +47,7 @@ nav = [
       { "2D Planes" = "user-guide/2d-planes.md" },
       { "3D Volume" = "user-guide/3d-volume.md" },
       { "3D Planes" = "user-guide/3d-planes.md" },
+      { "Moving & Combining Volumes" = "user-guide/fields.md" },
     ]},
     { "Utilities" = [
       { "Overview" = "user-guide/utilities.md" },
@@ -64,6 +65,7 @@ nav = [
     { "Beamforming" = "api/beamforming.md" },
     { "I/O" = "api/io.md" },
     { "Plotting" = "api/plotting.md" },
+    { "Fields" = "api/fields.md" },
     { "Brain Atlas" = "api/brain_atlas.md" },
   ]},
   { "Examples" = [
@@ -92,6 +94,7 @@ nav = [
     { "22. Ultrafast Compound Doppler" = "examples/example22_flow_doppler.md" },
     { "23. Diverging Multilens as a Rigid Cap" = "examples/example23_optimize_radial_element.md" },
     { "24. Multilens Matrix Point PSF" = "examples/example24_multilens_matrix_psf.md" },
+    { "25. Moving & Combining Volumes" = "examples/example25_field_canvas.md" },
   ]},
   { "Contributing" = "contributing.md" },
 ]

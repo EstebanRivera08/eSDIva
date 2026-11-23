@@ -124,4 +124,11 @@ class SimulationBase:
         Used to compute one element's SIR at a time (per-element excitation,
         per-element attenuation, raw per-channel RF).
         """
-        return [tuple(a[sub_el_idx == e] for a in arrays) for e in range(n_elements)]
+        # One stable sort instead of one mask per element: O(M log M), not O(E·M).
+        order = np.argsort(sub_el_idx, kind="stable")
+        bounds = np.searchsorted(sub_el_idx[order], np.arange(n_elements + 1))
+        sorted_arrays = [a[order] for a in arrays]
+        return [
+            tuple(a[bounds[e] : bounds[e + 1]] for a in sorted_arrays)
+            for e in range(n_elements)
+        ]

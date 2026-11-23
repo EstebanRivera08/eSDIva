@@ -28,10 +28,10 @@ uv run examples/example07_lineararray_TXfocus_RXall.py
 import esdiva.transducers as transducers
 from esdiva.reception import Reception
 
-tx = transducers.Domino()
+tx = transducers.LinearArrayExample()
 tx.compute_delays(focus_mm=[0, 0, 20])
 tx.compute_apodization(focus_mm=[0, 0, 20], FoverD=2.0)
-rx = transducers.Domino()          # flat reception — no delays
+rx = transducers.LinearArrayExample()          # flat reception — no delays
 
 sim = Reception(tx, rx, c=1540, fs=200e6, excitation=excitation)
 sim.show(scatterer_pos, scatterer_amp)   # 3-D sanity check

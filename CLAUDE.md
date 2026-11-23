@@ -74,7 +74,11 @@ and OpenCode all read them unchanged; the repo root doubles as a Claude Code plu
 transducers, emission, reception, visualization, physics + four `# %%`-celled
 templates) and `esdiva-contribute` (issue + small-PR workflow).
 `tests/integration/test_skill_templates.py` executes every template, so a public API
-change fails CI instead of a user's first session. Keep the references in sync when
+change fails CI instead of a user's first session.
+`skills/esdiva-simulate/references/api-map.md` is GENERATED (`just api-map` →
+`scripts/gen_api_map.py`): every public signature + `file:line` + a module-ownership
+table, read by the `/esdiva` skill and agents before any source. `tests/integration/test_api_map.py`
+fails when it is stale — rerun `just api-map` after a public API change. Keep the references in sync when
 a public API, convention or default changes — they are documentation users read
 without the code. Install matrix: `skills/README.md`. Root `AGENTS.md` points
 non-Claude agents at both this file and `skills/`.
@@ -91,7 +95,8 @@ non-Claude agents at both this file and `skills/`.
 6. **`src/esdiva/utilities/`** — Helpers, surface subdivision, brain-atlas integration.
 7. **`src/esdiva/plotting/`** — Visualization (2D Matplotlib, 3D PyVista).
 8. **`src/esdiva/beamforming/`** — RF post-processing: `DAS_focused_scanline` (one line), `das_rca_volume` (numba 3-D DAS for row-column plane-wave sequences), `das_volume` (general numba 3-D DAS, TX=RX: each event dict carries `delays`/`apodization` + `virtual_source_mm` (DW z<0 / focused z>0 / synthetic-aperture z≈0) or `angles_deg` (PW/multiplane (θx,θy)); the TX time origin is recovered from the event's own delays, so no min/max delay-reference convention is assumed; `coherence_weight=True` multiplies each voxel by its aperture coherence factor to suppress incoherent clutter), `envelope_db`. (Diverging waves use `das_volume` with `virtual_source_mm` z<0 — the former `das_dw_volume` was a redundant subset, removed.)
-9. **`src/esdiva/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
+9. **`src/esdiva/fields.py`** — `Field`: move (`transform`, same 4×4 as the probe) and combine any scalar volume (pressure, PSF, envelope) on a common grid. Recipe: `Field.canvas(grid_dict)` → `Field(vol, coords).transform(T)` → `.resample(canvas)` → `+ - * / **` point by point. Sum POWER (`** 2`) for views fired apart, signed pressure only for one coherent wavefront; `tx * rx` = two-way beam. Accepts `x_mm`-style beamformer axes. (Formerly `PressureField`, renamed without alias.)
+10. **`src/esdiva/io/`** — `RFDataset`: checkpointed on-disk RF store (one compressed `.npz` per TX event + `contents.json` with a config fingerprint; atomic writes, resume skips completed events, changed config refuses with a diff; `load_all` sums chunk groups when written with `checkpoint_chunks > 1`). `save_rf_hdf5(path, rf, coords, ...)` / `RFDataset.to_hdf5(path)` export one self-describing HDF5 file (channel data + timing, UFF-compatible field names: `sampling_frequency`/`initial_time`/`sound_speed`) for MATLAB/USTB interchange — the `.npz` store stays the internal checkpoint format.
 
 ### Key Design Patterns
 
@@ -160,17 +165,35 @@ signal carries the 3rd derivative of the excitation (`v_pe = ρ₀/2c₀² · E_
 practice that ∂³ is **baked into** the band-limited excitation + TX/RX impulse responses
 (`E_m ⊛ ∂³v/∂t³ ∝ e ⊛ h_e ⊛ h_r`), so neither applies an explicit ∂³.
 `Reception` selects how `v_pe ⊛ (h_tx ⊛ h_rx)` is evaluated via `method=` (default
-`spectral`): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
+`None` = measured-fastest per call, like Emission: **`temporal`** for a lossless single-
+drive summed RF, **`spectral`** when a frequency transfer function is unavoidable —
+attenuation, per-element drive, or the `per_scatterer` PSF): **`spectral`** (`fs·H_TX·H_RX` from the closed-form SIR spectrum
 `hsir.compute_h_sir_spectrum` — per patch `A/(2πl)·D(θ)·sinc(ωΔt1/2)·sinc(ωΔt2/2)·e^{-jωt_c}`,
 `rfft(h[n]) ≈ fs·H`; **no forward FFT, no I⁴, no dt clamp**, cost ∝ M, exact, band-limited
 bins only);
-**`temporal`** (= `sdi`) / **`fst`** / **`auto`** (sample both SIRs and FFT-convolve —
-delegates to `ReceptionConventional`; the string is its SIR-sampling kernel). Every method
+**`temporal`** (= `sdi`) / **`fst`** / **`auto`** (sample both SIRs; a lossless single-drive
+run places each echo in time with no transform, otherwise FFT-convolve — delegates to
+`ReceptionConventional`; the string is its SIR-sampling kernel). Every method
 supports global `(L,)` and per-element `(L, E)` excitation (spectral: `H_TX = Σ_t D_t·H_TX,t`,
 one drive spectrum per TX element inside the fused kernel), the soft baffle, and
 attenuation along the round trip TX centre → scatterer → RX element centre. Spectral is
-the measured-fastest reception default in every case (64-el, 20k scatterers: 6× lossless,
-52× per-element, 105× attenuated — the conventional path loses depth bins there).
+the fastest with attenuation or per-element drives (64-el, 20k scatterers:
+52× per-element, 105× attenuated vs the conventional FFT path) — so `method=None` routes
+there for those. For lossless single-drive
+runs the temporal path places each scatterer's short echo in time (`place_twoway_rf`: RX
+SIR sampled per scatterer over its support, pulse convolved once per channel, float64
+sums) and is faster than spectral (2026-11-13, i7-13700H: LinearArrayExample 128 el 100k scatterers
+3.9 s vs 89 s; 64 el deep focus 0.88 s vs 1.77 s).
+**Temporal and spectral are implementation-parallel ONLY on the frequency-domain path**
+(attenuation, per-element drive, or `per_scatterer` PSF): there both build the SIR spectrum
+and multiply, differing only in how `H` is obtained (closed form vs sampled h then FFT). The
+lossless single-drive temporal path deliberately diverges — it skips the transform and places
+each echo directly in time — which is why it wins there. Conversely, whenever a frequency
+transfer function is non-negotiable (attenuation `H_att(f)`, directivity `D(θ,f)`, dispersion,
+bandwidth, per-element drive spectra) the maths must enter Fourier space anyway, and spectral
+is then the natural, fastest choice: it already has the closed-form `H(ω)` (no forward FFT),
+applies each `H(f)` as one complex multiply per bin, and inverts once — the time-domain
+placement cannot carry an `H(f)` without transforming, forfeiting its advantage.
 **`ReceptionPaired`** (separate pedagogic class; `method="paired"` raises) — the two-way
 delta train `Δδ_pe = D²h_tx ⊛ D²h_rx`, 16 deltas/pair, splats `w = I⁴ v_pe` per corner
 event: exact but cost ∝ M²·len(w), warns on construction. Field II shares the convention
