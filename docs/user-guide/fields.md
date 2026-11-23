@@ -58,7 +58,8 @@ covered = Field(np.ones_like(vol), coords).transform(T).resample(canvas).data > 
 
 **Sample at λ/3 or finer.** `resample` interpolates trilinearly. On a λ/3 grid a moved
 field matches the re-simulated moved probe to ~2 % of peak beyond the near field
-(example 25, case B); refine the grid to shrink it.
+(32-element 5 MHz array tilted 15°); refine the grid to shrink it. A pure
+translation by a whole number of grid steps is exact (xAM sound-sheet study: 2.5e-6 of peak).
 
 ## A PSF on a common canvas
 
@@ -75,6 +76,25 @@ power = sum(psf.transform(T).resample(canvas) ** 2 for T in (T_probe_a, T_probe_
 db = 10 * np.log10(power.data / power.data.max())
 ```
 
+## NumPy on a field
+
+A `Field` behaves like its sample array wherever the axis order is kept, and the
+result stays a `Field` on the same grid and pose:
+
+- element-wise NumPy functions — `np.abs(f)`, `np.sqrt(f)`, `np.log10(f)`,
+  `np.maximum(a, b)`;
+- `f.shape`, `f.ndim`, `f.dtype`, and `np.asarray(f)` for the raw samples;
+- reductions over **time** of a transient: `f.mean(axis=0)`, `f.max(axis=0)` (peak
+  pressure), `f.min(axis=0)` (peak rarefaction), `f.sum(axis=0)`. Without `axis`
+  they return one number, e.g. `f / f.max()` normalises.
+
+```python
+rms = np.sqrt((field**2).mean(axis=0))   # RMS pressure map, still a Field
+```
+
+There is no `transpose`/`reshape`: the axis order `(t, x, y, z)` is what ties each
+sample to its coordinate. For a spatial reduction take `np.asarray(f)` first.
+
 ## Drawing
 
 - `field.plot()` — one-shot 3-D render on a new plotter.
@@ -83,4 +103,4 @@ db = 10 * np.log10(power.data / power.data.max())
   field **tilts** (a plain `create_3Dvol_mesh` `ImageData` would only shift).
 - Transient `(Nt, …)` data: pick a frame with `time_index=` before posing or combining.
 
-See [Example 25](../examples/example25_field_canvas.md) for all four cases run end to end.
+[Example 25](../examples/advanced/rca_xam_sound_sheet.md) uses `Field` arithmetic on transient fields to build a cross-amplitude-modulation sound sheet, and moves the sheet instead of re-simulating it.

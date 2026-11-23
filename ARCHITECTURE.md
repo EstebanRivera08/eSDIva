@@ -415,7 +415,7 @@ value, so two flows cannot be mixed in one store, and the grid sentinels are
 recomputed per event (a moved cloud moves the near/far extremes that pin the time
 grid). Scatterers are frozen *within* one emission: the RF carries the inter-emission
 phase shift a Doppler estimator reads, not an intra-pulse frequency shift — the same
-modelling boundary as Field II's flow approach. See `example22`.
+modelling boundary as Field II's flow approach. See `examples/advanced/flow_doppler/`.
 
 ### synthetic_aperture_rf (Full Matrix Capture / synthetic aperture)
 
@@ -438,7 +438,7 @@ One conventional focused scan line: recompute TX focus+apod from `focus_mm`,
 
 ## Imaging Simulation Recipe (phantom / sequence studies)
 
-Distilled from the example21 volume case study (its `README.md` "Design notes &
+Distilled from the `examples/advanced/3d_phantom_volume/` case study (its `README.md` "Design notes &
 pitfalls" holds the measured evidence). Follow this order when designing any pulse-echo imaging
 simulation; each rule below cost at least one wasted multi-hour acquisition.
 
@@ -514,7 +514,7 @@ yourself; resume cannot detect it.
 - Display: after TGC speckle fills ~30 dB; a 40+ dB window makes normal sidelobes
   look like artefacts.
 
-### 6. Flow & Doppler (measured in example22, with the control that showed it)
+### 6. Flow & Doppler (measured in `examples/advanced/flow_doppler/`, with the control that showed it)
 
 - **Measure the echo centre frequency on the BEAMFORMED signal, not the channel
   RF.** DAS low-passes the data (sample interpolation + coherent aperture
@@ -727,8 +727,9 @@ single-SDI added +1 per side), placing the SDI methods 2 samples late vs
 of FST vs PE-SDI 0 (Emission and `Reception(method="sdi")` were already lag-0).
 
 **Test gap**: `test_pe_sdi.py` checks only peak ratio (<5%) + correlation (>0.90), both
-lag-insensitive — they did **not** catch the 2-sample shift. `example06` asserts on-axis
-lag == 0 as a phase-regression guard.
+lag-insensitive — they did **not** catch the 2-sample shift. The guard is now
+`test_method_agreement.py`: sample-wise RMS < 1 % at identical `t0`, which a
+2-sample shift fails.
 
 ### 4. Attenuation Dispersion Referenced at f0 (fixed 2026-09-13)
 

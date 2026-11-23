@@ -98,6 +98,6 @@ direct counterpart of Field II's `calc_scat`.
 
 | Figure | Study |
 |--------|-------|
-| ![Concave PSF](../examples/assets/ex06_concave_psf_comparison.png) | [PSF vs Field II](../examples/example06_concave_PSF.md) — correlation ~1.0 against the reference |
+| ![Lateral PSF](../examples/assets/07_psf_1.png) | [Point spread function](../examples/learn/07_psf.md): lateral PSF of a focused bowl, at and beyond the focus |
 
 Full signature: [API → Reception](../api/reception.md).

@@ -13,7 +13,7 @@ ConvexArrayTransducer
 """
 
 from time import time as TIME
-from typing import List, Optional, Tuple
+from typing import Callable, List, Optional, Tuple
 
 import numpy as np
 
@@ -60,6 +60,12 @@ class LinearArrayTransducer(TransducerBase):
         equidistant, i.e. the true focus — sits one sagitta shallower, at
         `elevation_focus_depth_mm`. The two differ by ``h²/(8R)``: 0.17 mm for a
         4 mm aperture at R = 12 mm, 0.03 mm for a 1.5 mm aperture at R = 8 mm.
+    elevation_profile_mm : callable, optional
+        Any elevation lens shape, as the element surface ``y_mm -> z_mm`` (``+z``
+        toward the medium), e.g. ``lambda y: y**2 / 24`` for a parabolic concave
+        lens. The rims are placed at ``z = 0`` and the face is tiled in equal
+        arc-length strips. Exclusive with `elevation_focus_mm`, which is the
+        circular special case. Needs ``no_sub_y >= 2``.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz with a warning.
     """
@@ -74,6 +80,7 @@ class LinearArrayTransducer(TransducerBase):
         no_sub_x: int,
         no_sub_y: int,
         elevation_focus_mm: Optional[float] = None,
+        elevation_profile_mm: Optional[Callable[[np.ndarray], np.ndarray]] = None,
         frequency_Hz: Optional[float] = None,
     ) -> None:
         super().__init__()
@@ -90,20 +97,9 @@ class LinearArrayTransducer(TransducerBase):
             element_height_mm, "element_height_mm", strict=True
         )
 
-        if elevation_focus_mm:
-            # Signed: + is concave (converging), - is convex (diverging). Only
-            # the MAGNITUDE is geometrically constrained - an arc of radius
-            # smaller than the element half-height cannot span the element.
-            if abs(elevation_focus_mm) < element_height_mm / 2:
-                raise ValueError(
-                    f"|elevation_focus_mm| = {abs(elevation_focus_mm)} mm is smaller "
-                    f"than half the element height ({element_height_mm / 2} mm): an "
-                    "arc of that radius cannot span the element."
-                )
-            if no_sub_y < 2:
-                raise ValueError(
-                    "elevation_focus_mm requires no_sub_y >= 2 to model the curved surface."
-                )
+        self._elev_sag = geometry_utils.elevation_sag_from_inputs(
+            elevation_focus_mm, elevation_profile_mm, element_height_mm, no_sub_y
+        )
 
         # --- store parameters in SI units ---
         self.n_elements = n_elements
@@ -145,13 +141,17 @@ class LinearArrayTransducer(TransducerBase):
         aperture) from the beamforming reference, which lands the echo at its
         true depth in either case and is a no-op for a flat aperture.
         """
-        if self.elev_focus:
-            radius = abs(self.elev_focus)
-            sagitta = radius - np.sqrt(
-                np.clip(radius**2 - (self.elem_height / 2) ** 2, 0, None)
-            )
-            return float(np.sign(self.elev_focus) * sagitta)
-        return 0.0
+        return self._elevation_tile()[2]
+
+    def _elevation_tile(self) -> Tuple[List[np.ndarray], float, float]:
+        """One element's lens-shaped patches (own frame), patch area, signed sag."""
+        return geometry_utils.elevation_profile_quads(
+            self.elem_width,
+            self.elem_height,
+            self.no_sub_x,
+            self.no_sub_y,
+            self._elev_sag,
+        )
 
     @property
     def elevation_focus_depth_mm(self) -> float:
@@ -170,8 +170,11 @@ class LinearArrayTransducer(TransducerBase):
         -------
         float
             Elevation focal depth in mm; ``inf`` for a flat aperture (no
-            elevation focus at all), negative for a convex lens's virtual focus.
+            elevation focus at all), negative for a convex lens's virtual focus,
+            ``nan`` for a free `elevation_profile_mm` (no single focus defined).
         """
+        if self._elev_sag is not None and not self.elev_focus:
+            return float("nan")
         if not self.elev_focus:
             return float("inf")
         return float((abs(self.elev_focus) - abs(self.elevation_lens_sag)) * 1e3) * (
@@ -189,79 +192,15 @@ class LinearArrayTransducer(TransducerBase):
     def _build_subdivisions(
         self,
     ) -> Tuple[List[np.ndarray], float, List[int]]:
+        """Tile every element with ``no_sub_x × no_sub_y`` patches on its lens surface.
+
+        All elements share one shape, so a single element is tiled (flat, circular
+        arc, or free elevation profile — rims at ``z = 0``) and copied to each
+        element centre along x.
         """
-        Build rectangular patches for every element.
-
-        Each element is subdivided into ``no_sub_x × no_sub_y`` patches.
-        When ``elev_focus`` is non-zero the y-edges of each patch are lifted onto
-        a cylindrical arc so that all patches lie on the curved lens surface. The
-        arc's RADIUS is ``|elev_focus|``; its SIGN decides which way the surface
-        curves (positive = concave/converging, negative = convex/diverging).
-        """
-        xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
-        radius = abs(self.elev_focus)
-        curve = float(np.sign(self.elev_focus))  # +1 concave, -1 convex, 0 flat
-        if radius > 0:
-            # Cylindrical lens: place the elevation nodes equally along the ARC
-            # (uniform in arc-angle θ), not uniform in Cartesian y. This is the
-            # Field II `xdc_focused_array` convention — each tile spans an equal arc
-            # length so the rim (θ = ±θ_max) lands exactly at y = ±height/2. The
-            # half-angle subtended by the element is θ_max = asin((height/2) / R).
-            th_max = np.arcsin((self.elem_height / 2) / radius)
-            ys = radius * np.sin(np.linspace(-th_max, th_max, self.no_sub_y + 1))
-            # Equal-arc tile height (used only for the nominal patch area; the SIR
-            # reads each tile's true 3-D edge length from its corner vertices).
-            arc_dy = radius * 2.0 * th_max / self.no_sub_y
-            patch_area = (self.elem_width / self.no_sub_x) * arc_dy
-        else:
-            ys = np.linspace(
-                -self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1
-            )
-            patch_area = (self.elem_width / self.no_sub_x) * (
-                self.elem_height / self.no_sub_y
-            )
-
-        quads, el_indices = [], []
-        for idx, center in enumerate(self.element_centers):
-            for i in range(self.no_sub_x):
-                for j in range(self.no_sub_y):
-                    corners = np.array(
-                        [
-                            [xs[i], ys[j], 0.0],
-                            [xs[i + 1], ys[j], 0.0],
-                            [xs[i + 1], ys[j + 1], 0.0],
-                            [xs[i], ys[j + 1], 0.0],
-                        ]
-                    )
-                    corners[:, 0] += center[0]
-                    corners[:, 1] += center[1]
-
-                    if radius > 0:
-                        # Cylindrical elevation lens. The element face (the rim, at
-                        # y = ±height/2) sits at z = 0; a point at elevation y lies
-                        # at (sagitta at the rim) − (sagitta at y) from it. A concave
-                        # lens dishes back toward the backing, putting the centre
-                        # deepest at −sagitta; a convex one mirrors that and bulges
-                        # to +sagitta. This rim-referenced datum matches Field II
-                        # `xdc_focused_array`, which keeps the element face at z = 0.
-                        y_vals = corners[:, 1]
-                        sag_edge = radius - np.sqrt(
-                            np.clip(radius**2 - (self.elem_height / 2) ** 2, 0, None)
-                        )
-                        # Rim-referenced: the arc is shifted so y = +/-height/2
-                        # lands at z = 0, leaving the centre at -sag (concave) or
-                        # +sag (convex, `curve` = -1).
-                        corners[:, 2] += curve * (
-                            radius
-                            - np.sqrt(np.clip(radius**2 - y_vals**2, 0, None))
-                            - sag_edge
-                        )
-                    else:
-                        corners[:, 2] += center[2]
-
-                    quads.append(corners)
-                    el_indices.append(idx)
-
+        local, patch_area, _ = self._elevation_tile()
+        quads = [q + center for center in self.element_centers for q in local]
+        el_indices = [i for i in range(self.n_elements) for _ in local]
         return quads, patch_area, el_indices
 
     # ------------------------------------------------------------------
@@ -407,6 +346,9 @@ class ConvexArrayTransducer(TransducerBase):
         one sagitta shallower than ``|elevation_focus_mm|`` — read it from
         `elevation_focus_depth_mm`. ``|value|`` must be ≥
         ``element_height_mm / 2``.
+    elevation_profile_mm : callable, optional
+        Free elevation lens shape ``y_mm -> z_mm`` (``+z`` toward the medium),
+        rims at ``z = 0``. Exclusive with `elevation_focus_mm`.
     frequency_Hz : float, optional
         Centre frequency in Hz.  Defaults to 1 MHz with a warning.
     """
@@ -422,6 +364,7 @@ class ConvexArrayTransducer(TransducerBase):
         no_sub_x: int,
         no_sub_y: int,
         elevation_focus_mm: Optional[float] = None,
+        elevation_profile_mm: Optional[Callable[[np.ndarray], np.ndarray]] = None,
         frequency_Hz: Optional[float] = None,
     ) -> None:
         super().__init__()
@@ -440,19 +383,9 @@ class ConvexArrayTransducer(TransducerBase):
         )
         no_sub_x, no_sub_y = validators.validate_subdivisions(no_sub_x, no_sub_y)
 
-        if elevation_focus_mm is not None:
-            validators.validate_positive(
-                elevation_focus_mm, "elevation_focus_mm", strict=True
-            )
-            if elevation_focus_mm < element_height_mm / 2:
-                raise ValueError(
-                    f"elevation_focus_mm ({elevation_focus_mm:.2f}) must be >= "
-                    f"element_height_mm/2 ({element_height_mm / 2:.2f} mm)."
-                )
-            if no_sub_y < 2:
-                raise ValueError(
-                    "no_sub_y must be >= 2 when elevation_focus_mm is set."
-                )
+        self._elev_sag = geometry_utils.elevation_sag_from_inputs(
+            elevation_focus_mm, elevation_profile_mm, element_height_mm, no_sub_y
+        )
 
         self.n_elements = n_elements
         self.elem_width = element_width_mm * 1e-3
@@ -462,9 +395,7 @@ class ConvexArrayTransducer(TransducerBase):
         self.R = radius_of_curvature_mm * 1e-3  # radius of curvature (metres)
         self.no_sub_x = no_sub_x
         self.no_sub_y = no_sub_y
-        self._elev_R = (
-            float(elevation_focus_mm) * 1e-3 if elevation_focus_mm is not None else None
-        )
+        self._elev_R = float(elevation_focus_mm) * 1e-3 if elevation_focus_mm else None
 
         self.fc = float(frequency_Hz) if frequency_Hz is not None else 1e6
         if frequency_Hz is None:
@@ -492,19 +423,14 @@ class ConvexArrayTransducer(TransducerBase):
     # ------------------------------------------------------------------
 
     def _default_elevation_lens_sag(self) -> float:
-        """Centre recession (m) of the cylindrical elevation lens; 0 if flat.
+        """SIGNED centre offset (m) of the elevation lens: + recessed, − protruding, 0 flat.
 
-        ``R − √(R² − (height/2)²)`` with ``R = elevation_focus``. Reception turns this
-        into the lens group delay that aligns the RF origin with Field II.
+        Reception subtracts it from the beamforming time origin so echoes land at
+        their true depth (same convention as `LinearArrayTransducer`).
         """
-        if self._elev_R is not None:
-            return float(
-                self._elev_R
-                - np.sqrt(
-                    np.clip(self._elev_R**2 - (self.elem_height / 2) ** 2, 0, None)
-                )
-            )
-        return 0.0
+        return geometry_utils.elevation_profile_quads(
+            self.elem_width, self.elem_height, 1, self.no_sub_y, self._elev_sag
+        )[2]
 
     def _compute_element_centers(self) -> np.ndarray:
         """
@@ -527,61 +453,21 @@ class ConvexArrayTransducer(TransducerBase):
         around the y-axis by θ_i to match the element tilt, then translated
         to the element centre position.
         """
-        # Local (un-rotated) patch grid: flat rectangle at origin
-        xs = np.linspace(-self.elem_width / 2, self.elem_width / 2, self.no_sub_x + 1)
-        if self._elev_R is not None:
-            # Cylindrical lens nodes equally spaced in arc-angle θ (Field II
-            # `xdc_convex_focused_array` convention), so each tile is equal-arc and
-            # the rim lands at y = ±height/2. θ_max = asin((height/2) / R_elev).
-            th_max = np.arcsin((self.elem_height / 2) / self._elev_R)
-            ys = self._elev_R * np.sin(np.linspace(-th_max, th_max, self.no_sub_y + 1))
-            arc_dy = self._elev_R * 2.0 * th_max / self.no_sub_y
-            patch_area = (self.elem_width / self.no_sub_x) * arc_dy
-        else:
-            ys = np.linspace(
-                -self.elem_height / 2, self.elem_height / 2, self.no_sub_y + 1
-            )
-            patch_area = (self.elem_width / self.no_sub_x) * (
-                self.elem_height / self.no_sub_y
-            )
-
+        # One element tiled in its own frame (flat or lens-shaped, rims at z = 0).
+        local, patch_area, _ = geometry_utils.elevation_profile_quads(
+            self.elem_width,
+            self.elem_height,
+            self.no_sub_x,
+            self.no_sub_y,
+            self._elev_sag,
+        )
         quads, el_indices = [], []
-
         for idx, (theta, center) in enumerate(zip(self._thetas, self.element_centers)):
-            # Rotation matrix around y-axis by theta (aligns local +z with element normal)
+            # Rotate about y by θ (local +z onto the element normal), then move onto the arc.
             c, s = np.cos(theta), np.sin(theta)
             Ry = np.array([[c, 0.0, s], [0.0, 1.0, 0.0], [-s, 0.0, c]])
-
-            for i in range(self.no_sub_x):
-                for j in range(self.no_sub_y):
-                    corners = np.array(
-                        [
-                            [xs[i], ys[j], 0.0],
-                            [xs[i + 1], ys[j], 0.0],
-                            [xs[i + 1], ys[j + 1], 0.0],
-                            [xs[i], ys[j + 1], 0.0],
-                        ]
-                    )
-                    # Apply elevation curvature in local frame (before arc rotation).
-                    # Rim-referenced datum (face at z = 0, surface dished back) so a point
-                    # at elevation y lies at (rim sagitta) − (sagitta at y); matches Field II
-                    # `xdc_convex_focused_array`. Identical convention to LinearArray above.
-                    if self._elev_R is not None:
-                        y_vals = corners[:, 1]
-                        sag_edge = self._elev_R - np.sqrt(
-                            np.clip(
-                                self._elev_R**2 - (self.elem_height / 2) ** 2, 0, None
-                            )
-                        )
-                        corners[:, 2] += (
-                            self._elev_R
-                            - np.sqrt(np.clip(self._elev_R**2 - y_vals**2, 0, None))
-                            - sag_edge
-                        )
-                    # Rotate to element tilt, then translate to arc position
-                    corners = corners @ Ry.T + center
-                    quads.append(corners)
-                    el_indices.append(idx)
+            quads.extend(q @ Ry.T + center for q in local)
+            el_indices.extend([idx] * len(local))
 
         return quads, patch_area, el_indices
 

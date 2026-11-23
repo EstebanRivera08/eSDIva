@@ -255,14 +255,7 @@ class Field:
     def _combine(self, other, op) -> Field:
         """Apply ``op`` point by point, resampling ``other`` onto this grid if needed."""
         if np.isscalar(other):
-            out = self._copy()
-            if out._mesh is not None:
-                mesh = out._mesh.copy()
-                mesh[self.scalars] = op(np.asarray(mesh[self.scalars]), other)
-                out._mesh = mesh
-            else:
-                out.data = op(self.data, other)
-            return out
+            return self._apply(lambda values: op(values, other))
         if not isinstance(other, Field):
             return NotImplemented
         # Same axis grid and pose, still arrays: operate on them directly.
@@ -325,7 +318,169 @@ class Field:
     def __neg__(self) -> Field:
         return self * -1.0
 
+    # -- NumPy interop -----------------------------------------------------
+    # A Field behaves like its sample array wherever the axis order is not changed:
+    # `np.abs`, `np.sqrt`, `np.log10`, `np.maximum(a, b)` ... act point by point and
+    # keep the grid and pose. Transposing or reshaping is deliberately not offered —
+    # the axis order (t, x, y, z) is what ties each sample to its coordinate.
+
+    @property
+    def shape(self) -> tuple:
+        """Sample-array shape.
+
+        Returns
+        -------
+        tuple[int, ...]
+            ``(Nx, Ny, Nz)`` or ``(Nt, Nx, Ny, Nz)``.
+        """
+        return self._array().shape
+
+    @property
+    def ndim(self) -> int:
+        """Number of sample axes.
+
+        Returns
+        -------
+        int
+            3 for a single volume, 4 for a transient with a leading time axis.
+        """
+        return self._array().ndim
+
+    @property
+    def dtype(self) -> np.dtype:
+        """Data type of the samples.
+
+        Returns
+        -------
+        numpy.dtype
+            E.g. ``float32`` for a simulated pressure field.
+        """
+        return self._array().dtype
+
+    def __array__(self, dtype=None, copy=None):
+        # `np.asarray(field)` / `plt.imshow(field[...])` read the samples directly.
+        arr = np.asarray(self._array(), dtype=dtype)
+        return arr.copy() if copy else arr
+
+    def __array_ufunc__(self, ufunc, method, *inputs, **kwargs):
+        # Element-wise ufuncs only; reductions go through `mean`/`max`/... below.
+        if method != "__call__" or "out" in kwargs:
+            return NotImplemented
+        if len(inputs) == 1:
+            return self._apply(lambda values: ufunc(values, **kwargs))
+        if len(inputs) == 2:
+            a, b = inputs
+            if isinstance(a, Field):
+                return a._combine(b, lambda u, v: ufunc(u, v, **kwargs))
+            return b._combine(a, lambda u, v: ufunc(v, u, **kwargs))
+        return NotImplemented
+
+    def mean(self, axis=None, **kwargs):
+        """Mean over time (``axis=0``) as a `Field`, or over everything as a number.
+
+        ``np.sqrt((f**2).mean(axis=0))`` is the RMS pressure map of a transient.
+
+        Parameters
+        ----------
+        axis : {None, 0}, optional
+            ``0`` averages the time axis of a transient ``(Nt, Nx, Ny, Nz)`` field
+            and keeps the grid; ``None`` averages every sample.
+        **kwargs
+            Forwarded to `numpy.mean` (lets ``np.mean(field, axis=0)`` work).
+
+        Returns
+        -------
+        Field or float
+            Time-averaged field (``axis=0``) or a single value (``axis=None``).
+        """
+        return self._reduce(np.mean, axis, kwargs)
+
+    def max(self, axis=None, **kwargs):
+        """Peak over time (``axis=0``, e.g. a peak-pressure map) or over everything.
+
+        Parameters
+        ----------
+        axis : {None, 0}, optional
+            ``0`` keeps the grid and reduces the time axis; ``None`` returns one value.
+        **kwargs
+            Forwarded to `numpy.max`.
+
+        Returns
+        -------
+        Field or float
+            Per-point maximum over time, or the global maximum.
+        """
+        return self._reduce(np.max, axis, kwargs)
+
+    def min(self, axis=None, **kwargs):
+        """Minimum over time (``axis=0``, e.g. peak rarefaction for PNP) or over everything.
+
+        Parameters
+        ----------
+        axis : {None, 0}, optional
+            ``0`` keeps the grid and reduces the time axis; ``None`` returns one value.
+        **kwargs
+            Forwarded to `numpy.min`.
+
+        Returns
+        -------
+        Field or float
+            Per-point minimum over time, or the global minimum.
+        """
+        return self._reduce(np.min, axis, kwargs)
+
+    def sum(self, axis=None, **kwargs):
+        """Sum over time (``axis=0``) or over everything.
+
+        Parameters
+        ----------
+        axis : {None, 0}, optional
+            ``0`` keeps the grid and reduces the time axis; ``None`` returns one value.
+        **kwargs
+            Forwarded to `numpy.sum`.
+
+        Returns
+        -------
+        Field or float
+            Per-point sum over time, or the total.
+        """
+        return self._reduce(np.sum, axis, kwargs)
+
     # -- internals ---------------------------------------------------------
+
+    def _array(self):
+        if self.data is None:
+            raise ValueError(
+                "This field lives on a posed mesh with no axis grid; resample it onto "
+                "a Field.canvas(...) to get a sample array."
+            )
+        return self.data
+
+    def _apply(self, fn) -> Field:
+        """New field with ``fn`` applied to every sample (array- or mesh-backed)."""
+        out = self._copy()
+        if out._mesh is not None:
+            mesh = out._mesh.copy()
+            mesh[self.scalars] = fn(np.asarray(mesh[self.scalars]))
+            out._mesh = mesh
+        else:
+            out.data = fn(self.data)
+        return out
+
+    def _reduce(self, fn, axis, kwargs):
+        """Reduce over every sample (``axis=None``) or over time only (``axis=0``)."""
+        kwargs = {k: v for k, v in kwargs.items() if v is not None}
+        if axis is None:
+            return fn(self._array(), **kwargs)
+        if axis != 0 or self._array().ndim != 4:
+            raise ValueError(
+                "A Field reduces over time only: axis=0 on a transient "
+                "(Nt, Nx, Ny, Nz) field. A spatial reduction loses the grid — use "
+                "np.asarray(field) for that."
+            )
+        out = self._copy()
+        out.data = fn(self.data, axis=0, **kwargs)
+        return out
 
     def _copy(self) -> Field:
         """Structural copy sharing data/mesh/pose; the caller mutates one field."""

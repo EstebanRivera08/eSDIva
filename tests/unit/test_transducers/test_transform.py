@@ -86,3 +86,21 @@ class TestTransformPhysics:
         )
 
         np.testing.assert_allclose(p_moved, p_ref, rtol=1e-3)
+
+
+class TestAim:
+    def test_beam_axis_passes_through_target(self, linear_4elem):
+        tx = linear_4elem
+        position, target = np.array([-8.0, 0.0, 0.0]), np.array([0.0, 0.0, 7.0])
+        tx.aim(position, target)
+        centre_mm = tx.element_centers.mean(axis=0) * 1e3
+        normal = tx.sub_patch_frames["normals"][0]
+        to_target = (target - centre_mm) / np.linalg.norm(target - centre_mm)
+        np.testing.assert_allclose(centre_mm, position, atol=1e-9)
+        np.testing.assert_allclose(normal, to_target, atol=1e-9)
+
+    def test_roll_lays_elements_along_y(self, linear_4elem):
+        tx = linear_4elem
+        tx.aim([0, 0, 0], [0, 0, 10], roll_deg=90)
+        spread = np.ptp(tx.element_centers, axis=0)
+        assert spread[0] < 1e-12 < spread[1]

@@ -20,6 +20,24 @@ import pyvista as pv
 from . import geometry_utils, validators
 
 
+def _finish_plotter(plotter: pv.Plotter, jupyter_backend: Optional[str]) -> None:
+    """Add axes and a labelled mm grid to a transducer scene, then display it."""
+    plotter.add_axes()
+    plotter.show_grid(
+        font_size=10,
+        xtitle="X (mm)",
+        ytitle="Y (mm)",
+        ztitle="Z (mm)",
+        n_xlabels=3,
+        n_ylabels=3,
+        n_zlabels=3,
+    )
+    if jupyter_backend is not None:
+        plotter.show(jupyter_backend=jupyter_backend)
+    else:
+        plotter.show()
+
+
 class TransducerBase(ABC):
     """
     Abstract base class for all transducer types.
@@ -712,13 +730,50 @@ class TransducerBase(ABC):
         **kwargs
             Forwarded to ``plotter.add_mesh()``.
         """
+        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        self.add_to_plotter(
+            plotter, scalars=scalars, colorbar_title=colorbar_title, **kwargs
+        )
+        _finish_plotter(plotter, jupyter_backend)
+
+    def add_to_plotter(
+        self,
+        plotter: pv.Plotter,
+        *,
+        scalars: str = "Apodization",
+        colorbar_title: Optional[str] = None,
+        shift_mm: Optional[np.ndarray] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Add the transducer surface, coloured by apodization or delays, to a scene.
+
+        Use it to compose several probes (or a probe and a field) in one PyVista
+        window; `show` is this plus a fresh plotter, axes and grid.
+
+        Parameters
+        ----------
+        plotter : pyvista.Plotter
+            Scene to draw into.
+        scalars : {'Apodization', 'Delays'}
+            Which cell array to colour by.
+        colorbar_title : str, optional
+            Override the default colour-bar label.
+        shift_mm : (3,) array-like, optional
+            Translation (mm) applied to the drawn mesh only, to pull apart surfaces
+            that overlap in space. The transducer geometry, and hence every
+            simulation, is untouched.
+        **kwargs
+            Forwarded to ``plotter.add_mesh()``; override the defaults below.
+        """
         if scalars not in ("Apodization", "Delays"):
             raise ValueError(
                 f"scalars must be 'Apodization' or 'Delays', got '{scalars}'"
             )
 
         mesh = self.get_mesh()
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        if shift_mm is not None:
+            mesh = mesh.translate(np.asarray(shift_mm, dtype=float), inplace=False)
 
         if scalars == "Apodization":
             cmap, title, clim = "cool", "Apodization", [0, 1]
@@ -743,25 +798,22 @@ class TransducerBase(ABC):
             "show_edges": True,
             "ambient": 1,
         }
+        if "color" in kwargs:
+            # A solid colour replaces the scalar colouring; PyVista would ignore it
+            # while `scalars` is set.
+            for key in (
+                "scalars",
+                "cmap",
+                "clim",
+                "show_scalar_bar",
+                "scalar_bar_args",
+            ):
+                defaults.pop(key)
+                kwargs.pop(key, None)
         for key, val in defaults.items():
             kwargs.setdefault(key, val)
 
         plotter.add_mesh(mesh, **kwargs)
-        plotter.add_axes()
-        plotter.show_grid(
-            font_size=10,
-            xtitle="X (mm)",
-            ytitle="Y (mm)",
-            ztitle="Z (mm)",
-            n_xlabels=3,
-            n_ylabels=3,
-            n_zlabels=3,
-        )
-
-        if jupyter_backend is not None:
-            plotter.show(jupyter_backend=jupyter_backend)
-        else:
-            plotter.show()
 
     def plot_apodization(
         self,
@@ -942,6 +994,40 @@ class TransducerBase(ABC):
         # Curved-surface frames carry the vertex list too; keep it the same object.
         if "corners" in frames:
             frames["corners"] = self._sub_quad_verts
+
+    def aim(self, position_mm, target_mm, roll_deg: float = 0.0) -> None:
+        """Place the aperture at `position_mm` with its beam axis pointing at `target_mm`.
+
+        The canonical aperture faces +z from the origin. `aim` first turns it by
+        `roll_deg` about its own beam axis (e.g. 90° lays a linear array's
+        elements along y instead of x), then tilts +z onto the direction
+        `target_mm - position_mm` by the smallest rotation, then moves it to
+        `position_mm`. It is a `transform`, so it composes with the current
+        pose; apply it to a canonical aperture, then recompute any focus.
+
+        Parameters
+        ----------
+        position_mm : (3,) array-like
+            Where the aperture centre goes, in mm.
+        target_mm : (3,) array-like
+            Point the beam axis must pass through, in mm.
+        roll_deg : float, default: 0.0
+            Rotation about the beam axis applied first, in degrees.
+        """
+        position = np.asarray(position_mm, dtype=float)
+        a = np.deg2rad(roll_deg)
+        roll = np.array(
+            [[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]]
+        )
+        T = np.eye(4)
+        T[:3, :3] = (
+            geometry_utils.rotation_matrix_z_to_normal(
+                np.asarray(target_mm, dtype=float) - position
+            )
+            @ roll
+        )
+        T[:3, 3] = position
+        self.transform(T)
 
     def clean(self) -> None:
         """Release cached geometry arrays to free memory."""

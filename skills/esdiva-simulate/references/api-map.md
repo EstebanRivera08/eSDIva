@@ -83,9 +83,9 @@ Shared state + public API for `Reception` and `ReceptionConventional`. `src/esdi
 
 ### `TransducerBase`
 
-Abstract base class for all transducer types. `src/esdiva/transducers/base.py:23`
+Abstract base class for all transducer types. `src/esdiva/transducers/base.py:41`
 
-- `TransducerBase() -> None` `src/esdiva/transducers/base.py:54`
+- `TransducerBase() -> None` `src/esdiva/transducers/base.py:72`
   - `.element_centers` (property) — 3-D element centre positions, shape ``(n_elements, 3)`` in metres.
   - `.elevation_lens_sag` (property) — SIGNED offset (m) of a cylindrical elevation lens surface at its centre.
   - `.sub_quad_verts` (property) — List of quad-vertex arrays ``(4, 3)`` for every patch, in metres.
@@ -99,37 +99,39 @@ Abstract base class for all transducer types. `src/esdiva/transducers/base.py:23
   - `.impulse_response` (property) — Electromechanical impulse response of the transducer element.
   - `.baffle` (property) — Baffle around the aperture: ``"rigid"`` (default) or ``"soft"``.
   - `.excitation` (property) — Excitation pulse for this transducer.
-  - `.compute_delays(focus_mm=None, *, angle_steering_deg=None, c: Optional[float] = None, inplace: bool = True, plot: bool = False) -> numpy.ndarray` — Compute per-element time delays for electronic focusing or plane-wave steering. `src/esdiva/transducers/base.py:466`
-  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Return uniform full-aperture apodization (all ones). `src/esdiva/transducers/base.py:573`
-  - `.set_apodization(weights: numpy.ndarray) -> None` — Set per-element apodization weights directly. `src/esdiva/transducers/base.py:627`
-  - `.set_delays(delays: numpy.ndarray) -> None` — Set per-element delays directly (normalised so minimum = 0). `src/esdiva/transducers/base.py:637`
-  - `.set_impulse_response(ir: Optional[numpy.ndarray]) -> None` — Set the transducers impulse response. `src/esdiva/transducers/base.py:648`
-  - `.set_excitation(exc: Optional[numpy.ndarray]) -> None` — Set the transducers excitation pulse. `src/esdiva/transducers/base.py:659`
-  - `.get_mesh() -> pyvista.core.pointset.PolyData` — Build a PyVista surface mesh of the transducer. `src/esdiva/transducers/base.py:670`
-  - `.show(*, window_size: Tuple[int, int] = (800, 600), scalars: str = 'Apodization', notebook: bool = False, jupyter_backend: Optional[str] = None, colorbar_title: Optional[str] = None, **kwargs) -> None` — Interactive 3-D visualisation of the transducer surface. `src/esdiva/transducers/base.py:687`
-  - `.plot_apodization(apodization: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot apodization weights as a line/stem chart. `src/esdiva/transducers/base.py:766`
-  - `.plot_delays(delays: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot per-element delays in microseconds. `src/esdiva/transducers/base.py:817`
-  - `.plot_delays_apodization(figsize: Tuple[int, int] = (10, 4)) -> None` — Side-by-side delay and apodization plot. `src/esdiva/transducers/base.py:866`
-  - `.transform(T_matrix) -> None` — Rigidly move the aperture in space (rotation then translation). `src/esdiva/transducers/base.py:881`
-  - `.clean() -> None` — Release cached geometry arrays to free memory. `src/esdiva/transducers/base.py:946`
-  - `.copy() -> 'TransducerBase'` — Return a deep copy of this transducer, including all state and cached geometry. `src/esdiva/transducers/base.py:955`
-  - `.get_state_dict() -> Dict[str, Any]` — Return a snapshot of the current apodization / delay state. `src/esdiva/transducers/base.py:966`
-  - `.set_state_dict(state: Dict[str, Any]) -> None` — Restore apodization / delay state from a dictionary. `src/esdiva/transducers/base.py:981`
+  - `.compute_delays(focus_mm=None, *, angle_steering_deg=None, c: Optional[float] = None, inplace: bool = True, plot: bool = False) -> numpy.ndarray` — Compute per-element time delays for electronic focusing or plane-wave steering. `src/esdiva/transducers/base.py:484`
+  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Return uniform full-aperture apodization (all ones). `src/esdiva/transducers/base.py:591`
+  - `.set_apodization(weights: numpy.ndarray) -> None` — Set per-element apodization weights directly. `src/esdiva/transducers/base.py:645`
+  - `.set_delays(delays: numpy.ndarray) -> None` — Set per-element delays directly (normalised so minimum = 0). `src/esdiva/transducers/base.py:655`
+  - `.set_impulse_response(ir: Optional[numpy.ndarray]) -> None` — Set the transducers impulse response. `src/esdiva/transducers/base.py:666`
+  - `.set_excitation(exc: Optional[numpy.ndarray]) -> None` — Set the transducers excitation pulse. `src/esdiva/transducers/base.py:677`
+  - `.get_mesh() -> pyvista.core.pointset.PolyData` — Build a PyVista surface mesh of the transducer. `src/esdiva/transducers/base.py:688`
+  - `.show(*, window_size: Tuple[int, int] = (800, 600), scalars: str = 'Apodization', notebook: bool = False, jupyter_backend: Optional[str] = None, colorbar_title: Optional[str] = None, **kwargs) -> None` — Interactive 3-D visualisation of the transducer surface. `src/esdiva/transducers/base.py:705`
+  - `.add_to_plotter(plotter: pyvista.plotting.plotter.Plotter, *, scalars: str = 'Apodization', colorbar_title: Optional[str] = None, shift_mm: Optional[numpy.ndarray] = None, **kwargs) -> None` — Add the transducer surface, coloured by apodization or delays, to a scene. `src/esdiva/transducers/base.py:739`
+  - `.plot_apodization(apodization: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot apodization weights as a line/stem chart. `src/esdiva/transducers/base.py:818`
+  - `.plot_delays(delays: Optional[numpy.ndarray] = None, *, figsize: Tuple[int, int] = (6, 5), ax=None)` — Plot per-element delays in microseconds. `src/esdiva/transducers/base.py:869`
+  - `.plot_delays_apodization(figsize: Tuple[int, int] = (10, 4)) -> None` — Side-by-side delay and apodization plot. `src/esdiva/transducers/base.py:918`
+  - `.transform(T_matrix) -> None` — Rigidly move the aperture in space (rotation then translation). `src/esdiva/transducers/base.py:933`
+  - `.aim(position_mm, target_mm, roll_deg: float = 0.0) -> None` — Place the aperture at `position_mm` with its beam axis pointing at `target_mm`. `src/esdiva/transducers/base.py:998`
+  - `.clean() -> None` — Release cached geometry arrays to free memory. `src/esdiva/transducers/base.py:1032`
+  - `.copy() -> 'TransducerBase'` — Return a deep copy of this transducer, including all state and cached geometry. `src/esdiva/transducers/base.py:1041`
+  - `.get_state_dict() -> Dict[str, Any]` — Return a snapshot of the current apodization / delay state. `src/esdiva/transducers/base.py:1052`
+  - `.set_state_dict(state: Dict[str, Any]) -> None` — Restore apodization / delay state from a dictionary. `src/esdiva/transducers/base.py:1067`
 
 ### `LinearArrayTransducer`
 
 1-D linear array transducer. `src/esdiva/transducers/linear.py:24`
 
-- `LinearArrayTransducer(*, n_elements: int, element_width_mm: float, element_height_mm: float, kerf_mm: float, no_sub_x: int, no_sub_y: int, elevation_focus_mm: Optional[float] = None, frequency_Hz: Optional[float] = None) -> None` `src/esdiva/transducers/linear.py:67`
+- `LinearArrayTransducer(*, n_elements: int, element_width_mm: float, element_height_mm: float, kerf_mm: float, no_sub_x: int, no_sub_y: int, elevation_focus_mm: Optional[float] = None, elevation_profile_mm: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None, frequency_Hz: Optional[float] = None) -> None` `src/esdiva/transducers/linear.py:73`
   - `.elevation_focus_depth_mm` (property) — Depth (mm) of the elevation line focus — the arc's centre of curvature.
-  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Compute per-element apodization for focusing at ``focus_mm``. `src/esdiva/transducers/linear.py:271`
+  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Compute per-element apodization for focusing at ``focus_mm``. `src/esdiva/transducers/linear.py:210`
 
 ### `ConvexArrayTransducer`
 
-Convex (curvilinear) linear array transducer. `src/esdiva/transducers/linear.py:371`
+Convex (curvilinear) linear array transducer. `src/esdiva/transducers/linear.py:310`
 
-- `ConvexArrayTransducer(*, n_elements: int, element_width_mm: float, element_height_mm: float, kerf_mm: float, radius_of_curvature_mm: float, no_sub_x: int, no_sub_y: int, elevation_focus_mm: Optional[float] = None, frequency_Hz: Optional[float] = None) -> None` `src/esdiva/transducers/linear.py:414`
-  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Compute per-element apodization for the convex array. `src/esdiva/transducers/linear.py:592`
+- `ConvexArrayTransducer(*, n_elements: int, element_width_mm: float, element_height_mm: float, kerf_mm: float, radius_of_curvature_mm: float, no_sub_x: int, no_sub_y: int, elevation_focus_mm: Optional[float] = None, elevation_profile_mm: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None, frequency_Hz: Optional[float] = None) -> None` `src/esdiva/transducers/linear.py:356`
+  - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = None, plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Compute per-element apodization for the convex array. `src/esdiva/transducers/linear.py:478`
 
 ### `MatrixArrayTransducer`
 
@@ -139,6 +141,14 @@ Convex (curvilinear) linear array transducer. `src/esdiva/transducers/linear.py:
   - `.compute_apodization(focus_mm=None, *, FoverD: Optional[float] = None, apodization_type: Optional[str] = 'circular', plot: bool = False, inplace: bool = True) -> numpy.ndarray` — Compute per-element 2-D apodization for focusing at ``focus_mm``. `src/esdiva/transducers/matrix.py:189`
   - `.plot_apodization(apodization: Optional[numpy.ndarray] = None, *, figsize: Tuple = (6, 5), ax=None, **kwargs)` — Display the 2-D apodization map as an image. `src/esdiva/transducers/matrix.py:312`
   - `.plot_delays(delays: Optional[numpy.ndarray] = None, *, figsize: Tuple = (6, 5), ax=None, **kwargs)` — Display the 2-D delay map as an image. `src/esdiva/transducers/matrix.py:365`
+
+### `RowColumnAddressedTransducer`
+
+Row-column addressed (RCA) probe: N columns crossed with N rows on one face. `src/esdiva/transducers/rca.py:17`
+
+- `RowColumnAddressedTransducer(*, n_elements: int, element_width_mm: float, kerf_mm: float, no_sub_x: int, no_sub_y: int, frequency_Hz: Optional[float] = None, elevation_focus_mm: Optional[float] = None, elevation_profile_mm: Optional[Callable[[numpy.ndarray], numpy.ndarray]] = None) -> None` `src/esdiva/transducers/rca.py:66`
+  - `.transform(T_matrix) -> None` — Rigidly move both arrays together (4x4, translation in mm). `src/esdiva/transducers/rca.py:98`
+  - `.show(*, offset_mm: float = 0.1, window_size: Tuple[int, int] = (800, 600), scalars: str = 'Apodization', notebook: bool = False, jupyter_backend: Optional[str] = None, kwargs_columns: Optional[dict] = None, kwargs_rows: Optional[dict] = None) -> None` — Draw both arrays, each coloured by its own apodization or delays. `src/esdiva/transducers/rca.py:109`
 
 ### `FlatCircularTransducer`
 
@@ -170,6 +180,12 @@ Rigid single element whose surface is any radial sag ``z(r)``. `src/esdiva/trans
 
 - `RadialProfileTransducer(*, diameter_mm: float, surface_sag_mm: Callable[[numpy.ndarray], numpy.ndarray], frequency_Hz: float = 1000000.0, no_sub_diameter: int = 40, method: str = 'radial', ratio_big_patches: float = 0.8, refine_factor: int = 3) -> None` `src/esdiva/transducers/radial.py:43`
   - `.virtual_source_m` (property) — Acoustic centre the cap radiates from — where a beamformer references delays.
+
+### `ElevationProfileTransducer`
+
+Rigid rectangular element whose face is curved along elevation only, ``z = f(y)``. `src/esdiva/transducers/elevation.py:11`
+
+- `ElevationProfileTransducer(*, element_width_mm: float, element_height_mm: float, elevation_profile_mm: Callable[[numpy.ndarray], numpy.ndarray], no_sub_x: int, no_sub_y: int, frequency_Hz: float = 1000000.0) -> None` `src/esdiva/transducers/elevation.py:44`
 
 ### `CustomTransducer`
 
@@ -205,6 +221,13 @@ A scalar volume (pressure, PSF, envelope, ...) that can be moved, drawn and comb
   - `.add_to(plotter, *, time_index=None, **kwargs)` — Draw into an existing plotter (the overlay path; caller shows last). `src/esdiva/fields.py:173`
   - `.plot(*, time_index=None, show=True, **kwargs)` — Render on a fresh plotter (the one-shot path). `src/esdiva/fields.py:194`
   - `.resample(onto) -> 'Field'` — Sample this field onto ``onto``'s grid (zero where it does not reach). `src/esdiva/fields.py:218`
+  - `.shape` (property) — Sample-array shape.
+  - `.ndim` (property) — Number of sample axes.
+  - `.dtype` (property) — Data type of the samples.
+  - `.mean(axis=None, **kwargs)` — Mean over time (``axis=0``) as a `Field`, or over everything as a number. `src/esdiva/fields.py:378`
+  - `.max(axis=None, **kwargs)` — Peak over time (``axis=0``, e.g. a peak-pressure map) or over everything. `src/esdiva/fields.py:398`
+  - `.min(axis=None, **kwargs)` — Minimum over time (``axis=0``, e.g. peak rarefaction for PNP) or over everything. `src/esdiva/fields.py:415`
+  - `.sum(axis=None, **kwargs)` — Sum over time (``axis=0``) or over everything. `src/esdiva/fields.py:432`
 
 
 ## Plotting
@@ -220,14 +243,14 @@ A scalar volume (pressure, PSF, envelope, ...) that can be moved, drawn and comb
 - `plot2D_transient_slices(pressure_field, x=None, y=None, z=None, *, coords=None, time_array=None, center_mm=None, center_to_max=False, db_scale=True, figsize=None, save_path=None, file_name='transient_2Dslices.gif', video_duration_s=5, fps=30, title=None, label=None, p_max=None, **kwargs)` — Animate orthogonal pressure slices of transient data with Matplotlib. `src/esdiva/plotting/plotting2D.py:703`
 - `plot3D_pressure_slices(pressure_field, x=None, y=None, z=None, *, db_scale=False, coords=None, show_fig=True, save_path=None, scalars='Pressure', plotter=None, off_screen=False, window_size=[520, 720], notebook=False, center_to_max=False, scale=1.0, anti_aliasing='ssaa', colorbar_title=None, camera_position=None, camera_elevation=None, camera_azimuth=None, **kwargs)` — Plot orthogonal XZ/XY/YZ slices of a 3D pressure field using PyVista. `src/esdiva/plotting/plotting3D.py:165`
 - `plot3D_pressure_vol(pressure_field, x=None, y=None, z=None, *, db_scale=False, coords=None, show_fig=False, save_path=None, file_name='3D_pressure_slices.mp4', scalars='Pressure', plotter=None, off_screen=False, window_size=[520, 720], notebook=False, plot_focal_spot=False, scale=1.0, anti_aliasing='ssaa', colorbar_title=None, box_color='#b0b0b0', box_opacity=0.2, contour_levels=11, bounds_kwargs=None, **kwargs)` — Plot a 3D pressure field as a PyVista volume with bounding box and axes. `src/esdiva/plotting/plotting3D.py:20`
-- `plot3D_transient_slices(pressure_field, x=None, y=None, z=None, *, coords=None, time_array=None, center_mm=None, center_to_max=False, show_fig=True, db_scale=False, save_path=None, file_name=None, video_duration_s=5, fps=30, scalars='Pressure', plotter=None, off_screen=False, window_size=[520, 720], notebook=False, scale=1.0, anti_aliasing='ssaa', colorbar_title=None, camera_position=None, camera_elevation=None, camera_azimuth=None, vmin=None, vmax=None, theme='white', show_grid_kwargs=None, **kwargs)` — Plot transient pressure slices with PyVista time slider or video. `src/esdiva/plotting/plotting3D.py:359`
-- `add_2D_image(image_grid, *, plotter=None, notebook=False, window_size=[700, 700], off_screen=False, scale=1, colorbar_title=None, **kwargs)` — Add a 2D image as a mesh to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:158`
-- `add_3D_vol(vol_3D, *, plotter=None, notebook=False, window_size=[700, 700], off_screen=False, scale=1, colorbar_title=None, **kwargs)` — Add a 3-D volume to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:84`
-- `add_markers(points, *, plotter=None, notebook=False, window_size=(700, 700), off_screen=False, point_size=1, labels=None, label_offset=(0, 0, 0), label_font_size=12, **kwargs)` — Add marker points and optional labels to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:474`
-- `add_pressure_vol(pressure_vol, *, plotter=None, window_size=[800, 800], notebook=False, plot_focal_spot=False, off_screen=False, colorbar_title=None, contour_levels=11, scale=1, vmin=None, vmax=None, **kwargs)` — Add a pressure volume mesh to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:231`
-- `add_regions_mesh(pv_regions_dict, *, plotter=None, window_size=[800, 800], notebook=False, off_screen=False, kwargs_dict=None, **kwargs)` — Plot the PyVista mesh of specified BrainAtlas structures. `src/esdiva/plotting/plotting_pyvista.py:10`
-- `add_stl_mesh(stl_mesh, *, plotter=None, window_size=(800, 800), notebook=False, off_screen=False, color='lightblue', opacity=1.0, show_edges=True, edge_color='black', ambient=0.3, label=None, **kwargs)` — Add an STL mesh to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:582`
-- `add_transducer_mesh(TX_mesh, *, plotter=None, window_size=[800, 800], notebook=False, off_screen=False, scale=1, scalars='Apodization', color=None, colorbar_title=None, **kwargs)` — Add a transducer mesh to a PyVista plotter, colored by apodization, delays or a flat color. `src/esdiva/plotting/plotting_pyvista.py:368`
+- `plot3D_transient_slices(pressure_field, x=None, y=None, z=None, *, coords=None, time_array=None, center_mm=None, center_to_max=False, show_fig=True, db_scale=False, save_path=None, file_name=None, video_duration_s=5, fps=30, scalars='Pressure', plotter=None, off_screen=False, window_size=[520, 720], notebook=False, scale=1.0, anti_aliasing='ssaa', colorbar_title=None, camera_position=None, camera_elevation=None, camera_azimuth=None, vmin=None, vmax=None, theme='white', show_grid_kwargs=None, **kwargs)` — Plot transient pressure slices with PyVista time slider or video. `src/esdiva/plotting/plotting3D.py:342`
+- `add_2D_image(image_grid, *, plotter=None, notebook=False, window_size=[700, 700], off_screen=False, scale=1, colorbar_title=None, **kwargs)` — Add a 2D image as a mesh to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:175`
+- `add_3D_vol(vol_3D, *, plotter=None, notebook=False, window_size=[700, 700], off_screen=False, scale=1, colorbar_title=None, **kwargs)` — Add a 3-D volume to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:101`
+- `add_markers(points, *, plotter=None, notebook=False, window_size=(700, 700), off_screen=False, point_size=1, labels=None, label_offset=(0, 0, 0), label_font_size=12, **kwargs)` — Add marker points and optional labels to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:491`
+- `add_pressure_vol(pressure_vol, *, plotter=None, window_size=[800, 800], notebook=False, plot_focal_spot=False, off_screen=False, colorbar_title=None, contour_levels=11, scale=1, vmin=None, vmax=None, **kwargs)` — Add a pressure volume mesh to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:248`
+- `add_regions_mesh(pv_regions_dict, *, plotter=None, window_size=[800, 800], notebook=False, off_screen=False, kwargs_dict=None, **kwargs)` — Plot the PyVista mesh of specified BrainAtlas structures. `src/esdiva/plotting/plotting_pyvista.py:27`
+- `add_stl_mesh(stl_mesh, *, plotter=None, window_size=(800, 800), notebook=False, off_screen=False, color='lightblue', opacity=1.0, show_edges=True, edge_color='black', ambient=0.3, label=None, **kwargs)` — Add an STL mesh to a PyVista plotter. `src/esdiva/plotting/plotting_pyvista.py:599`
+- `add_transducer_mesh(TX_mesh, *, plotter=None, window_size=[800, 800], notebook=False, off_screen=False, scale=1, scalars='Apodization', color=None, colorbar_title=None, **kwargs)` — Add a transducer mesh to a PyVista plotter, colored by apodization, delays or a flat color. `src/esdiva/plotting/plotting_pyvista.py:385`
 - `create_2Dimage_mesh(matrix, *, extent=None, plane_offset=None, scalars='a.u.')` — Create a PyVista structured grid from a 2D image matrix. `src/esdiva/plotting/pyvista_functions.py:161`
 - `create_3Dvol_mesh(vol_matrix, x=None, y=None, z=None, *, scalars='Values', structured=False)` — Create a PyVista volume mesh from coordinate arrays and data. `src/esdiva/plotting/pyvista_functions.py:87`
 - `load_mesh_from_stl(file_path, *, scale=1.0, translation=(0.0, 0.0, 0.0), rotation_axis=None, rotation_angle=0.0)` — Load an STL file and return a PyVista mesh with optional transformations. `src/esdiva/plotting/pyvista_functions.py:248`
@@ -267,6 +290,8 @@ Resumable folder of per-event RF files with a JSON contents file. `src/esdiva/io
 - `compute_sub_elem_attributes(transducer)` — Flatten transducer patch geometry into arrays required by the SIR kernel. `src/esdiva/utilities/helper_functions.py:244`
 - `create_spatial_grid_from_dict(simulation_struct)` — Create a simulation mesh for the ultrasound field. `src/esdiva/utilities/helper_functions.py:312`
 - `make_phantom(extents_mm, n_scatterers, echogenicity_map=None, seed=None)` — Random scatterer cloud for a speckle phantom. `src/esdiva/utilities/phantom.py:7`
+- `tone_burst(fc_Hz: float, n_cycles: float, fs: float) -> numpy.ndarray[typing.Any, numpy.dtype[numpy.float32]]` — Hann-windowed sine burst: the standard short ultrasound pulse. `src/esdiva/utilities/signals.py:7`
+- `fwhm_mm(profile: numpy.ndarray, axis_mm: numpy.ndarray) -> float` — Full width at half maximum (−6 dB in amplitude) of a beam profile. `src/esdiva/utilities/signals.py:33`
 - `subdivide_cartesian(surface_fn: 'Callable[[float, float], np.ndarray]', u_range: 'Tuple[float, float]', v_range: 'Tuple[float, float]', n_u: 'int', n_v: 'int', *, inside_fn: 'Optional[Callable[[float, float], bool]]' = None, accept_fn: 'Optional[Callable[[float, float], bool]]' = None, border_refine: 'int' = 3, normal_sign: 'float' = 1.0, normalize_patch_size: 'bool' = False, max_shear_deg: 'float' = 5.0) -> 'dict'` — Tile a C1 surface on a cartesian (u, v) grid with flat rectangular patches. `src/esdiva/utilities/surface_subdivision.py:216`
 - `subdivide_radial(sag: 'Callable[[np.ndarray], np.ndarray]', radius: 'float', n_rings: 'int', *, normal_sign: 'float' = 1.0, ratio_big_patches: 'float' = 0.8, refine_factor: 'int' = 3, max_ring_turn_deg: 'float' = 15.0) -> 'dict'` — Tile an axisymmetric surface ``z(r)`` with flat rectangular patches. `src/esdiva/utilities/surface_subdivision.py:74`
 - `reshape_to_mapped_points(x, y, z, flattened_volume)` — Reshape the flat SIR output to ``(Nt_or_1, Nx, Ny, Nz)`` layout. `src/esdiva/utilities/helper_functions.py:507`

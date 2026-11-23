@@ -165,7 +165,9 @@ _RECEPTION = {
     ),
     "synthetic-aperture": (
         dict(),
-        lambda s, n: s.synthetic_aperture_rf(_SCAT, _AMP, decimation=1, countdown=False),
+        lambda s, n: s.synthetic_aperture_rf(
+            _SCAT, _AMP, decimation=1, countdown=False
+        ),
     ),
     "focused-line": (
         dict(n=32),

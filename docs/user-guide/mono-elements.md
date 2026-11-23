@@ -6,7 +6,7 @@ icon: lucide/circle
 
 Single-element circular transducers. Focusing comes from the physical curvature of
 the surface, not electronic delays. See the [Transducers API](../api/transducers.md)
-for full parameters and [Example 2 — Mono-element Fields](../examples/example02_monoelements_monochromatic_CW.md).
+for full parameters and [Example 2 — Mono-element Fields](../examples/learn/02_piston_and_bowl_cw.md).
 
 | | | |
 |---|---|---|
@@ -45,6 +45,25 @@ hemisphere. (The linear-array `elevation_focus_mm` uses the same radius conventi
 but a rim datum, so there they *don't* coincide — see
 [Multi-element § Elevation lens](multi-elements.md#elevation-lens).)
 
+## Arbitrary elevation profiles
+
+The rectangular counterpart of the radial cap: `ElevationProfileTransducer` is one
+rectangle, straight along its width (x) and curved along its height (y) by any
+profile `z(y)` in mm. It is the element of every lensed array: a
+`LinearArrayTransducer` given the same `elevation_profile_mm` is this element copied
+along x.
+
+```python
+from esdiva.transducers import ElevationProfileTransducer
+
+el = ElevationProfileTransducer(
+    element_width_mm=0.3, element_height_mm=4.0,
+    elevation_profile_mm=lambda y: y**2 / 24,   # concave parabola: converges
+    no_sub_x=1, no_sub_y=8, frequency_Hz=5e6,
+)
+el.elevation_lens_sag   # +1.67e-4 m: centre recessed below the rims at z = 0
+```
+
 ## Arbitrary radial profiles
 
 `ConcaveCircularTransducer` and `ConvexCircularTransducer` are the two spherical
@@ -78,5 +97,5 @@ returns the point the cap effectively radiates from — the paraxial centre of
 curvature, computed from geometry alone (no field simulation) — which is where
 delay-and-sum should reference the element. Fitting such a profile to a target
 directivity, and using its `virtual_source_m` for imaging, is
-[Example 23](../examples/example23_optimize_radial_element.md) and
-[Example 24](../examples/example24_multilens_matrix_psf.md).
+[Example 23](../examples/advanced/multilens_element_fit.md) and
+[Example 24](../examples/advanced/multilens_matrix_psf.md).

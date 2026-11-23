@@ -292,47 +292,30 @@ def plot3D_pressure_slices(
     slice_xy = pf.to_dB(slice_xy) if db_scale else slice_xy
     slice_yz = pf.to_dB(slice_yz) if db_scale else slice_yz
 
-    slice_xz_mesh = create_2Dimage_mesh(
-        slice_xz,
-        extent=extent_xz,
-        plane_offset=xz_offset,
-        scalars=scalars,
-    )
-    slice_xy_mesh = create_2Dimage_mesh(
-        slice_xy,
-        extent=extent_xy,
-        plane_offset=xy_offset,
-        scalars=scalars,
-    )
-    slice_yz_mesh = create_2Dimage_mesh(
-        slice_yz,
-        extent=extent_yz,
-        plane_offset=yz_offset,
-        scalars=scalars,
-    )
-
-    plotter = add_2D_image(
-        slice_xz_mesh,
-        plotter=plotter,
-        window_size=_normalize_window_size(window_size, scale=scale),
-        notebook=notebook,
-        off_screen=off_screen,
-        scale=scale,
-        colorbar_title=colorbar_title,
-        **kwargs,
-    )
-    plotter = add_2D_image(
-        slice_xy_mesh,
-        plotter=plotter,
-        scale=scale,
-        **kwargs,
-    )
-    plotter = add_2D_image(
-        slice_yz_mesh,
-        plotter=plotter,
-        scale=scale,
-        **kwargs,
-    )
+    for image, extent, offset in (
+        (slice_xz, extent_xz, xz_offset),
+        (slice_xy, extent_xy, xy_offset),
+        (slice_yz, extent_yz, yz_offset),
+    ):
+        # A single simulated plane (one axis of length 1) makes the two other
+        # slices one sample wide: lines lying inside that plane. Skip them.
+        if min(image.shape) < 2:
+            continue
+        mesh = create_2Dimage_mesh(
+            image, extent=extent, plane_offset=offset, scalars=scalars
+        )
+        plotter = add_2D_image(
+            mesh,
+            plotter=plotter,
+            window_size=_normalize_window_size(window_size, scale=scale),
+            notebook=notebook,
+            off_screen=off_screen,
+            scale=scale,
+            colorbar_title=colorbar_title,
+            **kwargs,
+        )
+    if plotter is None:
+        raise ValueError("Pressure field has no plane of at least 2 x 2 samples.")
 
     kwargs.pop("ambient", 0.7)  # set default
     if camera_position is not None:

@@ -1,9 +1,26 @@
 """PyVista 3-D visualisation utilities for pressure fields and transducers."""
 
+import atexit
+import gc
+import sys
+
 import numpy as np
 import pyvista as pv
 
 from .pyvista_functions import _normalize_window_size
+
+
+@atexit.register
+def _release_script_vtk_objects():
+    # A script's global meshes and plotters are otherwise destroyed during
+    # interpreter shutdown, after PyVista is unloaded, and their VTK destructors
+    # print "Exception ignored ... import of pyvista halted". Free them first.
+    main = vars(sys.modules.get("__main__", object()))
+    for name, obj in list(main.items()):
+        if type(obj).__module__.split(".")[0] in ("pyvista", "vtkmodules", "esdiva"):
+            del main[name]
+    pv.close_all()
+    gc.collect()
 
 
 # ------------- Brain Regions Mesh -------------

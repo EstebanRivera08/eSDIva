@@ -48,7 +48,7 @@ def _plane(z=(5, 35), dz=1.0):
             "dx": 0.5, "dy": 1.0, "dz": dz}  # fmt: skip
 
 
-def emission_monochromatic_focused():  # example03 / example11
+def emission_monochromatic_focused():  # learn/03 + learn/05
     tx = _linear(focus=[0, 0, 20])
     out = {}
     for m in METHODS:
@@ -60,7 +60,7 @@ def emission_monochromatic_focused():  # example03 / example11
     return out
 
 
-def emission_transient_diverging():  # example04
+def emission_transient_diverging():  # learn/04
     tx = _linear(focus=[0, 0, -10])
     pts = np.array([[0, 0, 10], [3, 0, 15], [-5, 0, 20]], np.float32)
     out = {}
@@ -70,7 +70,7 @@ def emission_transient_diverging():  # example04
     return out
 
 
-def emission_matrix_steered_pw():  # example05
+def emission_matrix_steered_pw():  # applications/matrix_steered_pw_3d
     tx = MatrixArrayTransducer(
         n_elements_x=8, n_elements_y=8, element_width_mm=0.275, element_height_mm=0.275,
         kerf_x_mm=0.025, kerf_y_mm=0.025, no_sub_x=1, no_sub_y=1, frequency_Hz=3e6,
@@ -83,7 +83,7 @@ def emission_matrix_steered_pw():  # example05
     }
 
 
-def emission_attenuated_soft_baffle():  # example10 + soft baffle
+def emission_attenuated_soft_baffle():  # learn/05 + soft baffle
     tx = _linear(focus=[0, 0, 20])
     tx.baffle = "soft"
     pts = np.array([[0, 0, 10], [0, 0, 20], [6, 0, 12]], np.float32)
@@ -94,7 +94,7 @@ def emission_attenuated_soft_baffle():  # example10 + soft baffle
     }  # fmt: skip
 
 
-def emission_concave_bowl():  # example02 / example12
+def emission_concave_bowl():  # learn/02 + applications/brain_atlas_targeting
     tx = ConcaveCircularTransducer(
         diameter_mm=20.0, focus_mm=30.0, no_sub_diameter=12, frequency_Hz=1e6
     )
@@ -104,7 +104,7 @@ def emission_concave_bowl():  # example02 / example12
             for m in METHODS}  # fmt: skip
 
 
-def reception_psf_per_element_drive():  # example06 / example07
+def reception_psf_per_element_drive():  # learn/06 + learn/07
     tx, rx = _linear(16, focus=[0, 0, 20]), _linear(16)
     tx.impulse_response = rx.impulse_response = _pulse()
     exc = _pulse()[:, None] * np.linspace(0.5, 1.5, 16).astype(np.float32)
@@ -117,7 +117,7 @@ def reception_psf_per_element_drive():  # example06 / example07
     }
 
 
-def reception_phantom_attenuated():  # example20
+def reception_phantom_attenuated():  # learn/10
     tx, rx = _linear(16, focus=[0, 0, 20]), _linear(16)
     tx.impulse_response = rx.impulse_response = _pulse()
     box = {"x_extent": [-3, 3], "y_extent": [-0.5, 0.5], "z_extent": [15, 25]}
@@ -129,7 +129,7 @@ def reception_phantom_attenuated():  # example20
     }  # fmt: skip
 
 
-def reception_focused_line():  # example09 (B-mode line envelope)
+def reception_focused_line():  # learn/08 (B-mode line envelope)
     tx, rx = _linear(32), _linear(32)
     tx.impulse_response = rx.impulse_response = _pulse()
     pts = np.array([[0, 0, 15], [0, 0, 25], [1, 0, 30]], np.float32)

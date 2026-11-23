@@ -9,12 +9,11 @@ giving the full time-domain pressure wavefront `p(t, x, y, z)`. Pass one global
 pulse `(L,)` or a per-element pulse `(L, E)`.
 
 ```python
-import numpy as np
 from esdiva.emission import Emission
+from esdiva.utilities import tone_burst
 
-fs, fc, n_cycles = 200e6, tx.fc, 2
-t = np.arange(0, n_cycles / fc, 1 / fs)
-excitation = np.hanning(len(t)) * np.sin(2 * np.pi * fc * t)
+fs = 200e6
+excitation = tone_burst(tx.fc, n_cycles=2, fs=fs)  # Hann-windowed sine at fc.
 
 sim = Emission(tx, fs=fs, excitation=excitation)
 p, coords = sim(field_points)
@@ -34,5 +33,5 @@ field maps. If `tx.impulse_response` is set, the velocity is the full `excitatio
 - Acoustic intensity / heating maps.
 - Comparing pulse shapes and their effect on the focal pattern.
 
-See [Example 4 — Diverging Wave](../examples/example04_lineararray_excitation_DW.md)
-and [Example 5 — Steered Plane Wave](../examples/example05_matrixarray_pulsed_steeredPW.md).
+See [Example 4 — Diverging Wave](../examples/learn/04_plane_vs_diverging_wave.md)
+and [Example 5 — Steered Plane Wave](../examples/applications/matrix_steered_pw_3d.md).

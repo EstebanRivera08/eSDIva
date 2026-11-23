@@ -11,7 +11,7 @@ eSDIva's PyVista helpers compose rich 3-D scenes combining:
 - **STL meshes** — arbitrary experimental geometry (e.g., petri dishes, phantoms)
 - **Brain anatomy** — atlas-registered anatomical structures
 
-All helpers operate on a shared `pv.Plotter` instance, so scenes are built incrementally and rendered in a single interactive window. See the [STL Meshes](../examples/example14_importstl_petri_dish.md) and [STL + Simulation](../examples/example15_monoelement_petridish.md) examples for working code.
+All helpers operate on a shared `pv.Plotter` instance, so scenes are built incrementally and rendered in a single interactive window. See the [STL Meshes](../examples/applications/petri_dish_setup.md) and [STL + Simulation](../examples/applications/petri_dish_setup.md) examples for working code.
 
 | | |
 |---|---|

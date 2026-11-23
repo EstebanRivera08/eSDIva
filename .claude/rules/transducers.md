@@ -84,6 +84,23 @@ With this, a native elevation-focused linear matches Field II pulse-echo RF at l
 (corr ~0.97 single scatterer; residual is curved-patch far-field discretization, improves
 with `no_sub_y`).
 
+### Free elevation profiles (2026-11-23)
+
+`elevation_profile_mm` (callable `y_mm -> z_mm`, +z toward medium) generalises the arc on
+`LinearArrayTransducer`, `ConvexArrayTransducer`, `RowColumnAddressedTransducer` and the
+mono-element `ElevationProfileTransducer`. One tiler for all:
+`geometry_utils.elevation_profile_quads` — equal-ARC-LENGTH strips along y, rims averaged
+onto z = 0, signed `elevation_lens_sag = −z(0)` after that datum. `elevation_focus_mm=R`
+is now sugar for `circular_elevation_sag(R)` through the same tiler; it reproduces the old
+equal-angle quads to ~1e-11 m and the regression golden passed unchanged (the guard).
+Exclusive with `elevation_focus_mm`; `elevation_focus_depth_mm` is `nan` for a free profile.
+
+### RCA
+
+`RowColumnAddressedTransducer` is a CONTAINER, not a `TransducerBase`: `.columns`
+(LinearArray, bars along y) and `.rows` (copy rotated +90° about z), both at z = 0
+(co-located face; only one set active per simulation). Bar length = `n·pitch − kerf`.
+
 ## focus_mm Definition (Concave / Convex / Focused)
 
 `focus_mm` = **focal length = radius of curvature** (the datasheet value, =

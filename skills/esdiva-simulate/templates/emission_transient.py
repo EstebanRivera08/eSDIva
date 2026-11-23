@@ -13,6 +13,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 import esdiva.transducers as transducers
+from esdiva.utilities import tone_burst
 from esdiva.emission import Emission
 from esdiva.plotting import plot2D_pressure_slices
 
@@ -40,10 +41,7 @@ tx.compute_apodization(focus_mm=VIRTUAL_SOURCE_MM, FoverD=1.0)
 # Two-cycle Hanning-windowed sine at fc: short enough for good axial resolution,
 # smooth enough that its spectrum stays inside the probe band.
 CYCLES = 2
-t_pulse = np.arange(0.0, CYCLES / FC, 1.0 / FS)
-excitation = (np.sin(2 * np.pi * FC * t_pulse) * np.hanning(len(t_pulse))).astype(
-    np.float32
-)
+excitation = tone_burst(FC, n_cycles=CYCLES, fs=FS)  # Hann-windowed sine at FC.
 
 # %% Field grid (XZ plane)
 field_points = {

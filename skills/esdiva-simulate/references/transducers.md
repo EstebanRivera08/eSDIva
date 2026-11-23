@@ -16,13 +16,15 @@ import esdiva.transducers as transducers
 
 | Class | Geometry | Required kwargs |
 |---|---|---|
-| `LinearArrayTransducer` | 1-D row of rectangles, optional elevation lens | `n_elements`, `element_width_mm`, `element_height_mm`, `kerf_mm`, `no_sub_x`, `no_sub_y` |
+| `LinearArrayTransducer` | 1-D row of rectangles, optional elevation lens (`elevation_focus_mm` arc or free `elevation_profile_mm`) | `n_elements`, `element_width_mm`, `element_height_mm`, `kerf_mm`, `no_sub_x`, `no_sub_y` |
 | `ConvexArrayTransducer` | curved 1-D row (abdominal probe) | as above **+** `radius_of_curvature_mm` |
+| `RowColumnAddressedTransducer` | RCA: N column bars crossed with N row bars; `.columns` / `.rows` are `LinearArrayTransducer`s (not itself a `TransducerBase`) | `n_elements`, `element_width_mm`, `kerf_mm`, `no_sub_x`, `no_sub_y` |
 | `MatrixArrayTransducer` | 2-D grid of rectangles | `n_elements_x`, `n_elements_y`, `element_width_mm`, `element_height_mm`, `kerf_x_mm`, `kerf_y_mm`, `no_sub_x`, `no_sub_y` |
 | `FlatCircularTransducer` | flat piston disc | `diameter_mm` |
 | `ConcaveCircularTransducer` | spherical bowl, geometric focus in front (HIFU/TUS) | `diameter_mm`, `focus_mm` |
 | `ConvexCircularTransducer` | spherical dome, virtual focus behind (lens) | `diameter_mm`, `focus_mm` |
 | `FocusedCircularTransducer` | disc with single-axis curvature (line focus) | `diameter_mm`, `focus_mm`, `focus_axis` |
+| `ElevationProfileTransducer` | one rectangle curved along y by any `z(y)` (lens element) | `element_width_mm`, `element_height_mm`, `elevation_profile_mm`, `no_sub_x`, `no_sub_y` |
 | `CustomTransducer` | any list of the above placed at arbitrary positions/normals (helmet, dual probe) | `elements`, `positions_mm`, `normals` |
 | `FieldIITransducer` | built from `xdc_get(Th, 'all')` patch data | via `from_fieldii_xdc_data` / `from_fieldii_rect_data` / `from_fieldii_patch_arrays` |
 

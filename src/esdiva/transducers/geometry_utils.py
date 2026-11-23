@@ -7,7 +7,7 @@ across all transducer types.
 """
 
 import numpy as np
-from typing import List
+from typing import Callable, List, Optional, Tuple
 import pyvista as pv
 
 
@@ -81,6 +81,160 @@ def windowed_apodization_1d(
     apod = np.zeros(N, dtype=float)
     apod[idxs[valid]] = wins[valid]
     return apod
+
+
+def elevation_profile_quads(
+    width_m: float,
+    height_m: float,
+    no_sub_x: int,
+    no_sub_y: int,
+    sag_m: Optional[Callable[[np.ndarray], np.ndarray]] = None,
+) -> Tuple[List[np.ndarray], float, float]:
+    """Tile one rectangular element whose face is curved along elevation: ``z = sag(y)``.
+
+    An elevation lens bends the element surface only along its height (y); along its
+    width (x) it stays straight, so the face is a cylinder of any cross-section.
+    The SIR needs that surface as small flat rectangles, so the profile is cut into
+    ``no_sub_y`` strips of EQUAL ARC LENGTH (each strip sees the same share of the
+    curved face; for a circular arc this is the equal-angle split of Field II
+    ``xdc_focused_array``) and ``no_sub_x`` straight cuts across the width.
+
+    Datum: the two rims (``y = ±height/2``) are averaged onto ``z = 0`` — the element
+    face plane a beamformer measures depth from. A concave (converging) profile then
+    dishes back to ``z < 0`` at the centre, a convex (diverging) one bulges to ``z > 0``.
+
+    Parameters
+    ----------
+    width_m : float
+        Element width along x (lateral), in metres.
+    height_m : float
+        Element height along y (elevation), in metres.
+    no_sub_x : int
+        Patches across the width.
+    no_sub_y : int
+        Patches along the curved height.
+    sag_m : callable, optional
+        Surface profile ``y_m (ndarray) -> z_m (ndarray)`` in metres, ``+z`` toward the
+        medium. ``None`` is a flat face.
+
+    Returns
+    -------
+    quads : list[(4, 3) numpy.ndarray]
+        Patch corners in the element's own frame (centre at ``x = y = 0``).
+    patch_area : float
+        Nominal patch area, width step times arc-length step (m²).
+    centre_offset : float
+        Signed lens sag ``−z(y = 0)`` after the rim datum, in metres: positive when
+        the centre is recessed (concave), negative when it protrudes (convex), 0 flat.
+    """
+    xs = np.linspace(-width_m / 2, width_m / 2, no_sub_x + 1)
+    if sag_m is None:
+        ys = np.linspace(-height_m / 2, height_m / 2, no_sub_y + 1)
+        zs = np.zeros_like(ys)
+        arc_dy, centre_offset = height_m / no_sub_y, 0.0
+    else:
+
+        def surface(y):
+            return np.asarray(sag_m(np.asarray(y, dtype=float)), dtype=float)
+
+        # Arc length s(y) from a dense polyline; invert it to place equal-arc nodes.
+        y_dense = np.linspace(-height_m / 2, height_m / 2, 8193)
+        z_dense = surface(y_dense)
+        if not np.all(np.isfinite(z_dense)):
+            raise ValueError("elevation profile returned non-finite z values.")
+        s = np.concatenate(
+            [[0.0], np.cumsum(np.hypot(np.diff(y_dense), np.diff(z_dense)))]
+        )
+        ys = np.interp(np.linspace(0.0, s[-1], no_sub_y + 1), s, y_dense)
+        z_rim = 0.5 * float(surface(np.array([-height_m / 2, height_m / 2])).sum())
+        zs = surface(ys) - z_rim
+        arc_dy = s[-1] / no_sub_y
+        centre_offset = z_rim - float(surface(np.array([0.0]))[0])
+
+    quads = [
+        np.array(
+            [
+                [xs[i], ys[j], zs[j]],
+                [xs[i + 1], ys[j], zs[j]],
+                [xs[i + 1], ys[j + 1], zs[j + 1]],
+                [xs[i], ys[j + 1], zs[j + 1]],
+            ]
+        )
+        for i in range(no_sub_x)
+        for j in range(no_sub_y)
+    ]
+    return quads, (width_m / no_sub_x) * arc_dy, centre_offset
+
+
+def circular_elevation_sag(radius_m: float) -> Callable[[np.ndarray], np.ndarray]:
+    """Cylindrical lens of SIGNED radius ``R`` as a profile ``z(y)`` (metres).
+
+    ``R > 0`` is concave (converging, rims raised above the centre), ``R < 0`` convex
+    (diverging). Feed it to `elevation_profile_quads`, which puts the rims at ``z = 0``.
+
+    Parameters
+    ----------
+    radius_m : float
+        Signed radius of curvature in metres.
+
+    Returns
+    -------
+    callable
+        ``y_m -> z_m`` lens profile.
+    """
+    radius, curve = abs(radius_m), float(np.sign(radius_m))
+    return lambda y: curve * (radius - np.sqrt(np.clip(radius**2 - y**2, 0, None)))
+
+
+def elevation_sag_from_inputs(
+    elevation_focus_mm: Optional[float],
+    elevation_profile_mm: Optional[Callable[[np.ndarray], np.ndarray]],
+    element_height_mm: float,
+    no_sub_y: int,
+) -> Optional[Callable[[np.ndarray], np.ndarray]]:
+    """Turn an array's lens arguments into one SI profile ``y_m -> z_m`` (or ``None``).
+
+    `elevation_focus_mm` (signed radius) is the circular special case of
+    `elevation_profile_mm` (free ``y_mm -> z_mm`` shape); at most one may be given.
+    A curved face needs ``no_sub_y >= 2`` or the patches cannot follow it.
+
+    Parameters
+    ----------
+    elevation_focus_mm : float, optional
+        Signed lens radius in mm (``+`` concave, ``-`` convex); ``None``/0 is flat.
+    elevation_profile_mm : callable, optional
+        Free lens shape ``y_mm -> z_mm``.
+    element_height_mm : float
+        Element height in mm (the arc must span it).
+    no_sub_y : int
+        Patches along the height.
+
+    Returns
+    -------
+    callable or None
+        Profile in metres, or ``None`` for a flat face.
+    """
+    if elevation_focus_mm and elevation_profile_mm is not None:
+        raise ValueError("Give elevation_focus_mm OR elevation_profile_mm, not both.")
+    if not elevation_focus_mm and elevation_profile_mm is None:
+        return None
+    if no_sub_y < 2:
+        raise ValueError(
+            "An elevation lens needs no_sub_y >= 2 to model the curved surface."
+        )
+    if elevation_profile_mm is not None:
+        f = elevation_profile_mm
+        return lambda y: np.asarray(f(np.asarray(y) * 1e3), dtype=float) * 1e-3
+    assert elevation_focus_mm is not None  # narrowed by the early returns above
+    # Only the MAGNITUDE is constrained: an arc of radius below the half-height
+    # cannot span the element.
+    if abs(elevation_focus_mm) < element_height_mm / 2:
+        raise ValueError(
+            f"|elevation_focus_mm| = {abs(elevation_focus_mm)} mm is smaller than half "
+            f"the element height ({element_height_mm / 2} mm): an arc of that radius "
+            "cannot span the element."
+        )
+    return circular_elevation_sag(elevation_focus_mm * 1e-3)
 
 
 def create_mesh_from_quads(

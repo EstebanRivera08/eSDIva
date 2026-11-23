@@ -115,8 +115,8 @@ A few things that decide whether the numbers are honest:
 
 | Figure | Study |
 |--------|-------|
-| ![Phantom B-mode](../examples/assets/ex20_phantom_bmode.png) | [Speckle phantom](../examples/example20_phantom_simulation.md) |
-| ![FMC](../examples/assets/ex08_reception_fmc.png) | [Full Matrix Capture](../examples/example08_synthetic_aperture_FMC.md) |
+| ![Phantom B-mode](../examples/assets/10_speckle_phantom_2.png) | [Speckle phantom](../examples/learn/10_speckle_phantom.md) |
+| ![FMC](../examples/assets/09_full_matrix_capture_1.png) | [Full Matrix Capture](../examples/learn/09_full_matrix_capture.md) |
 
 Full signature: [API → Reception](../api/reception.md) ·
 [API → Beamforming](../api/beamforming.md).

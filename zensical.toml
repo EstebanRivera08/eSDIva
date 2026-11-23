@@ -70,34 +70,78 @@ nav = [
   ]},
   { "Examples" = [
     { "Overview" = "examples/index.md" },
-    { "1. Transducer Gallery" = "examples/example01_transducer_gallery.md" },
-    { "2. Mono-element Fields" = "examples/example02_monoelements_monochromatic_CW.md" },
-    { "3. Multi-element 3-D" = "examples/example03_multielements_monochromatic_CW.md" },
-    { "4. Diverging Wave (Transient)" = "examples/example04_lineararray_excitation_DW.md" },
-    { "5. Steered Plane Wave (3-D)" = "examples/example05_matrixarray_pulsed_steeredPW.md" },
-    { "6. Concave Pulse-Echo PSF" = "examples/example06_concave_PSF.md" },
-    { "7. Focused TX, All-RX" = "examples/example07_lineararray_TXfocus_RXall.md" },
-    { "8. Full Matrix Capture" = "examples/example08_synthetic_aperture_FMC.md" },
-    { "9. B-mode PSF Image" = "examples/example09_lineararray_imagePSF.md" },
-    { "10. Peak Pressure & Ispta" = "examples/example10_intensities_peak_pressure.md" },
-    { "11. CW Field with Attenuation" = "examples/example11_lineararray_attenuations.md" },
-    { "12. Mouse Brain Atlas" = "examples/example12_txconcave_mousebrain.md" },
-    { "13. Rat Brain Targeting" = "examples/example13_txlinear_ratbrainzones.md" },
-    { "14. STL Meshes" = "examples/example14_importstl_petri_dish.md" },
-    { "15. STL + Simulation" = "examples/example15_monoelement_petridish.md" },
-    { "16. Surface Subdivision" = "examples/example16_subdivide_parametric_surface.md" },
-    { "17. Import a Field II Probe" = "examples/example17_import_fieldii_transducer.md" },
-    { "18. Custom Sparse Array" = "examples/example18_customtransducer_3Dplanes.md" },
-    { "19. Dual-Probe Pulse-Echo" = "examples/example19_dualprobe_reception_show.md" },
-    { "20. Speckle Phantom B-mode" = "examples/example20_phantom_simulation.md" },
-    { "21. Volumetric Case Study" = "examples/example21_rca_volume.md" },
-    { "22. Ultrafast Compound Doppler" = "examples/example22_flow_doppler.md" },
-    { "23. Diverging Multilens as a Rigid Cap" = "examples/example23_optimize_radial_element.md" },
-    { "24. Multilens Matrix Point PSF" = "examples/example24_multilens_matrix_psf.md" },
-    { "25. Moving & Combining Volumes" = "examples/example25_field_canvas.md" },
+    { "Learn (start here)" = [
+        { "01. Transducers" = "examples/learn/01_transducers.md" },
+        { "02. Piston & Bowl (CW)" = "examples/learn/02_piston_and_bowl_cw.md" },
+        { "03. Array Focusing (CW)" = "examples/learn/03_array_focusing_cw.md" },
+        { "04. Plane vs Diverging Wave" = "examples/learn/04_plane_vs_diverging_wave.md" },
+        { "05. Attenuation" = "examples/learn/05_attenuation.md" },
+        { "06. Pulse-echo RF" = "examples/learn/06_pulse_echo_rf.md" },
+        { "07. Point Spread Function" = "examples/learn/07_psf.md" },
+        { "08. B-mode, Line by Line" = "examples/learn/08_bmode_line_by_line.md" },
+        { "09. Full Matrix Capture" = "examples/learn/09_full_matrix_capture.md" },
+        { "10. Speckle Phantom" = "examples/learn/10_speckle_phantom.md" },
+        { "11. Grating Lobes & Sparse Arrays" = "examples/learn/11_sparse_spiral_array.md" },
+        { "12. Why SDI (under the hood)" = "examples/learn/12_why_sdi.md" },
+    ]},
+    { "Applications" = [
+        { "Brain Atlas Targeting" = "examples/applications/brain_atlas_targeting.md" },
+        { "Custom Curved Element" = "examples/applications/custom_surface_element.md" },
+        { "Import a Field II Probe" = "examples/applications/import_fieldii_probe.md" },
+        { "Matrix Steered Plane Wave (3-D)" = "examples/applications/matrix_steered_pw_3d.md" },
+        { "STL Lab Setup (Petri Dish)" = "examples/applications/petri_dish_setup.md" },
+        { "Pitch-Catch, Two Probes" = "examples/applications/pitch_catch_two_probes.md" },
+        { "Move & Refocus a Probe" = "examples/applications/transform_and_refocus.md" },
+    ]},
+    { "Advanced case studies" = [
+        { "3-D Phantom Volume" = "examples/advanced/3d_phantom_volume.md" },
+        { "Ultrafast Compound Doppler" = "examples/advanced/flow_doppler.md" },
+        { "Multilens Element Fit" = "examples/advanced/multilens_element_fit.md" },
+        { "Multilens Matrix PSF" = "examples/advanced/multilens_matrix_psf.md" },
+        { "RCA xAM Sound Sheet" = "examples/advanced/rca_xam_sound_sheet.md" },
+    ]},
   ]},
   { "Contributing" = "contributing.md" },
 ]
+
+# Markdown extensions: Zensical's defaults, plus `pymdownx.snippets` so the example
+# pages include each script verbatim (`--8<-- "examples/..."`) and cannot drift from it.
+# Declaring this table replaces the defaults, hence the full list.
+[project.markdown_extensions.abbr]
+[project.markdown_extensions.admonition]
+[project.markdown_extensions.attr_list]
+[project.markdown_extensions.def_list]
+[project.markdown_extensions.footnotes]
+[project.markdown_extensions.md_in_html]
+[project.markdown_extensions.toc]
+permalink = true
+[project.markdown_extensions.pymdownx.arithmatex]
+generic = true
+[project.markdown_extensions.pymdownx.betterem]
+[project.markdown_extensions.pymdownx.caret]
+[project.markdown_extensions.pymdownx.details]
+[project.markdown_extensions.pymdownx.emoji]
+emoji_index = "zensical.extensions.emoji.twemoji"
+emoji_generator = "zensical.extensions.emoji.to_svg"
+[project.markdown_extensions.pymdownx.highlight]
+anchor_linenums = true
+line_spans = "__span"
+pygments_lang_class = true
+[project.markdown_extensions.pymdownx.inlinehilite]
+[project.markdown_extensions.pymdownx.keys]
+[project.markdown_extensions.pymdownx.magiclink]
+[project.markdown_extensions.pymdownx.mark]
+[project.markdown_extensions.pymdownx.smartsymbols]
+[project.markdown_extensions.pymdownx.snippets]
+check_paths = true
+[project.markdown_extensions.pymdownx.superfences]
+custom_fences = [{ name = "mermaid", class = "mermaid" }]
+[project.markdown_extensions.pymdownx.tabbed]
+alternate_style = true
+combine_header_slug = true
+[project.markdown_extensions.pymdownx.tasklist]
+custom_checkbox = true
+[project.markdown_extensions.pymdownx.tilde]
 
 # Auto-generated API reference from NumPy-style docstrings (mkdocstrings-python).
 # Renders each MAIN class/method with its full signature, typed parameter table,

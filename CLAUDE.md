@@ -46,7 +46,7 @@ uv sync                # install + sync venv
 uv run <script.py>     # run a script
 uv add <package>       # add dependency
 just test              # run tests with coverage (alias: just t)
-just test-examples     # run every numbered example headless (slow, opt-in marker)
+just test-examples     # run every examples/learn + applications script headless (opt-in marker)
 just regen-golden      # rewrite tests/regression/golden.npz — ONLY after an intentional numerical change, say why in the commit
 just pre-commit        # ruff-check, ruff-format, ty, codespell, numpydoc (alias: just pc)
 just serve-docs        # build + serve Zensical docs locally (hot-reload)
@@ -88,7 +88,7 @@ non-Claude agents at both this file and `skills/`.
 ### Module Structure (subject to change as project evolves)
 
 1. **`src/esdiva/hsir/`** — Spatial Impulse Response computation. **Core engine — modify carefully.**
-2. **`src/esdiva/transducers/`** — Transducer geometry. Under active development; prioritize generalization, keep backward compatibility.
+2. **`src/esdiva/transducers/`** — Transducer geometry. Under active development; prioritize generalization, keep backward compatibility. Elevation lenses on linear/convex/RCA arrays are any profile `z(y)` (`elevation_profile_mm`, one tiler `geometry_utils.elevation_profile_quads`; `elevation_focus_mm` = circular case; single element = `ElevationProfileTransducer`). `RowColumnAddressedTransducer` = container of two crossed `LinearArrayTransducer`s (`.columns`, `.rows`).
 3. **`src/esdiva/emission/`** — Emission simulation (`Emission`, deprecated `eSDIva` alias). **Primary API — keep intuitive/consistent.**
 4. **`src/esdiva/reception/`** — Reception simulation (`Reception`, backed by `ReceptionConventional`). **Primary API.**
 5. **`src/esdiva/attenuation/`** — Power-law attenuation transfer functions.
@@ -120,7 +120,9 @@ the transducer. `transform(T_matrix)` (4×4 homogeneous, translation in mm)
 rigidly moves ALL computed geometry — quads, patch frames, element centers — so
 simulation and visualization both follow; simulators snapshot geometry at
 construction, so call `sim.set("transducer"/"tx"/"rx", t)` after transforming
-(`clean()` reverts to the canonical pose). See `.claude/rules/transducers.md`
+(`clean()` reverts to the canonical pose). `aim(position_mm, target_mm, roll_deg)`
+is the friendly `transform`: place the aperture and point its +z axis at a target.
+See `.claude/rules/transducers.md`
 for mono vs multi-element, `focus_mm`, z-convention, subdivision methods.
 
 ### Brain Atlas Integration
@@ -223,7 +225,7 @@ per-element RF `(Erx, Nt)`. Scatterer positions may also be an Emission-style gr
 dict (`x_extent`/`dx`…) → regular lattice of unit point targets (PSF maps; NOT a
 phantom — periodic lattices give coherent echoes, not speckle). For phantoms use
 `esdiva.utilities.make_phantom(extents_mm, n, echogenicity_map)` → random positions
-+ `N(0,1)·map(r)` amplitudes (see `example20`). `coords["t0"]` is beam-axis referenced. Full details in
++ `N(0,1)·map(r)` amplitudes (see `examples/learn/10_speckle_phantom.py`). `coords["t0"]` is beam-axis referenced. Full details in
 `ARCHITECTURE.md`.
 
 ```python
@@ -289,7 +291,7 @@ Quick checklist — full rationale, locations, and history in
 
 1. **SDI float32 cumsum cancellation** — the inline double cumsum in `compute_parallelized_sir_optimized` (`sir_temporal.py`) accumulates in a float64 scalar (`acc`/`acc2`) and writes back to the float32 `d2h`/`h_out`. The delta placement in `_place_sir_sdi_deltas` casts each split write with `np.float32(...)` before the `+=` (matches the cumsum's rounding). Residual ~0.004% of peak. SIR test tolerance: `rtol=0.005, atol=0.005×peak`.
 2. **d2h_all ≠ d2h_per_element.sum()** — float32 non-associativity (~5e-8). Never compare with `atol=0`.
-3. **PE SDI on-axis lag must be 0** — the delta placement in `sir_paired.py` was once a 2-sample lag bug; `example06` asserts on-axis lag == 0 as the regression guard.
+3. **PE SDI on-axis lag must be 0** — the delta placement in `sir_paired.py` was once a 2-sample lag bug; `tests/unit/test_psimulation/test_method_agreement.py` is the guard (sample-wise RMS < 1 % at identical `t0`, which a 2-sample shift fails).
 4. **Attenuation dispersion is referenced at f0 = fc** (fixed 2026-09-13) — the y≠1 phase needs the `−|f|·f0^(y−1)` term (else `c` is the phase speed at f→0 and the fc arrival diverges as y→1) and the y=1 phase is `+j(2α/π)f·ln(f/f0)d` (was sign-flipped: negative dispersion on the default `freq_power=1`). Tests pin high-f-first, y→1 continuity, zero phase at f0.
 5. **Global vs per-element excitation** — both paths must use identical per-element dh; divergent cumsums caused 150× near-zero errors.
 6. **Numba cache staleness** — after editing kernels, clear `.nb?` cache or fixes "have no effect". Inlined helpers from other modules (`_causal_atten_factor`, `helpers.py`) do NOT invalidate the caller's cache, so clear the whole package:

@@ -25,13 +25,13 @@ clean-graphify:
 test:
     uv run pytest tests/
 
-# Run every numbered example headless (slow; checks they still run end to end).
+# Run every learn/ and applications/ example headless (slow; checks they still run end to end).
 test-examples:
     uv run pytest tests/regression/test_examples.py -m examples
 
 # Regenerate the documentation figures headless (no windows; plotters closed after saving).
 figures:
-    $env:ESDIVA_SAVE_FIG = "1"; Get-ChildItem examples -Filter "example*.py" | ForEach-Object { uv run python tests/regression/headless.py $_.FullName }
+    $env:ESDIVA_SAVE_FIG = "1"; Get-ChildItem examples/learn, examples/applications -Filter "*.py" | ForEach-Object { uv run python tests/regression/headless.py $_.FullName }
 
 # Regenerate the golden reference values — only after an intentional numerical change.
 regen-golden:

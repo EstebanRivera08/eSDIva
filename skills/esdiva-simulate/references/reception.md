@@ -225,12 +225,12 @@ Two things to get right, and to tell the user about:
 
 The scatterers are frozen during each emission, so this models the phase shift
 *between* emissions — what every Doppler estimator reads — not an intra-pulse
-frequency shift. eSDIva ships no Doppler estimator or clutter filter; `example22`
+frequency shift. eSDIva ships no Doppler estimator or clutter filter; `examples/advanced/flow_doppler/`
 shows both written in a few lines of numpy.
 
 ### Doppler: what was measured, and what was ruled out
 
-These come from `example22`, each with the control that established it. Quote
+These come from `examples/advanced/flow_doppler/`, each with the control that established it. Quote
 them as measurements, not as intuition — and do not re-derive the refuted ones.
 
 **Established.**
