@@ -6,6 +6,7 @@ combination TX1 - TX2 - TX3 that a tissue (linear) scatterer returns, and the
 quadratic combination TX1² - TX2² - TX3² that a bubble returns.
 """
 
+import textwrap
 from pathlib import Path
 
 import matplotlib.pyplot as plt
@@ -124,10 +125,17 @@ def animate_xam(
     last = [db(m[ks[-1]], p) for m, p in zip(movies, peaks)]
 
     with plt.rc_context(DARK):
-        fig, axes = plt.subplots(1, 5, figsize=(16, 5), constrained_layout=True)
+        # Portrait 3 + 2 grid so the movie fits a phone held upright; the free
+        # sixth cell holds the shared colour bar.
+        fig, ax = plt.subplot_mosaic(
+            [["a", "b", "c"], ["d", "e", "cbar"]],
+            figsize=(8, 10.5),
+            constrained_layout=True,
+        )
+        axes = [ax[k] for k in "abcde"]
         images = []
-        for ax, title, m, p in zip(axes, titles, movies, peaks):
-            im = ax.imshow(
+        for i, (ax_i, title, m, p) in enumerate(zip(axes, titles, movies, peaks)):
+            im = ax_i.imshow(
                 db(m[0], p).T,
                 extent=[x[0], x[-1], z[-1], z[0]],
                 aspect="equal",
@@ -136,15 +144,22 @@ def animate_xam(
                 vmax=0,
                 interpolation="bilinear",
             )
-            ax.set(xlabel="x (mm)", ylabel="z (mm)")
-            ax.set_title(title, fontsize=11)
+            ax_i.set(xlabel="x (mm)", ylabel="z (mm)" if i in (0, 3) else None)
+            ax_i.set_title(title, fontsize=11)
             images.append(im)
         # One shared colour map and dB scale for every panel and both stages.
+        ax["cbar"].axis("off")
         fig.colorbar(
-            images[0], ax=axes, shrink=0.7, label="dB  (a–d re TX1 peak, e re own)"
+            images[0],
+            cax=ax["cbar"].inset_axes([0.3, 0.1, 0.12, 0.8]),
+            label="dB  (a–d re TX1 peak, e re own)",
         )
-        head = fig.suptitle(" ", fontsize=15, fontweight="bold")
-        fig.supxlabel(note, fontsize=10, color=DIM)
+        head = fig.suptitle(" ", fontsize=14, fontweight="bold")
+        fig.supxlabel(
+            "\n".join(textwrap.fill(line, 80) for line in note.split("\n")),
+            fontsize=9,
+            color=DIM,
+        )
         # Solve the layout once; re-solving it on every frame triples render time.
         fig.canvas.draw()
         fig.set_layout_engine("none")
