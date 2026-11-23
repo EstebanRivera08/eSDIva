@@ -42,7 +42,7 @@ Examples
 Spherical bowl (concave transducer)::
 
     import numpy as np
-    from esdiva.utilities.surface_subdivision import subdivide_parametric_surface
+    from esdiva.utilities.surface_subdivision import subdivide_cartesian
 
     R, R_ap = 20e-3, 8e-3
 
@@ -50,7 +50,7 @@ Spherical bowl (concave transducer)::
         z = R - np.sqrt(max(R**2 - x**2 - y**2, 0.0))
         return np.array([x, y, z])
 
-    frames = subdivide_parametric_surface(
+    frames = subdivide_cartesian(
         bowl,
         u_range=(-R_ap, R_ap),
         v_range=(-R_ap, R_ap),

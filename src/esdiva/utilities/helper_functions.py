@@ -250,7 +250,7 @@ def compute_sub_elem_attributes(transducer):
     patches per element is not uniform (e.g. circular transducers).
 
     For curved transducers the vertices are flat rectangles in the local
-    tangent plane (built by ``subdivide_parametric_surface``), so edge lengths
+    tangent plane (built by ``subdivide_cartesian``), so edge lengths
     give correct arc-length dimensions without any special treatment here.
 
     Parameters
@@ -263,7 +263,7 @@ def compute_sub_elem_attributes(transducer):
     -------
     centers_sub_elem : float32 array (M, 3)
         Centroid of each patch (metres) — equals the surface point for patches
-        built by ``subdivide_parametric_surface``.
+        built by ``subdivide_cartesian``.
     apodization_sub_elem : float32 array (M,)
         Apodization weight of the element that owns each patch.
     delays_sub_elem : float32 array (M,)
