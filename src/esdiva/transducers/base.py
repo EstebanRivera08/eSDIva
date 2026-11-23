@@ -943,6 +943,40 @@ class TransducerBase(ABC):
         if "corners" in frames:
             frames["corners"] = self._sub_quad_verts
 
+    def aim(self, position_mm, target_mm, roll_deg: float = 0.0) -> None:
+        """Place the aperture at `position_mm` with its beam axis pointing at `target_mm`.
+
+        The canonical aperture faces +z from the origin. `aim` first turns it by
+        `roll_deg` about its own beam axis (e.g. 90° lays a linear array's
+        elements along y instead of x), then tilts +z onto the direction
+        `target_mm - position_mm` by the smallest rotation, then moves it to
+        `position_mm`. It is a `transform`, so it composes with the current
+        pose; apply it to a canonical aperture, then recompute any focus.
+
+        Parameters
+        ----------
+        position_mm : (3,) array-like
+            Where the aperture centre goes, in mm.
+        target_mm : (3,) array-like
+            Point the beam axis must pass through, in mm.
+        roll_deg : float, default: 0.0
+            Rotation about the beam axis applied first, in degrees.
+        """
+        position = np.asarray(position_mm, dtype=float)
+        a = np.deg2rad(roll_deg)
+        roll = np.array(
+            [[np.cos(a), -np.sin(a), 0], [np.sin(a), np.cos(a), 0], [0, 0, 1]]
+        )
+        T = np.eye(4)
+        T[:3, :3] = (
+            geometry_utils.rotation_matrix_z_to_normal(
+                np.asarray(target_mm, dtype=float) - position
+            )
+            @ roll
+        )
+        T[:3, 3] = position
+        self.transform(T)
+
     def clean(self) -> None:
         """Release cached geometry arrays to free memory."""
         self._element_centers = None

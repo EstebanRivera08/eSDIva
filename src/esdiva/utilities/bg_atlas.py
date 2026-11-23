@@ -330,6 +330,31 @@ class BG_Atlas:
         if not inplace:
             return trans_pv_mesh
 
+    def place_under_probe(self, scale_mm, gap_mm, shift_mm=(0.0, 0.0)):
+        """Move the brain into the probe frame, top of the brain `gap_mm` below the probe.
+
+        The probe sits at z = 0 and radiates toward +z (depth). The atlas mesh is
+        scaled to millimetres by `scale_mm` (for the normalised BrainGlobe meshes
+        this is the animal's lambda-bregma distance: ~5 mm mouse, ~8 mm rat), its
+        z axis is flipped so the dorsal surface faces the probe, and it is shifted
+        so its top lies `gap_mm` deep and its x, y offset by `shift_mm`.
+
+        Parameters
+        ----------
+        scale_mm : float
+            Mesh-units-to-mm scale factor.
+        gap_mm : float
+            Distance from the probe face (z = 0) to the top of the brain, in mm.
+        shift_mm : tuple[float, float], default: (0.0, 0.0)
+            Lateral (x) and elevation (y) offset of the brain, in mm.
+        """
+        if self.pv_mesh is None:
+            raise ValueError("No mesh available. Load mesh before placing it.")
+        top = self.pv_mesh["root"].bounds[5] * scale_mm
+        T = np.diag([scale_mm, scale_mm, scale_mm, 1.0])
+        T[:3, 3] = [shift_mm[0], shift_mm[1], -gap_mm - top]
+        self.transform(np.diag([1.0, 1.0, -1.0, 1.0]) @ T, inplace=True)
+
     def reset_mesh(self):
         """
         Reload the PyVista mesh from the atlas and re-apply the BPS transform.

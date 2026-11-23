@@ -13,6 +13,7 @@ from .helper_functions import (
 )
 from .matlab import explore_mat, mat_struct_fields, mat_struct_to_dict
 from .phantom import make_phantom
+from .signals import fwhm_mm, tone_burst
 from .surface_subdivision import subdivide_cartesian, subdivide_radial
 
 if TYPE_CHECKING:
@@ -50,6 +51,8 @@ __all__ = [
     "compute_sub_elem_attributes",
     "create_spatial_grid_from_dict",
     "make_phantom",
+    "tone_burst",
+    "fwhm_mm",
     "subdivide_cartesian",
     "subdivide_radial",
     "reshape_to_mapped_points",
