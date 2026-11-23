@@ -5,7 +5,7 @@ delay. A linear delay ramp, Δt = x·sin(θ)/c, tilts the wavefront into a plane
 steered by θ. Delays that mimic a point source behind the array (a "virtual source"
 at z < 0) give a diverging, circular wavefront that insonifies a wide sector.
 
-You will see: two animations of signed pressure on the XZ plane, a steered plane
+You will see: two animations of the pressure magnitude in dB on the XZ plane, a steered plane
 wave and a diverging wave, both from the same array and the same pulse.
 """
 
@@ -44,4 +44,5 @@ for title, law in delay_laws.items():
     sim = Emission(tx, fs=FS, excitation=pulse)
     p, coords = sim(XZ_PLANE)  # Signed pressure (Pa), shape (Nt, Nx, Ny, Nz).
     t = coords["t0"] + np.arange(p.shape[0]) * coords["dt"]  # Time of each frame (s).
-    plot2D_pressure_slices(p, coords=coords, time_array=t, db_scale=False, title=title)
+    # dB re the peak |p|: a linear scale hides the weak edge waves and the tail.
+    plot2D_pressure_slices(p, coords=coords, time_array=t, db_scale=True, title=title)

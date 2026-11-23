@@ -66,4 +66,10 @@ pl = add_transducer_mesh(tx.get_mesh(), plotter=pl)
 pl.show()
 ```
 
+`tx.add_to_plotter(pl)` draws the probe coloured by its apodization (or
+`scalars="Delays"`) with its own colour bar; extra keywords (`cmap`, `opacity`,
+`scalar_bar_args`) go to `add_mesh`. `plot3D_pressure_slices(..., plotter=pl,
+show_fig=False)` adds a field's slices to the same scene; a field simulated on a
+single plane draws that plane only.
+
 See [Brain Atlas](brain-atlas.md) for adding anatomical overlays to these scenes.

@@ -96,19 +96,19 @@ distinction cannot be got wrong twice.
 
 | Sequence | Emissions | Vessel mean | Scatter | Detected | Echo centre |
 |---|---|---|---|---|---|
-| Conventional focused | 576 | 15.11 cm/s | 8.10 cm/s | 70 % | 2.58 MHz |
-| Compounded ultrafast | 72 | 15.58 cm/s | 11.10 cm/s | 64 % | 2.45 MHz |
-| Compounded ultrafast, long ensemble | 288 | 14.32 cm/s | 6.50 cm/s | 75 % | 2.45 MHz |
+| Conventional focused | 576 | 14.85 cm/s | 8.71 cm/s | 71 % | 2.58 MHz |
+| Compounded ultrafast | 72 | 15.61 cm/s | 10.61 cm/s | 64 % | 2.45 MHz |
+| Compounded ultrafast, long ensemble | 288 | 14.33 cm/s | 6.40 cm/s | 76 % | 2.45 MHz |
 
-**Claim 1 holds.** Compounded ultrafast matches conventional to **0.47 cm/s —
-3.1 % of the true vessel mean — using 8.0× fewer emissions**, and both land within
-2 % of the 15.44 cm/s truth (0.98× and 1.01×). The gap is comfortably inside the
-run-to-run scatter of an 8-sample ensemble, which is 8–11 cm/s here.
+**Claim 1 holds.** Compounded ultrafast matches conventional to **0.76 cm/s —
+4.9 % of the true vessel mean — using 8.0× fewer emissions**, and both land within
+4 % of the 15.44 cm/s truth (0.96× and 1.01×). The gap is comfortably inside the
+run-to-run scatter of an 8-sample ensemble, which is 9–11 cm/s here.
 
 **Claim 2 holds.** Spending the conventional budget on a 4× longer ensemble
-instead of on scanning lines cuts the velocity scatter **11.10 → 6.50 cm/s** and
+instead of on scanning lines cuts the velocity scatter **10.61 → 6.40 cm/s** and
 raises the fraction of the lumen carrying a usable flow signal from **64 % to
-75 %** — the difference between the speckled colour map of the short-ensemble
+76 %** — the difference between the speckled colour map of the short-ensemble
 rows and the filled one at the bottom.
 
 Step 3 asserts both claims, so the example fails loudly if the simulator, the
@@ -117,7 +117,7 @@ beamformer or the estimator regresses.
 ## What the colour map gets right, and what it cannot
 
 The long-ensemble map reads **0.91×** the true velocity at the vessel core and
-**1.36×** at the wall. The profile comes back slightly flattened, and that is not
+**1.39×** at the wall. The profile comes back slightly flattened, and that is not
 a calibration error — it is worth understanding because it applies to every
 Doppler measurement ever made.
 
@@ -158,7 +158,7 @@ no blood and contributes no flow power, so the average is one-sided.
 An earlier version of this example used a **flat** elevation aperture, where the
 slice was 0.56 of the lumen. It read **0.80×** at the core and **1.47×** at the
 wall. Focusing the elevation aperture on the vessel, so the slice is 0.15 of the
-lumen, moved that to **0.91× / 1.36×** — and the fraction of the lumen carrying a
+lumen, moved that to **0.91× / 1.39×** — and the fraction of the lumen carrying a
 usable flow signal roughly doubled.
 
 **Read that as a demonstration, not a controlled experiment.** The redesign

@@ -76,6 +76,25 @@ power = sum(psf.transform(T).resample(canvas) ** 2 for T in (T_probe_a, T_probe_
 db = 10 * np.log10(power.data / power.data.max())
 ```
 
+## NumPy on a field
+
+A `Field` behaves like its sample array wherever the axis order is kept, and the
+result stays a `Field` on the same grid and pose:
+
+- element-wise NumPy functions — `np.abs(f)`, `np.sqrt(f)`, `np.log10(f)`,
+  `np.maximum(a, b)`;
+- `f.shape`, `f.ndim`, `f.dtype`, and `np.asarray(f)` for the raw samples;
+- reductions over **time** of a transient: `f.mean(axis=0)`, `f.max(axis=0)` (peak
+  pressure), `f.min(axis=0)` (peak rarefaction), `f.sum(axis=0)`. Without `axis`
+  they return one number, e.g. `f / f.max()` normalises.
+
+```python
+rms = np.sqrt((field**2).mean(axis=0))   # RMS pressure map, still a Field
+```
+
+There is no `transpose`/`reshape`: the axis order `(t, x, y, z)` is what ties each
+sample to its coordinate. For a spatial reduction take `np.asarray(f)` first.
+
 ## Drawing
 
 - `field.plot()` — one-shot 3-D render on a new plotter.

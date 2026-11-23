@@ -1,10 +1,11 @@
 """Row-column addressed (RCA) array: two crossed linear arrays on one face."""
 
-from typing import Callable, Optional
+from typing import Any, Callable, Optional, Tuple
 
 import numpy as np
 import pyvista as pv
 
+from .base import _finish_plotter
 from .linear import LinearArrayTransducer
 
 ROT_Z_90 = np.array(
@@ -105,23 +106,85 @@ class RowColumnAddressedTransducer:
         self.columns.transform(T_matrix)
         self.rows.transform(T_matrix)
 
-    def show(self, **kwargs) -> None:
-        """Draw both arrays: columns coloured by apodization, rows as wireframe.
+    def show(
+        self,
+        *,
+        offset_mm: float = 0.1,
+        window_size: Tuple[int, int] = (800, 600),
+        scalars: str = "Apodization",
+        notebook: bool = False,
+        jupyter_backend: Optional[str] = None,
+        kwargs_columns: Optional[dict] = None,
+        kwargs_rows: Optional[dict] = None,
+    ) -> None:
+        """Draw both arrays, each coloured by its own apodization or delays.
+
+        Columns and rows share one physical face, so drawn in place they overlap
+        and flicker. The rows are therefore drawn `offset_mm` behind the columns,
+        along the face normal. **The offset is for display only**: the transducer
+        geometry and every simulation keep both arrays on the same face.
 
         Parameters
         ----------
-        **kwargs
-            Forwarded to ``pyvista.Plotter.add_mesh`` for the columns.
+        offset_mm : float, default: 0.1
+            Display-only gap (mm) between columns (front) and rows (behind).
+            ``0`` draws them in their true, coincident position.
+        window_size : (int, int)
+            Pixel dimensions of the render window.
+        scalars : {'Apodization', 'Delays'}
+            Which cell array to colour both arrays by.
+        notebook : bool
+            Enable Jupyter notebook rendering.
+        jupyter_backend : str, optional
+            Backend string passed to PyVista (``'static'``, ``'trame'`` …).
+        kwargs_columns, kwargs_rows : dict, optional
+            Forwarded to ``plotter.add_mesh()`` for each array (e.g. ``cmap``,
+            ``opacity``, ``color``); they override the defaults (columns ``cool`` /
+            rows ``winter`` for apodization, ``gnuplot`` / ``rainbow`` for delays).
+            ``color`` paints the array in one solid colour; its scalar bar is
+            replaced by a legend entry (``label``, default: the array name).
         """
-        plotter = pv.Plotter()
-        kwargs.setdefault("scalars", "Apodization")
-        kwargs.setdefault("cmap", "cool")
-        kwargs.setdefault("show_edges", True)
-        plotter.add_mesh(self.columns.get_mesh(), **kwargs)
-        plotter.add_mesh(self.rows.get_mesh(), style="wireframe", color="k")
-        plotter.add_axes()
-        plotter.show_grid(xtitle="X (mm)", ytitle="Y (mm)", ztitle="Z (mm)")
-        plotter.show()
+        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        title = "Apodization" if scalars == "Apodization" else "Delays (s)"
+        # Mean patch normal = radiating direction of the face (follows transform/aim).
+        normal = self.rows.sub_patch_frames["normals"].mean(axis=0)
+        shift_mm = -offset_mm * normal / np.linalg.norm(normal)
+
+        # Distinct colormaps tell the two bar sets apart at a glance.
+        cmaps = {"Apodization": ("cool", "winter"), "Delays": ("gnuplot", "rainbow")}
+        cmap_cols, cmap_rows = cmaps[scalars]
+        for array, shift, user_kwargs, x_bar, cmap in (
+            (self.columns, None, kwargs_columns, 0.8, cmap_cols),
+            (self.rows, shift_mm, kwargs_rows, 0.1, cmap_rows),
+        ):
+            # Distinct titles keep two scalar bars (PyVista merges same-titled bars).
+            kwargs: dict[str, Any] = {
+                "cmap": cmap,
+                "scalar_bar_args": {
+                    "title": f"{array.name} \n {title}",
+                    "vertical": True,
+                    "position_x": x_bar,
+                    "position_y": 0.1,
+                },
+                **(user_kwargs or {}),
+            }
+            # A solid colour has no scalar bar, so name it in a legend instead.
+            if "color" in kwargs:
+                kwargs.setdefault("label", array.name)
+            array.add_to_plotter(plotter, scalars=scalars, shift_mm=shift, **kwargs)
+
+        if any("color" in (kw or {}) for kw in (kwargs_columns, kwargs_rows)):
+            plotter.add_legend(
+                bcolor="white", face="rectangle", size=(0.25, 0.1), loc="upper center"
+            )
+
+        if offset_mm:
+            plotter.add_text(
+                f"Rows drawn {offset_mm:g} mm behind columns (display only)",
+                position="lower_edge",
+                font_size=8,
+            )
+        _finish_plotter(plotter, jupyter_backend)
 
     def __repr__(self) -> str:
         return (

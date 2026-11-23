@@ -82,7 +82,7 @@ from esdiva.plotting import (
 pl = pv.Plotter(notebook=True)          # backend decision happens HERE
 mesh = create_3Dvol_mesh(p, coords["x"], coords["y"], coords["z"], scalars="Pressure")
 add_pressure_vol(mesh, plotter=pl)
-add_transducer_mesh(tx.get_mesh(), plotter=pl)
+add_transducer_mesh(tx.get_mesh(), plotter=pl)   # or tx.add_to_plotter(pl): coloured by apodization
 add_stl_mesh("petri_dish.stl", plotter=pl)
 add_markers(targets_mm, plotter=pl)
 pl.show(jupyter_backend="static")

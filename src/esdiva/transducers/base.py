@@ -15,9 +15,28 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
+import numpy.typing as npt
 import pyvista as pv
 
 from . import geometry_utils, validators
+
+
+def _finish_plotter(plotter: pv.Plotter, jupyter_backend: Optional[str]) -> None:
+    """Add axes and a labelled mm grid to a transducer scene, then display it."""
+    plotter.add_axes()
+    plotter.show_grid(
+        font_size=10,
+        xtitle="X (mm)",
+        ytitle="Y (mm)",
+        ztitle="Z (mm)",
+        n_xlabels=3,
+        n_ylabels=3,
+        n_zlabels=3,
+    )
+    if jupyter_backend is not None:
+        plotter.show(jupyter_backend=jupyter_backend)
+    else:
+        plotter.show()
 
 
 class TransducerBase(ABC):
@@ -712,13 +731,50 @@ class TransducerBase(ABC):
         **kwargs
             Forwarded to ``plotter.add_mesh()``.
         """
+        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        self.add_to_plotter(
+            plotter, scalars=scalars, colorbar_title=colorbar_title, **kwargs
+        )
+        _finish_plotter(plotter, jupyter_backend)
+
+    def add_to_plotter(
+        self,
+        plotter: pv.Plotter,
+        *,
+        scalars: str = "Apodization",
+        colorbar_title: Optional[str] = None,
+        shift_mm: Optional[npt.ArrayLike] = None,
+        **kwargs,
+    ) -> None:
+        """
+        Add the transducer surface, coloured by apodization or delays, to a scene.
+
+        Use it to compose several probes (or a probe and a field) in one PyVista
+        window; `show` is this plus a fresh plotter, axes and grid.
+
+        Parameters
+        ----------
+        plotter : pyvista.Plotter
+            Scene to draw into.
+        scalars : {'Apodization', 'Delays'}
+            Which cell array to colour by.
+        colorbar_title : str, optional
+            Override the default colour-bar label.
+        shift_mm : (3,) array-like, optional
+            Translation (mm) applied to the drawn mesh only, to pull apart surfaces
+            that overlap in space. The transducer geometry, and hence every
+            simulation, is untouched.
+        **kwargs
+            Forwarded to ``plotter.add_mesh()``; override the defaults below.
+        """
         if scalars not in ("Apodization", "Delays"):
             raise ValueError(
                 f"scalars must be 'Apodization' or 'Delays', got '{scalars}'"
             )
 
         mesh = self.get_mesh()
-        plotter = pv.Plotter(window_size=window_size, notebook=notebook)
+        if shift_mm is not None:
+            mesh = mesh.translate(np.asarray(shift_mm, dtype=float), inplace=False)
 
         if scalars == "Apodization":
             cmap, title, clim = "cool", "Apodization", [0, 1]
@@ -743,25 +799,22 @@ class TransducerBase(ABC):
             "show_edges": True,
             "ambient": 1,
         }
+        if "color" in kwargs:
+            # A solid colour replaces the scalar colouring; PyVista would ignore it
+            # while `scalars` is set.
+            for key in (
+                "scalars",
+                "cmap",
+                "clim",
+                "show_scalar_bar",
+                "scalar_bar_args",
+            ):
+                defaults.pop(key)
+                kwargs.pop(key, None)
         for key, val in defaults.items():
             kwargs.setdefault(key, val)
 
         plotter.add_mesh(mesh, **kwargs)
-        plotter.add_axes()
-        plotter.show_grid(
-            font_size=10,
-            xtitle="X (mm)",
-            ytitle="Y (mm)",
-            ztitle="Z (mm)",
-            n_xlabels=3,
-            n_ylabels=3,
-            n_zlabels=3,
-        )
-
-        if jupyter_backend is not None:
-            plotter.show(jupyter_backend=jupyter_backend)
-        else:
-            plotter.show()
 
     def plot_apodization(
         self,

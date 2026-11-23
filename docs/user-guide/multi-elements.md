@@ -133,7 +133,10 @@ rca.transform(T)     # moves both
 ```
 
 Rows and columns share the physical face (both at `z = 0`); only one set is active in a
-simulation, so their overlapping patches never radiate together. See
+simulation, so their overlapping patches never radiate together. `rca.show()` colours
+each set by its own apodization (`scalars="Delays"` for delays), with one colour bar
+each, and draws the rows `offset_mm` (default 0.1 mm) behind the columns so the two
+don't flicker. The offset is display only. See
 [Example 25](../examples/advanced/rca_xam_sound_sheet.md) for an xAM sound-sheet
 sequence on it.
 

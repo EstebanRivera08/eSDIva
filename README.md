@@ -63,6 +63,10 @@ The SIR is available through **two kernels that feed emission and reception alik
 <td width="50%"><img src="docs/examples/assets/ex23_optimization.gif" width="100%" alt="Radial-profile optimization"><br><sub><b>Radial-profile optimization</b> — fit a curved cap to a target directivity</sub></td>
 <td width="50%"><img src="docs/examples/assets/ex24_matrix_psf_probe.png" width="100%" alt="Multilens matrix point PSF"><br><sub><b>Multilens matrix PSF</b> — optimized caps, beamformed from each element's virtual centre</sub></td>
 </tr>
+<tr>
+<td width="50%"><img src="docs/examples/assets/rca_xam_sequence.gif" width="100%" alt="xAM sequence in time"><br><sub><b>Modelling non-linearity with linear simulations</b> — xAM sound sheet from three linear pulses</sub></td>
+<td width="50%"><img src="docs/examples/assets/rca_xam_sheet_3d.png" width="100%" alt="RCA probe with its xAM sheets"><br><sub><b>RCA probe integration</b> — row-column probe with its simulated XZ and YZ xAM sheets</sub></td>
+</tr>
 </table>
 
 ---
